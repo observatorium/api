@@ -20,7 +20,6 @@ steps:
   commands:
   # This step requires golancilint, promtool and jsonnetfmt
   - make lint
-  - git diff --exit-code
 
 - name: build
   pull: always
