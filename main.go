@@ -8,19 +8,27 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/observatorium/observatorium/internal"
 	"github.com/observatorium/observatorium/internal/proxy"
-	"github.com/oklog/run"
 
 	"github.com/go-kit/kit/log/level"
+	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/version"
 )
 
 func main() {
+	debug := os.Getenv("DEBUG") != ""
+	if debug {
+		runtime.SetMutexProfileFraction(10)
+		runtime.SetBlockProfileRate(10)
+	}
+
 	opts := struct {
 		listen               string
 		gracePeriod          string
@@ -63,6 +71,7 @@ func main() {
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
+		version.NewCollector("observatorium"),
 		prometheus.NewGoCollector(),
 		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
 	)
@@ -83,9 +92,12 @@ func main() {
 	{
 		router := http.NewServeMux()
 		router.Handle("/metrics", promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})))
-		router.HandleFunc("/debug/pprof/", pprof.Index)
-		router.HandleFunc("/metrics/read", proxy.NewPrometheus("/metrics/read", metricsReadEndpoint))
-		router.HandleFunc("/metrics/write", proxy.NewPrometheus("/metrics/write", metricsWriteEndpoint))
+		router.HandleFunc("/prometheus/read", proxy.NewPrometheus("/prometheus/read", metricsReadEndpoint))
+		router.HandleFunc("/prometheus/write", proxy.NewPrometheus("/prometheus/write", metricsWriteEndpoint))
+
+		if debug {
+			registerProfile(router)
+		}
 
 		srv := &http.Server{Addr: opts.listen, Handler: router}
 
@@ -114,4 +126,16 @@ func main() {
 		level.Error(logger).Log("msg", "observatorium failed", "err", err)
 		os.Exit(1)
 	}
+}
+
+func registerProfile(mux *http.ServeMux) {
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	mux.Handle("/debug/pprof/block", pprof.Handler("block"))
+	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+	mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 }
