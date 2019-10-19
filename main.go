@@ -23,6 +23,8 @@ import (
 )
 
 func main() {
+	profile := os.Getenv("PROFILE") != ""
+
 	debug := os.Getenv("DEBUG") != ""
 	if debug {
 		runtime.SetMutexProfileFraction(10)
@@ -95,7 +97,11 @@ func main() {
 		router.HandleFunc("/prometheus/read", proxy.NewPrometheus("/prometheus/read", metricsReadEndpoint))
 		router.HandleFunc("/prometheus/write", proxy.NewPrometheus("/prometheus/write", metricsWriteEndpoint))
 
-		if debug {
+		prober := internal.NewProber(logger)
+		prober.SetHealthy()
+		registerProber(router, prober)
+
+		if profile {
 			registerProfile(router)
 		}
 
@@ -103,17 +109,21 @@ func main() {
 
 		g.Add(func() error {
 			level.Info(logger).Log("msg", "starting the HTTP server", "address", opts.listen)
+			prober.SetReady()
+
 			return srv.ListenAndServe()
 		}, func(err error) {
+			prober.SetNotReady(err)
+
 			if err == http.ErrServerClosed {
 				level.Warn(logger).Log("msg", "internal server closed unexpectedly")
 				return
 			}
 
-			level.Info(logger).Log("msg", "shutting down internal server")
 			ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 			defer cancel()
 
+			level.Info(logger).Log("msg", "shutting down internal server")
 			if err := srv.Shutdown(ctx); err != nil {
 				level.Error(logger).Log("msg", "shutting down failed", "err", err)
 			}
@@ -138,4 +148,9 @@ func registerProfile(mux *http.ServeMux) {
 	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
 	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 	mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+}
+
+func registerProber(mux *http.ServeMux, p *internal.Prober) {
+	mux.HandleFunc("/-/healthy", p.HealthyHandlerFunc())
+	mux.HandleFunc("/-/ready", p.ReadyHandlerFunc())
 }
