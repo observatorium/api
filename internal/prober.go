@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
+	"sync/atomic"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -15,30 +15,14 @@ type probeType string
 const (
 	ready   probeType = "ready"
 	healthy probeType = "healthy"
-
-	probeErrorHTTPStatus = 503
 )
 
 // Prober represents health and readiness status of given component.
-//
-//   liveness: Many applications running for long periods of time eventually transition to broken states,
-//   (healthy) and cannot recover except by being restarted.
-//             Kubernetes provides liveness probes to detect and remedy such situations.
-//
-//   readiness: Sometimes, applications are temporarily unable to serve traffic.
-//   (ready)    For example, an application might need to load large data or configuration files during startup,
-//              or depend on external services after startup. In such cases, you don’t want to kill the application,
-//              but you don’t want to send it requests either. Kubernetes provides readiness probes to detect
-//              and mitigate these situations. A pod with containers reporting that they are not ready
-//              does not receive traffic through Kubernetes Services.
 type Prober struct {
 	logger log.Logger
 
-	readiness   bool
-	healthiness bool
-
-	readyMu   sync.RWMutex
-	healthyMu sync.RWMutex
+	ready   uint32
+	healthy uint32
 }
 
 // NewProber returns Prober representing readiness and healthiness of given component.
@@ -46,20 +30,20 @@ func NewProber(logger log.Logger) *Prober {
 	return &Prober{logger: logger}
 }
 
-// HealthyHandlerFunc returns a HTTP Handler which responds health checks.
-func (p *Prober) HealthyHandlerFunc() http.HandlerFunc {
-	return p.probeHandlerFunc(p.isHealthy, healthy)
+// HealthyHandler returns a HTTP Handler which responds health checks.
+func (p *Prober) HealthyHandler() http.HandlerFunc {
+	return p.probeHandler(p.isHealthy, healthy)
 }
 
-// ReadyHandlerFunc returns a HTTP Handler which responds readiness checks.
-func (p *Prober) ReadyHandlerFunc() http.HandlerFunc {
-	return p.probeHandlerFunc(p.isReady, ready)
+// ReadyHandler returns a HTTP Handler which responds readiness checks.
+func (p *Prober) ReadyHandler() http.HandlerFunc {
+	return p.probeHandler(p.isReady, ready)
 }
 
-func (p *Prober) probeHandlerFunc(probeFunc func() bool, t probeType) http.HandlerFunc {
+func (p *Prober) probeHandler(probeFunc func() bool, t probeType) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		if !probeFunc() {
-			http.Error(w, fmt.Sprintf("observatorium is NOT %v", t), probeErrorHTTPStatus)
+			http.Error(w, fmt.Sprintf("observatorium is NOT %v", t), http.StatusServiceUnavailable)
 			return
 		}
 		if _, err := io.WriteString(w, fmt.Sprintf("observatorium is %v", t)); err != nil {
@@ -70,60 +54,48 @@ func (p *Prober) probeHandlerFunc(probeFunc func() bool, t probeType) http.Handl
 
 // isReady returns true if component is ready.
 func (p *Prober) isReady() bool {
-	p.readyMu.RLock()
-	defer p.readyMu.RUnlock()
-
-	return p.readiness
+	ready := atomic.LoadUint32(&p.ready)
+	return ready > 0
 }
 
-// SetReady sets components status to ready.
-func (p *Prober) SetReady() {
-	p.readyMu.Lock()
-	defer p.readyMu.Unlock()
+// Ready sets components status to ready.
+func (p *Prober) Ready() {
+	old := atomic.SwapUint32(&p.ready, 1)
 
-	if !p.readiness {
-		p.readiness = true
+	if old == 0 {
 		level.Info(p.logger).Log("msg", "changing probe status", "status", "ready")
 	}
 }
 
-// SetNotReady sets components status to not ready with given error as a cause.
-func (p *Prober) SetNotReady(err error) {
-	p.readyMu.Lock()
-	defer p.readyMu.Unlock()
+// NotReady sets components status to not ready with given error as a cause.
+func (p *Prober) NotReady(err error) {
+	old := atomic.SwapUint32(&p.ready, 0)
 
-	if p.readiness {
-		p.readiness = false
+	if old == 1 {
 		level.Warn(p.logger).Log("msg", "changing probe status", "status", "not-ready", "reason", err)
 	}
 }
 
 // isHealthy returns true if component is healthy.
 func (p *Prober) isHealthy() bool {
-	p.healthyMu.RLock()
-	defer p.healthyMu.RUnlock()
-
-	return p.healthiness
+	healthy := atomic.LoadUint32(&p.healthy)
+	return healthy > 0
 }
 
 // SetHealthy sets components status to healthy.
 func (p *Prober) SetHealthy() {
-	p.healthyMu.Lock()
-	defer p.healthyMu.Unlock()
+	old := atomic.SwapUint32(&p.healthy, 1)
 
-	if !p.healthiness {
-		p.healthiness = true
+	if old == 0 {
 		level.Info(p.logger).Log("msg", "changing probe status", "status", "healthy")
 	}
 }
 
-// SetNotHealthy sets components status to not healthy with given error as a cause.
-func (p *Prober) SetNotHealthy(err error) {
-	p.healthyMu.Lock()
-	defer p.healthyMu.Unlock()
+// NotHealthy sets components status to not healthy with given error as a cause.
+func (p *Prober) NotHealthy(err error) {
+	old := atomic.SwapUint32(&p.healthy, 0)
 
-	if p.healthiness {
-		p.healthiness = false
+	if old == 1 {
 		level.Info(p.logger).Log("msg", "changing probe status", "status", "healthy")
 	}
 }

@@ -41,13 +41,13 @@ func TestProberReadyStatusSetting(t *testing.T) {
 	testError := fmt.Errorf("test error")
 	p := NewProber(log.NewNopLogger())
 
-	p.SetReady()
+	p.Ready()
 
 	if !p.isReady() {
 		t.Error("should be ready")
 	}
 
-	p.SetNotReady(testError)
+	p.NotReady(testError)
 
 	if p.isReady() {
 		t.Error("should not be ready")
@@ -64,7 +64,7 @@ func TestProberHealthyStatusSetting(t *testing.T) {
 		t.Error("should be healthy")
 	}
 
-	p.SetNotHealthy(testError)
+	p.NotHealthy(testError)
 
 	if p.isHealthy() {
 		t.Error("should not be healthy")
@@ -94,8 +94,8 @@ func TestProberMuxRegistering(t *testing.T) {
 	readyEndpointPath := "/-/ready"
 
 	p := NewProber(logger)
-	mux.HandleFunc(healthyEndpointPath, p.HealthyHandlerFunc())
-	mux.HandleFunc(readyEndpointPath, p.ReadyHandlerFunc())
+	mux.HandleFunc(healthyEndpointPath, p.HealthyHandler())
+	mux.HandleFunc(readyEndpointPath, p.ReadyHandler())
 
 	go func() { _ = g.Run() }()
 
@@ -147,7 +147,7 @@ func TestProberMuxRegistering(t *testing.T) {
 	}
 
 	{
-		p.SetReady()
+		p.Ready()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

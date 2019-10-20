@@ -92,28 +92,32 @@ func main() {
 		})
 	}
 	{
-		router := http.NewServeMux()
-		router.Handle("/metrics", promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})))
-		router.HandleFunc("/prometheus/read", proxy.NewPrometheus("/prometheus/read", metricsReadEndpoint))
-		router.HandleFunc("/prometheus/write", proxy.NewPrometheus("/prometheus/write", metricsWriteEndpoint))
+		m := internal.NewMetrics(reg)
+
+		router := route.New().WithInstrumentation(m.InstrumentHandler)
+		router.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
+			promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
+		})
+		router.Get("/prometheus/read", proxy.NewPrometheus("/prometheus/read", metricsReadEndpoint))
+		router.Post("/prometheus/write", proxy.NewPrometheus("/prometheus/write", metricsWriteEndpoint))
 
 		prober := internal.NewProber(logger)
 		prober.SetHealthy()
 		registerProber(router, prober)
 
 		if profile {
-			registerProfile(router)
+			registerProfiler(router)
 		}
 
 		srv := &http.Server{Addr: opts.listen, Handler: router}
 
 		g.Add(func() error {
 			level.Info(logger).Log("msg", "starting the HTTP server", "address", opts.listen)
-			prober.SetReady()
+			prober.Ready()
 
 			return srv.ListenAndServe()
 		}, func(err error) {
-			prober.SetNotReady(err)
+			prober.NotReady(err)
 
 			if err == http.ErrServerClosed {
 				level.Warn(logger).Log("msg", "internal server closed unexpectedly")
