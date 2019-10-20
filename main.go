@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
@@ -14,11 +15,13 @@ import (
 
 	"github.com/observatorium/observatorium/internal"
 	"github.com/observatorium/observatorium/internal/proxy"
+	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/route"
 	"github.com/prometheus/common/version"
 )
 
@@ -70,6 +73,19 @@ func main() {
 		level.Error(logger).Log("msg", "--rage-period is invalid", "err", err)
 		return
 	}
+
+	loggerAdapter := func(template string, args ...interface{}) {
+		level.Debug(logger).Log("msg", fmt.Sprintf(template, args))
+	}
+
+	// Running in container with limits but with empty/wrong value of GOMAXPROCS env var could lead to throttling by cpu
+	// maxprocs will automate adjustment by using cgroups info about cpu limit if it set as value for runtime.GOMAXPROCS
+	undo, err := maxprocs.Set(maxprocs.Logger(loggerAdapter))
+	if err != nil {
+		level.Error(logger).Log("msg", "failed to set GOMAXPROCS:", "err", err)
+	}
+
+	defer undo()
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
@@ -142,19 +158,19 @@ func main() {
 	}
 }
 
-func registerProfile(mux *http.ServeMux) {
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	mux.Handle("/debug/pprof/block", pprof.Handler("block"))
-	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
-	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
-	mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
+func registerProfiler(route *route.Router) {
+	route.Get("/debug/pprof/", pprof.Index)
+	route.Get("/debug/pprof/cmdline", pprof.Cmdline)
+	route.Get("/debug/pprof/profile", pprof.Profile)
+	route.Get("/debug/pprof/symbol", pprof.Symbol)
+	route.Get("/debug/pprof/trace", pprof.Trace)
+	route.Get("/debug/pprof/block", func(w http.ResponseWriter, r *http.Request) { pprof.Handler("block").ServeHTTP(w, r) })
+	route.Get("/debug/pprof/goroutine", func(w http.ResponseWriter, r *http.Request) { pprof.Handler("goroutine").ServeHTTP(w, r) })
+	route.Get("/debug/pprof/heap", func(w http.ResponseWriter, r *http.Request) { pprof.Handler("heap").ServeHTTP(w, r) })
+	route.Get("/debug/pprof/threadcreate", func(w http.ResponseWriter, r *http.Request) { pprof.Handler("threadcreate").ServeHTTP(w, r) })
 }
 
-func registerProber(mux *http.ServeMux, p *internal.Prober) {
-	mux.HandleFunc("/-/healthy", p.HealthyHandlerFunc())
-	mux.HandleFunc("/-/ready", p.ReadyHandlerFunc())
+func registerProber(route *route.Router, p *internal.Prober) {
+	route.Get("/-/healthy", p.HealthyHandler())
+	route.Get("/-/ready", p.ReadyHandler())
 }

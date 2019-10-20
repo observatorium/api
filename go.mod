@@ -8,4 +8,5 @@ require (
 	github.com/oklog/run v1.0.0
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
+	go.uber.org/automaxprocs v1.2.0
 )
