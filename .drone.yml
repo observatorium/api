@@ -9,16 +9,15 @@ platform:
 steps:
 - name: test
   pull: always
-  image: quay.io/coreos/jsonnet-ci:latest
+  image: golang:1.13
   commands:
-  # This step requires >=go1.12 and promtool
   - make test
 
 - name: lint
   pull: always
-  image: quay.io/coreos/jsonnet-ci:latest
+  image: golangci/golangci-lint:v1.20.1-alpine
   commands:
-  # This step requires golancilint, promtool and jsonnetfmt
+  - apk add --update --no-cache make
   - make lint
 
 - name: build
