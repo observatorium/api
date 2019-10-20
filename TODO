@@ -1,2 +1,0 @@
-// TODO(kakkoyun): Use https://github.com/prometheus/common/blob/master/promlog/log.go
-// TODO(kakkoyun): Use https://github.com/julienschmidt/httprouter, even better use https://github.com/prometheus/common/blob/master/route/route.go
