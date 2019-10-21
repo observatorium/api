@@ -14,7 +14,6 @@ import (
 	"github.com/observatorium/observatorium/internal/server"
 
 	"go.uber.org/automaxprocs/maxprocs"
-
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
@@ -60,7 +59,7 @@ func main() {
 
 	metricsQueryEndpoint, err := url.ParseRequestURI(opts.metricsQueryEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics-read-endpoint is invalid", "err", err)
+		level.Error(logger).Log("msg", "--metrics-query-endpoint is invalid", "err", err)
 		return
 	}
 

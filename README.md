@@ -9,8 +9,12 @@ Observatorium API
 [embedmd]:# (tmp/help.txt)
 ```txt
 Usage of ./observatorium:
+  -debug.block-profile-rate int
+    	The parameter controls the fraction of goroutine blocking events that are reported in the blocking profile. (default 10)
+  -debug.mutex-profile-fraction int
+    	The parameter which controls the fraction of mutex contention events that are reported in the mutex profile. (default 10)
   -debug.name string
-    	The Name to add as prefix to log lines. (default "observatorium")
+    	The name to add as prefix to log lines. (default "observatorium")
   -grace-period string
     	The time to wait after an OS interrupt received. (default "5s")
   -listen string
@@ -19,8 +23,8 @@ Usage of ./observatorium:
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
-  -metrics-read-endpoint string
-    	The endpoint to which to make write requests for metrics.
+  -metrics-query-endpoint string
+    	The endpoint which to make queries against for metrics.
   -metrics-write-endpoint string
-    	The endpoint to which to make read requests for metrics.
+    	The endpoint which to make write requests against for metrics.
 ```

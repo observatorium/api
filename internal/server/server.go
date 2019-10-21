@@ -48,7 +48,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
-	r.Get("/prometheus/read", proxy.NewPrometheus("/prometheus/query", options.metricsQueryEndpoint))
+	r.Get("/prometheus/query", proxy.NewPrometheus("/prometheus/query", options.metricsQueryEndpoint))
 	r.Post("/prometheus/write", proxy.NewPrometheus("/prometheus/write", options.metricsWriteEndpoint))
 
 	if options.profile {
