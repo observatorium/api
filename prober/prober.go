@@ -1,7 +1,6 @@
-package internal
+package prober
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -10,12 +9,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 )
 
-type probeType string
-
-const (
-	ready   probeType = "ready"
-	healthy probeType = "healthy"
-)
+type Check func() bool
 
 // Prober represents health and readiness status of given component.
 type Prober struct {
@@ -25,29 +19,29 @@ type Prober struct {
 	healthy uint32
 }
 
-// NewProber returns Prober representing readiness and healthiness of given component.
-func NewProber(logger log.Logger) *Prober {
+// New returns Prober representing readiness and healthiness of given component.
+func New(logger log.Logger) *Prober {
 	return &Prober{logger: logger}
 }
 
 // HealthyHandler returns a HTTP Handler which responds health checks.
 func (p *Prober) HealthyHandler() http.HandlerFunc {
-	return p.probeHandler(p.isHealthy, healthy)
+	return p.handler(p.isHealthy)
 }
 
 // ReadyHandler returns a HTTP Handler which responds readiness checks.
 func (p *Prober) ReadyHandler() http.HandlerFunc {
-	return p.probeHandler(p.isReady, ready)
+	return p.handler(p.isReady)
 }
 
-func (p *Prober) probeHandler(probeFunc func() bool, t probeType) http.HandlerFunc {
+func (p *Prober) handler(check Check) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		if !probeFunc() {
-			http.Error(w, fmt.Sprintf("observatorium is NOT %v", t), http.StatusServiceUnavailable)
+		if !check() {
+			http.Error(w, "NOT OK", http.StatusServiceUnavailable)
 			return
 		}
-		if _, err := io.WriteString(w, fmt.Sprintf("observatorium is %v", t)); err != nil {
-			level.Error(p.logger).Log("msg", "failed to write probe response", "probe type", t, "err", err)
+		if _, err := io.WriteString(w, "OK"); err != nil {
+			level.Error(p.logger).Log("msg", "failed to write probe response", "err", err)
 		}
 	}
 }
@@ -82,8 +76,8 @@ func (p *Prober) isHealthy() bool {
 	return healthy > 0
 }
 
-// SetHealthy sets components status to healthy.
-func (p *Prober) SetHealthy() {
+// Healthy sets components status to healthy.
+func (p *Prober) Healthy() {
 	old := atomic.SwapUint32(&p.healthy, 1)
 
 	if old == 0 {

@@ -1,4 +1,4 @@
-package internal
+package prober
 
 import (
 	"context"
@@ -22,7 +22,7 @@ func doGet(ctx context.Context, url string) (*http.Response, error) {
 }
 
 func TestProberHealthInitialState(t *testing.T) {
-	p := NewProber(log.NewNopLogger())
+	p := New(log.NewNopLogger())
 
 	if p.isHealthy() {
 		t.Error("initially should not be healthy")
@@ -30,7 +30,7 @@ func TestProberHealthInitialState(t *testing.T) {
 }
 
 func TestProberReadinessInitialState(t *testing.T) {
-	p := NewProber(log.NewNopLogger())
+	p := New(log.NewNopLogger())
 
 	if p.isReady() {
 		t.Error("initially should not be ready")
@@ -39,7 +39,7 @@ func TestProberReadinessInitialState(t *testing.T) {
 
 func TestProberReadyStatusSetting(t *testing.T) {
 	testError := fmt.Errorf("test error")
-	p := NewProber(log.NewNopLogger())
+	p := New(log.NewNopLogger())
 
 	p.Ready()
 
@@ -56,9 +56,9 @@ func TestProberReadyStatusSetting(t *testing.T) {
 
 func TestProberHealthyStatusSetting(t *testing.T) {
 	testError := fmt.Errorf("test error")
-	p := NewProber(log.NewNopLogger())
+	p := New(log.NewNopLogger())
 
-	p.SetHealthy()
+	p.Healthy()
 
 	if !p.isHealthy() {
 		t.Error("should be healthy")
@@ -93,7 +93,7 @@ func TestProberMuxRegistering(t *testing.T) {
 	healthyEndpointPath := "/-/healthy"
 	readyEndpointPath := "/-/ready"
 
-	p := NewProber(logger)
+	p := New(logger)
 	mux.HandleFunc(healthyEndpointPath, p.HealthyHandler())
 	mux.HandleFunc(readyEndpointPath, p.ReadyHandler())
 
@@ -130,7 +130,7 @@ func TestProberMuxRegistering(t *testing.T) {
 	}
 
 	{
-		p.SetHealthy()
+		p.Healthy()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

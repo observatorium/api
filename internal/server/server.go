@@ -6,8 +6,8 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/observatorium/observatorium/internal"
 	"github.com/observatorium/observatorium/internal/proxy"
+	"github.com/observatorium/observatorium/prober"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -22,7 +22,7 @@ type Server struct {
 
 	logger log.Logger
 	srv    *http.Server
-	prober *internal.Prober
+	prober *prober.Prober
 }
 
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
@@ -35,27 +35,27 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		o.apply(&options)
 	}
 
-	m := internal.NewMetrics(reg)
-	p := internal.NewProber(logger)
+	ins := newInstrumentationMiddleware(reg)
+	p := prober.New(logger)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
-	r.Use(instrument(m))
 
 	registerProber(r, p)
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
-	r.Get("/prometheus/query", proxy.NewPrometheus("/prometheus/query", options.metricsQueryEndpoint))
-	r.Post("/prometheus/write", proxy.NewPrometheus("/prometheus/write", options.metricsWriteEndpoint))
+
+	r.Get("/prometheus/query", ins.newHandler("query", proxy.NewPrometheus("/prometheus/query", options.metricsQueryEndpoint)))
+	r.Post("/prometheus/write", ins.newHandler("write", proxy.NewPrometheus("/prometheus/write", options.metricsWriteEndpoint)))
 
 	if options.profile {
 		registerProfiler(r)
 	}
 
-	p.SetHealthy()
+	p.Healthy()
 
 	return Server{
 		logger: logger,
@@ -97,15 +97,7 @@ func registerProfiler(r *chi.Mux) {
 	r.Get("/debug/pprof/trace", pprof.Trace)
 }
 
-func registerProber(r *chi.Mux, p *internal.Prober) {
+func registerProber(r *chi.Mux, p *prober.Prober) {
 	r.Get("/-/healthy", p.HealthyHandler())
 	r.Get("/-/ready", p.ReadyHandler())
-}
-
-func instrument(m *internal.Metrics) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			m.InstrumentHandler(req.URL.Path, next)(w, req)
-		})
-	}
 }

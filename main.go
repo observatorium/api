@@ -13,11 +13,11 @@ import (
 	"github.com/observatorium/observatorium/internal"
 	"github.com/observatorium/observatorium/internal/server"
 
-	"go.uber.org/automaxprocs/maxprocs"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
+	"go.uber.org/automaxprocs/maxprocs"
 )
 
 func main() {
