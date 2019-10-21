@@ -47,13 +47,7 @@ func NewMetrics(r prometheus.Registerer) *Metrics {
 	return m
 }
 
-func (m *Metrics) InstrumentHandlerWithPrefix(prefix string) func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
-	return func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
-		return m.InstrumentHandler(prefix+handlerName, handler)
-	}
-}
-
-func (m *Metrics) InstrumentHandler(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+func (m *Metrics) InstrumentHandler(handlerName string, handler http.Handler) http.HandlerFunc {
 	handlerLabel := prometheus.Labels{"handler": handlerName}
 
 	return promhttp.InstrumentHandlerCounter(m.requestCounter.MustCurryWith(handlerLabel),

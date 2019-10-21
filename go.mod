@@ -3,6 +3,7 @@ module github.com/observatorium/observatorium
 go 1.13
 
 require (
+	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-kit/kit v0.9.0
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/oklog/run v1.0.0

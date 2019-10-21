@@ -15,7 +15,7 @@ CONTAINER_CMD:=docker run --rm \
 default: observatorium
 all: clean lint test observatorium
 
-tmp/help.txt: build
+tmp/help.txt: clean build
 	mkdir -p tmp
 	./observatorium --help &> tmp/help.txt
 
@@ -35,10 +35,11 @@ vendor: go.mod go.sum
 
 .PHONY: format
 format:
-	@fmt_res=$$(gofmt -d -s $$(find . -type f -name '*.go' -not -path './vendor/*' -not -path './jsonnet/vendor/*')); if [ -n "$$fmt_res" ]; then printf '\nGofmt found style issues. Please check the reported issues\nand fix them if necessary before submitting the code for review:\n\n%s' "$$fmt_res"; exit 1; fi
+	golangci-lint run --fix --enable-all -c .golangci.yml
 
 .PHONY: lint
 lint: vendor format
+	@fmt_res=$$(gofmt -d -s $$(find . -type f -name '*.go' -not -path './vendor/*' -not -path './jsonnet/vendor/*')); if [ -n "$$fmt_res" ]; then printf '\nGofmt found style issues. Please check the reported issues\nand fix them if necessary before submitting the code for review:\n\n%s' "$$fmt_res"; exit 1; fi
 	golangci-lint run -v --enable-all -c .golangci.yml
 
 .PHONY: test
@@ -47,6 +48,7 @@ test:
 
 .PHONY: clean
 clean:
+	-rm tmp/help.txt
 	-rm observatorium
 
 .PHONY: container
