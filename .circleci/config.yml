@@ -7,6 +7,7 @@ jobs:
       - checkout
       - run: |
           make observatorium
+          git diff --exit-code
 
   lint:
     docker:
@@ -24,6 +25,15 @@ jobs:
       - checkout
       - run: |
           make test
+
+  generate:
+    docker:
+      - image: golangci/golangci-lint:v1.20.1-alpine
+    steps:
+      - checkout
+      - run: |
+          make README.md
+          git diff --exit-code
 
 workflows:
   version: 2

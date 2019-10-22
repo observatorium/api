@@ -17,7 +17,7 @@ all: clean lint test observatorium
 
 tmp/help.txt: clean build
 	mkdir -p tmp
-	./observatorium --help &> tmp/help.txt
+	-./observatorium --help &> tmp/help.txt
 
 README.md: tmp/help.txt
 	embedmd -w README.md

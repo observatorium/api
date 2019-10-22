@@ -49,13 +49,19 @@ func main() {
 		"The parameter controls the fraction of goroutine blocking events that are reported in the blocking profile.")
 	flag.StringVar(&opts.logLevel, "log.level", "info", "The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&opts.logFormat, "log.format", internal.LogFormatLogfmt, "The log format to use. Options: 'logfmt', 'json'.")
-	flag.StringVar(&opts.metricsQueryEndpoint, "metrics-query-endpoint", "", "The endpoint against which to query for metrics.")
-	flag.StringVar(&opts.metricsWriteEndpoint, "metrics-write-endpoint", "", "The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&opts.metricsQueryEndpoint, "metrics.query.endpoint", "", "The endpoint against which to query for metrics.")
+	flag.StringVar(&opts.metricsWriteEndpoint, "metrics.write.endpoint", "", "The endpoint against which to make write requests for metrics.")
 	flag.IntVar(&opts.proxyBufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
 		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
 		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.Parse()
+
+	if len(os.Args) <= 1 {
+		fmt.Println("Please provide necessary arguments")
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 
 	debug := os.Getenv("DEBUG") != ""
 
@@ -69,19 +75,19 @@ func main() {
 
 	metricsQueryEndpoint, err := url.ParseRequestURI(opts.metricsQueryEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics-query-endpoint is invalid", "err", err)
+		level.Error(logger).Log("msg", "--metrics.query.endpoint is invalid", "err", err)
 		return
 	}
 
 	metricsWriteEndpoint, err := url.ParseRequestURI(opts.metricsWriteEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics-write-endpoint is invalid", "err", err)
+		level.Error(logger).Log("msg", "--metrics.write.endpoint is invalid", "err", err)
 		return
 	}
 
 	gracePeriod, err := time.ParseDuration(opts.gracePeriod)
 	if err != nil {
-		level.Error(logger).Log("msg", "--rage-period is invalid", "err", err)
+		level.Error(logger).Log("msg", "--grace-period is invalid", "err", err)
 		return
 	}
 
@@ -141,4 +147,6 @@ func main() {
 		level.Error(logger).Log("msg", "observatorium failed", "err", err)
 		os.Exit(1)
 	}
+
+	os.Exit(0)
 }

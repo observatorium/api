@@ -23,8 +23,12 @@ Usage of ./observatorium:
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
-  -metrics-query-endpoint string
-    	The endpoint which to make queries against for metrics.
-  -metrics-write-endpoint string
-    	The endpoint which to make write requests against for metrics.
+  -metrics.query.endpoint string
+    	The endpoint against which to query for metrics.
+  -metrics.write.endpoint string
+    	The endpoint against which to make write requests for metrics.
+  -proxy.buffer-count int
+    	Maximum number of of reusable buffer used for copying HTTP reverse proxy responses. (default 2048)
+  -proxy.buffer-size-bytes int
+    	Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses. (default 32768)
 ```

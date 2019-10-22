@@ -18,6 +18,8 @@ github.com/kr/logfmt
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/oklog/run v1.0.0
 github.com/oklog/run
+# github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
+github.com/oxtoacart/bpool
 # github.com/prometheus/client_golang v1.2.1
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal

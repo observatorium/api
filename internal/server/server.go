@@ -18,11 +18,11 @@ import (
 )
 
 type Server struct {
-	opts options
-
 	logger log.Logger
-	srv    *http.Server
 	prober *prober.Prober
+	srv    *http.Server
+
+	opts options
 }
 
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
@@ -63,6 +63,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	return Server{
 		logger: logger,
+		prober: p,
 		srv:    &http.Server{Addr: options.listen, Handler: r},
 		opts:   options,
 	}
