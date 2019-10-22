@@ -49,8 +49,8 @@ func main() {
 		"The parameter controls the fraction of goroutine blocking events that are reported in the blocking profile.")
 	flag.StringVar(&opts.logLevel, "log.level", "info", "The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&opts.logFormat, "log.format", internal.LogFormatLogfmt, "The log format to use. Options: 'logfmt', 'json'.")
-	flag.StringVar(&opts.metricsQueryEndpoint, "metrics-query-endpoint", "", "The endpoint which to make queries against for metrics.")
-	flag.StringVar(&opts.metricsWriteEndpoint, "metrics-write-endpoint", "", "The endpoint which to make write requests against for metrics.")
+	flag.StringVar(&opts.metricsQueryEndpoint, "metrics-query-endpoint", "", "The endpoint against which to query for metrics.")
+	flag.StringVar(&opts.metricsWriteEndpoint, "metrics-write-endpoint", "", "The endpoint against which to make write requests for metrics.")
 	flag.IntVar(&opts.proxyBufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
 		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
