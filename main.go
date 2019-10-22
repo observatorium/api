@@ -57,12 +57,6 @@ func main() {
 		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.Parse()
 
-	if len(os.Args) <= 1 {
-		fmt.Println("Please provide necessary arguments")
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
-
 	debug := os.Getenv("DEBUG") != ""
 
 	if debug {
