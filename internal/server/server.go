@@ -48,8 +48,12 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
-	r.Get("/prometheus/query", ins.newHandler("query", proxy.NewPrometheus("/prometheus/query", options.metricsQueryEndpoint)))
-	r.Post("/prometheus/write", ins.newHandler("write", proxy.NewPrometheus("/prometheus/write", options.metricsWriteEndpoint)))
+	r.Get("/prometheus/query",
+		ins.newHandler("query",
+			proxy.New(logger, "/prometheus/query", options.metricsQueryEndpoint, options.proxyOptions...)))
+	r.Post("/prometheus/write",
+		ins.newHandler("write",
+			proxy.New(logger, "/prometheus/write", options.metricsWriteEndpoint, options.proxyOptions...)))
 
 	if options.profile {
 		registerProfiler(r)

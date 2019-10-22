@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/observatorium/observatorium/internal"
+	"github.com/observatorium/observatorium/internal/proxy"
 	"github.com/observatorium/observatorium/internal/server"
 
 	"github.com/go-kit/kit/log/level"
@@ -20,19 +21,24 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
-func main() {
-	opts := struct {
-		debugMutexProfileFraction int
-		debugBlockProfileRate     int
+type options struct {
+	debugMutexProfileFraction int
+	debugBlockProfileRate     int
 
-		listen               string
-		gracePeriod          string
-		debugName            string
-		logLevel             string
-		logFormat            string
-		metricsQueryEndpoint string
-		metricsWriteEndpoint string
-	}{}
+	proxyBufferSizeBytes int
+	proxyBufferCount     int
+
+	listen               string
+	gracePeriod          string
+	debugName            string
+	logLevel             string
+	logFormat            string
+	metricsQueryEndpoint string
+	metricsWriteEndpoint string
+}
+
+func main() {
+	opts := options{}
 
 	flag.StringVar(&opts.listen, "listen", ":8080", "The address on which internal server runs.")
 	flag.StringVar(&opts.gracePeriod, "grace-period", "5s", "The time to wait after an OS interrupt received.")
@@ -45,6 +51,10 @@ func main() {
 	flag.StringVar(&opts.logFormat, "log.format", internal.LogFormatLogfmt, "The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&opts.metricsQueryEndpoint, "metrics-query-endpoint", "", "The endpoint which to make queries against for metrics.")
 	flag.StringVar(&opts.metricsWriteEndpoint, "metrics-write-endpoint", "", "The endpoint which to make write requests against for metrics.")
+	flag.IntVar(&opts.proxyBufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
+		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
+	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
+		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.Parse()
 
 	debug := os.Getenv("DEBUG") != ""
@@ -117,6 +127,10 @@ func main() {
 			server.WithProfile(os.Getenv("PROFILE") != ""),
 			server.WithMetricQueryEndpoint(metricsQueryEndpoint),
 			server.WithMetricWriteEndpoint(metricsWriteEndpoint),
+			server.WithProxyOptions(
+				proxy.WithBufferCount(opts.proxyBufferCount),
+				proxy.WithBufferSizeBytes(opts.proxyBufferSizeBytes),
+			),
 		)
 		g.Add(srv.ListenAndServe, srv.Shutdown)
 	}

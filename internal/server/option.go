@@ -3,6 +3,8 @@ package server
 import (
 	"net/url"
 	"time"
+
+	"github.com/observatorium/observatorium/internal/proxy"
 )
 
 type options struct {
@@ -11,6 +13,8 @@ type options struct {
 	metricsWriteEndpoint *url.URL
 	profile              bool
 	listen               string
+
+	proxyOptions []proxy.Option
 }
 
 // Option overrides behavior of Server.
@@ -51,5 +55,11 @@ func WithMetricWriteEndpoint(u *url.URL) Option {
 func WithProfile(p bool) Option {
 	return optionFunc(func(o *options) {
 		o.profile = p
+	})
+}
+
+func WithProxyOptions(opts ...proxy.Option) Option {
+	return optionFunc(func(o *options) {
+		o.proxyOptions = opts
 	})
 }
