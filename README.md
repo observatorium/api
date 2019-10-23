@@ -25,7 +25,7 @@ Usage of ./observatorium:
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -metrics.query.endpoint string
     	The endpoint against which to query for metrics.
-  -metrics.write.endpoint string
+  -metrics.receive.endpoint string
     	The endpoint against which to make write requests for metrics.
   -proxy.buffer-count int
     	Maximum number of of reusable buffer used for copying HTTP reverse proxy responses. (default 2048)

@@ -28,13 +28,13 @@ type options struct {
 	proxyBufferSizeBytes int
 	proxyBufferCount     int
 
-	listen               string
-	gracePeriod          string
-	debugName            string
-	logLevel             string
-	logFormat            string
-	metricsQueryEndpoint string
-	metricsWriteEndpoint string
+	listen                 string
+	gracePeriod            string
+	debugName              string
+	logLevel               string
+	logFormat              string
+	metricsQueryEndpoint   string
+	metricsReceiveEndpoint string
 }
 
 func main() {
@@ -50,7 +50,8 @@ func main() {
 	flag.StringVar(&opts.logLevel, "log.level", "info", "The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&opts.logFormat, "log.format", internal.LogFormatLogfmt, "The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&opts.metricsQueryEndpoint, "metrics.query.endpoint", "", "The endpoint against which to query for metrics.")
-	flag.StringVar(&opts.metricsWriteEndpoint, "metrics.write.endpoint", "", "The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&opts.metricsReceiveEndpoint, "metrics.receive.endpoint", "",
+		"The endpoint against which to make write requests for metrics.")
 	flag.IntVar(&opts.proxyBufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
 		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
@@ -73,9 +74,9 @@ func main() {
 		return
 	}
 
-	metricsWriteEndpoint, err := url.ParseRequestURI(opts.metricsWriteEndpoint)
+	metricsReceiveEndpoint, err := url.ParseRequestURI(opts.metricsReceiveEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics.write.endpoint is invalid", "err", err)
+		level.Error(logger).Log("msg", "--metrics.receive.endpoint is invalid", "err", err)
 		return
 	}
 
@@ -126,7 +127,7 @@ func main() {
 			server.WithGracePeriod(gracePeriod),
 			server.WithProfile(os.Getenv("PROFILE") != ""),
 			server.WithMetricQueryEndpoint(metricsQueryEndpoint),
-			server.WithMetricWriteEndpoint(metricsWriteEndpoint),
+			server.WithMetricReceiveEndpoint(metricsReceiveEndpoint),
 			server.WithProxyOptions(
 				proxy.WithBufferCount(opts.proxyBufferCount),
 				proxy.WithBufferSizeBytes(opts.proxyBufferSizeBytes),
