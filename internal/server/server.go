@@ -51,9 +51,9 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Get("/api/v1/metrics/query*",
 		ins.newHandler("query", proxy.New(logger, "/api/v1/metrics/", options.metricsQueryEndpoint, options.proxyOptions...)))
 
-	receivePath := "/api/v1/metrics/receive"
-	r.Post(receivePath,
-		ins.newHandler("receive", proxy.New(logger, receivePath, options.metricsReceiveEndpoint, options.proxyOptions...)))
+	writePath := "/api/v1/metrics/write"
+	r.Post(writePath,
+		ins.newHandler("write", proxy.New(logger, writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
 
 	if options.profile {
 		registerProfiler(r)

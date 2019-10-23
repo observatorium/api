@@ -8,11 +8,11 @@ import (
 )
 
 type options struct {
-	gracePeriod            time.Duration
-	metricsQueryEndpoint   *url.URL
-	metricsReceiveEndpoint *url.URL
-	profile                bool
-	listen                 string
+	gracePeriod          time.Duration
+	metricsQueryEndpoint *url.URL
+	metricsWriteEndpoint *url.URL
+	profile              bool
+	listen               string
 
 	proxyOptions []proxy.Option
 }
@@ -46,9 +46,9 @@ func WithMetricQueryEndpoint(u *url.URL) Option {
 	})
 }
 
-func WithMetricReceiveEndpoint(u *url.URL) Option {
+func WithMetricWriteEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
-		o.metricsReceiveEndpoint = u
+		o.metricsWriteEndpoint = u
 	})
 }
 
