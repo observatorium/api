@@ -48,13 +48,8 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
-	queryEndpoint := "/api/v1/metrics/query"
-	r.Get(queryEndpoint,
-		ins.newHandler("query", proxy.New(logger, queryEndpoint, options.metricsQueryEndpoint, options.proxyOptions...)))
-
-	queryRangeEndpoint := "/api/v1/metrics/query_range"
-	r.Get(queryEndpoint,
-		ins.newHandler("query_range", proxy.New(logger, queryRangeEndpoint, options.metricsQueryEndpoint, options.proxyOptions...)))
+	r.Get("/api/v1/metrics/query*",
+		ins.newHandler("query", proxy.New(logger, "/api/v1/metrics/", options.metricsQueryEndpoint, options.proxyOptions...)))
 
 	receivePath := "/api/v1/metrics/receive"
 	r.Post(receivePath,
