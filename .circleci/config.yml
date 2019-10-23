@@ -1,0 +1,44 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: golang:1.13
+    steps:
+      - checkout
+      - run: |
+          make observatorium
+          git diff --exit-code
+
+  lint:
+    docker:
+      - image: golangci/golangci-lint:v1.20.1-alpine
+    steps:
+      - checkout
+      - run: |
+          apk add --update --no-cache make
+          make lint
+
+  test:
+    docker:
+      - image: golang:1.13
+    steps:
+      - checkout
+      - run: |
+          make test
+
+  generate:
+    docker:
+      - image: golangci/golangci-lint:v1.20.1-alpine
+    steps:
+      - checkout
+      - run: |
+          make README.md
+          git diff --exit-code
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build
+      - lint
+      - test
