@@ -90,6 +90,6 @@ func (p *Prober) NotHealthy(err error) {
 	old := atomic.SwapUint32(&p.healthy, 0)
 
 	if old == 1 {
-		level.Info(p.logger).Log("msg", "changing probe status", "status", "healthy")
+		level.Info(p.logger).Log("msg", "changing probe status", "status", "not-healthy", "reason", err)
 	}
 }

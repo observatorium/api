@@ -18,6 +18,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
+	"go.opentelemetry.io/otel/api/global"
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
@@ -28,13 +29,16 @@ type options struct {
 	proxyBufferSizeBytes int
 	proxyBufferCount     int
 
-	listen               string
-	gracePeriod          string
-	debugName            string
-	logLevel             string
-	logFormat            string
-	metricsQueryEndpoint string
-	metricsWriteEndpoint string
+	listen                  string
+	gracePeriod             string
+	debugName               string
+	logLevel                string
+	logFormat               string
+	metricsQueryEndpoint    string
+	metricsWriteEndpoint    string
+	traceExporter           string
+	traceExporterEndpoint   string
+	traceSamplerProbability float64
 }
 
 func main() {
@@ -56,6 +60,9 @@ func main() {
 		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
 		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
+	flag.StringVar(&opts.traceExporter, "trace.exporter", internal.ExporterJaeger, "The trace exporter to use. Options: 'stdout', 'jaeger'.")
+	flag.StringVar(&opts.traceExporterEndpoint, "trace.exporter-endpoint", internal.ExporterJaeger, "The trace endpoint which to send trace spans.")
+	flag.Float64Var(&opts.traceSamplerProbability, "trace.sampler-probability", 0.1, "The trace sampler probability to use.")
 	flag.Parse()
 
 	debug := os.Getenv("DEBUG") != ""
@@ -67,6 +74,11 @@ func main() {
 
 	logger := internal.NewLogger(opts.logLevel, opts.logFormat, opts.debugName)
 	defer level.Info(logger).Log("msg", "exiting")
+
+	tr := internal.NewTracer(opts.traceExporter, opts.traceExporterEndpoint, opts.traceSamplerProbability)
+	defer tr.Close()
+
+	global.SetTraceProvider(tr.Provider)
 
 	metricsQueryEndpoint, err := url.ParseRequestURI(opts.metricsQueryEndpoint)
 	if err != nil {
