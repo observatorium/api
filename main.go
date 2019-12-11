@@ -61,7 +61,8 @@ func main() {
 	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
 		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.StringVar(&opts.traceExporter, "trace.exporter", internal.ExporterJaeger, "The trace exporter to use. Options: 'stdout', 'jaeger'.")
-	flag.StringVar(&opts.traceExporterEndpoint, "trace.exporter-endpoint", internal.ExporterJaeger, "The trace endpoint which to send trace spans.")
+	flag.StringVar(&opts.traceExporterEndpoint, "trace.exporter-endpoint", internal.ExporterJaeger,
+		"The trace endpoint which to send trace spans.")
 	flag.Float64Var(&opts.traceSamplerProbability, "trace.sampler-probability", 0.1, "The trace sampler probability to use.")
 	flag.Parse()
 
