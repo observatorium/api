@@ -1,0 +1,106 @@
+version: '3'
+services:
+  observatorium:
+    build: .
+    command:
+      - --metrics.query.endpoint=thanos-querier:9090
+      - --metrics.write.endpoint=thanos-receive:19291
+    ports:
+      - 8080:8080
+    links:
+      - thanos-querier
+      - thanos-receiver
+
+  prometheus:
+    image: prom/prometheus:v2.14.0
+    command:
+      - --config.file=/config/prometheus.yml
+    volumes:
+      - ./data/test/config:/config
+    ports:
+      - 9090
+    links:
+      - observatorium
+      - thanos-receiver
+
+  thanos-querier:
+    image: quay.io/thanos/thanos:v0.9.0
+    command:
+      - query
+      - --query.replica-label=replica
+      - --grpc-address=0.0.0.0:10901
+      - --http-address=0.0.0.0:9090
+      - store="thanos-receiver:10901"
+      - store="thanos-store:10901"
+    ports:
+      - 10901
+      - 9090
+    links:
+      - thanos-receiver
+      - thanos-store
+
+  thanos-receiver:
+    image: quay.io/thanos/thanos:v0.9.0
+    command:
+      - receive
+      - --grpc-address=0.0.0.0:10901
+      - --http-address=0.0.0.0:10902
+      - --remote-write.address=0.0.0.0:19291
+      - --objstore.config-file=/config/objstore.yml
+      - --tsdb.path=/var/thanos/receive
+      - --label=replica="receive-0"
+      - --label=receive="true"
+      - --tsdb.retention=1h
+      - --receive.hashrings-file=/config/hashrings.json
+      - --receive.local-endpoint=http://localhost:19291/api/v1/receive
+    volumes:
+      - ./data/test/config:/config
+      - ./tmp/data/thanos/receive:/var/thanos/receive
+    ports:
+      - 10901
+      - 10902
+      - 19291
+    links:
+      - minio
+    depends_on:
+      - minio
+
+  thanos-store:
+    image: quay.io/thanos/thanos:v0.9.0
+    command:
+      - store
+      - --data-dir=/var/thanos/store
+      - --grpc-address=0.0.0.0:10901
+      - --http-address=0.0.0.0:10902
+      - --objstore.config-file=/config/objstore.yml
+    volumes:
+      - ./data/test/config:/config
+      - ./tmp/data/thanos/store:/var/thanos/store
+    ports:
+      - 10901
+      - 10902
+    links:
+      - minio
+    depends_on:
+      - minio
+
+  minio:
+    image: minio/minio:RELEASE.2019-10-12T01-39-57Z
+    command: server /data --address localhost:9000
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+      MINIO_REGION: eu-west-1
+    ports:
+      - 9000:9000
+    volumes:
+      - ./tmp/data/minio:/data
+
+  configure-buckets:
+    image: minio/mc:RELEASE.2019-10-09T22-54-57Z
+    entrypoint: sh
+    command: -c "sleep 5 && mc config host add minio http://minio:9000 minio minio123 && mc mb --region=eu-west-1 minio/thanos"
+    links:
+      - minio
+    depends_on:
+      - minio
