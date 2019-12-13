@@ -3,8 +3,9 @@ services:
   observatorium:
     build: .
     command:
-      - --metrics.query.endpoint=thanos-querier:9090
-      - --metrics.write.endpoint=thanos-receive:19291
+      - --metrics.query.endpoint=http://thanos-querier:9090
+      - --metrics.write.endpoint=http://thanos-receive:19291
+      - --log.level=debug
     ports:
       - 8080:8080
     links:
@@ -15,6 +16,7 @@ services:
     image: prom/prometheus:v2.14.0
     command:
       - --config.file=/config/prometheus.yml
+      - --log.level=debug
     volumes:
       - ./data/test/config:/config
     ports:
@@ -30,11 +32,12 @@ services:
       - --query.replica-label=replica
       - --grpc-address=0.0.0.0:10901
       - --http-address=0.0.0.0:9090
-      - store="thanos-receiver:10901"
-      - store="thanos-store:10901"
+      - --store=thanos-receiver:10901
+      - --store=thanos-store:10901
+      - --log.level=debug
     ports:
       - 10901
-      - 9090
+      - 9090:9090
     links:
       - thanos-receiver
       - thanos-store
@@ -50,9 +53,10 @@ services:
       - --tsdb.path=/var/thanos/receive
       - --label=replica="receive-0"
       - --label=receive="true"
-      - --tsdb.retention=1h
+      - --tsdb.retention=4h
       - --receive.hashrings-file=/config/hashrings.json
       - --receive.local-endpoint=http://localhost:19291/api/v1/receive
+      - --log.level=debug
     volumes:
       - ./data/test/config:/config
       - ./tmp/data/thanos/receive:/var/thanos/receive
@@ -73,6 +77,7 @@ services:
       - --grpc-address=0.0.0.0:10901
       - --http-address=0.0.0.0:10902
       - --objstore.config-file=/config/objstore.yml
+      - --log.level=debug
     volumes:
       - ./data/test/config:/config
       - ./tmp/data/thanos/store:/var/thanos/store
@@ -86,7 +91,7 @@ services:
 
   minio:
     image: minio/minio:RELEASE.2019-10-12T01-39-57Z
-    command: server /data --address localhost:9000
+    command: server /data
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123

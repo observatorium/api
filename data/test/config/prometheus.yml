@@ -14,5 +14,17 @@ scrape_configs:
     static_configs:
       - targets: ['observatorium:8080']
 
+  - job_name: 'thanos-querier'
+    static_configs:
+      - targets: ['thanos-querier:9090']
+
+  - job_name: 'thanos-receiver'
+    static_configs:
+      - targets: ['thanos-receiver:10902']
+
+  - job_name: 'thanos-store'
+    static_configs:
+      - targets: ['thanos-store:10902']
+
 remote_write:
-  - url: 'thanos-receiver'
+  - url: 'http://thanos-receiver:19291/api/v1/receive'
