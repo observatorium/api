@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -50,11 +51,7 @@ func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *P
 
 		r.URL.Scheme = endpoint.Scheme
 		r.URL.Host = endpoint.Host
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
-
-		if r.URL.Path == "" {
-			r.URL.Path = "/"
-		}
+		r.URL.Path = path.Join(endpoint.Path, strings.TrimPrefix(r.URL.Path, prefix))
 
 		log.With(level.Debug(logger)).Log("scheme", r.URL.Scheme, "host", r.URL.Host, "path", r.URL.Path)
 	}

@@ -52,11 +52,16 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
-	r.Get("/api/v1/metrics/query*",
+	r.Get("/ui/v1/metrics/*",
+		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))
+
+	r.Mount("/api/v1/metrics/query",
 		ins.newHandler("query", proxy.New(logger, "/api/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))
+	r.Mount("/api/v1/metrics/query_range",
+		ins.newHandler("query_range", proxy.New(logger, "/api/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))
 
 	writePath := "/api/v1/metrics/write"
-	r.Mount(writePath,
+	r.Post(writePath,
 		ins.newHandler("write", proxy.New(logger, writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
 
 	if options.profile {

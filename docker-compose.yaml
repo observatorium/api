@@ -37,10 +37,11 @@ services:
       - --http-address=0.0.0.0:9090
       - --store=thanos-receiver:10901
       - --store=thanos-store:10901
+      - --web.external-prefix=http://localhost:8080/ui/v1/metrics
       - --log.level=debug
     ports:
       - 10901
-      - 9090:9090
+      - 9090
     links:
       - thanos-receiver
       - thanos-store
@@ -57,7 +58,6 @@ services:
       - --label=replica="receive-0"
       - --label=receive="true"
       - --tsdb.retention=4h
-      - --receive.local-endpoint=http://localhost:19291/api/v1/receive
       - --log.level=debug
     volumes:
       - ./data/test/config:/config
