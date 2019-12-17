@@ -1,9 +1,0 @@
-[
-  {
-    "hashring": "default",
-    "tenants": [],
-    "endpoints": [
-      "http://localhost:19291/api/v1/receive"
-    ]
-  }
-]

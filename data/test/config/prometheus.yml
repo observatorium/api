@@ -27,4 +27,5 @@ scrape_configs:
       - targets: ['thanos-store:10902']
 
 remote_write:
+#  - url: 'http://observatorium:8080/api/v1/metrics/write'
   - url: 'http://thanos-receiver:19291/api/v1/receive'
