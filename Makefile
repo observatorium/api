@@ -50,7 +50,7 @@ shellcheck: $(SHELLCHECK)
 	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*")
 
 .PHONY: lint
-lint: vendor format shellcheck
+lint: $(GOLANGCILINT) vendor format shellcheck
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
@@ -119,6 +119,7 @@ $(GOLANGCILINT):
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
 $(SHELLCHECK):
+	echo $(uname -s | tr '[A-Z]' '[a-z]')
 	mkdir -p $(BIN_DIR)
 	@echo "Downloading Shellcheck"
 	curl -L "https://storage.googleapis.com/shellcheck/shellcheck-stable.$$(uname -s | tr '[A-Z]' '[a-z]').$$(uname -m).tar.xz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
