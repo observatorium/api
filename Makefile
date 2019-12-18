@@ -118,8 +118,9 @@ $(GOLANGCILINT):
 		| sed -e '/install -d/d' \
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
+OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
+ARCH ?= $(shell uname -m)
 $(SHELLCHECK):
-	echo $(uname -s | tr '[A-Z]' '[a-z]')
 	mkdir -p $(BIN_DIR)
 	@echo "Downloading Shellcheck"
-	curl -L "https://storage.googleapis.com/shellcheck/shellcheck-stable.$$(uname -s | tr '[A-Z]' '[a-z]').$$(uname -m).tar.xz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
+	curl -L "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
