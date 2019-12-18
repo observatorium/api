@@ -46,11 +46,11 @@ go-fmt:
 	@fmt_res=$$(gofmt -d -s $$(find . -type f -name '*.go' -not -path './vendor/*' -not -path './jsonnet/vendor/*')); if [ -n "$$fmt_res" ]; then printf '\nGofmt found style issues. Please check the reported issues\nand fix them if necessary before submitting the code for review:\n\n%s' "$$fmt_res"; exit 1; fi
 
 .PHONY: shellcheck
-shellcheck:
-	docker run -v "${PWD}:/mnt" koalaman/shellcheck:stable $(shell find . -type f -name "*.sh" -not -path "*vendor*")
+shellcheck: $(SHELLCHECK)
+	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*")
 
 .PHONY: lint
-lint: dependencies vendor format shellcheck
+lint: vendor format shellcheck
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
@@ -61,12 +61,13 @@ test-unit:
 	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short ./...
 
 .PHONY: test-integration
-test-integration: dependencies
+test-integration: test-dependencies
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
 
 .PHONY: clean
 clean:
 	-rm tmp/help.txt
+	-rm -rf tmp/bin
 	-rm observatorium
 
 DOCKER_REPO ?= quay.io/observatorium/observatorium
@@ -87,13 +88,14 @@ PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.14.0
 THANOS ?= $(BIN_DIR)/thanos
 THANOS_VERSION ?= 0.9.0
-
 UP ?= $(FIRST_GOPATH)/bin/up
+
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
 EMBEDMD ?= $(FIRST_GOPATH)/bin/embedmd
+SHELLCHECK ?= $(BIN_DIR)/shellcheck
 
-dependencies: $(PROMETHEUS) $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT)
+test-dependencies: $(PROMETHEUS) $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 
 $(PROMETHEUS):
 	mkdir -p $(BIN_DIR)
@@ -115,3 +117,8 @@ $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
 		| sed -e '/install -d/d' \
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
+
+$(SHELLCHECK):
+	mkdir -p $(BIN_DIR)
+	@echo "Downloading Shellcheck"
+	curl -L "https://storage.googleapis.com/shellcheck/shellcheck-stable.$$(uname -s | tr '[A-Z]' '[a-z]').$$(uname -m).tar.xz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
