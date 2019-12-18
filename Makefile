@@ -1,8 +1,13 @@
 SHELL=/usr/bin/env bash -o pipefail
+BIN_DIR ?= ./tmp/bin
+FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
+OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
+ARCH ?= $(shell uname -m)
 
 VERSION := $(strip $(shell [ -d .git ] && git describe --always --tags --dirty))
 BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%S%Z")
 VCS_REF := $(strip $(shell [ -d .git ] && git rev-parse --short HEAD))
+DOCKER_REPO ?= quay.io/observatorium/observatorium
 
 CONTAINER_CMD:=docker run --rm \
 		-u="$(shell id -u):$(shell id -g)" \
@@ -13,8 +18,16 @@ CONTAINER_CMD:=docker run --rm \
 		-e GO111MODULE=on \
 		quay.io/coreos/jsonnet-ci
 
-BIN_DIR ?= ./tmp/bin
-FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
+PROMETHEUS ?= $(BIN_DIR)/prometheus
+PROMETHEUS_VERSION ?= 2.14.0
+THANOS ?= $(BIN_DIR)/thanos
+THANOS_VERSION ?= 0.9.0
+UP ?= $(FIRST_GOPATH)/bin/up
+
+GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
+GOLANGCILINT_VERSION ?= v1.21.0
+EMBEDMD ?= $(FIRST_GOPATH)/bin/embedmd
+SHELLCHECK ?= $(BIN_DIR)/shellcheck
 
 default: observatorium
 all: clean lint test observatorium
@@ -70,8 +83,6 @@ clean:
 	-rm -rf tmp/bin
 	-rm observatorium
 
-DOCKER_REPO ?= quay.io/observatorium/observatorium
-
 .PHONY: container
 container: observatorium Dockerfile
 	@docker build --build-arg BUILD_DATE="$(BUILD_DATE)" \
@@ -83,17 +94,6 @@ container: observatorium Dockerfile
 .PHONY: container-push-push
 container-push: container
 	docker push $(DOCKER_REPO):$(VERSION) $(DOCKER_REPO):latest
-
-PROMETHEUS ?= $(BIN_DIR)/prometheus
-PROMETHEUS_VERSION ?= 2.14.0
-THANOS ?= $(BIN_DIR)/thanos
-THANOS_VERSION ?= 0.9.0
-UP ?= $(FIRST_GOPATH)/bin/up
-
-GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
-GOLANGCILINT_VERSION ?= v1.21.0
-EMBEDMD ?= $(FIRST_GOPATH)/bin/embedmd
-SHELLCHECK ?= $(BIN_DIR)/shellcheck
 
 test-dependencies: $(PROMETHEUS) $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 
@@ -118,9 +118,7 @@ $(GOLANGCILINT):
 		| sed -e '/install -d/d' \
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
-OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
-ARCH ?= $(shell uname -m)
 $(SHELLCHECK):
 	mkdir -p $(BIN_DIR)
 	@echo "Downloading Shellcheck"
-	curl -L "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
+	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xf - -C $(BIN_DIR)
