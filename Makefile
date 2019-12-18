@@ -121,4 +121,4 @@ $(GOLANGCILINT):
 $(SHELLCHECK):
 	mkdir -p $(BIN_DIR)
 	@echo "Downloading Shellcheck"
-	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xf - -C $(BIN_DIR)
+	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
