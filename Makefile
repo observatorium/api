@@ -42,6 +42,7 @@ README.md: $(EMBEDMD) tmp/help.txt
 observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ .
 
+.PHONY: build
 build: vendor main.go $(wildcard *.go) $(wildcard */*.go)
 	go build -mod=vendor -a -ldflags '-s -w' -o observatorium .
 
@@ -67,7 +68,7 @@ lint: $(GOLANGCILINT) vendor format shellcheck
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
-test: test-unit test-integration
+test: build test-unit test-integration
 
 .PHONY: test-unit
 test-unit:

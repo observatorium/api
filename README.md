@@ -29,12 +29,12 @@ Usage of ./observatorium:
     	Maximum number of of reusable buffer used for copying HTTP reverse proxy responses. (default 2048)
   -proxy.buffer-size-bytes int
     	Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses. (default 32768)
-  -proxy.flush-interval string
-    	The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. A negative value means to flush immediately after each write to the client. (default "-1ns")
-  -web.grace-period string
-    	The time to wait after an OS interrupt received. (default "5s")
+  -proxy.flush-interval duration
+    	The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. A negative value means to flush immediately after each write to the client. (default -1ns)
+  -web.grace-period duration
+    	The time to wait after an OS interrupt received. (default 5s)
   -web.listen string
     	The address on which internal server runs. (default ":8080")
-  -web.timeout string
-    	The maximum duration before timing out the request, and closing idle connections. (default "5m")
+  -web.timeout duration
+    	The maximum duration before timing out the request, and closing idle connections. (default 5m0s)
 ```

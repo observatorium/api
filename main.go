@@ -124,35 +124,40 @@ func exec(logger log.Logger, reg *prometheus.Registry, opts options) error {
 
 func parseFlags(logger log.Logger) (options, error) {
 	var (
-		rawGracePeriod          string
-		rawTimeout              string
 		rawMetricsQueryEndpoint string
 		rawMetricsUIEndpoint    string
 		rawMetricsWriteEndpoint string
-		rawProxyFlushInterval   string
 	)
 
 	opts := options{}
 
-	flag.StringVar(&opts.debugName, "debug.name", "observatorium", "The name to add as prefix to log lines.")
+	flag.StringVar(&opts.debugName, "debug.name", "observatorium",
+		"The name to add as prefix to log lines.")
 	flag.IntVar(&opts.debugMutexProfileFraction, "debug.mutex-profile-fraction", 10,
 		"The parameter which controls the fraction of mutex contention events that are reported in the mutex profile.")
 	flag.IntVar(&opts.debugBlockProfileRate, "debug.block-profile-rate", 10,
 		"The parameter controls the fraction of goroutine blocking events that are reported in the blocking profile.")
-	flag.StringVar(&opts.logLevel, "log.level", "info", "The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
-	flag.StringVar(&opts.logFormat, "log.format", internal.LogFormatLogfmt, "The log format to use. Options: 'logfmt', 'json'.")
-	flag.StringVar(&opts.listen, "web.listen", ":8080", "The address on which internal server runs.")
-	flag.StringVar(&rawGracePeriod, "web.grace-period", "5s", "The time to wait after an OS interrupt received.")
-	flag.StringVar(&rawTimeout, "web.timeout", "5m", "The maximum duration before timing out the request, and closing idle connections.")
-	flag.StringVar(&rawMetricsQueryEndpoint, "metrics.query.endpoint", "", "The endpoint against which to query for metrics.")
-	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "", "The endpoint which forward ui requests.")
+	flag.StringVar(&opts.logLevel, "log.level", "info",
+		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
+	flag.StringVar(&opts.logFormat, "log.format", internal.LogFormatLogfmt,
+		"The log format to use. Options: 'logfmt', 'json'.")
+	flag.StringVar(&opts.listen, "web.listen", ":8080",
+		"The address on which internal server runs.")
+	flag.DurationVar(&opts.gracePeriod, "web.grace-period", 5*time.Second,
+		"The time to wait after an OS interrupt received.")
+	flag.DurationVar(&opts.timeout, "web.timeout", 5*time.Minute,
+		"The maximum duration before timing out the request, and closing idle connections.")
+	flag.StringVar(&rawMetricsQueryEndpoint, "metrics.query.endpoint", "",
+		"The endpoint against which to query for metrics.")
+	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "",
+		"The endpoint which forward ui requests.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.IntVar(&opts.proxyBufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
 		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
 	flag.IntVar(&opts.proxyBufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
 		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
-	flag.StringVar(&rawProxyFlushInterval, "proxy.flush-interval", proxy.DefaultFlushInterval.String(),
+	flag.DurationVar(&opts.proxyFlushInterval, "proxy.flush-interval", proxy.DefaultFlushInterval,
 		"The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. "+
 			"A negative value means to flush immediately after each write to the client.")
 	flag.Parse()
@@ -180,30 +185,6 @@ func parseFlags(logger log.Logger) (options, error) {
 	}
 
 	opts.metricsWriteEndpoint = metricsWriteEndpoint
-
-	gracePeriod, err := time.ParseDuration(rawGracePeriod)
-	if err != nil {
-		level.Error(logger).Log("msg", "--web.grace-period is invalid", "err", err)
-		return opts, err
-	}
-
-	opts.gracePeriod = gracePeriod
-
-	timeout, err := time.ParseDuration(rawTimeout)
-	if err != nil {
-		level.Error(logger).Log("msg", "--web.timeout is invalid", "err", err)
-		return opts, err
-	}
-
-	opts.timeout = timeout
-
-	flushInterval, err := time.ParseDuration(rawProxyFlushInterval)
-	if err != nil {
-		level.Error(logger).Log("msg", "--proxy.flush-interval is invalid", "err", err)
-		return opts, err
-	}
-
-	opts.proxyFlushInterval = flushInterval
 
 	return opts, nil
 }
