@@ -11,12 +11,11 @@ jobs:
 
   lint:
     docker:
-      - image: golangci/golangci-lint:v1.20.1-alpine
+      - image: golang:1.13
     steps:
       - checkout
       - run: |
-          apk add --update --no-cache make
-          make lint
+          make lint --always-make
 
   test:
     docker:
@@ -24,11 +23,11 @@ jobs:
     steps:
       - checkout
       - run: |
-          make test
+          make test --always-make
 
   generate:
     docker:
-      - image: golangci/golangci-lint:v1.20.1-alpine
+      - image: golang:1.13
     steps:
       - checkout
       - run: |
