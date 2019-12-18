@@ -38,6 +38,7 @@ type options struct {
 	logLevel             string
 	logFormat            string
 	metricsQueryEndpoint *url.URL
+	metricsUIEndpoint    *url.URL
 	metricsWriteEndpoint *url.URL
 }
 
@@ -107,6 +108,7 @@ func exec(logger log.Logger, reg *prometheus.Registry, opts options) error {
 			server.WithTimeout(opts.timeout),
 			server.WithProfile(os.Getenv("PROFILE") != ""),
 			server.WithMetricQueryEndpoint(opts.metricsQueryEndpoint),
+			server.WithMetricUIEndpoint(opts.metricsUIEndpoint),
 			server.WithMetricWriteEndpoint(opts.metricsWriteEndpoint),
 			server.WithProxyOptions(
 				proxy.WithBufferCount(opts.proxyBufferCount),
@@ -125,6 +127,7 @@ func parseFlags(logger log.Logger) (options, error) {
 		rawGracePeriod          string
 		rawTimeout              string
 		rawMetricsQueryEndpoint string
+		rawMetricsUIEndpoint    string
 		rawMetricsWriteEndpoint string
 		rawProxyFlushInterval   string
 	)
@@ -142,6 +145,7 @@ func parseFlags(logger log.Logger) (options, error) {
 	flag.StringVar(&rawGracePeriod, "web.grace-period", "5s", "The time to wait after an OS interrupt received.")
 	flag.StringVar(&rawTimeout, "web.timeout", "5m", "The maximum duration before timing out the request, and closing idle connections.")
 	flag.StringVar(&rawMetricsQueryEndpoint, "metrics.query.endpoint", "", "The endpoint against which to query for metrics.")
+	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "", "The endpoint which forward ui requests.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.IntVar(&opts.proxyBufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
@@ -160,6 +164,14 @@ func parseFlags(logger log.Logger) (options, error) {
 	}
 
 	opts.metricsQueryEndpoint = metricsQueryEndpoint
+
+	metricsUIEndpoint, err := url.ParseRequestURI(rawMetricsUIEndpoint)
+	if err != nil {
+		level.Error(logger).Log("msg", "--metrics.ui.endpoint is invalid", "err", err)
+		return opts, err
+	}
+
+	opts.metricsUIEndpoint = metricsUIEndpoint
 
 	metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
 	if err != nil {

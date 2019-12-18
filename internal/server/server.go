@@ -53,7 +53,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	})
 
 	r.Get("/ui/v1/metrics/*",
-		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))
+		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsUIEndpoint, options.proxyOptions...)))
 
 	r.Mount("/api/v1/metrics/query",
 		ins.newHandler("query", proxy.New(logger, "/api/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))

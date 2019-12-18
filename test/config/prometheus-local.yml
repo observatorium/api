@@ -1,3 +1,4 @@
+# A convenience prometheus scape config to locally test Observatorium API.
 global:
   scrape_interval: 15s
   external_labels:
