@@ -55,7 +55,7 @@ sleep 1
 retries=100
 while true; do
 	if [[ "${retries}" -lt 0 ]]; then
-		echo "error: Did not successfully retrieve cluster metrics from the local Thanos query server" 1>&2
+		echo "error: did not successfully retrieve metrics from the local Thanos query server" 1>&2
 		exit 1
 	fi
 	# verify we scrape metrics from the test cluster and give it _id test

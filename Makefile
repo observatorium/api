@@ -13,6 +13,9 @@ CONTAINER_CMD:=docker run --rm \
 		-e GO111MODULE=on \
 		quay.io/coreos/jsonnet-ci
 
+BIN_DIR ?= ./tmp/bin
+FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
+
 default: observatorium
 all: clean lint test observatorium
 
@@ -47,7 +50,7 @@ shellcheck:
 	docker run -v "${PWD}:/mnt" koalaman/shellcheck:stable $(shell find . -type f -name "*.sh" -not -path "*vendor*")
 
 .PHONY: lint
-lint: $(GOLANGCILINT) vendor format shellcheck
+lint: dependencies vendor format shellcheck
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
@@ -57,8 +60,9 @@ test: test-unit test-integration
 test-unit:
 	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short ./...
 
-test-integration: build $(THANOS) $(PROMETHEUS) $(UP)
-	PATH=$$PATH:$$(pwd)/$(BIN_DIR) ./test/integration.sh
+.PHONY: test-integration
+test-integration: dependencies
+	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
 
 .PHONY: clean
 clean:
@@ -79,17 +83,17 @@ container: observatorium Dockerfile
 container-push: container
 	docker push $(DOCKER_REPO):$(VERSION) $(DOCKER_REPO):latest
 
-BIN_DIR ?= ./tmp/bin
 PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.14.0
+THANOS ?= $(BIN_DIR)/thanos
+THANOS_VERSION ?= 0.9.0
 
-FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
+UP ?= $(FIRST_GOPATH)/bin/up
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
 EMBEDMD ?= $(FIRST_GOPATH)/bin/embedmd
-THANOS ?= $(FIRST_GOPATH)/bin/thanos
-UP ?= $(FIRST_GOPATH)/bin/up
-GOJSONTOYAML ?= $(FIRST_GOPATH)/bin/gojsontoyaml
+
+dependencies: $(PROMETHEUS) $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT)
 
 $(PROMETHEUS):
 	mkdir -p $(BIN_DIR)
@@ -97,16 +101,15 @@ $(PROMETHEUS):
 	curl -L "https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)/prometheus-$(PROMETHEUS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
 $(THANOS):
-	GO111MODULE=off go get github.com/thanos-io/thanos
+	mkdir -p $(BIN_DIR)
+	@echo "Downloading Thanos"
+	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
 $(UP):
-	GO111MODULE=off go get github.com/observatorium/up
+	GO111MODULE=off go get -u github.com/observatorium/up
 
 $(EMBEDMD):
 	GO111MODULE=off go get -u github.com/campoy/embedmd
-
-$(GOJSONTOYAML):
-	GO111MODULE=off go get -u github.com/brancz/gojsontoyaml
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
