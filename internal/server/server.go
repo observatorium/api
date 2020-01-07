@@ -55,10 +55,13 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Get("/ui/v1/metrics/*",
 		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsUIEndpoint, options.proxyOptions...)))
 
-	r.Mount("/api/v1/metrics/query",
-		ins.newHandler("query", proxy.New(logger, "/api/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))
-	r.Mount("/api/v1/metrics/query_range",
-		ins.newHandler("query_range", proxy.New(logger, "/api/v1/metrics", options.metricsQueryEndpoint, options.proxyOptions...)))
+	queryPath := "/api/v1/metrics/query"
+	r.Mount(queryPath,
+		ins.newHandler("query", proxy.New(logger, queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
+
+	queryRangePath := "/api/v1/metrics/query_range"
+	r.Mount(queryRangePath,
+		ins.newHandler("query_range", proxy.New(logger, queryRangePath, options.metricsQueryEndpoint, options.proxyOptions...)))
 
 	writePath := "/api/v1/metrics/write"
 	r.Post(writePath,

@@ -8,65 +8,55 @@ set -euo pipefail
 trap 'kill $(jobs -p); exit 0' EXIT
 
 (
-	./observatorium \
-		--web.listen=0.0.0.0:8080 \
-		--metrics.query.endpoint=http://127.0.0.1:9091/api/v1/ \
-		--metrics.ui.endpoint=http://127.0.0.1:9091/ \
-		--metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive \
-		--log.level=debug
-) &
-
-(
-./tmp/bin/prometheus \
-    --config.file=./test/config/prometheus.yml \
-    --storage.tsdb.path="$(mktemp -d)" \
+  ./observatorium \
+    --web.listen=0.0.0.0:8080 \
+    --metrics.ui.endpoint=http://127.0.0.1:9091/ \
+    --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query \
+    --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive \
     --log.level=debug
 ) &
 
 (
-	up \
-	  --listen=0.0.0.0:8888 \
-		--endpoint=http://127.0.0.1:8080/api/v1/metrics/write \
-		--period=1s \
-		--name=observatorium_write \
-		--labels='_id="test"'
+  ./tmp/bin/thanos receive \
+    --grpc-address=127.0.0.1:10901 \
+    --http-address=127.0.0.1:10902 \
+    --remote-write.address=127.0.0.1:19291 \
+    --tsdb.path="$(mktemp -d)"
+  # --log.level=debug \
 ) &
 
 (
-	thanos receive \
-		--grpc-address=127.0.0.1:10901 \
-		--http-address=127.0.0.1:10902 \
-		--remote-write.address=127.0.0.1:19291 \
-		--tsdb.path="$(mktemp -d)" \
-		--log.level=debug
+  ./tmp/bin/thanos query \
+    --grpc-address=127.0.0.1:10911 \
+    --http-address=127.0.0.1:9091 \
+    --store=127.0.0.1:10901 \
+    --web.external-prefix=http://localhost:8080/ui/v1/metrics
+  #    --log.level=debug \
 ) &
 
+tmpresult=$(mktemp)
 (
-	thanos query \
-		--grpc-address=127.0.0.1:10911 \
-		--http-address=127.0.0.1:9091 \
-		--store=127.0.0.1:10901 \
-		--web.external-prefix=http://localhost:8080/ui/v1/metrics \
-		--log.level=debug
+./tmp/bin/up \
+  --listen=0.0.0.0:8888 \
+  --endpoint-read=http://127.0.0.1:8080/api/v1/metrics/query \
+  --endpoint-write=http://127.0.0.1:8080/api/v1/metrics/write \
+  --period=1s \
+  --threshold=1 \
+  --latency=10s \
+  --duration=10s \
+  --log.level=debug \
+  --name=observatorium_write \
+  --labels='_id="test"'; echo $? > "$tmpresult"
 ) &
 
-sleep 1
+wait $!
+read -r result < "$tmpresult"
+pkill -P $$
 
-retries=100
-while true; do
-	if [[ "${retries}" -lt 0 ]]; then
-		echo "error: did not successfully retrieve metrics from the local Thanos query server" 1>&2
-		exit 1
-	fi
-	# verify we scrape metrics from the test cluster and give it _id test
-	if [[ "$(curl http://localhost:8080/api/v1/metrics/query --data-urlencode 'query=count({_id="test"})' -G 2>/dev/null | python3 -c 'import sys, json; print(json.load(sys.stdin)["data"]["result"][0]["value"][1])' 2>/dev/null)" -eq 0 ]]; then
-		retries=$((retries - 1))
-		sleep 1
-		continue
-	fi
-	break
-done
-echo "tests: ok"
-exit 0
+if [ "$result" -eq 0 ]; then
+  echo "tests: ok"
+  exit 0
+fi
 
-for i in $(jobs -p); do wait "$i"; done
+echo "tests: failed" 1>&2
+exit 1

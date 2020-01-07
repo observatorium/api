@@ -34,7 +34,7 @@ all: clean lint test observatorium
 
 tmp/help.txt: clean build
 	mkdir -p tmp
-	-./observatorium --help &> tmp/help.txt
+	-./observatorium --help >tmp/help.txt 2>&1
 
 README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md

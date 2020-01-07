@@ -43,8 +43,9 @@ type options struct {
 }
 
 func main() {
-	opts, err := parseFlags(log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr)))
+	opts, err := parseFlags()
 	if err != nil {
+		log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr)).Log("msg", "parse flag", "err", err)
 		os.Exit(1)
 	}
 
@@ -122,7 +123,7 @@ func exec(logger log.Logger, reg *prometheus.Registry, opts options) error {
 	return g.Run()
 }
 
-func parseFlags(logger log.Logger) (options, error) {
+func parseFlags() (options, error) {
 	var (
 		rawMetricsQueryEndpoint string
 		rawMetricsUIEndpoint    string
@@ -164,24 +165,21 @@ func parseFlags(logger log.Logger) (options, error) {
 
 	metricsQueryEndpoint, err := url.ParseRequestURI(rawMetricsQueryEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics.query.endpoint is invalid", "err", err)
-		return opts, err
+		return opts, fmt.Errorf("--metrics.query.endpoint is invalid: %w", err)
 	}
 
 	opts.metricsQueryEndpoint = metricsQueryEndpoint
 
 	metricsUIEndpoint, err := url.ParseRequestURI(rawMetricsUIEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics.ui.endpoint is invalid", "err", err)
-		return opts, err
+		return opts, fmt.Errorf("--metrics.ui.endpoint is invalid: %w", err)
 	}
 
 	opts.metricsUIEndpoint = metricsUIEndpoint
 
 	metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
 	if err != nil {
-		level.Error(logger).Log("msg", "--metrics.write.endpoint is invalid", "err", err)
-		return opts, err
+		return opts, fmt.Errorf("--metrics.write.endpoint is invalid: %w", err)
 	}
 
 	opts.metricsWriteEndpoint = metricsWriteEndpoint
