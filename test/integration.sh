@@ -5,7 +5,8 @@
 
 set -euo pipefail
 
-trap 'kill $(jobs -p); exit 0' EXIT
+result=1
+trap 'kill $(jobs -p); exit $result' EXIT
 
 (
   ./observatorium \
@@ -22,7 +23,7 @@ trap 'kill $(jobs -p); exit 0' EXIT
     --http-address=127.0.0.1:10902 \
     --remote-write.address=127.0.0.1:19291 \
     --tsdb.path="$(mktemp -d)"
-  # --log.level=debug \
+#    --log.level=debug \
 ) &
 
 (
@@ -31,32 +32,26 @@ trap 'kill $(jobs -p); exit 0' EXIT
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
     --web.external-prefix=http://localhost:8080/ui/v1/metrics
-  #    --log.level=debug \
+#    --log.level=debug \
 ) &
 
-tmpresult=$(mktemp)
-(
-./tmp/bin/up \
+if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
   --endpoint-read=http://127.0.0.1:8080/api/v1/metrics/query \
   --endpoint-write=http://127.0.0.1:8080/api/v1/metrics/write \
-  --period=1s \
-  --threshold=1 \
+  --period=500ms \
+  --initial-query-delay=750ms \
+  --threshold=0.8 \
   --latency=10s \
   --duration=10s \
   --log.level=debug \
   --name=observatorium_write \
-  --labels='_id="test"'; echo $? > "$tmpresult"
-) &
-
-wait $!
-read -r result < "$tmpresult"
-pkill -P $$
-
-if [ "$result" -eq 0 ]; then
-  echo "tests: ok"
+  --labels='_id="test"'; then
+  result=0
+  echo "## tests: ok"
   exit 0
 fi
 
-echo "tests: failed" 1>&2
+echo "## tests: failed" 1>&2
+result=1
 exit 1
