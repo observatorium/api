@@ -15,20 +15,26 @@ Usage of ./observatorium:
     	The parameter which controls the fraction of mutex contention events that are reported in the mutex profile. (default 10)
   -debug.name string
     	The name to add as prefix to log lines. (default "observatorium")
-  -grace-period string
-    	The time to wait after an OS interrupt received. (default "5s")
-  -listen string
-    	The address on which internal server runs. (default ":8080")
   -log.format string
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -metrics.query.endpoint string
     	The endpoint against which to query for metrics.
+  -metrics.ui.endpoint string
+    	The endpoint which forward ui requests.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -proxy.buffer-count int
     	Maximum number of of reusable buffer used for copying HTTP reverse proxy responses. (default 2048)
   -proxy.buffer-size-bytes int
     	Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses. (default 32768)
+  -proxy.flush-interval duration
+    	The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. A negative value means to flush immediately after each write to the client. (default -1ns)
+  -web.grace-period duration
+    	The time to wait after an OS interrupt received. (default 5s)
+  -web.listen string
+    	The address on which internal server runs. (default ":8080")
+  -web.timeout duration
+    	The maximum duration before timing out the request, and closing idle connections. (default 5m0s)
 ```

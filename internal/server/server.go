@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// Server TODO
 type Server struct {
 	logger log.Logger
 	prober *prober.Prober
@@ -25,6 +26,7 @@ type Server struct {
 	opts options
 }
 
+// New creates a new Server
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	options := options{
 		gracePeriod: 5 * time.Second,
@@ -42,14 +44,24 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(options.timeout))
 
 	registerProber(r, p)
+
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
-	r.Get("/api/v1/metrics/query*",
-		ins.newHandler("query", proxy.New(logger, "/api/v1/metrics/", options.metricsQueryEndpoint, options.proxyOptions...)))
+	r.Get("/ui/v1/metrics/*",
+		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsUIEndpoint, options.proxyOptions...)))
+
+	queryPath := "/api/v1/metrics/query"
+	r.Mount(queryPath,
+		ins.newHandler("query", proxy.New(logger, queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
+
+	queryRangePath := "/api/v1/metrics/query_range"
+	r.Mount(queryRangePath,
+		ins.newHandler("query_range", proxy.New(logger, queryRangePath, options.metricsQueryEndpoint, options.proxyOptions...)))
 
 	writePath := "/api/v1/metrics/write"
 	r.Post(writePath,
@@ -69,6 +81,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	}
 }
 
+// ListenAndServe TODO
 func (s *Server) ListenAndServe() error {
 	level.Info(s.logger).Log("msg", "starting the HTTP server", "address", s.opts.listen)
 	s.prober.Ready()
@@ -76,6 +89,7 @@ func (s *Server) ListenAndServe() error {
 	return s.srv.ListenAndServe()
 }
 
+// Shutdown TODO
 func (s *Server) Shutdown(err error) {
 	s.prober.NotReady(err)
 
