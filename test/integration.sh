@@ -22,8 +22,8 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --grpc-address=127.0.0.1:10901 \
     --http-address=127.0.0.1:10902 \
     --remote-write.address=127.0.0.1:19291 \
+    --log.level=debug \
     --tsdb.path="$(mktemp -d)"
-#    --log.level=debug \
 ) &
 
 (
@@ -31,8 +31,8 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --grpc-address=127.0.0.1:10911 \
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
+    --log.level=debug \
     --web.external-prefix=http://localhost:8080/ui/v1/metrics
-#    --log.level=debug \
 ) &
 
 echo "## waiting for dependencies to come up..."

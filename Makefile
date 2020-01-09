@@ -18,8 +18,6 @@ CONTAINER_CMD:=docker run --rm \
 		-e GO111MODULE=on \
 		quay.io/coreos/jsonnet-ci
 
-PROMETHEUS ?= $(BIN_DIR)/prometheus
-PROMETHEUS_VERSION ?= 2.14.0
 THANOS ?= $(BIN_DIR)/thanos
 THANOS_VERSION ?= 0.9.0
 UP ?= $(BIN_DIR)/up
@@ -95,14 +93,10 @@ container: observatorium Dockerfile
 container-push: container
 	docker push $(DOCKER_REPO):$(VERSION) $(DOCKER_REPO):latest
 
-test-dependencies: $(PROMETHEUS) $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
+test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
-
-$(PROMETHEUS): $(BIN_DIR)
-	@echo "Downloading Prometheus"
-	curl -L "https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)/prometheus-$(PROMETHEUS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
 $(THANOS): $(BIN_DIR)
 	@echo "Downloading Thanos"
