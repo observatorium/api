@@ -22,29 +22,28 @@ PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.14.0
 THANOS ?= $(BIN_DIR)/thanos
 THANOS_VERSION ?= 0.9.0
-UP ?= $(FIRST_GOPATH)/bin/up
+UP ?= $(BIN_DIR)/up
 
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
-EMBEDMD ?= $(FIRST_GOPATH)/bin/embedmd
+EMBEDMD ?= $(BIN_DIR)/embedmd
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 
 default: observatorium
 all: clean lint test observatorium
 
-tmp/help.txt: clean build
-	mkdir -p tmp
+tmp/help.txt: build
 	-./observatorium --help >tmp/help.txt 2>&1
 
 README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md
 
 observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ main.go
 
 .PHONY: build
 build: vendor main.go $(wildcard *.go) $(wildcard */*.go)
-	go build -mod=vendor -a -ldflags '-s -w' -o observatorium .
+	go build -mod=vendor -a -ldflags '-s -w' -o observatorium main.go
 
 .PHONY: vendor
 vendor: go.mod go.sum
@@ -109,10 +108,12 @@ $(THANOS):
 	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
 $(UP):
-	GO111MODULE=off go get -u github.com/observatorium/up
+	mkdir -p $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/observatorium/up
 
 $(EMBEDMD):
-	GO111MODULE=off go get -u github.com/campoy/embedmd
+	mkdir -p $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/campoy/embedmd
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \

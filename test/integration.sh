@@ -38,13 +38,13 @@ trap 'kill $(jobs -p); exit $result' EXIT
 echo "## waiting for dependencies to come up..."
 sleep 5
 
-if up \
+if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
   --endpoint-read=http://127.0.0.1:8080/api/v1/metrics/query \
   --endpoint-write=http://127.0.0.1:8080/api/v1/metrics/write \
   --period=500ms \
   --initial-query-delay=750ms \
-  --threshold=0.8 \
+  --threshold=1 \
   --latency=10s \
   --duration=10s \
   --log.level=debug \
