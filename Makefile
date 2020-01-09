@@ -71,7 +71,7 @@ test: build test-unit test-integration
 
 .PHONY: test-unit
 test-unit:
-	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short ./...
+#	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
 
 .PHONY: test-integration
 test-integration: test-dependencies
