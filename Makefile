@@ -39,11 +39,11 @@ README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md
 
 observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ .
 
 .PHONY: build
 build: vendor main.go $(wildcard *.go) $(wildcard */*.go)
-	go build -mod=vendor -a -ldflags '-s -w' -o observatorium main.go
+	go build -mod=vendor -a -ldflags '-s -w' -o observatorium .
 
 .PHONY: vendor
 vendor: go.mod go.sum
@@ -71,7 +71,7 @@ test: build test-unit test-integration
 
 .PHONY: test-unit
 test-unit:
-#	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
+	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
 
 .PHONY: test-integration
 test-integration: test-dependencies
@@ -97,22 +97,21 @@ container-push: container
 
 test-dependencies: $(PROMETHEUS) $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 
-$(PROMETHEUS):
+$(BIN_DIR):
 	mkdir -p $(BIN_DIR)
+
+$(PROMETHEUS): $(BIN_DIR)
 	@echo "Downloading Prometheus"
 	curl -L "https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)/prometheus-$(PROMETHEUS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
-$(THANOS):
-	mkdir -p $(BIN_DIR)
+$(THANOS): $(BIN_DIR)
 	@echo "Downloading Thanos"
 	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
-$(UP):
-	mkdir -p $(BIN_DIR)
+$(UP): $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up
 
-$(EMBEDMD):
-	mkdir -p $(BIN_DIR)
+$(EMBEDMD): $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/campoy/embedmd
 
 $(GOLANGCILINT):
@@ -120,7 +119,6 @@ $(GOLANGCILINT):
 		| sed -e '/install -d/d' \
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
-$(SHELLCHECK):
-	mkdir -p $(BIN_DIR)
+$(SHELLCHECK): $(BIN_DIR)
 	@echo "Downloading Shellcheck"
 	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
