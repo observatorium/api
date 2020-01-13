@@ -27,6 +27,10 @@ UP ?= $(BIN_DIR)/up
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
 EMBEDMD ?= $(BIN_DIR)/embedmd
+JSONNET_VERSION ?= 0.14.0
+JSONNET ?= $(BIN_DIR)/jsonnet
+JSONNET_BUNDLER ?= $(BIN_DIR)/jb
+JSONNET_FMT ?= $(BIN_DIR)/jsonnetfmt
 GOJSONTOYAML ?= $(BIN_DIR)/gojsontoyaml
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 
@@ -108,14 +112,27 @@ $(THANOS): $(BIN_DIR)
 	@echo "Downloading Thanos"
 	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
-$(UP): $(BIN_DIR)
+$(UP): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up
 
-$(EMBEDMD): $(BIN_DIR)
+$(EMBEDMD): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/campoy/embedmd
 
-$(GOJSONTOYAML): $(BIN_DIR)
+$(GOJSONTOYAML): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/brancz/gojsontoyaml
+
+$(JSONNET): vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
+
+$(JSONNET_FMT):
+	cd tmp && curl -Lso - https://github.com/google/jsonnet/archive/v${JSONNET_VERSION}.tar.gz | \
+    tar xfz - -C . && \
+    cd jsonnet-${JSONNET_VERSION} && \
+    make && mv jsonnetfmt $(BIN_DIR) && \
+    rm -rf /tmp/jsonnet-${JSONNET_VERSION}
+
+$(JSONNET_BUNDLER): vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
@@ -130,9 +147,6 @@ $(SHELLCHECK): $(BIN_DIR)
 
 EXAMPLES := examples
 MANIFESTS := ${EXAMPLES}/manifests/
-
-JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
-JSONNET_FMT := jsonnetfmt -n 2 --max-blank-lines 2 --string-style s --comment-style s
 
 CONTAINER_CMD:=docker run --rm \
 		-u="$(shell id -u):$(shell id -g)" \
@@ -152,16 +166,19 @@ generate-in-docker:
 	$(CONTAINER_CMD) make $(MFLAGS) generate
 
 .PHONY: ${MANIFESTS}
-${MANIFESTS}: jsonnet/main.jsonnet jsonnet/lib/*
+${MANIFESTS}: $(JSONNET) $(GOJSONTOYAML) jsonnet/main.jsonnet jsonnet/lib/*
 	@rm -rf ${MANIFESTS}
 	@mkdir -p ${MANIFESTS}
-	jsonnet -J jsonnet/vendor -m ${MANIFESTS} jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | gojsontoyaml > {}.yaml && rm -f {}' -- {}
+	$(JSONNET) -J jsonnet/vendor -m ${MANIFESTS} jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
 
 .PHONY: jsonnet-vendor
-jsonnet-vendor: jsonnetfile.json
+jsonnet-vendor: $(JSONNET_BUNDLER) jsonnetfile.json
 	rm -rf jsonnet/vendor
-	jb install --jsonnetpkg-home="jsonnet/vendor"
+	$(JSONNET_BUNDLER) install --jsonnetpkg-home="jsonnet/vendor"
+
+JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'jsonnet/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
+JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
 
 .PHONY: jsonnet-fmt
-jsonnet-fmt:
-	@echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT) -i
+jsonnet-fmt: $(JSONNET_FMT)
+	@PATH=$$PATH:$$(pwd)/$(BIN_DIR) echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT_CMD) -i
