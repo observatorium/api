@@ -68,6 +68,7 @@ workflows:
       - build
       - lint
       - test
+      - generate
       - container-push:
           requires:
             - build
