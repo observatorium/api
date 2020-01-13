@@ -3,6 +3,7 @@ module github.com/observatorium/observatorium
 go 1.13
 
 require (
+	github.com/brancz/gojsontoyaml v0.0.0-20191212081931-bf2969bbd742
 	github.com/campoy/embedmd v1.0.0
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-kit/kit v0.9.0

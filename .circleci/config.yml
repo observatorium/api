@@ -36,6 +36,15 @@ jobs:
           make README.md
           git diff --exit-code
 
+  container-push:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - checkout
+      - run: |
+          echo "$DOCKER_PASS" | docker login --username $DOCKER_USER --password-stdin
+          make container-push
+
 workflows:
   version: 2
   build_and_test:
@@ -43,3 +52,24 @@ workflows:
       - build
       - lint
       - test
+  tagged-master:
+    jobs:
+      - container-push:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only:
+                - master
+  commit-master:
+    jobs:
+      - build
+      - lint
+      - test
+      - container-push:
+          requires:
+            - build
+          filters:
+            branches:
+              only:
+                - master

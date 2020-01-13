@@ -5,7 +5,9 @@ OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
 
 VERSION := $(strip $(shell [ -d .git ] && git describe --always --tags --dirty))
-BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%S%Z")
+BUILD_DATE := $(shell date -u +"%Y-%m-%d")
+BUILD_TIMESTAMP := $(shell date -u +"%Y-%m-%dT%H:%M:%S%Z")
+VCS_BRANCH := $(strip $(shell git rev-parse --abbrev-ref HEAD))
 VCS_REF := $(strip $(shell [ -d .git ] && git rev-parse --short HEAD))
 DOCKER_REPO ?= quay.io/observatorium/observatorium
 
@@ -25,6 +27,7 @@ UP ?= $(BIN_DIR)/up
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
 EMBEDMD ?= $(BIN_DIR)/embedmd
+GOJSONTOYAML ?= $(BIN_DIR)/gojsontoyaml
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 
 default: observatorium
@@ -49,7 +52,7 @@ vendor: go.mod go.sum
 	go mod vendor
 
 .PHONY: format
-format: $(GOLANGCILINT) go-fmt
+format: $(GOLANGCILINT)
 	$(GOLANGCILINT) run --fix --enable-all -c .golangci.yml
 
 .PHONY: go-fmt
@@ -61,7 +64,7 @@ shellcheck: $(SHELLCHECK)
 	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*")
 
 .PHONY: lint
-lint: $(GOLANGCILINT) vendor format shellcheck
+lint: $(GOLANGCILINT) vendor go-fmt shellcheck
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
@@ -83,15 +86,18 @@ clean:
 
 .PHONY: container
 container: observatorium Dockerfile
-	@docker build --build-arg BUILD_DATE="$(BUILD_DATE)" \
+	@docker build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
 		--build-arg DOCKERFILE_PATH="/Dockerfile" \
-		-t $(DOCKER_REPO):$(VERSION) .
+		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
 
-.PHONY: container-push-push
+.PHONY: container-push
 container-push: container
-	docker push $(DOCKER_REPO):$(VERSION) $(DOCKER_REPO):latest
+	docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
+	docker push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
+	docker push $(DOCKER_REPO):latest
 
 test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 
@@ -108,6 +114,9 @@ $(UP): $(BIN_DIR)
 $(EMBEDMD): $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/campoy/embedmd
 
+$(GOJSONTOYAML): $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/brancz/gojsontoyaml
+
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
 		| sed -e '/install -d/d' \
@@ -116,3 +125,43 @@ $(GOLANGCILINT):
 $(SHELLCHECK): $(BIN_DIR)
 	@echo "Downloading Shellcheck"
 	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
+
+# Jsonnet and Example manifests
+
+EXAMPLES := examples
+MANIFESTS := ${EXAMPLES}/manifests/
+
+JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
+JSONNET_FMT := jsonnetfmt -n 2 --max-blank-lines 2 --string-style s --comment-style s
+
+CONTAINER_CMD:=docker run --rm \
+		-u="$(shell id -u):$(shell id -g)" \
+		-v "$(shell go env GOCACHE):/.cache/go-build" \
+		-v "$(PWD):/go/src/github.com/observatorium/observatorium:Z" \
+		-w "/go/src/github.com/observatorium/observatorium" \
+		-e USER=deadbeef \
+		-e GO111MODULE=on \
+		quay.io/coreos/jsonnet-ci
+
+.PHONY: generate
+generate: jsonnet-vendor ${MANIFESTS}
+
+.PHONY: generate-in-docker
+generate-in-docker:
+	@echo ">> Compiling assets and generating Kubernetes manifests"
+	$(CONTAINER_CMD) make $(MFLAGS) generate
+
+.PHONY: ${MANIFESTS}
+${MANIFESTS}: jsonnet/main.jsonnet jsonnet/lib/*
+	@rm -rf ${MANIFESTS}
+	@mkdir -p ${MANIFESTS}
+	jsonnet -J jsonnet/vendor -m ${MANIFESTS} jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | gojsontoyaml > {}.yaml && rm -f {}' -- {}
+
+.PHONY: jsonnet-vendor
+jsonnet-vendor: jsonnetfile.json
+	rm -rf jsonnet/vendor
+	jb install --jsonnetpkg-home="jsonnet/vendor"
+
+.PHONY: jsonnet-fmt
+jsonnet-fmt:
+	@echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT) -i

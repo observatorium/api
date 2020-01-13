@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: observatorium-api
+  name: observatorium-api
+  namespace: observatorium
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: observatorium-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: observatorium-api
+    spec:
+      containers:
+      - args:
+        - --web.listen=0.0.0.0:8080
+        - --metrics.ui.endpoint=http://127.0.0.1:9091/
+        - --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query
+        - --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
+        - --log.level=warn
+        image: quay.io/observatorium/observatorium:master-2020-01-13-???
+        livenessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /-/healthy
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 30
+        name: observatorium-api
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /-/ready
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        resources:
+          limits:
+            cpu: "2"
+            memory: 1Gi
+          requests:
+            cpu: "1"
+            memory: 256Mi
