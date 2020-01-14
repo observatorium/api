@@ -43,7 +43,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          echo "$DOCKER_PASS" | docker login --username $DOCKER_USER --password-stdin
+          echo "$DOCKER_PASS" | docker login quay.io --username $DOCKER_USER --password-stdin
           make container-push
 
 workflows:
