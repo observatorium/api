@@ -89,7 +89,7 @@ clean:
 	-rm observatorium
 
 .PHONY: container
-container: observatorium Dockerfile
+container: Dockerfile
 	@docker build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
