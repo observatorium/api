@@ -1,6 +1,6 @@
 FROM golang:1.13.3-alpine3.10 as builder
 
-RUN apk add --update --no-cache ca-certificates tzdata git make && update-ca-certificates
+RUN apk add --update --no-cache ca-certificates tzdata git make bash && update-ca-certificates
 
 ADD . /opt
 WORKDIR /opt
@@ -30,6 +30,7 @@ LABEL vendor="Observatorium" \
     org.label-schema.docker.dockerfile=$DOCKERFILE_PATH \
     org.label-schema.name="observatorium/observatorium" \
     org.label-schema.schema-version="1.0" \
+    org.label-schema.vcs-branch=$VCS_BRANCH \
     org.label-schema.vcs-ref=$VCS_REF \
     org.label-schema.vcs-url="https://github.com/observatorium/observatorium" \
     org.label-schema.vendor="observatorium/observatorium" \
