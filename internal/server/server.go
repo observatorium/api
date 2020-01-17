@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/observatorium/observatorium/internal/proxy"
+	"github.com/observatorium/observatorium/internal/server/middlewares"
 	"github.com/observatorium/observatorium/prober"
 
 	"github.com/go-chi/chi"
@@ -75,7 +76,8 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 		writePath := "/write"
 		r.Post(writePath,
-			ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+			middlewares.NewSwitch(options.metricsWriteEndpoint.Path == "/dev/null")(
+				ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...))))
 	})
 
 	if options.profile {
