@@ -19,10 +19,14 @@ Usage of ./observatorium:
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
+  -metrics.read.disable
+    	The flag to disable handling read requests.
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
   -metrics.ui.endpoint string
     	The endpoint which forward ui requests.
+  -metrics.write.disable
+    	The flag to disable handling write requests.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -proxy.buffer-count int

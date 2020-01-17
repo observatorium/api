@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/observatorium/observatorium/internal/proxy"
-	"github.com/observatorium/observatorium/internal/server/middlewares"
 	"github.com/observatorium/observatorium/prober"
 
 	"github.com/go-chi/chi"
@@ -63,7 +62,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	namespace := "/api/metrics/v1"
 	r.Route(namespace, func(r chi.Router) {
-		if options.metricsReadEndpoint != nil {
+		if !options.disableRead {
 			r.Get("/api/v1/query",
 				ins.newHandler("query", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
 
@@ -74,10 +73,11 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
 		}
 
-		writePath := "/write"
-		r.Post(writePath,
-			middlewares.NewSwitch(options.metricsWriteEndpoint.Path == "/dev/null")(
-				ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...))))
+		if !options.disableWrite {
+			writePath := "/write"
+			r.Post(writePath,
+				ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+		}
 	})
 
 	if options.profile {

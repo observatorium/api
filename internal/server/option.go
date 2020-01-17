@@ -13,6 +13,8 @@ type options struct {
 	metricsUIEndpoint    *url.URL
 	metricsReadEndpoint  *url.URL
 	metricsWriteEndpoint *url.URL
+	disableWrite         bool
+	disableRead          bool
 	profile              bool
 	listen               string
 
@@ -69,6 +71,20 @@ func WithMetricReadEndpoint(u *url.URL) Option {
 func WithMetricWriteEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
 		o.metricsWriteEndpoint = u
+	})
+}
+
+// WithdisableWrite TODO
+func WithDisableWrite(e bool) Option {
+	return optionFunc(func(o *options) {
+		o.disableWrite = e
+	})
+}
+
+// WithDisableRead TODO
+func WithDisableRead(e bool) Option {
+	return optionFunc(func(o *options) {
+		o.disableRead = e
 	})
 }
 

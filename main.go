@@ -41,6 +41,8 @@ type options struct {
 	metricsUIEndpoint    *url.URL
 	metricsReadEndpoint  *url.URL
 	metricsWriteEndpoint *url.URL
+	metricsReadDisable   bool
+	metricsWriteDisable  bool
 }
 
 func main() {
@@ -112,6 +114,8 @@ func exec(logger log.Logger, reg *prometheus.Registry, opts options) error {
 			server.WithMetricUIEndpoint(opts.metricsUIEndpoint),
 			server.WithMetricReadEndpoint(opts.metricsReadEndpoint),
 			server.WithMetricWriteEndpoint(opts.metricsWriteEndpoint),
+			server.WithDisableRead(opts.metricsReadDisable),
+			server.WithDisableWrite(opts.metricsWriteDisable),
 			server.WithProxyOptions(
 				proxy.WithBufferCount(opts.proxyBufferCount),
 				proxy.WithBufferSizeBytes(opts.proxyBufferSizeBytes),
@@ -162,6 +166,9 @@ func parseFlags(logger log.Logger) (options, error) {
 	flag.DurationVar(&opts.proxyFlushInterval, "proxy.flush-interval", proxy.DefaultFlushInterval,
 		"The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. "+
 			"A negative value means to flush immediately after each write to the client.")
+	flag.BoolVar(&opts.metricsReadDisable, "metrics.read.disable", false, "The flag to disable handling read requests.")
+	flag.BoolVar(&opts.metricsWriteDisable, "metrics.write.disable", false, "The flag to disable handling write requests.")
+
 	flag.Parse()
 
 	if rawMetricsUIEndpoint != "" {
