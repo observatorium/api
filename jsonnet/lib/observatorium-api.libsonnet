@@ -51,9 +51,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
           container.mixin.readinessProbe.httpGet.withPath('/-/ready').withPort(8080).withScheme('HTTP') +
           container.mixin.livenessProbe.withPeriodSeconds(30) +
           container.mixin.livenessProbe.withFailureThreshold(4) +
-          container.mixin.livenessProbe.httpGet.withPath('/-/healthy').withPort(8080).withScheme('HTTP') +
-          container.mixin.resources.withRequests({ cpu: '1', memory: '256Mi' }) +
-          container.mixin.resources.withLimits({ cpu: '2', memory: '1Gi' });
+          container.mixin.livenessProbe.httpGet.withPath('/-/healthy').withPort(8080).withScheme('HTTP');
 
         deployment.new($.observatorium.api.name, $.observatorium.api.replicas, c, $.observatorium.api.deployment.metadata.labels) +
         deployment.mixin.metadata.withNamespace($.observatorium.api.namespace) +
