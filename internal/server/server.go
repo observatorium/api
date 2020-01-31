@@ -39,20 +39,25 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		o.apply(&options)
 	}
 
-	ins := newInstrumentationMiddleware(reg)
-	p := prober.New(logger)
-
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(options.timeout))
 
 	if options.profile {
 		r.Mount("/debug", middleware.Profiler())
 	}
 
+	ins := newInstrumentationMiddleware(reg)
+	p := prober.New(logger)
+
 	registerProber(r, p)
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/ui/v1/metrics/graph", http.StatusMovedPermanently)
+	})
 
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
@@ -80,6 +85,24 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		r.Post(writePath,
 			ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
 	})
+
+	// NOTICE: Following redirects added to be compatible with existing Read UI.
+	// Paths are explicitly specified to prevent unnecessary request to read handler.
+	r.Get("/graph", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/ui/v1/metrics/graph", http.StatusMovedPermanently)
+	})
+
+	r.Get("/stores", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/ui/v1/metrics/stores", http.StatusMovedPermanently)
+	})
+
+	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/ui/v1/metrics/status", http.StatusMovedPermanently)
+	})
+
+	if options.profile {
+		registerProfiler(r)
+	}
 
 	p.Healthy()
 

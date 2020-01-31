@@ -128,6 +128,9 @@ integration-test-dependencies: $(THANOS) $(UP)
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
 
+.PHONY: test-dependencies
+test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
+
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
