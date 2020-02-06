@@ -22,7 +22,12 @@ CONTAINER_CMD:=docker run --rm \
 
 THANOS ?= $(BIN_DIR)/thanos
 THANOS_VERSION ?= 0.9.0
+PROMETHEUS ?= $(BIN_DIR)/prometheus
+PROMETHEUS_VERSION ?= 2.15.2
+
 UP ?= $(BIN_DIR)/up
+AVALANCHE ?= $(BIN_DIR)/avalanche
+STYX ?= $(BIN_DIR)/styx
 
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
@@ -64,7 +69,7 @@ go-fmt:
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
-	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*")
+	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*" -not -path "./tmp/*")
 
 .PHONY: lint
 lint: $(GOLANGCILINT) vendor go-fmt shellcheck jsonnet-fmt
@@ -78,8 +83,12 @@ test-unit:
 	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
 
 .PHONY: test-integration
-test-integration: test-dependencies
+test-integration: integration-test-dependencies
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
+
+.PHONY: test-load
+test-load: load-test-dependencies
+	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh
 
 .PHONY: clean
 clean:
@@ -102,7 +111,11 @@ container-push: container
 	docker push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
 	docker push $(DOCKER_REPO):latest
 
-test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
+.PHONY: integration-test-dependencies
+integration-test-dependencies: $(THANOS) $(UP)
+
+.PHONY: load-test-dependencies
+load-test-dependencies: $(THANOS) $(AVALANCHE) $(PROMETHEUS) $(STYX)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -111,11 +124,21 @@ $(THANOS): | $(BIN_DIR)
 	@echo "Downloading Thanos"
 	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
+$(PROMETHEUS): $(BIN_DIR)
+	@echo "Downloading Prometheus"
+	curl -L "https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)/prometheus-$(PROMETHEUS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
+
 $(UP): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up
 
+$(AVALANCHE): vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/open-fresh/avalanche/cmd
+
 $(EMBEDMD): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/campoy/embedmd
+
+$(STYX): vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/go-pluto/styx
 
 $(GOJSONTOYAML): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/brancz/gojsontoyaml
@@ -135,7 +158,7 @@ $(GOLANGCILINT):
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
 $(SHELLCHECK): $(BIN_DIR)
-	@echo "Downloading Shellcheck"
+	@echo "Downloading Shellcheck"Makefile
 	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 # Jsonnet and Example manifests
