@@ -100,12 +100,6 @@ github.com/observatorium/up
 # github.com/oklog/run v1.1.0
 ## explicit
 github.com/oklog/run
-# github.com/open-fresh/avalanche v0.0.0-20191009213257-3efdac332ba7
-## explicit
-github.com/open-fresh/avalanche/cmd
-github.com/open-fresh/avalanche/metrics
-github.com/open-fresh/avalanche/pkg/download
-github.com/open-fresh/avalanche/pkg/errors
 # github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 ## explicit
 github.com/oxtoacart/bpool

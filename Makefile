@@ -1,5 +1,6 @@
 SHELL=/usr/bin/env bash -o pipefail
 BIN_DIR ?= $(shell pwd)/tmp/bin
+TMP_DIR := ./tmp
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
@@ -11,7 +12,7 @@ VCS_BRANCH := $(strip $(shell git rev-parse --abbrev-ref HEAD))
 VCS_REF := $(strip $(shell [ -d .git ] && git rev-parse --short HEAD))
 DOCKER_REPO ?= quay.io/observatorium/observatorium
 
-CONTAINER_CMD:=docker run --rm \
+CONTAINER_CMD := docker run --rm \
 		-u="$(shell id -u):$(shell id -g)" \
 		-v "$(shell go env GOCACHE):/.cache/go-build" \
 		-v "$(PWD):/go/src/github.com/observatorium/observatorium:Z" \
@@ -26,7 +27,8 @@ PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
 
 UP ?= $(BIN_DIR)/up
-AVALANCHE ?= $(BIN_DIR)/avalanche
+PROMREMOTEBENCH ?= $(BIN_DIR)/promremotebench
+PROMREMOTEBENCH_VERSION ?= 0.8.0
 STYX ?= $(BIN_DIR)/styx
 
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
@@ -115,7 +117,7 @@ container-push: container
 integration-test-dependencies: $(THANOS) $(UP)
 
 .PHONY: load-test-dependencies
-load-test-dependencies: $(THANOS) $(AVALANCHE) $(PROMETHEUS) $(STYX)
+load-test-dependencies: $(THANOS) $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -124,26 +126,30 @@ $(THANOS): | $(BIN_DIR)
 	@echo "Downloading Thanos"
 	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
-$(PROMETHEUS): $(BIN_DIR)
+$(PROMETHEUS): | $(BIN_DIR)
 	@echo "Downloading Prometheus"
 	curl -L "https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)/prometheus-$(PROMETHEUS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
-$(UP): vendor $(BIN_DIR)
+$(UP): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up
 
-$(AVALANCHE): vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/open-fresh/avalanche/cmd
+$(PROMREMOTEBENCH): | vendor $(BIN_DIR)
+	mkdir -p $(TMP_DIR)/promremotebench
+	curl -L https://github.com/m3dbx/promremotebench/archive/v$(PROMREMOTEBENCH_VERSION).tar.gz | tar --strip-components=1 -xzf - -C $(TMP_DIR)/promremotebench
+	cd $(TMP_DIR)/promremotebench/src && \
+		go build ./cmd/promremotebench
+	mv $(TMP_DIR)/promremotebench/src/promremotebench $@
 
-$(EMBEDMD): vendor $(BIN_DIR)
+$(EMBEDMD): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/campoy/embedmd
 
-$(STYX): vendor $(BIN_DIR)
+$(STYX): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/go-pluto/styx
 
-$(GOJSONTOYAML): vendor $(BIN_DIR)
+$(GOJSONTOYAML): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/brancz/gojsontoyaml
 
-$(JSONNET): vendor $(BIN_DIR)
+$(JSONNET): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
 
 $(JSONNET_FMT): vendor $(BIN_DIR)

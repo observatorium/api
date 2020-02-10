@@ -51,17 +51,17 @@ func WithTimeout(t time.Duration) Option {
 	})
 }
 
-// WithMetricReadEndpoint TODO
-func WithMetricReadEndpoint(u *url.URL) Option {
-	return optionFunc(func(o *options) {
-		o.metricsReadEndpoint = u
-	})
-}
-
 // WithMetricUIEndpoint TODO
 func WithMetricUIEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
 		o.metricsUIEndpoint = u
+	})
+}
+
+// WithMetricReadEndpoint TODO
+func WithMetricReadEndpoint(u *url.URL) Option {
+	return optionFunc(func(o *options) {
+		o.metricsReadEndpoint = u
 	})
 }
 

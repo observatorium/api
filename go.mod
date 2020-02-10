@@ -14,7 +14,6 @@ require (
 	github.com/jsonnet-bundler/jsonnet-bundler v0.3.1
 	github.com/observatorium/up v0.0.0-20200331075140-6e67351de1e5
 	github.com/oklog/run v1.1.0
-	github.com/open-fresh/avalanche v0.0.0-20191009213257-3efdac332ba7
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
