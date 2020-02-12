@@ -85,11 +85,11 @@ test-unit:
 	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
 
 .PHONY: test-integration
-test-integration: integration-test-dependencies
+test-integration: build integration-test-dependencies
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
 
 .PHONY: test-load
-test-load: load-test-dependencies
+test-load: build load-test-dependencies
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh
 
 .PHONY: clean

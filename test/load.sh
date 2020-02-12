@@ -134,7 +134,7 @@ number_of_concurrent_queries="10"
 while getopts "h?o:r:c:m:q:" opt; do
     case "$opt" in
     h)
-        usage
+        printf "$usage\n"
         exit 0
         ;;
     o)
