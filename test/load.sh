@@ -91,6 +91,7 @@ plot() {
 
 (
     $BIN_DIR/thanos receive \
+        --debug.name=receive \
         --log.level=warn \
         --grpc-address=127.0.0.1:10901 \
         --http-address=127.0.0.1:10902 \
@@ -100,6 +101,7 @@ plot() {
 
 (
     $BIN_DIR/thanos query \
+        --debug.name=query \
         --log.level=warn \
         --grpc-address=127.0.0.1:10911 \
         --http-address=127.0.0.1:9091 \
@@ -188,7 +190,6 @@ sleep 5
 ) &
 
 printf "\tRunning...\n"
-
 sleep "$run_for"
 printf "\tFinished, after %s seconds.\n" "$run_for"
 
