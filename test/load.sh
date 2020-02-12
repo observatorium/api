@@ -3,31 +3,95 @@ set -euo pipefail
 
 BIN_DIR=./tmp/bin
 RESULT_DIR=./tmp/results
+DOC_DIR=./docs
 
 trap 'kill $(jobs -p); exit 0' EXIT
 
-save() {
-    # export the data for the last hour from http://localhost:9090
+generate_report() {
+    printf "\tGenerating report...\n"
+
     mkdir -p "$RESULT_DIR"
-    $BIN_DIR/styx 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$RESULT_DIR/query_dur_99.csv
-    $BIN_DIR/styx 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$RESULT_DIR/query_dur_50.csv
-    $BIN_DIR/styx 'sum(rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) * 100 / sum(rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m]))' >$RESULT_DIR/query_dur_avg.csv
-    $BIN_DIR/styx 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$RESULT_DIR/write_dur_99.csv
-    $BIN_DIR/styx 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$RESULT_DIR/write_dur_50.csv
-    $BIN_DIR/styx 'sum(rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100 / sum(rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m]))' >$RESULT_DIR/write_dur_avg.csv
+
+    case $1 in
+    csv)
+        collect $BIN_DIR/styx "$1"
+        ;;
+
+    gnuplot)
+        collect "$BIN_DIR/styx gnuplot" "$1"
+        plot
+        ;;
+    *)
+        echo "usage: $(basename "$0") { csv | gnuplot }"
+        ;;
+    esac
 }
 
+collect() {
+    cmd=$1
+    ext=$2
+    # export the data for the last hour from http://127.0.0.1:9090
+    $cmd 'rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 100' >$RESULT_DIR/cpu."$ext"
+    $cmd 'process_resident_memory_bytes{job="observatorium"}' >$RESULT_DIR/mem."$ext"
+    $cmd 'go_goroutines{job="observatorium"}' >$RESULT_DIR/goroutines."$ext"
+    $cmd 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$RESULT_DIR/query_dur_99."$ext"
+    $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$RESULT_DIR/query_dur_50."$ext"
+    $cmd 'sum(rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) * 100 / sum(rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m]))' >$RESULT_DIR/query_dur_avg."$ext"
+    $cmd 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$RESULT_DIR/write_dur_99."$ext"
+    $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$RESULT_DIR/write_dur_50."$ext"
+    $cmd 'sum(rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100 / sum(rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m]))' >$RESULT_DIR/write_dur_avg."$ext"
+}
+
+png() {
+    output_dir=$1
+    filename=$(basename -- "$2")
+    filename="${filename%.*}"
+    gnuplot -e "set term png; set output '$output_dir/$filename.png'" "$2"
+}
+
+plot() {
+    output_dir="$DOC_DIR"/loadtests
+    mkdir -p "$output_dir"
+    printf "\tPlot thickens...\n"
+    for filename in "$RESULT_DIR"/*.gnuplot; do
+        [ -e "$filename" ] || continue
+        png "$output_dir" "$filename"
+    done
+}
+
+# ---
+
 (
-    ./observatorium \
-        --web.listen=0.0.0.0:8080 \
-        --metrics.ui.endpoint=http://127.0.0.1:9091/ \
-        --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query \
-        --metrics.query-range.endpoint=http://127.0.0.1:9091/api/v1/query_range \
-        --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
+    # In order to collect process metrics, it needs to run in container. os x doesn't support it.
+    platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
+    case $platform in
+    linux)
+        ./observatorium \
+            --web.listen=0.0.0.0:8080 \
+            --metrics.ui.endpoint=http://127.0.0.1:9091/ \
+            --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query \
+            --metrics.query-range.endpoint=http://127.0.0.1:9091/api/v1/query_range \
+            --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
+        ;;
+
+    darwin)
+        docker run --rm -u="$(id -u):$(id -g)" -e USER=deadbeef -p 8080:8080 \
+            quay.io/observatorium/observatorium \
+            --web.listen=0.0.0.0:8080 \
+            --metrics.ui.endpoint=http://host.docker.internal:9091/ \
+            --metrics.query.endpoint=http://host.docker.internal:9091/api/v1/query \
+            --metrics.query-range.endpoint=http://host.docker.internal:9091/api/v1/query_range \
+            --metrics.write.endpoint=http://host.docker.internal:19291/api/v1/receive
+        ;;
+    *)
+        echo "unknown platform: $platform"
+        ;;
+    esac
 ) &
 
 (
     $BIN_DIR/thanos receive \
+        --log.level=warn \
         --grpc-address=127.0.0.1:10901 \
         --http-address=127.0.0.1:10902 \
         --remote-write.address=127.0.0.1:19291 \
@@ -36,18 +100,77 @@ save() {
 
 (
     $BIN_DIR/thanos query \
+        --log.level=warn \
         --grpc-address=127.0.0.1:10911 \
         --http-address=127.0.0.1:9091 \
         --store=127.0.0.1:10901 \
-        --web.external-prefix=http://localhost:8080/ui/v1/metrics
+        --web.external-prefix=http://127.0.0.1:8080/ui/v1/metrics
 ) &
 
 (
     $BIN_DIR/prometheus \
-        --log.level=debug \
+        --log.level=warn \
         --config.file=./test/config/prometheus.yml \
         --storage.tsdb.path="$(mktemp -d)"
 ) &
+
+usage="$(basename "$0") [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium gateway and report results.
+
+where:
+    -h  show this help text
+    -r  set number of seconds to run (default: 300)
+    -c  set number of cluster to simulate (default: 5000)
+    -m  set number of machines per cluster to simulate (default: 2)
+    -q  set number of concurrent queries to execute (default: 10)
+    -o  set the output format (default: csv. options: csv, gnuplot)"
+
+output_format="csv" # Initialize our own variables.
+run_for="300"
+number_of_clusters="5000"
+number_of_machines="2"
+number_of_concurrent_queries="10"
+while getopts "h?o:r:c:m:q:" opt; do
+    case "$opt" in
+    h)
+        usage
+        exit 0
+        ;;
+    o)
+        output_format=$OPTARG
+        if ! [[ $output_format =~ (^csv|gnuplot$) ]]; then
+            printf "illegal argument: -%s\n" "$OPTARG" >&2
+            echo "$usage" >&2
+            exit 1
+        fi
+
+        if [[ $output_format == "gnuplot" ]] && ! command -v gnuplot >/dev/null; then
+            printf "No gnuplot in found in your path\n%s\nPlease install it:\n\tbrew install gnuplot # macOS\n\tapt-get install gnuplot # Debian / Ubuntu\n\tpacman -S gnuplot # ArchLinux\n" "$PATH"
+            exit 1
+        fi
+        ;;
+    r)
+        run_for=$OPTARG
+        ;;
+    c)
+        number_of_clusters=$OPTARG
+        ;;
+    m)
+        number_of_machines=$OPTARG
+        ;;
+    q)
+        number_of_concurrent_queries=$OPTARG
+        ;;
+    \?)
+        printf "illegal option: -%s\n" "$OPTARG" >&2
+        echo "$usage" >&2
+        exit 1
+        ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+hosts=$((number_of_clusters * number_of_machines))
+printf "\tStarting with %s clusters, will run for %s.\n", "$hosts", "$run_for"
 
 printf "\tWaiting for dependencies to come up...\n"
 sleep 5
@@ -55,19 +178,21 @@ sleep 5
 (
     $BIN_DIR/promremotebench \
         -query=true \
-        -query-target=http://127.0.0.1:8080/api/v1/metrics/query_range \
+        -query-target=http://localhost:8080/api/v1/metrics/query_range \
         -query-step=30s \
-        -query-concurrency=10 \
+        -query-concurrency="$number_of_concurrent_queries" \
         -write=true \
-        -target=http://127.0.0.1:8080/api/v1/metrics/write \
-        -hosts=150 \
+        -target=http://localhost:8080/api/v1/metrics/write \
+        -hosts="$hosts" \
         -interval=5
 ) &
 
 printf "\tRunning...\n"
-sleep 30
 
-printf "\tGenerating report\n"
-save
+sleep "$run_for"
+printf "\tFinished, after %s seconds.\n" "$run_for"
+
+generate_report "$output_format"
+printf "\tDone.\n"
 
 exit $?

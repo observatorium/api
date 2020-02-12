@@ -106,10 +106,10 @@ container: Dockerfile
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
 		--build-arg DOCKERFILE_PATH="/Dockerfile" \
 		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
+	@docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
 
 .PHONY: container-push
 container-push: container
-	docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
 	docker push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
 	docker push $(DOCKER_REPO):latest
 
