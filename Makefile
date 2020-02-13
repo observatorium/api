@@ -46,8 +46,16 @@ all: clean lint test observatorium
 tmp/help.txt: build
 	-./observatorium --help >tmp/help.txt 2>&1
 
+tmp/load_help.txt:
+	-./test/load.sh -h >tmp/load_help.txt 2>&1
+
 README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md
+
+benchmark.md: $(EMBEDMD) tmp/load_help.txt
+	-rm -rf ./docs/loadtests
+	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
+	$(EMBEDMD) -w docs/benchmark.md
 
 observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ .

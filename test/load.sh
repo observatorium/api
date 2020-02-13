@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BIN_DIR=./tmp/bin
-RESULT_DIR=./tmp/results
+DATA_DIR=./docs/loadtests/results
 DOC_DIR=./docs
 
 trap 'kill $(jobs -p); exit 0' EXIT
@@ -10,7 +10,7 @@ trap 'kill $(jobs -p); exit 0' EXIT
 generate_report() {
     printf "\tGenerating report...\n"
 
-    mkdir -p "$RESULT_DIR"
+    mkdir -p "$DATA_DIR"
 
     case $1 in
     csv)
@@ -31,15 +31,19 @@ collect() {
     cmd=$1
     ext=$2
     # export the data for the last hour from http://127.0.0.1:9090
-    $cmd 'rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 100' >$RESULT_DIR/cpu."$ext"
-    $cmd 'process_resident_memory_bytes{job="observatorium"}' >$RESULT_DIR/mem."$ext"
-    $cmd 'go_goroutines{job="observatorium"}' >$RESULT_DIR/goroutines."$ext"
-    $cmd 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$RESULT_DIR/query_dur_99."$ext"
-    $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$RESULT_DIR/query_dur_50."$ext"
-    $cmd 'sum(rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) * 100 / sum(rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m]))' >$RESULT_DIR/query_dur_avg."$ext"
-    $cmd 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$RESULT_DIR/write_dur_99."$ext"
-    $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$RESULT_DIR/write_dur_50."$ext"
-    $cmd 'sum(rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100 / sum(rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m]))' >$RESULT_DIR/write_dur_avg."$ext"
+    # See https://github.com/go-pluto/styx for further details.
+    $cmd 'rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 100' >$DATA_DIR/cpu."$ext"
+    $cmd 'process_resident_memory_bytes{job="observatorium"}' >$DATA_DIR/mem."$ext"
+    $cmd 'go_goroutines{job="observatorium"}' >$DATA_DIR/goroutines."$ext"
+
+    $cmd 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$DATA_DIR/write_dur_99."$ext"
+    $cmd 'histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$DATA_DIR/query_range_dur_99."$ext"
+
+    $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$DATA_DIR/write_dur_50."$ext"
+    $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$DATA_DIR/query_range_dur_50."$ext"
+
+    $cmd 'sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100 / sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m]))' >$DATA_DIR/write_dur_avg."$ext"
+    $cmd 'sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) * 100 / sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m]))' >$DATA_DIR/query_range_dur_avg."$ext"
 }
 
 png() {
@@ -53,7 +57,7 @@ plot() {
     output_dir="$DOC_DIR"/loadtests
     mkdir -p "$output_dir"
     printf "\tPlot thickens...\n"
-    for filename in "$RESULT_DIR"/*.gnuplot; do
+    for filename in "$DATA_DIR"/*.gnuplot; do
         [ -e "$filename" ] || continue
         png "$output_dir" "$filename"
     done
