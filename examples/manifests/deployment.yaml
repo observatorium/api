@@ -2,14 +2,19 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/name: observatorium-api
-  name: observatorium-api
+    app.kubernetes.io/component: api-gateway
+    app.kubernetes.io/instance: observatorium-api-gateway
+    app.kubernetes.io/name: observatorium-api-gateway
+    app.kubernetes.io/version: master-2020-01-28-e009b4a
+  name: observatorium-api-gateway
   namespace: observatorium
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: observatorium-api
+      app.kubernetes.io/component: api-gateway
+      app.kubernetes.io/instance: observatorium-api-gateway
+      app.kubernetes.io/name: observatorium-api-gateway
   strategy:
     rollingUpdate:
       maxSurge: 0
@@ -17,7 +22,10 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: observatorium-api
+        app.kubernetes.io/component: api-gateway
+        app.kubernetes.io/instance: observatorium-api-gateway
+        app.kubernetes.io/name: observatorium-api-gateway
+        app.kubernetes.io/version: master-2020-01-28-e009b4a
     spec:
       containers:
       - args:
@@ -26,23 +34,22 @@ spec:
         - --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query
         - --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
         - --log.level=warn
-        image: quay.io/observatorium/observatorium:latest
+        image: quay.io/observatorium/observatorium:master-2020-01-28-e009b4a
         livenessProbe:
-          failureThreshold: 4
+          failureThreshold: 8
           httpGet:
             path: /-/healthy
             port: 8080
             scheme: HTTP
           periodSeconds: 30
-        name: observatorium-api
+        name: observatorium-api-gateway
         ports:
         - containerPort: 8080
           name: http
         readinessProbe:
-          failureThreshold: 3
+          failureThreshold: 20
           httpGet:
             path: /-/ready
             port: 8080
             scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 30
+          periodSeconds: 5
