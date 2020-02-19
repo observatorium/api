@@ -1,5 +1,5 @@
 SHELL=/usr/bin/env bash -o pipefail
-BIN_DIR ?= ./tmp/bin
+BIN_DIR ?= $(shell pwd)/tmp/bin
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
@@ -124,7 +124,7 @@ $(GOJSONTOYAML): vendor $(BIN_DIR)
 $(JSONNET): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
 
-$(JSONNET_FMT):
+$(JSONNET_FMT): | $(BIN_DIR)
 	cd tmp && curl -Lso - https://github.com/google/jsonnet/archive/v${JSONNET_VERSION}.tar.gz | \
     tar xfz - -C . && \
     cd jsonnet-${JSONNET_VERSION} && \
@@ -181,4 +181,4 @@ JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --co
 
 .PHONY: jsonnet-fmt
 jsonnet-fmt: $(JSONNET_FMT)
-	@PATH=$$PATH:$$(pwd)/$(BIN_DIR) echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT_CMD) -i
+	PATH=$$PATH:$$(pwd)/$(BIN_DIR) echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT_CMD) -i
