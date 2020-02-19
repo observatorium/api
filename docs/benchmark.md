@@ -45,7 +45,7 @@ Memory usage increases and request latencies increase as the backend services' l
 
 #### CPU Usage
 
-> `rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 100`
+> `rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 1000`
 
 ![./loadtests/cpu.png](./loadtests/cpu.png)
 
@@ -79,9 +79,9 @@ Memory usage increases and request latencies increase as the backend services' l
 
 ##### Write Average
 
-> sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100
+> 100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100
 > /
-> sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m]))'
+> sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m])))'
 
 ![./loadtests/write_dur_avg.png](./loadtests/write_dur_avg.png)
 
@@ -100,9 +100,8 @@ Memory usage increases and request latencies increase as the backend services' l
 ![./loadtests/query_range_dur_50.png](./loadtests/query_range_dur_50.png)
 
 ##### Query Average
-
-> sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) * 100
+> 100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m]))
 > /
-> sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m]))'"$ext"
+> sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m])))'
 
 ![./loadtests/query_range_dur_avg.png](./loadtests/query_range_dur_avg.png)

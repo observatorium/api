@@ -32,7 +32,7 @@ collect() {
     ext=$2
     # export the data for the last hour from http://127.0.0.1:9090
     # See https://github.com/go-pluto/styx for further details.
-    $cmd 'rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 100' >$DATA_DIR/cpu."$ext"
+    $cmd 'rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 1000' >$DATA_DIR/cpu."$ext"
     $cmd 'process_resident_memory_bytes{job="observatorium"}' >$DATA_DIR/mem."$ext"
     $cmd 'go_goroutines{job="observatorium"}' >$DATA_DIR/goroutines."$ext"
 
@@ -42,8 +42,8 @@ collect() {
     $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))' >$DATA_DIR/write_dur_50."$ext"
     $cmd 'histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))' >$DATA_DIR/query_range_dur_50."$ext"
 
-    $cmd 'sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100 / sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m]))' >$DATA_DIR/write_dur_avg."$ext"
-    $cmd 'sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) * 100 / sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m]))' >$DATA_DIR/query_range_dur_avg."$ext"
+    $cmd '100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) / sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m])))' >$DATA_DIR/write_dur_avg."$ext"
+    $cmd '100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m])) / sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m])))' >$DATA_DIR/query_range_dur_avg."$ext"
 }
 
 png() {
