@@ -1,14 +1,25 @@
 {
-    "dependencies": [
-        {
-            "name": "ksonnet",
-            "source": {
-                "git": {
-                    "remote": "https://github.com/ksonnet/ksonnet-lib",
-                    "subdir": ""
-                }
-            },
-            "version": "0d2f82676817bbf9e4acf6495b2090205f323b9f"
+  "version": 1,
+  "dependencies": [
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/ksonnet/ksonnet-lib",
+          "subdir": ""
         }
-    ]
+      },
+      "version": "0d2f82676817bbf9e4acf6495b2090205f323b9f",
+      "name": "ksonnet"
+    },
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/metalmatze/slo-libsonnet",
+          "subdir": "slo-libsonnet"
+        }
+      },
+      "version": "42a8a3e2dd14cc39add753e8bd8788eeb6d7ea39"
+    }
+  ],
+  "legacyImports": true
 }
