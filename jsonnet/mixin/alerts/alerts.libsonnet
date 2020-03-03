@@ -1,7 +1,7 @@
-local latency = import 'slo-libsonnet/latency-burn.libsonnet';
+local slo = import 'slo-libsonnet/latency-burn.libsonnet';
 
 {
-  local write = latency.burn({
+  local write = slo.latencyburn({
     metric: 'http_request_duration_seconds',
     selectors: ['handler="write"'],
     # How much responce delay is too much.
