@@ -57,11 +57,14 @@ github.com/google/go-jsonnet/internal/program
 github.com/grpc-ecosystem/grpc-gateway/internal
 github.com/grpc-ecosystem/grpc-gateway/runtime
 github.com/grpc-ecosystem/grpc-gateway/utilities
-# github.com/jsonnet-bundler/jsonnet-bundler v0.2.0
+# github.com/jsonnet-bundler/jsonnet-bundler v0.3.1
 github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
 github.com/jsonnet-bundler/jsonnet-bundler/pkg
 github.com/jsonnet-bundler/jsonnet-bundler/pkg/jsonnetfile
-github.com/jsonnet-bundler/jsonnet-bundler/spec
+github.com/jsonnet-bundler/jsonnet-bundler/spec/v0
+github.com/jsonnet-bundler/jsonnet-bundler/spec/v1
+github.com/jsonnet-bundler/jsonnet-bundler/spec/v1/deps
+github.com/jsonnet-bundler/jsonnet-bundler/tool/rewrite
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
 # github.com/mattn/go-colorable v0.1.1
