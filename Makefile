@@ -172,9 +172,9 @@ ${MANIFESTS}: $(JSONNET) $(GOJSONTOYAML) jsonnet/main.jsonnet jsonnet/lib/*
 	$(JSONNET) -J jsonnet/vendor -m ${MANIFESTS} jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
 
 .PHONY: jsonnet-vendor
-jsonnet-vendor: $(JSONNET_BUNDLER) jsonnetfile.json
-	rm -rf jsonnet/vendor
-	$(JSONNET_BUNDLER) install --jsonnetpkg-home="jsonnet/vendor"
+jsonnet-vendor: $(JSONNET_BUNDLER) jsonnet/jsonnetfile.json
+	rm -rf jsonnet/vendor/*
+	cd jsonnet && $(JSONNET_BUNDLER) install
 
 JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'jsonnet/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
 JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
