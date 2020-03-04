@@ -1,20 +1,44 @@
-local slo = import 'slo-libsonnet/latency-burn.libsonnet';
+local sloError = import 'slo-libsonnet/error-burn.libsonnet';
+local sloLatency = import 'slo-libsonnet/latency-burn.libsonnet';
 
 {
-  local write = slo.latencyburn({
-    metric: 'http_request_duration_seconds',
+  local metricLatency = 'http_request_duration_seconds',
+  local metricError = 'http_requests_total',
+
+  local writeSLO = {
     selectors: ['handler="write"'],
-    # How much responce delay is too much.
-    latencyTarget: "1",
-    # The 30 days SLO promise.
-    # When the promise is 99% that means that
-    # in 30d can only have 1% queries above the latencyTarget.
-    latencyBudget: 1-0.99,
-  }),
+  },
+
+  local querySLO = {
+    selectors: ['handler="query"'],
+  },
+
+  local queryRangeSLO = {
+    selectors: ['handler="query"'],
+  },
+
+  local burn = [
+    sloLatency.latencyburn(writeSLO { metric: metricLatency, latencyTarget: '1', latencyBudget: 1 - 0.99 }),
+    sloLatency.latencyburn(writeSLO { metric: metricLatency, latencyTarget: '0.2', latencyBudget: 1 - 0.95 }),
+    sloError.errorburn(writeSLO { metric: metricError, errorBudget: 1 - 0.99 }),
+
+    sloLatency.latencyburn(querySLO { metric: metricLatency, latencyTarget: '2.5', latencyBudget: 1 - 0.99 }),
+    sloLatency.latencyburn(querySLO { metric: metricLatency, latencyTarget: '1', latencyBudget: 1 - 0.95 }),
+    sloError.errorburn(querySLO { metric: metricError, errorBudget: 1 - 0.95 }),
+
+    sloLatency.latencyburn(queryRangeSLO { metric: metricLatency, latencyTarget: '1', latencyBudget: 1 - 0.90 }),
+    sloLatency.latencyburn(queryRangeSLO { metric: metricLatency, latencyTarget: '5', latencyBudget: 1 - 0.95 }),
+    sloError.errorburn(queryRangeSLO { metric: metricError, errorBudget: 1 - 0.90 }),
+  ],
 
   prometheusAlerts+:: {
-    // The actual output results.
-    recordingrule: write.recordingrules,
-    alerts: write.alerts,
-  }
+    recordingrule: [
+      l.recordingrules
+      for l in burn
+    ],
+    alerts: [
+      l.alerts
+      for l in burn
+    ],
+  },
 }
