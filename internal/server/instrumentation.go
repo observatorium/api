@@ -34,7 +34,7 @@ func newInstrumentationMiddleware(r prometheus.Registerer) *instrumentationMiddl
 			prometheus.HistogramOpts{
 				Name:    "http_request_duration_seconds",
 				Help:    "Histogram of latencies for HTTP requests.",
-				Buckets: []float64{.1, .2, .4, 1, 3, 8, 20, 60, 120},
+				Buckets: []float64{.1, .2, .4, 1, 2.5, 5, 8, 20, 60, 120},
 			},
 			[]string{"code", "handler", "method"},
 		),
