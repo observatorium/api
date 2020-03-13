@@ -27,7 +27,6 @@ UP ?= $(BIN_DIR)/up
 GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
 EMBEDMD ?= $(BIN_DIR)/embedmd
-JSONNET_VERSION ?= 0.14.0
 JSONNET ?= $(BIN_DIR)/jsonnet
 JSONNET_BUNDLER ?= $(BIN_DIR)/jb
 JSONNET_FMT ?= $(BIN_DIR)/jsonnetfmt
@@ -124,12 +123,8 @@ $(GOJSONTOYAML): vendor $(BIN_DIR)
 $(JSONNET): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
 
-$(JSONNET_FMT): | $(BIN_DIR)
-	cd tmp && curl -Lso - https://github.com/google/jsonnet/archive/v${JSONNET_VERSION}.tar.gz | \
-    tar xfz - -C . && \
-    cd jsonnet-${JSONNET_VERSION} && \
-    make && mv jsonnetfmt $(BIN_DIR) && \
-    rm -rf /tmp/jsonnet-${JSONNET_VERSION}
+$(JSONNET_FMT): vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
 
 $(JSONNET_BUNDLER): vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
