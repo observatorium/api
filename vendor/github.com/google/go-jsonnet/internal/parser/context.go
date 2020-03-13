@@ -155,7 +155,7 @@ func thunkChildren(node ast.Node) []ast.Node {
 	case *ast.Apply:
 		var nodes []ast.Node
 		for _, arg := range node.Arguments.Positional {
-			nodes = append(nodes, arg)
+			nodes = append(nodes, arg.Expr)
 		}
 		for _, arg := range node.Arguments.Named {
 			nodes = append(nodes, arg.Arg)
@@ -164,7 +164,11 @@ func thunkChildren(node ast.Node) []ast.Node {
 	case *ast.ApplyBrace:
 		return nil
 	case *ast.Array:
-		return node.Elements
+		var nodes []ast.Node
+		for _, element := range node.Elements {
+			nodes = append(nodes, element.Expr)
+		}
+		return nodes
 	case *ast.Assert:
 		return nil
 	case *ast.Binary:
@@ -233,7 +237,7 @@ func objectFieldsDirectChildren(fields ast.ObjectFields) ast.Nodes {
 func inObjectFieldsChildren(fields ast.ObjectFields) ast.Nodes {
 	result := ast.Nodes{}
 	for _, field := range fields {
-		if field.MethodSugar {
+		if field.Method != nil {
 			result = append(result, field.Method)
 		} else {
 			if field.Expr2 != nil {
@@ -294,8 +298,10 @@ func specialChildren(node ast.Node) []ast.Node {
 		return nil
 	case *ast.Function:
 		children := []ast.Node{node.Body}
-		for _, child := range node.Parameters.Optional {
-			children = append(children, child.DefaultArg)
+		for _, child := range node.Parameters {
+			if child.DefaultArg != nil {
+				children = append(children, child.DefaultArg)
+			}
 		}
 		return children
 	case *ast.Import:
@@ -385,9 +391,11 @@ func addContext(node ast.Node, context *string, bind string) {
 	case *ast.Function:
 		funContext := functionContext(bind)
 		addContext(node.Body, funContext, anonymous)
-		for i := range node.Parameters.Optional {
-			// Default arguments have the same context as the function body.
-			addContext(node.Parameters.Optional[i].DefaultArg, funContext, anonymous)
+		for i := range node.Parameters {
+			if node.Parameters[i].DefaultArg != nil {
+				// Default arguments have the same context as the function body.
+				addContext(node.Parameters[i].DefaultArg, funContext, anonymous)
+			}
 		}
 	case *ast.Object:
 		// TODO(sbarzowski) include fieldname, maybe even chains
