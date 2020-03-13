@@ -67,7 +67,7 @@ shellcheck: $(SHELLCHECK)
 	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*")
 
 .PHONY: lint
-lint: $(GOLANGCILINT) vendor go-fmt shellcheck
+lint: $(GOLANGCILINT) vendor go-fmt shellcheck jsonnet-fmt
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
