@@ -48,22 +48,34 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	registerProber(r, p)
 
-	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/-/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
-	r.Get("/ui/v1/metrics/*",
-		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsUIEndpoint, options.proxyOptions...)))
+	if options.metricsUIEndpoint != nil {
+		r.Get("/metrics/ui/v1/*",
+			ins.newHandler("ui", proxy.New(logger, "/metrics/ui/v1/", options.metricsUIEndpoint, options.proxyOptions...)))
+	}
 
-	queryPath := "/api/v1/metrics/query"
-	r.Mount(queryPath,
-		ins.newHandler("query", proxy.New(logger, queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
+	if options.metricsQueryEndpoint != nil {
+		queryPath := "/metrics/api/v1/query"
+		r.Mount(queryPath,
+			ins.newHandler("query", proxy.New(logger, queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
+	}
 
-	queryRangePath := "/api/v1/metrics/query_range"
-	r.Mount(queryRangePath,
-		ins.newHandler("query_range", proxy.New(logger, queryRangePath, options.metricsQueryEndpoint, options.proxyOptions...)))
+	if options.metricsQueryRangeEndpoint != nil {
+		queryRangePath := "/metrics/api/v1/query_range"
+		r.Mount(queryRangePath,
+			ins.newHandler("query_range", proxy.New(logger, queryRangePath, options.metricsQueryRangeEndpoint, options.proxyOptions...)))
+	}
 
-	writePath := "/api/v1/metrics/write"
+	if options.metricsReadEndpoint != nil {
+		readPath := "/metrics/api/v1/*"
+		r.Get(readPath,
+			ins.newHandler("read", proxy.New(logger, "/metrics/api/v1/", options.metricsReadEndpoint, options.proxyOptions...)))
+	}
+
+	writePath := "/metrics/api/v1/write"
 	r.Post(writePath,
 		ins.newHandler("write", proxy.New(logger, writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
 
