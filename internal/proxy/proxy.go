@@ -49,11 +49,13 @@ func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *P
 			r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
 
+		level.Debug(logger).Log("endpoint scheme", endpoint.Scheme, "endpoint host", endpoint.Host, "prefix", prefix, "path", r.URL.Path)
+
 		r.URL.Scheme = endpoint.Scheme
 		r.URL.Host = endpoint.Host
 		r.URL.Path = path.Join(endpoint.Path, strings.TrimPrefix(r.URL.Path, prefix))
 
-		log.With(level.Debug(logger)).Log("scheme", r.URL.Scheme, "host", r.URL.Host, "path", r.URL.Path)
+		level.Debug(logger).Log("scheme", r.URL.Scheme, "host", r.URL.Host, "path", r.URL.Path)
 	}
 	stdErrlogger := stdlog.New(log.NewStdlibAdapter(level.Error(logger)), "", stdlog.Lshortfile)
 

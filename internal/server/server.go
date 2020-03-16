@@ -48,36 +48,39 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	registerProber(r, p)
 
-	r.Get("/-/metrics", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
 	if options.metricsUIEndpoint != nil {
-		r.Get("/metrics/ui/v1/*",
-			ins.newHandler("ui", proxy.New(logger, "/metrics/ui/v1/", options.metricsUIEndpoint, options.proxyOptions...)))
+		r.Get("/ui/metrics/v1/*",
+			ins.newHandler("ui", proxy.New(logger, "/ui/metrics/v1", options.metricsUIEndpoint, options.proxyOptions...)))
 	}
 
-	if options.metricsQueryEndpoint != nil {
-		queryPath := "/metrics/api/v1/query"
-		r.Mount(queryPath,
-			ins.newHandler("query", proxy.New(logger, queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
-	}
+	namespace := "/api/metrics/v1"
+	r.Route(namespace, func(r chi.Router) {
+		if options.metricsQueryEndpoint != nil {
+			queryPath := "/api/v1/query"
+			r.Mount(queryPath,
+				ins.newHandler("query", proxy.New(logger, namespace+queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
+		}
 
-	if options.metricsQueryRangeEndpoint != nil {
-		queryRangePath := "/metrics/api/v1/query_range"
-		r.Mount(queryRangePath,
-			ins.newHandler("query_range", proxy.New(logger, queryRangePath, options.metricsQueryRangeEndpoint, options.proxyOptions...)))
-	}
+		if options.metricsQueryRangeEndpoint != nil {
+			queryRangePath := "/api/v1/query_range"
+			r.Mount(queryRangePath,
+				ins.newHandler("query_range", proxy.New(logger, namespace+queryRangePath, options.metricsQueryRangeEndpoint, options.proxyOptions...)))
+		}
 
-	if options.metricsReadEndpoint != nil {
-		readPath := "/metrics/api/v1/*"
-		r.Get(readPath,
-			ins.newHandler("read", proxy.New(logger, "/metrics/api/v1/", options.metricsReadEndpoint, options.proxyOptions...)))
-	}
+		if options.metricsReadEndpoint != nil {
+			readPath := "/api/v1/*"
+			r.Get(readPath,
+				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1/", options.metricsReadEndpoint, options.proxyOptions...)))
+		}
 
-	writePath := "/metrics/api/v1/write"
-	r.Post(writePath,
-		ins.newHandler("write", proxy.New(logger, writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+		writePath := "/write"
+		r.Post(writePath,
+			ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+	})
 
 	if options.profile {
 		registerProfiler(r)

@@ -34,7 +34,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
     --log.level=debug \
-    --web.external-prefix=/metrics/ui/v1
+    --web.external-prefix=/ui/metrics/v1
 ) &
 
 echo "## waiting for dependencies to come up..."
@@ -42,8 +42,8 @@ sleep 5
 
 if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
-  --endpoint-read=http://127.0.0.1:8080/metrics/api/v1/query \
-  --endpoint-write=http://127.0.0.1:8080/metrics/api/v1/write \
+  --endpoint-read=http://127.0.0.1:8080/api/metrics/v1/api/v1/query \
+  --endpoint-write=http://127.0.0.1:8080/api/metrics/v1/write \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \
