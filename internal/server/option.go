@@ -10,8 +10,8 @@ import (
 type options struct {
 	gracePeriod          time.Duration
 	timeout              time.Duration
-	metricsQueryEndpoint *url.URL
 	metricsUIEndpoint    *url.URL
+	metricsReadEndpoint  *url.URL
 	metricsWriteEndpoint *url.URL
 	profile              bool
 	listen               string
@@ -51,10 +51,10 @@ func WithTimeout(t time.Duration) Option {
 	})
 }
 
-// WithMetricQueryEndpoint TODO
-func WithMetricQueryEndpoint(u *url.URL) Option {
+// WithMetricReadEndpoint TODO
+func WithMetricReadEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
-		o.metricsQueryEndpoint = u
+		o.metricsReadEndpoint = u
 	})
 }
 

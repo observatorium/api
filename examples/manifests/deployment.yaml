@@ -31,7 +31,7 @@ spec:
       - args:
         - --web.listen=0.0.0.0:8080
         - --metrics.ui.endpoint=http://127.0.0.1:9091/
-        - --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query
+        - --metrics.read.endpoint=http://127.0.0.1:9091/api/v1
         - --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
         - --log.level=warn
         image: quay.io/observatorium/observatorium:master-2020-01-28-e009b4a

@@ -40,6 +40,7 @@ func (p *Prober) handler(check Check) http.HandlerFunc {
 			http.Error(w, "NOT OK", http.StatusServiceUnavailable)
 			return
 		}
+
 		if _, err := io.WriteString(w, "OK"); err != nil {
 			level.Error(p.logger).Log("msg", "failed to write probe response", "err", err)
 		}

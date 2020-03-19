@@ -107,7 +107,7 @@ test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
-$(THANOS): $(BIN_DIR)
+$(THANOS): | $(BIN_DIR)
 	@echo "Downloading Thanos"
 	curl -L "https://github.com/thanos-io/thanos/releases/download/v$(THANOS_VERSION)/thanos-$(THANOS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
 
@@ -153,7 +153,7 @@ CONTAINER_CMD:=docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 .PHONY: generate
-generate: jsonnet-vendor ${MANIFESTS}
+generate: jsonnet-vendor ${MANIFESTS} README.md
 
 .PHONY: generate-in-docker
 generate-in-docker:

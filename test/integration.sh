@@ -12,7 +12,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
   ./observatorium \
     --web.listen=0.0.0.0:8080 \
     --metrics.ui.endpoint=http://127.0.0.1:9091/ \
-    --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query \
+    --metrics.read.endpoint=http://127.0.0.1:9091/api/v1 \
     --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive \
     --log.level=debug
 ) &
@@ -32,7 +32,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
     --log.level=debug \
-    --web.external-prefix=http://localhost:8080/ui/v1/metrics
+    --web.external-prefix=/ui/metrics/v1
 ) &
 
 echo "## waiting for dependencies to come up..."
@@ -40,8 +40,8 @@ sleep 5
 
 if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
-  --endpoint-read=http://127.0.0.1:8080/api/v1/metrics/query \
-  --endpoint-write=http://127.0.0.1:8080/api/v1/metrics/write \
+  --endpoint-read=http://127.0.0.1:8080/api/metrics/v1/api/v1/query \
+  --endpoint-write=http://127.0.0.1:8080/api/metrics/v1/write \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \

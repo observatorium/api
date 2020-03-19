@@ -52,20 +52,23 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
-	r.Get("/ui/v1/metrics/*",
-		ins.newHandler("ui", proxy.New(logger, "/ui/v1/metrics", options.metricsUIEndpoint, options.proxyOptions...)))
+	if options.metricsUIEndpoint != nil {
+		r.Get("/ui/metrics/v1/*",
+			ins.newHandler("ui", proxy.New(logger, "/ui/metrics/v1", options.metricsUIEndpoint, options.proxyOptions...)))
+	}
 
-	queryPath := "/api/v1/metrics/query"
-	r.Mount(queryPath,
-		ins.newHandler("query", proxy.New(logger, queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
+	namespace := "/api/metrics/v1"
+	r.Route(namespace, func(r chi.Router) {
+		if options.metricsReadEndpoint != nil {
+			readPath := "/api/v1/*"
+			r.Get(readPath,
+				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
+		}
 
-	queryRangePath := "/api/v1/metrics/query_range"
-	r.Mount(queryRangePath,
-		ins.newHandler("query_range", proxy.New(logger, queryRangePath, options.metricsQueryEndpoint, options.proxyOptions...)))
-
-	writePath := "/api/v1/metrics/write"
-	r.Post(writePath,
-		ins.newHandler("write", proxy.New(logger, writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+		writePath := "/write"
+		r.Post(writePath,
+			ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+	})
 
 	if options.profile {
 		registerProfiler(r)

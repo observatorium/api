@@ -10,7 +10,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     image: error 'must provide image',
     replicas: error 'must provide replicas',
     uiEndpoint: error 'must provide uiEndpoint',
-    queryEndpoint: error 'must provide queryEndpoint',
+    readEnpoint: error 'must provide readEnpoint',
     writeEndpoint: error 'must provide writeEndpoint',
 
     commonLabels:: {
@@ -51,7 +51,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.withArgs([
         '--web.listen=0.0.0.0:8080',
         '--metrics.ui.endpoint=' + gateway.config.uiEndpoint,
-        '--metrics.query.endpoint=' + gateway.config.queryEndpoint,
+        '--metrics.read.endpoint=' + gateway.config.readEndpoint,
         '--metrics.write.endpoint=' + gateway.config.writeEndpoint,
         '--log.level=warn',
       ]) +
