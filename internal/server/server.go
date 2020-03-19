@@ -59,22 +59,10 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	namespace := "/api/metrics/v1"
 	r.Route(namespace, func(r chi.Router) {
-		if options.metricsQueryEndpoint != nil {
-			queryPath := "/api/v1/query"
-			r.Mount(queryPath,
-				ins.newHandler("query", proxy.New(logger, namespace+queryPath, options.metricsQueryEndpoint, options.proxyOptions...)))
-		}
-
-		if options.metricsQueryRangeEndpoint != nil {
-			queryRangePath := "/api/v1/query_range"
-			r.Mount(queryRangePath,
-				ins.newHandler("query_range", proxy.New(logger, namespace+queryRangePath, options.metricsQueryRangeEndpoint, options.proxyOptions...)))
-		}
-
 		if options.metricsReadEndpoint != nil {
 			readPath := "/api/v1/*"
 			r.Get(readPath,
-				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1/", options.metricsReadEndpoint, options.proxyOptions...)))
+				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
 		}
 
 		writePath := "/write"

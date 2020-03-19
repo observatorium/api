@@ -13,8 +13,6 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --web.listen=0.0.0.0:8080 \
     --metrics.ui.endpoint=http://127.0.0.1:9091/ \
     --metrics.read.endpoint=http://127.0.0.1:9091/api/v1 \
-    --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query \
-    --metrics.query-range.endpoint=http://127.0.0.1:9091/api/v1/query_range \
     --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive \
     --log.level=debug
 ) &

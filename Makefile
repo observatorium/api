@@ -158,7 +158,7 @@ CONTAINER_CMD:=docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 .PHONY: generate
-generate: jsonnet-vendor ${MANIFESTS}
+generate: jsonnet-vendor ${MANIFESTS} README.md
 
 .PHONY: generate-in-docker
 generate-in-docker:

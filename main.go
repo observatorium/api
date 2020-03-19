@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"net/url"
@@ -39,11 +38,9 @@ type options struct {
 	logLevel  string
 	logFormat string
 
-	metricsReadEndpoint       *url.URL
-	metricsQueryEndpoint      *url.URL
-	metricsQueryRangeEndpoint *url.URL
-	metricsUIEndpoint         *url.URL
-	metricsWriteEndpoint      *url.URL
+	metricsUIEndpoint    *url.URL
+	metricsReadEndpoint  *url.URL
+	metricsWriteEndpoint *url.URL
 }
 
 func main() {
@@ -112,10 +109,8 @@ func exec(logger log.Logger, reg *prometheus.Registry, opts options) error {
 			server.WithGracePeriod(opts.gracePeriod),
 			server.WithTimeout(opts.timeout),
 			server.WithProfile(os.Getenv("PROFILE") != ""),
-			server.WithMetricReadEndpoint(opts.metricsReadEndpoint),
-			server.WithMetricQueryEndpoint(opts.metricsQueryEndpoint),
-			server.WithMetricQueryRangeEndpoint(opts.metricsQueryRangeEndpoint),
 			server.WithMetricUIEndpoint(opts.metricsUIEndpoint),
+			server.WithMetricReadEndpoint(opts.metricsReadEndpoint),
 			server.WithMetricWriteEndpoint(opts.metricsWriteEndpoint),
 			server.WithProxyOptions(
 				proxy.WithBufferCount(opts.proxyBufferCount),
@@ -131,11 +126,9 @@ func exec(logger log.Logger, reg *prometheus.Registry, opts options) error {
 
 func parseFlags(logger log.Logger) (options, error) {
 	var (
-		rawMetricsReadEndpoint       string
-		rawMetricsQueryEndpoint      string
-		rawMetricsQueryRangeEndpoint string
-		rawMetricsUIEndpoint         string
-		rawMetricsWriteEndpoint      string
+		rawMetricsUIEndpoint    string
+		rawMetricsReadEndpoint  string
+		rawMetricsWriteEndpoint string
 	)
 
 	opts := options{}
@@ -158,10 +151,6 @@ func parseFlags(logger log.Logger) (options, error) {
 		"The maximum duration before timing out the request, and closing idle connections.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
-	flag.StringVar(&rawMetricsQueryEndpoint, "metrics.query.endpoint", "",
-		"The endpoint against which to query for metrics.")
-	flag.StringVar(&rawMetricsQueryRangeEndpoint, "metrics.query-range.endpoint", "",
-		"The endpoint against which to query for metrics.")
 	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "",
 		"The endpoint which forward ui requests.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
@@ -175,41 +164,6 @@ func parseFlags(logger log.Logger) (options, error) {
 			"A negative value means to flush immediately after each write to the client.")
 	flag.Parse()
 
-	if rawMetricsReadEndpoint != "" {
-		metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
-		if err != nil {
-			return opts, fmt.Errorf("--metrics.read.endpoint is invalid, raw %s: %w", rawMetricsReadEndpoint, err)
-		}
-
-		opts.metricsReadEndpoint = metricsReadEndpoint
-	}
-
-	if rawMetricsQueryEndpoint != "" {
-		metricsQueryEndpoint, err := url.ParseRequestURI(rawMetricsQueryEndpoint)
-		if err != nil {
-			return opts, fmt.Errorf("--metrics.query.endpoint is invalid, raw %s: %w", rawMetricsQueryEndpoint, err)
-		}
-
-		opts.metricsQueryEndpoint = metricsQueryEndpoint
-	}
-
-	if rawMetricsQueryRangeEndpoint != "" {
-		metricsQueryRangeEndpoint, err := url.ParseRequestURI(rawMetricsQueryRangeEndpoint)
-		if err != nil {
-			return opts, fmt.Errorf("--metrics.query-range.endpoint is invalid, raw %s: %w", rawMetricsQueryRangeEndpoint, err)
-		}
-
-		opts.metricsQueryRangeEndpoint = metricsQueryRangeEndpoint
-	}
-
-	if opts.metricsReadEndpoint == nil {
-		level.Info(logger).Log("msg", "--metrics.read.endpoint is not specified")
-
-		if opts.metricsQueryEndpoint == nil || opts.metricsQueryRangeEndpoint == nil {
-			return opts, errors.New("--metrics.query.endpoint and --metrics.query-range.endpoint have to be specified")
-		}
-	}
-
 	if rawMetricsUIEndpoint != "" {
 		level.Info(logger).Log("msg", "--metrics.ui.endpoint is not specified, UI will not be accessible")
 
@@ -220,6 +174,13 @@ func parseFlags(logger log.Logger) (options, error) {
 
 		opts.metricsUIEndpoint = metricsUIEndpoint
 	}
+
+	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
+	if err != nil {
+		return opts, fmt.Errorf("--metrics.read.endpoint is invalid, raw %s: %w", rawMetricsReadEndpoint, err)
+	}
+
+	opts.metricsReadEndpoint = metricsReadEndpoint
 
 	metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
 	if err != nil {

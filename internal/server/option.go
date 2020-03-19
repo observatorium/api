@@ -8,15 +8,13 @@ import (
 )
 
 type options struct {
-	gracePeriod               time.Duration
-	timeout                   time.Duration
-	metricsReadEndpoint       *url.URL
-	metricsQueryEndpoint      *url.URL
-	metricsQueryRangeEndpoint *url.URL
-	metricsUIEndpoint         *url.URL
-	metricsWriteEndpoint      *url.URL
-	profile                   bool
-	listen                    string
+	gracePeriod          time.Duration
+	timeout              time.Duration
+	metricsUIEndpoint    *url.URL
+	metricsReadEndpoint  *url.URL
+	metricsWriteEndpoint *url.URL
+	profile              bool
+	listen               string
 
 	proxyOptions []proxy.Option
 }
@@ -57,20 +55,6 @@ func WithTimeout(t time.Duration) Option {
 func WithMetricReadEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
 		o.metricsReadEndpoint = u
-	})
-}
-
-// WithMetricQueryEndpoint TODO
-func WithMetricQueryEndpoint(u *url.URL) Option {
-	return optionFunc(func(o *options) {
-		o.metricsQueryEndpoint = u
-	})
-}
-
-// WithMetricQueryEndpoint TODO
-func WithMetricQueryRangeEndpoint(u *url.URL) Option {
-	return optionFunc(func(o *options) {
-		o.metricsQueryRangeEndpoint = u
 	})
 }
 

@@ -57,12 +57,12 @@ func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *P
 
 		level.Debug(logger).Log("scheme", r.URL.Scheme, "host", r.URL.Host, "path", r.URL.Path)
 	}
-	stdErrlogger := stdlog.New(log.NewStdlibAdapter(level.Error(logger)), "", stdlog.Lshortfile)
+	stdErrLogger := stdlog.New(log.NewStdlibAdapter(level.Error(logger)), "", stdlog.Lshortfile)
 
 	rev := httputil.ReverseProxy{
 		BufferPool:    bufferPool,
 		Director:      director,
-		ErrorLog:      stdErrlogger,
+		ErrorLog:      stdErrLogger,
 		FlushInterval: options.flushInterval,
 	}
 

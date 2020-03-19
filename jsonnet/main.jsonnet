@@ -7,7 +7,7 @@ local gateway = (import 'lib/observatorium-api.libsonnet') {
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
     uiEndpoint: 'http://127.0.0.1:9091/',
-    queryEndpoint: 'http://127.0.0.1:9091/api/v1/query',
+    readEndpoint: 'http://127.0.0.1:9091/api/v1',
     writeEndpoint: 'http://127.0.0.1:19291/api/v1/receive',
   },
 };
