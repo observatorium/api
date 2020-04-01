@@ -106,7 +106,7 @@ func main() {
 	var listen string
 	flag.StringVar(&listen, "listen", ":8888", "The address on which internal server runs.")
 
-	http.HandleFunc("/query", queryHandler(data)) // TODO: Randomize results.
+	http.HandleFunc("/query", queryHandler(data))            // TODO: Randomize results.
 	http.HandleFunc("/query_range", queryHandler(rangeData)) // TODO: Randomize results.
 	http.HandleFunc("/write", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

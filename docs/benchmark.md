@@ -32,13 +32,13 @@ $ ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 ```
 
 > It runs tets for 5 minutes, simulating 3000 machines sending metrics and 10 consumers querying for their data every second.
-> Observatorim API GW runs in-front of a mock provider which always responses with success.
+> Observatorim API GW runs in-front of a mock provider which always responds with a successful response.
 
 ## Results
 
 Most relevant results are the ones on resource consumption.
 CPU usage is pretty much stable.
-Memory usage correlates with number of goroutine, which correlates number of open connections.
+Memory usage correlates with the number of goroutines, which correlates the number of open connections.
 Memory usage increases and request latencies increase as the backend services' load increase, which is expected.
 
 ### Resource consumption

@@ -145,9 +145,9 @@ func parseFlags(logger log.Logger) (options, error) {
 		"The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&opts.listen, "web.listen", ":8080",
 		"The address on which internal server runs.")
-	flag.DurationVar(&opts.gracePeriod, "web.grace-period", 5*time.Second,
+	flag.DurationVar(&opts.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
 		"The time to wait after an OS interrupt received.")
-	flag.DurationVar(&opts.timeout, "web.timeout", 5*time.Minute,
+	flag.DurationVar(&opts.timeout, "web.timeout", server.DefaultTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")

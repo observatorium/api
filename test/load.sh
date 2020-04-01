@@ -175,10 +175,13 @@ sleep 5
 ) &
 
 printf "\tRunning...\n"
+
 sleep "$run_for"
+
 printf "\tFinished, after %s seconds.\n" "$run_for"
 
 generate_report "$output_format"
+
 printf "\tDone.\n"
 
 exit $?
