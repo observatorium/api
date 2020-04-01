@@ -72,9 +72,7 @@ plot() {
     linux)
         ./observatorium \
             --web.listen=0.0.0.0:8080 \
-            --metrics.ui.endpoint=http://127.0.0.1:9091/ \
-            --metrics.query.endpoint=http://127.0.0.1:9091/api/v1/query \
-            --metrics.query-range.endpoint=http://127.0.0.1:9091/api/v1/query_range \
+            --metrics.read.endpoint=http://127.0.0.1:9091/api/v1 \
             --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
         ;;
 
@@ -82,10 +80,8 @@ plot() {
         docker run --rm -u="$(id -u):$(id -g)" -e USER=deadbeef -p 8080:8080 \
             quay.io/observatorium/observatorium \
             --web.listen=0.0.0.0:8080 \
-            --metrics.ui.endpoint=http://host.docker.internal:9091/ \
-            --metrics.query.endpoint=http://host.docker.internal:9091/api/v1/query \
-            --metrics.query-range.endpoint=http://host.docker.internal:9091/api/v1/query_range \
-            --metrics.write.endpoint=http://host.docker.internal:19291/api/v1/receive
+            --metrics.read.endpoint=http://host.docker.internal:8888/ \
+            --metrics.write.endpoint=http://host.docker.internal:8888/write
         ;;
     *)
         echo "unknown platform: $platform"
@@ -169,11 +165,11 @@ sleep 5
 (
     $BIN_DIR/promremotebench \
         -query=true \
-        -query-target=http://localhost:8080/api/v1/metrics/query_range \
+        -query-target=http://127.0.0.1:8080/api/metrics/v1/api/v1/query_range \
         -query-step=30s \
         -query-concurrency="$number_of_concurrent_queries" \
         -write=true \
-        -target=http://localhost:8080/api/v1/metrics/write \
+        -target=http://127.0.0.1:8080/api/metrics/v1/write \
         -hosts="$hosts" \
         -interval=5
 ) &
