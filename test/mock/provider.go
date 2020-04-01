@@ -1,21 +1,132 @@
 // +build tools
 
-package mock
+package main
 
 import (
+	"encoding/json"
+	"flag"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/pkg/timestamp"
+	"github.com/prometheus/prometheus/promql"
+)
+
+type response struct {
+	Status    string      `json:"status"`
+	Data      interface{} `json:"data,omitempty"`
+	ErrorType string      `json:"errorType,omitempty"`
+	Error     string      `json:"error,omitempty"`
+	Warnings  []string    `json:"warnings,omitempty"`
+}
+type queryData struct {
+	ResultType promql.ValueType `json:"resultType"`
+	Result     promql.Value     `json:"result"`
+}
+
+var (
+	data = queryData{
+		ResultType: promql.ValueTypeScalar,
+		Result: promql.Scalar{
+			V: 0.333,
+			T: timestamp.FromTime(time.Unix(0, 0).Add(123 * time.Second)),
+		},
+	}
+
+	rangeData = queryData{
+		ResultType: promql.ValueTypeVector,
+		Result: promql.Vector{
+			{
+				Metric: labels.Labels{
+					{
+						Name:  "__name__",
+						Value: "test_metric",
+					},
+					{
+						Name:  "foo",
+						Value: "bar",
+					},
+					{
+						Name:  "replica",
+						Value: "a",
+					},
+				},
+				Point: promql.Point{
+					T: 123000,
+					V: 2,
+				},
+			},
+			{
+				Metric: labels.Labels{
+					{
+						Name:  "__name__",
+						Value: "test_metric",
+					},
+					{
+						Name:  "foo",
+						Value: "bar",
+					},
+					{
+						Name:  "a",
+						Value: "a",
+					},
+				},
+				Point: promql.Point{
+					T: 123000,
+					V: 2,
+				},
+			},
+			{
+				Metric: labels.Labels{
+					{
+						Name:  "__name__",
+						Value: "test_metric",
+					},
+					{
+						Name:  "foo",
+						Value: "bar",
+					},
+					{
+						Name:  "b",
+						Value: "b",
+					},
+				},
+				Point: promql.Point{
+					T: 123000,
+					V: 2,
+				},
+			},
+		},
+	}
 )
 
 func main() {
-	http.HandleFunc("/read", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		// TODO:: Write some bytes
-	})
+	var listen string
+	flag.StringVar(&listen, "listen", ":8888", "The address on which internal server runs.")
 
+	http.HandleFunc("/query", queryHandler(data)) // TODO: Randomize results.
+	http.HandleFunc("/query_range", queryHandler(rangeData)) // TODO: Randomize results.
 	http.HandleFunc("/write", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("start listening...")
+	log.Fatal(http.ListenAndServe(listen, nil))
+}
+
+func queryHandler(data queryData) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		resp := &response{
+			Status: "success",
+			Data:   data,
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
 }

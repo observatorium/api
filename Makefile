@@ -27,6 +27,7 @@ PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
 
 UP ?= $(BIN_DIR)/up
+MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 PROMREMOTEBENCH ?= $(BIN_DIR)/promremotebench
 PROMREMOTEBENCH_VERSION ?= 0.8.0
 STYX ?= $(BIN_DIR)/styx
@@ -125,7 +126,7 @@ container-push: container
 integration-test-dependencies: $(THANOS) $(UP)
 
 .PHONY: load-test-dependencies
-load-test-dependencies: $(THANOS) $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX)
+load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -140,6 +141,9 @@ $(PROMETHEUS): | $(BIN_DIR)
 
 $(UP): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up
+
+$(MOCKPROVIDER): | vendor $(BIN_DIR)
+	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/mock
 
 $(PROMREMOTEBENCH): | vendor $(BIN_DIR)
 	mkdir -p $(TMP_DIR)/promremotebench
@@ -172,7 +176,7 @@ $(GOLANGCILINT):
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
 $(SHELLCHECK): $(BIN_DIR)
-	@echo "Downloading Shellcheck"Makefile
+	@echo "Downloading Shellcheck"
 	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 # Jsonnet and Example manifests

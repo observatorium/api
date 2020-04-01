@@ -94,23 +94,8 @@ plot() {
 ) &
 
 (
-    $BIN_DIR/thanos receive \
-        --debug.name=receive \
-        --log.level=warn \
-        --grpc-address=127.0.0.1:10901 \
-        --http-address=127.0.0.1:10902 \
-        --remote-write.address=127.0.0.1:19291 \
-        --tsdb.path="$(mktemp -d)"
-) &
-
-(
-    $BIN_DIR/thanos query \
-        --debug.name=query \
-        --log.level=warn \
-        --grpc-address=127.0.0.1:10911 \
-        --http-address=127.0.0.1:9091 \
-        --store=127.0.0.1:10901 \
-        --web.external-prefix=http://127.0.0.1:8080/ui/v1/metrics
+    $BIN_DIR/mockprovider \
+        --listen=0.0.0.0:8888
 ) &
 
 (

@@ -32,7 +32,7 @@ $ ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 ```
 
 > It runs tets for 5 minutes, simulating 3000 machines sending metrics and 10 consumers querying for their data every second.
-> Observatorim API GW runs in-front of 1 Thanos Receive and 1 Thanos Querier.
+> Observatorim API GW runs in-front of a mock provider which always responses with success.
 
 ## Results
 
