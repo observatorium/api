@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"net/http"
-	"net/http/pprof"
 	"time"
 
 	"github.com/observatorium/observatorium/internal/proxy"
@@ -46,6 +45,10 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(options.timeout))
 
+	if options.profile {
+		r.Mount("/debug", middleware.Profiler())
+	}
+
 	registerProber(r, p)
 
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -69,10 +72,6 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		r.Post(writePath,
 			ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
 	})
-
-	if options.profile {
-		registerProfiler(r)
-	}
 
 	p.Healthy()
 
@@ -109,14 +108,6 @@ func (s *Server) Shutdown(err error) {
 	if err := s.srv.Shutdown(ctx); err != nil {
 		level.Error(s.logger).Log("msg", "shutting down failed", "err", err)
 	}
-}
-
-func registerProfiler(r *chi.Mux) {
-	r.Get("/debug/pprof/", pprof.Index)
-	r.Get("/debug/pprof/cmdline", pprof.Cmdline)
-	r.Get("/debug/pprof/profile", pprof.Profile)
-	r.Get("/debug/pprof/symbol", pprof.Symbol)
-	r.Get("/debug/pprof/trace", pprof.Trace)
 }
 
 func registerProber(r *chi.Mux, p *prober.Prober) {
