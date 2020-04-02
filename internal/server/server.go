@@ -55,8 +55,10 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	registerProber(r, p)
 
+	uiPath := "/ui/metrics/v1"
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/ui/v1/metrics/graph", http.StatusMovedPermanently)
+		http.Redirect(w, r, uiPath+"/graph", http.StatusMovedPermanently)
 	})
 
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -64,8 +66,8 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	})
 
 	if options.metricsUIEndpoint != nil {
-		r.Get("/ui/metrics/v1/*",
-			ins.newHandler("ui", proxy.New(logger, "/ui/metrics/v1", options.metricsUIEndpoint, options.proxyOptions...)))
+		r.Get(uiPath+"/*",
+			ins.newHandler("ui", proxy.New(logger, uiPath, options.metricsUIEndpoint, options.proxyOptions...)))
 	}
 
 	namespace := "/api/metrics/v1"
@@ -99,10 +101,6 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/ui/v1/metrics/status", http.StatusMovedPermanently)
 	})
-
-	if options.profile {
-		registerProfiler(r)
-	}
 
 	p.Healthy()
 
