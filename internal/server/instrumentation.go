@@ -42,7 +42,7 @@ func newInstrumentationMiddleware(r prometheus.Registerer) *instrumentationMiddl
 			prometheus.HistogramOpts{
 				Name:    "http_response_size_bytes",
 				Help:    "Histogram of response size for HTTP requests.",
-				Buckets: prometheus.ExponentialBuckets(100, 10, 8),
+				Buckets: prometheus.ExponentialBuckets(100, 10, 8), //nolint:gomnd
 			},
 			[]string{"code", "handler", "method"},
 		),

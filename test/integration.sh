@@ -35,7 +35,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --web.external-prefix=/ui/metrics/v1
 ) &
 
-echo "## waiting for dependencies to come up..."
+printf "\t## waiting for dependencies to come up..."
 sleep 5
 
 if ./tmp/bin/up \
@@ -51,10 +51,10 @@ if ./tmp/bin/up \
   --name=observatorium_write \
   --labels='_id="test"'; then
   result=0
-  echo "## tests: ok"
+  printf "\t## tests: ok"
   exit 0
 fi
 
-echo "## tests: failed" 1>&2
+printf "\t## tests: failed" 1>&2
 result=1
 exit 1

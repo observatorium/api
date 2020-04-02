@@ -17,6 +17,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+const DefaultGracePeriod = 5 * time.Second
+const DefaultTimeout = 5 * time.Minute
+
 // Server TODO
 type Server struct {
 	logger log.Logger
@@ -29,7 +32,7 @@ type Server struct {
 // New creates a new Server
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	options := options{
-		gracePeriod: 5 * time.Second,
+		gracePeriod: DefaultGracePeriod,
 		profile:     false,
 	}
 
@@ -60,8 +63,13 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	namespace := "/api/metrics/v1"
 	r.Route(namespace, func(r chi.Router) {
 		if options.metricsReadEndpoint != nil {
-			readPath := "/api/v1/*"
-			r.Get(readPath,
+			r.Get("/api/v1/query",
+				ins.newHandler("query", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
+
+			r.Get("/api/v1/query_range",
+				ins.newHandler("query_range", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
+
+			r.Get("/api/v1/*",
 				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
 		}
 
