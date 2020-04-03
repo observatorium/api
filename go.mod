@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/brancz/gojsontoyaml v0.0.0-20191212081931-bf2969bbd742
+	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/campoy/embedmd v1.0.0
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-kit/kit v0.10.0
@@ -25,4 +26,5 @@ require (
 	golang.org/x/sys v0.0.0-20200331124033-c3d80250170d // indirect
 	google.golang.org/genproto v0.0.0-20200401122417-09ab7b7031d2 // indirect
 	google.golang.org/grpc v1.28.0 // indirect
+	k8s.io/component-base v0.18.0
 )

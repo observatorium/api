@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"net/url"
 	"time"
 
@@ -8,13 +9,16 @@ import (
 )
 
 type options struct {
-	gracePeriod          time.Duration
-	timeout              time.Duration
+	gracePeriod time.Duration
+	timeout     time.Duration
+	tlsConfig   *tls.Config
+
 	metricsUIEndpoint    *url.URL
 	metricsReadEndpoint  *url.URL
 	metricsWriteEndpoint *url.URL
-	profile              bool
-	listen               string
+
+	profile bool
+	listen  string
 
 	proxyOptions []proxy.Option
 }
@@ -48,6 +52,13 @@ func WithListen(s string) Option {
 func WithTimeout(t time.Duration) Option {
 	return optionFunc(func(o *options) {
 		o.timeout = t
+	})
+}
+
+// WithTLSConfig TODO
+func WithTLSConfig(c *tls.Config) Option {
+	return optionFunc(func(o *options) {
+		o.tlsConfig = c
 	})
 }
 

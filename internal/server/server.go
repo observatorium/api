@@ -108,8 +108,12 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	return Server{
 		logger: logger,
 		prober: p,
-		srv:    &http.Server{Addr: options.listen, Handler: r},
-		opts:   options,
+		srv: &http.Server{
+			Addr:      options.listen,
+			Handler:   r,
+			TLSConfig: options.tlsConfig,
+		},
+		opts: options,
 	}
 }
 
@@ -117,6 +121,11 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 func (s *Server) ListenAndServe() error {
 	level.Info(s.logger).Log("msg", "starting the HTTP server", "address", s.opts.listen)
 	s.prober.Ready()
+
+	if s.opts.tlsConfig != nil {
+		// certFile and keyFile passed in TLSConfig at initialization.
+		return s.srv.ListenAndServeTLS("", "")
+	}
 
 	return s.srv.ListenAndServe()
 }
@@ -130,8 +139,15 @@ func (s *Server) Shutdown(err error) {
 		return
 	}
 
-	ctx, c := context.WithTimeout(context.Background(), s.opts.gracePeriod)
-	defer c()
+	if s.opts.gracePeriod == 0 {
+		level.Info(s.logger).Log("msg", "immediately closing internal server")
+		s.srv.Close()
+
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), s.opts.gracePeriod)
+	defer cancel()
 
 	level.Info(s.logger).Log("msg", "shutting down internal server")
 
