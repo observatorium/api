@@ -30,20 +30,25 @@ type config struct {
 	logLevel  string
 	logFormat string
 
-	listen      string
-	gracePeriod time.Duration
-	timeout     time.Duration
-
 	debug   debugConfig
+	server  serverConfig
 	tls     tlsConfig
-	proxy   proxyConfig
 	metrics metricsConfig
+	proxy   proxyConfig
 }
 
 type debugConfig struct {
 	mutexProfileFraction int
 	blockProfileRate     int
 	name                 string
+}
+
+type serverConfig struct {
+	listen         string
+	gracePeriod    time.Duration
+	requestTimeout time.Duration
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
 }
 
 type tlsConfig struct {
@@ -55,16 +60,22 @@ type tlsConfig struct {
 	reloadInterval time.Duration
 }
 
-type proxyConfig struct {
-	bufferSizeBytes int
-	bufferCount     int
-	flushInterval   time.Duration
-}
-
 type metricsConfig struct {
 	uiEndpoint    *url.URL
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
+}
+
+type proxyConfig struct {
+	bufferSizeBytes       int
+	bufferCount           int
+	maxIdleConns          int
+	flushInterval         time.Duration
+	timeout               time.Duration
+	keepAlive             time.Duration
+	idleConnTimeout       time.Duration
+	tlsHandshakeTimeout   time.Duration
+	expectContinueTimeout time.Duration
 }
 
 func main() {
@@ -163,9 +174,11 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 		srv := server.New(
 			logger,
 			reg,
-			server.WithListen(cfg.listen),
-			server.WithGracePeriod(cfg.gracePeriod),
-			server.WithTimeout(cfg.timeout),
+			server.WithListen(cfg.server.listen),
+			server.WithGracePeriod(cfg.server.gracePeriod),
+			server.WithRequestTimeout(cfg.server.requestTimeout),
+			server.WithReadTimeout(cfg.server.readTimeout),
+			server.WithWriteTimeout(cfg.server.writeTimeout),
 			server.WithTLSConfig(tlsConfig),
 			server.WithProfile(os.Getenv("PROFILE") != ""),
 			server.WithMetricUIEndpoint(cfg.metrics.uiEndpoint),
@@ -175,6 +188,12 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 				proxy.WithBufferCount(cfg.proxy.bufferCount),
 				proxy.WithBufferSizeBytes(cfg.proxy.bufferSizeBytes),
 				proxy.WithFlushInterval(cfg.proxy.flushInterval),
+				proxy.WithMaxIdsConns(cfg.proxy.maxIdleConns),
+				proxy.WithTimeout(cfg.proxy.timeout),
+				proxy.WithKeepAlive(cfg.proxy.keepAlive),
+				proxy.WithIdleConnTimeout(cfg.proxy.idleConnTimeout),
+				proxy.WithTLSHandshakeTimeout(cfg.proxy.tlsHandshakeTimeout),
+				proxy.WithExpectContinueTimeout(cfg.proxy.expectContinueTimeout),
 			),
 		)
 		g.Add(srv.ListenAndServe, srv.Shutdown)
@@ -203,12 +222,16 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&cfg.logFormat, "log.format", internal.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
-	flag.StringVar(&cfg.listen, "web.listen", ":8080",
+	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which internal server runs.")
-	flag.DurationVar(&cfg.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
+	flag.DurationVar(&cfg.server.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
 		"The time to wait after an OS interrupt received.")
-	flag.DurationVar(&cfg.timeout, "web.timeout", server.DefaultTimeout,
+	flag.DurationVar(&cfg.server.readTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
+	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
+		"The maximum duration before reading the entire request, including the body.")
+	flag.DurationVar(&cfg.server.writeTimeout, "web.timeout.write", server.DefaultWriteTimeout,
+		"The maximum duration  before timing out writes of the response.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "",
@@ -222,6 +245,17 @@ func parseFlags(logger log.Logger) (config, error) {
 	flag.DurationVar(&cfg.proxy.flushInterval, "proxy.flush-interval", proxy.DefaultFlushInterval,
 		"The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. "+
 			"A negative value means to flush immediately after each write to the client.")
+	flag.DurationVar(&cfg.proxy.timeout, "proxy.timeout", proxy.DefaultTimeout,
+		"the maximum amount of time a dial will wait for a connect to complete. The default is no timeout.")
+	flag.DurationVar(&cfg.proxy.keepAlive, "proxy.keep-alive", proxy.DefaultKeepAlive,
+		"The interval between keep-alive probes for an active network connection.")
+	flag.DurationVar(&cfg.proxy.idleConnTimeout, "proxy.idle-conn-timeout", proxy.DefaultIdleConnTimeout,
+		"The maximum amount of time an idle (keep-alive) connection will remain idle before closing itself.")
+	flag.DurationVar(&cfg.proxy.tlsHandshakeTimeout, "proxy.tls-handshake-timeout", proxy.DefaultTLSHandshakeTimeout,
+		"The maximum amount of time waiting to wait for a TLS handshake. Zero means no timeout.")
+	flag.DurationVar(&cfg.proxy.expectContinueTimeout, "proxy.expect-continue-timeout", proxy.DefaultExpectContinueTimeout,
+		`The amount of time to wait for a server's first response headers after fully writing the request headers if the request has an "Expect: 100-continue" header.`+
+			"Zero means no timeout and causes the body to be sent immediately, without waiting for the server to approve.")
 	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.keyFile, "tls-private-key-file", "",

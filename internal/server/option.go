@@ -9,9 +9,13 @@ import (
 )
 
 type options struct {
-	gracePeriod time.Duration
-	timeout     time.Duration
-	tlsConfig   *tls.Config
+	gracePeriod    time.Duration
+	timeout        time.Duration
+	requestTimeout time.Duration
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
+
+	tlsConfig *tls.Config
 
 	metricsUIEndpoint    *url.URL
 	metricsReadEndpoint  *url.URL
@@ -48,10 +52,24 @@ func WithListen(s string) Option {
 	})
 }
 
-// WithTimeout TODO
-func WithTimeout(t time.Duration) Option {
+// WithRequestTimeout TODO
+func WithRequestTimeout(t time.Duration) Option {
 	return optionFunc(func(o *options) {
-		o.timeout = t
+		o.requestTimeout = t
+	})
+}
+
+// WithReadTimeout TODO
+func WithReadTimeout(t time.Duration) Option {
+	return optionFunc(func(o *options) {
+		o.readTimeout = t
+	})
+}
+
+// WithWriteTimeout TODO
+func WithWriteTimeout(t time.Duration) Option {
+	return optionFunc(func(o *options) {
+		o.writeTimeout = t
 	})
 }
 

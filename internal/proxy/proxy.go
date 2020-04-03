@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	stdlog "log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -23,6 +24,18 @@ const (
 	DefaultBufferSizeBytes = 32 * 1024
 	// DefaultFlushInterval TODO
 	DefaultFlushInterval = time.Duration(-1)
+	// DefaultTimeout TODO
+	DefaultTimeout = 30 * time.Second
+	// DefaultKeepAlive TODO
+	DefaultKeepAlive = 30 * time.Second
+	// DefaultMaxIdleConns TODO
+	DefaultMaxIdleConns = 100
+	// DefaultIdleConnTimeout TODO
+	DefaultIdleConnTimeout = 90 * time.Second
+	// DefaultTLSHandshakeTimeout TODO
+	DefaultTLSHandshakeTimeout = 10 * time.Second
+	// DefaultExpectContinueTimeout TODO
+	DefaultExpectContinueTimeout = 1 * time.Second
 )
 
 type Proxy struct {
@@ -32,9 +45,15 @@ type Proxy struct {
 
 func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *Proxy {
 	options := options{
-		bufferCount:     DefaultBufferCount,
-		bufferSizeBytes: DefaultBufferSizeBytes,
-		flushInterval:   DefaultFlushInterval,
+		bufferCount:           DefaultBufferCount,
+		bufferSizeBytes:       DefaultBufferSizeBytes,
+		maxIdleConns:          DefaultMaxIdleConns,
+		flushInterval:         DefaultFlushInterval,
+		timeout:               DefaultTimeout,
+		keepAlive:             DefaultKeepAlive,
+		idleConnTimeout:       DefaultIdleConnTimeout,
+		tlsHandshakeTimeout:   DefaultTLSHandshakeTimeout,
+		expectContinueTimeout: DefaultExpectContinueTimeout,
 	}
 
 	for _, o := range opts {
@@ -64,6 +83,18 @@ func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *P
 		Director:      director,
 		ErrorLog:      stdErrLogger,
 		FlushInterval: options.flushInterval,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   options.timeout,
+				KeepAlive: options.keepAlive,
+				DualStack: true,
+			}).Dial,
+			MaxIdleConns:          options.maxIdleConns,
+			IdleConnTimeout:       options.idleConnTimeout,
+			TLSHandshakeTimeout:   options.tlsHandshakeTimeout,
+			ExpectContinueTimeout: options.expectContinueTimeout,
+		},
 	}
 
 	return &Proxy{logger: logger, reverseProxy: &rev}

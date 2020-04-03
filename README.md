@@ -29,8 +29,18 @@ Usage of ./observatorium:
     	Maximum number of of reusable buffer used for copying HTTP reverse proxy responses. (default 2048)
   -proxy.buffer-size-bytes int
     	Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses. (default 32768)
+  -proxy.expect-continue-timeout duration
+    	The amount of time to wait for a server's first response headers after fully writing the request headers if the request has an "Expect: 100-continue" header.Zero means no timeout and causes the body to be sent immediately, without waiting for the server to approve. (default 1s)
   -proxy.flush-interval duration
     	The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. A negative value means to flush immediately after each write to the client. (default -1ns)
+  -proxy.idle-conn-timeout duration
+    	The maximum amount of time an idle (keep-alive) connection will remain idle before closing itself. (default 1m30s)
+  -proxy.keep-alive duration
+    	The interval between keep-alive probes for an active network connection. (default 30s)
+  -proxy.timeout duration
+    	the maximum amount of time a dial will wait for a connect to complete. The default is no timeout. (default 30s)
+  -proxy.tls-handshake-timeout duration
+    	The maximum amount of time waiting to wait for a TLS handshake. Zero means no timeout. (default 10s)
   -tls-cert-file string
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls-cipher-suites string
@@ -48,5 +58,9 @@ Usage of ./observatorium:
   -web.listen string
     	The address on which internal server runs. (default ":8080")
   -web.timeout duration
-    	The maximum duration before timing out the request, and closing idle connections. (default 5m0s)
+    	The maximum duration before timing out the request, and closing idle connections. (default 2m0s)
+  -web.timeout.read duration
+    	The maximum duration before reading the entire request, including the body. (default 2m0s)
+  -web.timeout.write duration
+    	The maximum duration  before timing out writes of the response. (default 2m0s)
 ```

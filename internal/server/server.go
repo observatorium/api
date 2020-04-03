@@ -17,8 +17,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// DefaultGracePeriod TODO
 const DefaultGracePeriod = 5 * time.Second
-const DefaultTimeout = 5 * time.Minute
+
+// DefaultRequestTimeout TODO
+const DefaultRequestTimeout = 2 * time.Minute
+
+// DefaultReadTimeout TODO
+const DefaultReadTimeout = 2 * time.Minute
+
+// DefaultWriteTimeout TODO
+const DefaultWriteTimeout = 2 * time.Minute
 
 // Server TODO
 type Server struct {
@@ -45,7 +54,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.StripSlashes)
-	r.Use(middleware.Timeout(options.timeout))
+	r.Use(middleware.Timeout(options.requestTimeout))
 
 	if options.profile {
 		r.Mount("/debug", middleware.Profiler())
@@ -109,9 +118,11 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		logger: logger,
 		prober: p,
 		srv: &http.Server{
-			Addr:      options.listen,
-			Handler:   r,
-			TLSConfig: options.tlsConfig,
+			Addr:         options.listen,
+			Handler:      r,
+			TLSConfig:    options.tlsConfig,
+			ReadTimeout:  options.readTimeout,
+			WriteTimeout: options.writeTimeout,
 		},
 		opts: options,
 	}
