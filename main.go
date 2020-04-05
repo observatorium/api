@@ -165,14 +165,14 @@ func parseFlags(logger log.Logger) (options, error) {
 	flag.Parse()
 
 	if rawMetricsUIEndpoint != "" {
-		level.Info(logger).Log("msg", "--metrics.ui.endpoint is not specified, UI will not be accessible")
-
 		metricsUIEndpoint, err := url.ParseRequestURI(rawMetricsUIEndpoint)
 		if err != nil {
 			return opts, fmt.Errorf("--metrics.ui.endpoint is invalid, raw %s: %w", rawMetricsUIEndpoint, err)
 		}
 
 		opts.metricsUIEndpoint = metricsUIEndpoint
+	} else {
+		level.Info(logger).Log("msg", "--metrics.ui.endpoint is not specified, UI will not be accessible")
 	}
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
