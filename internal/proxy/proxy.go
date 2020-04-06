@@ -18,24 +18,26 @@ import (
 )
 
 const (
-	// DefaultBufferCount TODO
+	// DefaultBufferCount is the default value for the maximum size of the buffer pool for the reverse proxy.
 	DefaultBufferCount = 2 * 1024
-	// DefaultBufferSizeBytes TODO
+	// DefaultBufferSizeBytes is the default value for the length of the buffers in the buffer pool for the reverse proxy.
 	DefaultBufferSizeBytes = 32 * 1024
-	// DefaultFlushInterval TODO
+	// DefaultFlushInterval is the default value for the flush interval of reverse proxy to flush to the client while copying the response body.
 	DefaultFlushInterval = time.Duration(-1)
-	// DefaultTimeout TODO
-	DefaultTimeout = 30 * time.Second
-	// DefaultKeepAlive TODO
-	DefaultKeepAlive = 30 * time.Second
-	// DefaultMaxIdleConns TODO
-	DefaultMaxIdleConns = 100
-	// DefaultIdleConnTimeout TODO
-	DefaultIdleConnTimeout = 90 * time.Second
-	// DefaultTLSHandshakeTimeout TODO
-	DefaultTLSHandshakeTimeout = 10 * time.Second
-	// DefaultExpectContinueTimeout TODO
-	DefaultExpectContinueTimeout = 1 * time.Second
+
+	// defaultTimeout is the default value for the maximum amount of time a dial will wait for a connect to complete.
+	defaultTimeout = 30 * time.Second
+	// defaultKeepAlive is the default value for the interval between keep-alive probes for an active network connection.
+	defaultKeepAlive = 30 * time.Second
+	// defaultMaxIdleConns is the default value for the maximum idle (keep-alive) connections to keep per-host.
+	defaultMaxIdleConns = 100
+	// defaultIdleConnTimeout is the default value for the maximum amount of time an idle (keep-alive) connection will remain idle before closing itself.
+	defaultIdleConnTimeout = 90 * time.Second
+	// defaultTLSHandshakeTimeout is the default value for the maximum amount of time waiting to wait for a TLS handshake.
+	defaultTLSHandshakeTimeout = 10 * time.Second
+	// defaultExpectContinueTimeout is the default value for the amount of time to wait for a server's first response headers after fully writing the request headers,
+	// if the request has an "Expect: 100-continue" header.
+	defaultExpectContinueTimeout = 1 * time.Second
 )
 
 type Proxy struct {
@@ -47,13 +49,13 @@ func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *P
 	options := options{
 		bufferCount:           DefaultBufferCount,
 		bufferSizeBytes:       DefaultBufferSizeBytes,
-		maxIdleConns:          DefaultMaxIdleConns,
 		flushInterval:         DefaultFlushInterval,
-		timeout:               DefaultTimeout,
-		keepAlive:             DefaultKeepAlive,
-		idleConnTimeout:       DefaultIdleConnTimeout,
-		tlsHandshakeTimeout:   DefaultTLSHandshakeTimeout,
-		expectContinueTimeout: DefaultExpectContinueTimeout,
+		maxIdleConns:          defaultMaxIdleConns,
+		timeout:               defaultTimeout,
+		keepAlive:             defaultKeepAlive,
+		idleConnTimeout:       defaultIdleConnTimeout,
+		tlsHandshakeTimeout:   defaultTLSHandshakeTimeout,
+		expectContinueTimeout: defaultExpectContinueTimeout,
 	}
 
 	for _, o := range opts {

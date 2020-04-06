@@ -17,19 +17,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// DefaultGracePeriod TODO
+// DefaultGracePeriod is the default value of the duration gracefully shuts down the server without interrupting any active connections.
 const DefaultGracePeriod = 5 * time.Second
 
-// DefaultRequestTimeout TODO
+// DefaultRequestTimeout is the default value of the timeout duration per request.
 const DefaultRequestTimeout = 2 * time.Minute
 
-// DefaultReadTimeout TODO
+// DefaultReadTimeout is the default value of the maximum duration for reading the entire request, including the body.
 const DefaultReadTimeout = 2 * time.Minute
 
-// DefaultWriteTimeout TODO
+// DefaultWriteTimeout is the default value of the maximum duration before timing out writes of the response.
 const DefaultWriteTimeout = 2 * time.Minute
 
-// Server TODO
+// Server defines parameters for running an HTTP server.
 type Server struct {
 	logger log.Logger
 	prober *prober.Prober
@@ -38,7 +38,7 @@ type Server struct {
 	opts options
 }
 
-// New creates a new Server
+// New creates a new Server.
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	options := options{
 		gracePeriod: DefaultGracePeriod,
@@ -128,7 +128,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	}
 }
 
-// ListenAndServe TODO
+// ListenAndServe listens on the TCP network address and handles connections with given server configuration.
 func (s *Server) ListenAndServe() error {
 	level.Info(s.logger).Log("msg", "starting the HTTP server", "address", s.opts.listen)
 	s.prober.Ready()
@@ -141,7 +141,7 @@ func (s *Server) ListenAndServe() error {
 	return s.srv.ListenAndServe()
 }
 
-// Shutdown TODO
+// Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown(err error) {
 	s.prober.NotReady(err)
 

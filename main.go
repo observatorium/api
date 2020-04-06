@@ -33,8 +33,8 @@ type config struct {
 	debug   debugConfig
 	server  serverConfig
 	tls     tlsConfig
-	metrics metricsConfig
 	proxy   proxyConfig
+	metrics metricsConfig
 }
 
 type debugConfig struct {
@@ -60,16 +60,16 @@ type tlsConfig struct {
 	reloadInterval time.Duration
 }
 
-type metricsConfig struct {
-	uiEndpoint    *url.URL
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-}
-
 type proxyConfig struct {
 	bufferSizeBytes int
 	bufferCount     int
 	flushInterval   time.Duration
+}
+
+type metricsConfig struct {
+	uiEndpoint    *url.URL
+	readEndpoint  *url.URL
+	writeEndpoint *url.URL
 }
 
 func main() {
@@ -214,7 +214,7 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The address on which internal server runs.")
 	flag.DurationVar(&cfg.server.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
 		"The time to wait after an OS interrupt received.")
-	flag.DurationVar(&cfg.server.readTimeout, "web.timeout", server.DefaultRequestTimeout,
+	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
 	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
 		"The maximum duration before reading the entire request, including the body.")
@@ -249,6 +249,7 @@ func parseFlags(logger log.Logger) (config, error) {
 			"Note that TLS 1.3 ciphersuites are not configurable.")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls-reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes, by default set to 1 minute.")
+
 	flag.Parse()
 
 	if rawMetricsUIEndpoint != "" {
