@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"path"
 	"time"
 
 	"github.com/observatorium/observatorium/internal/proxy"
@@ -58,7 +59,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	uiPath := "/ui/metrics/v1"
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, uiPath+"/graph", http.StatusMovedPermanently)
+		http.Redirect(w, r, path.Join(uiPath, "graph"), http.StatusMovedPermanently)
 	})
 
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +67,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	})
 
 	if options.metricsUIEndpoint != nil {
-		r.Get(uiPath+"/*",
+		r.Get(path.Join(uiPath, "*"),
 			ins.newHandler("ui", proxy.New(logger, uiPath, options.metricsUIEndpoint, options.proxyOptions...)))
 	}
 
@@ -74,18 +75,18 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Route(namespace, func(r chi.Router) {
 		if options.metricsReadEndpoint != nil {
 			r.Get("/api/v1/query",
-				ins.newHandler("query", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
+				ins.newHandler("query", proxy.New(logger, path.Join(namespace, "api/v1"), options.metricsReadEndpoint, options.proxyOptions...)))
 
 			r.Get("/api/v1/query_range",
-				ins.newHandler("query_range", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
+				ins.newHandler("query_range", proxy.New(logger, path.Join(namespace, "api/v1"), options.metricsReadEndpoint, options.proxyOptions...)))
 
 			r.Get("/api/v1/*",
-				ins.newHandler("read", proxy.New(logger, namespace+"/api/v1", options.metricsReadEndpoint, options.proxyOptions...)))
+				ins.newHandler("read", proxy.New(logger, path.Join(namespace, "api/v1"), options.metricsReadEndpoint, options.proxyOptions...)))
 		}
 
 		writePath := "/write"
 		r.Post(writePath,
-			ins.newHandler("write", proxy.New(logger, namespace+writePath, options.metricsWriteEndpoint, options.proxyOptions...)))
+			ins.newHandler("write", proxy.New(logger, path.Join(namespace, writePath), options.metricsWriteEndpoint, options.proxyOptions...)))
 	})
 
 	// NOTICE: Following redirects added to be compatible with existing Read UI.
