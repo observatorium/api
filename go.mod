@@ -6,6 +6,7 @@ require (
 	github.com/brancz/gojsontoyaml v0.0.0-20191212081931-bf2969bbd742
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/campoy/embedmd v1.0.0
+	github.com/cloudflare/cfssl v1.4.1
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-kit/kit v0.10.0
 	github.com/go-pluto/styx v0.0.0-20200109161911-78a77eb717b4
