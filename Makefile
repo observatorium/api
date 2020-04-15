@@ -1,6 +1,7 @@
 SHELL=/usr/bin/env bash -o pipefail
-BIN_DIR ?= $(shell pwd)/tmp/bin
-TMP_DIR := ./tmp
+TMP_DIR := $(shell pwd)/tmp
+BIN_DIR ?= $(TMP_DIR)/bin
+CERT_DIR ?= $(TMP_DIR)/certs
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
@@ -40,6 +41,9 @@ JSONNET_BUNDLER ?= $(BIN_DIR)/jb
 JSONNET_FMT ?= $(BIN_DIR)/jsonnetfmt
 GOJSONTOYAML ?= $(BIN_DIR)/gojsontoyaml
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
+GENERATE_TLS_CERT ?= $(BIN_DIR)/generate-tls-cert
+
+SERVER_CERT ?= $(CERT_DIR)/server.pem
 
 default: observatorium
 all: clean lint test observatorium
@@ -94,7 +98,7 @@ test-unit:
 	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
 
 .PHONY: test-integration
-test-integration: build integration-test-dependencies
+test-integration: build integration-test-dependencies generate-cert
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
 
 .PHONY: test-load
@@ -131,8 +135,17 @@ load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
 .PHONY: test-dependencies
 test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
 
+$(SERVER_CERT): | $(GENERATE_TLS_CERT) $(CERT_DIR)
+	cd $(CERT_DIR) && $(GENERATE_TLS_CERT)
+
+# Generate TLS certificates for local development.
+generate-cert: $(SERVER_CERT) | $(GENERATE_TLS_CERT)
+
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
+
+$(CERT_DIR):
+	mkdir -p $(CERT_DIR)
 
 $(THANOS): | $(BIN_DIR)
 	@echo "Downloading Thanos"
@@ -167,10 +180,10 @@ $(GOJSONTOYAML): | vendor $(BIN_DIR)
 $(JSONNET): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
 
-$(JSONNET_FMT): vendor $(BIN_DIR)
+$(JSONNET_FMT): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
 
-$(JSONNET_BUNDLER): vendor $(BIN_DIR)
+$(JSONNET_BUNDLER): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
 
 $(GOLANGCILINT):
@@ -179,8 +192,11 @@ $(GOLANGCILINT):
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
 $(SHELLCHECK): $(BIN_DIR)
-	@echo "Downloading Shellcheck"
 	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
+
+$(GENERATE_TLS_CERT): | vendor $(BIN_DIR)
+	# A thin wrapper around github.com/cloudflare/cfssl
+	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/tls
 
 # Jsonnet and Example manifests
 

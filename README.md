@@ -31,6 +31,18 @@ Usage of ./observatorium:
     	Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses. (default 32768)
   -proxy.flush-interval duration
     	The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. A negative value means to flush immediately after each write to the client. (default -1ns)
+  -tls-cert-file string
+    	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
+  -tls-cipher-suites string
+    	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants).If omitted, the default Go cipher suites will be used.Note that TLS 1.3 ciphersuites are not configurable.
+  -tls-client-ca-file string
+    	File containing the TLS CA to verify clients against.If no client CA is specified, there won't be any client verification on server side.
+  -tls-min-version string
+    	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
+  -tls-private-key-file string
+    	File containing the default x509 private key matching --tls-cert-file. Leave blank to disable TLS.
+  -tls-reload-interval duration
+    	The interval at which to watch for TLS certificate changes, by default set to 1 minute. (default 1m0s)
   -web.grace-period duration
     	The time to wait after an OS interrupt received. (default 5s)
   -web.listen string
