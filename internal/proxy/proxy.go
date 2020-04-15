@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	stdlog "log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -17,12 +18,26 @@ import (
 )
 
 const (
-	// DefaultBufferCount TODO
+	// DefaultBufferCount is the default value for the maximum size of the buffer pool for the reverse proxy.
 	DefaultBufferCount = 2 * 1024
-	// DefaultBufferSizeBytes TODO
+	// DefaultBufferSizeBytes is the default value for the length of the buffers in the buffer pool for the reverse proxy.
 	DefaultBufferSizeBytes = 32 * 1024
-	// DefaultFlushInterval TODO
+	// DefaultFlushInterval is the default value for the flush interval of reverse proxy to flush to the client while copying the response body.
 	DefaultFlushInterval = time.Duration(-1)
+
+	// defaultTimeout is the default value for the maximum amount of time a dial will wait for a connect to complete.
+	defaultTimeout = 30 * time.Second
+	// defaultKeepAlive is the default value for the interval between keep-alive probes for an active network connection.
+	defaultKeepAlive = 30 * time.Second
+	// defaultMaxIdleConns is the default value for the maximum idle (keep-alive) connections to keep per-host.
+	defaultMaxIdleConns = 100
+	// defaultIdleConnTimeout is the default value for the maximum amount of time an idle (keep-alive) connection will remain idle before closing itself.
+	defaultIdleConnTimeout = 90 * time.Second
+	// defaultTLSHandshakeTimeout is the default value for the maximum amount of time waiting to wait for a TLS handshake.
+	defaultTLSHandshakeTimeout = 10 * time.Second
+	// defaultExpectContinueTimeout is the default value for the amount of time to wait for a server's first response headers after fully writing the request headers,
+	// if the request has an "Expect: 100-continue" header.
+	defaultExpectContinueTimeout = 1 * time.Second
 )
 
 type Proxy struct {
@@ -32,9 +47,15 @@ type Proxy struct {
 
 func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *Proxy {
 	options := options{
-		bufferCount:     DefaultBufferCount,
-		bufferSizeBytes: DefaultBufferSizeBytes,
-		flushInterval:   DefaultFlushInterval,
+		bufferCount:           DefaultBufferCount,
+		bufferSizeBytes:       DefaultBufferSizeBytes,
+		flushInterval:         DefaultFlushInterval,
+		maxIdleConns:          defaultMaxIdleConns,
+		timeout:               defaultTimeout,
+		keepAlive:             defaultKeepAlive,
+		idleConnTimeout:       defaultIdleConnTimeout,
+		tlsHandshakeTimeout:   defaultTLSHandshakeTimeout,
+		expectContinueTimeout: defaultExpectContinueTimeout,
 	}
 
 	for _, o := range opts {
@@ -64,6 +85,18 @@ func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *P
 		Director:      director,
 		ErrorLog:      stdErrLogger,
 		FlushInterval: options.flushInterval,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			Dial: (&net.Dialer{
+				Timeout:   options.timeout,
+				KeepAlive: options.keepAlive,
+				DualStack: true,
+			}).Dial,
+			MaxIdleConns:          options.maxIdleConns,
+			IdleConnTimeout:       options.idleConnTimeout,
+			TLSHandshakeTimeout:   options.tlsHandshakeTimeout,
+			ExpectContinueTimeout: options.expectContinueTimeout,
+		},
 	}
 
 	return &Proxy{logger: logger, reverseProxy: &rev}

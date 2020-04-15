@@ -9,9 +9,13 @@ import (
 )
 
 type options struct {
-	gracePeriod time.Duration
-	timeout     time.Duration
-	tlsConfig   *tls.Config
+	gracePeriod    time.Duration
+	timeout        time.Duration
+	requestTimeout time.Duration
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
+
+	tlsConfig *tls.Config
 
 	metricsUIEndpoint    *url.URL
 	metricsReadEndpoint  *url.URL
@@ -34,24 +38,38 @@ func (f optionFunc) apply(o *options) {
 	f(o)
 }
 
-// WithGracePeriod TODO
+// WithGracePeriod sets graceful shutdown period for the server.
 func WithGracePeriod(t time.Duration) Option {
 	return optionFunc(func(o *options) {
 		o.gracePeriod = t
 	})
 }
 
-// WithListen TODO
+// WithListen sets the port to listen for the server.
 func WithListen(s string) Option {
 	return optionFunc(func(o *options) {
 		o.listen = s
 	})
 }
 
-// WithTimeout TODO
-func WithTimeout(t time.Duration) Option {
+// WithRequestTimeout sets the timeout duration for an individual request.
+func WithRequestTimeout(t time.Duration) Option {
 	return optionFunc(func(o *options) {
-		o.timeout = t
+		o.requestTimeout = t
+	})
+}
+
+// WithReadTimeout sets the read timeout duration  for the underlying HTTP server.
+func WithReadTimeout(t time.Duration) Option {
+	return optionFunc(func(o *options) {
+		o.readTimeout = t
+	})
+}
+
+// WithWriteTimeout sets the write timeout duration  for the underlying HTTP server.
+func WithWriteTimeout(t time.Duration) Option {
+	return optionFunc(func(o *options) {
+		o.writeTimeout = t
 	})
 }
 
@@ -69,28 +87,28 @@ func WithMetricUIEndpoint(u *url.URL) Option {
 	})
 }
 
-// WithMetricReadEndpoint TODO
+// WithMetricReadEndpoint sets the URL to proxy metrics read request to.
 func WithMetricReadEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
 		o.metricsReadEndpoint = u
 	})
 }
 
-// WithMetricWriteEndpoint TODO
+// WithMetricWriteEndpoint sets the URL to proxy metrics write request to.
 func WithMetricWriteEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
 		o.metricsWriteEndpoint = u
 	})
 }
 
-// WithProfile TODO
+// WithProfile sets the option to enable/disable profiler endpoint.
 func WithProfile(p bool) Option {
 	return optionFunc(func(o *options) {
 		o.profile = p
 	})
 }
 
-// WithProxyOptions TODO
+// WithProxyOptions sets the proxy options fot the underlying reverse proxy.
 func WithProxyOptions(opts ...proxy.Option) Option {
 	return optionFunc(func(o *options) {
 		o.proxyOptions = opts

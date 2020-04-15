@@ -17,10 +17,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// DefaultGracePeriod is the default value of the duration gracefully shuts down the server without interrupting any active connections.
 const DefaultGracePeriod = 5 * time.Second
-const DefaultTimeout = 5 * time.Minute
 
-// Server TODO
+// DefaultRequestTimeout is the default value of the timeout duration per request.
+const DefaultRequestTimeout = 2 * time.Minute
+
+// DefaultReadTimeout is the default value of the maximum duration for reading the entire request, including the body.
+const DefaultReadTimeout = 2 * time.Minute
+
+// DefaultWriteTimeout is the default value of the maximum duration before timing out writes of the response.
+const DefaultWriteTimeout = 2 * time.Minute
+
+// Server defines parameters for running an HTTP server.
 type Server struct {
 	logger log.Logger
 	prober *prober.Prober
@@ -29,7 +38,7 @@ type Server struct {
 	opts options
 }
 
-// New creates a new Server
+// New creates a new Server.
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	options := options{
 		gracePeriod: DefaultGracePeriod,
@@ -45,7 +54,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.StripSlashes)
-	r.Use(middleware.Timeout(options.timeout))
+	r.Use(middleware.Timeout(options.requestTimeout))
 
 	if options.profile {
 		r.Mount("/debug", middleware.Profiler())
@@ -109,15 +118,17 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		logger: logger,
 		prober: p,
 		srv: &http.Server{
-			Addr:      options.listen,
-			Handler:   r,
-			TLSConfig: options.tlsConfig,
+			Addr:         options.listen,
+			Handler:      r,
+			TLSConfig:    options.tlsConfig,
+			ReadTimeout:  options.readTimeout,
+			WriteTimeout: options.writeTimeout,
 		},
 		opts: options,
 	}
 }
 
-// ListenAndServe TODO
+// ListenAndServe listens on the TCP network address and handles connections with given server configuration.
 func (s *Server) ListenAndServe() error {
 	level.Info(s.logger).Log("msg", "starting the HTTP server", "address", s.opts.listen)
 	s.prober.Ready()
@@ -130,7 +141,7 @@ func (s *Server) ListenAndServe() error {
 	return s.srv.ListenAndServe()
 }
 
-// Shutdown TODO
+// Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown(err error) {
 	s.prober.NotReady(err)
 

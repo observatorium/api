@@ -48,5 +48,9 @@ Usage of ./observatorium:
   -web.listen string
     	The address on which internal server runs. (default ":8080")
   -web.timeout duration
-    	The maximum duration before timing out the request, and closing idle connections. (default 5m0s)
+    	The maximum duration before timing out the request, and closing idle connections. (default 2m0s)
+  -web.timeout.read duration
+    	The maximum duration before reading the entire request, including the body. (default 2m0s)
+  -web.timeout.write duration
+    	The maximum duration  before timing out writes of the response. (default 2m0s)
 ```

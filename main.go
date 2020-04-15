@@ -30,11 +30,8 @@ type config struct {
 	logLevel  string
 	logFormat string
 
-	listen      string
-	gracePeriod time.Duration
-	timeout     time.Duration
-
 	debug   debugConfig
+	server  serverConfig
 	tls     tlsConfig
 	proxy   proxyConfig
 	metrics metricsConfig
@@ -44,6 +41,14 @@ type debugConfig struct {
 	mutexProfileFraction int
 	blockProfileRate     int
 	name                 string
+}
+
+type serverConfig struct {
+	listen         string
+	gracePeriod    time.Duration
+	requestTimeout time.Duration
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
 }
 
 type tlsConfig struct {
@@ -163,9 +168,11 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 		srv := server.New(
 			logger,
 			reg,
-			server.WithListen(cfg.listen),
-			server.WithGracePeriod(cfg.gracePeriod),
-			server.WithTimeout(cfg.timeout),
+			server.WithListen(cfg.server.listen),
+			server.WithGracePeriod(cfg.server.gracePeriod),
+			server.WithRequestTimeout(cfg.server.requestTimeout),
+			server.WithReadTimeout(cfg.server.readTimeout),
+			server.WithWriteTimeout(cfg.server.writeTimeout),
 			server.WithTLSConfig(tlsConfig),
 			server.WithProfile(os.Getenv("PROFILE") != ""),
 			server.WithMetricUIEndpoint(cfg.metrics.uiEndpoint),
@@ -203,12 +210,16 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&cfg.logFormat, "log.format", internal.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
-	flag.StringVar(&cfg.listen, "web.listen", ":8080",
+	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which internal server runs.")
-	flag.DurationVar(&cfg.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
+	flag.DurationVar(&cfg.server.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
 		"The time to wait after an OS interrupt received.")
-	flag.DurationVar(&cfg.timeout, "web.timeout", server.DefaultTimeout,
+	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
+	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
+		"The maximum duration before reading the entire request, including the body.")
+	flag.DurationVar(&cfg.server.writeTimeout, "web.timeout.write", server.DefaultWriteTimeout,
+		"The maximum duration  before timing out writes of the response.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "",
