@@ -46,6 +46,15 @@ jobs:
           echo "$DOCKER_PASS" | docker login quay.io --username $DOCKER_USER --password-stdin
           make container-push
 
+  container-release:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - checkout
+      - run: |
+          echo "$DOCKER_PASS" | docker login quay.io --username $DOCKER_USER --password-stdin
+          make container-release
+
 workflows:
   version: 2
   build_and_test:
