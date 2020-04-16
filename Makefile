@@ -126,6 +126,11 @@ container-push: container
 	docker push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
 	docker push $(DOCKER_REPO):latest
 
+.PHONY: container-release
+container-release: container
+	docker push $(DOCKER_REPO):$(VERSION)
+	docker push $(DOCKER_REPO):latest
+
 .PHONY: integration-test-dependencies
 integration-test-dependencies: $(THANOS) $(UP)
 

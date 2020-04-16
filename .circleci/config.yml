@@ -56,7 +56,7 @@ workflows:
       - generate
   tagged-master:
     jobs:
-      - container-push:
+      - container-release:
           filters:
             tags:
               only: /^v.*/
