@@ -185,7 +185,7 @@ $(GOJSONTOYAML): | vendor $(BIN_DIR)
 $(JSONNET): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
 
-$(JSONNET_FMT): | vendor $(BIN_DIR)
+$(JSONNET_FMT): vendor |  $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
 
 $(JSONNET_BUNDLER): | vendor $(BIN_DIR)
@@ -226,19 +226,18 @@ generate-in-docker:
 	$(CONTAINER_CMD) make $(MFLAGS) generate
 
 .PHONY: ${MANIFESTS}
-${MANIFESTS}: $(JSONNET) $(GOJSONTOYAML) jsonnet/main.jsonnet jsonnet/lib/*
+${MANIFESTS}: jsonnet/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
 	@rm -rf ${MANIFESTS}
 	@mkdir -p ${MANIFESTS}
 	$(JSONNET) -J jsonnet/vendor -m ${MANIFESTS} jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
 
 .PHONY: jsonnet-vendor
-jsonnet-vendor: $(JSONNET_BUNDLER) jsonnet/jsonnetfile.json
-	rm -rf jsonnet/vendor/*
+jsonnet-vendor: jsonnet/jsonnetfile.json | $(JSONNET_BUNDLER)
 	cd jsonnet && $(JSONNET_BUNDLER) install
 
 JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'jsonnet/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
 JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
 
 .PHONY: jsonnet-fmt
-jsonnet-fmt: $(JSONNET_FMT)
+jsonnet-fmt: | $(JSONNET_FMT)
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR) echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT_CMD) -i

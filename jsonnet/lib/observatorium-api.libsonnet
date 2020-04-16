@@ -79,17 +79,18 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     deployment.mixin.spec.strategy.rollingUpdate.withMaxUnavailable(1),
 
   withServiceMonitor:: {
-    local trc = self,
+    local gateway = self,
+
     serviceMonitor: {
       apiVersion: 'monitoring.coreos.com/v1',
       kind: 'ServiceMonitor',
       metadata+: {
-        name: trc.config.name,
-        namespace: trc.config.namespace,
+        name: gateway.config.name,
+        namespace: gateway.config.namespace,
       },
       spec: {
         selector: {
-          matchLabels: trc.config.commonLabels,
+          matchLabels: gateway.config.commonLabels,
         },
         endpoints: [
           { port: 'http' },
@@ -112,6 +113,39 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
             containers: [
               if c.name == 'observatorium-api-gateway' then c {
                 resources: gateway.config.resources,
+              } else c
+              for c in super.containers
+            ],
+          },
+        },
+      },
+    },
+  },
+
+  withTLS:: {
+    local gateway = self,
+
+    config+:: {
+      tls: {
+        certFile: error 'must provide cert file',
+        privateKeyFile: error 'must provide private key file',
+        clientCAFile: error 'must provide client ca file',
+        reloadInterval: '1m',
+      },
+    },
+
+    deployment+: {
+      spec+: {
+        template+: {
+          spec+: {
+            containers: [
+              if c.name == 'observatorium-api-gateway' then c {
+                args+: [
+                  '--tls-cert-file=' + gateway.config.tls.certFile,
+                  '--tls-private-key-file=' + gateway.config.tls.privateKeyFile,
+                  '--tls-client-ca-file=' + gateway.config.tls.clientCAFile,
+                  '--tls-reload-interval=' + gateway.config.tls.reloadInterval,
+                ],
               } else c
               for c in super.containers
             ],
