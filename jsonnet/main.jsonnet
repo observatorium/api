@@ -12,4 +12,15 @@ local gateway = (import 'lib/observatorium-api.libsonnet') {
   },
 };
 
-{ [name]: gateway[name] for name in std.objectFields(gateway) }
+local gatewayWithTLS = gateway + gateway.withTLS {
+  config+:: {
+    tls+: {
+      certFile: './tmp/certs/server.pem',
+      privateKeyFile: './tmp/certs/ca.pem',
+      clientCAFile: './tmp/certs/server.key',
+    },
+  },
+};
+
+{ [name]: gateway[name] for name in std.objectFields(gateway) } +
+{ ['%s-with-tls' % name]: gatewayWithTLS[name] for name in std.objectFields(gateway) }
