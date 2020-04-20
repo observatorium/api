@@ -128,6 +128,7 @@ container-push: container
 
 .PHONY: container-release
 container-release: container
+	@docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION)
 	docker push $(DOCKER_REPO):$(VERSION)
 	docker push $(DOCKER_REPO):latest
 
