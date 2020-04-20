@@ -65,19 +65,32 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 
 	registerProber(r, p)
 
-	uiPath := "/ui/metrics/v1"
-
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, path.Join(uiPath, "graph"), http.StatusMovedPermanently)
-	})
-
 	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
 	if options.metricsUIEndpoint != nil {
+		uiPath := "/ui/metrics/v1"
+
 		r.Get(path.Join(uiPath, "*"),
 			ins.newHandler("ui", proxy.New(logger, uiPath, options.metricsUIEndpoint, options.proxyOptions...)))
+
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, path.Join(uiPath, "graph"), http.StatusMovedPermanently)
+		})
+
+		// NOTICE: Following redirects added to be compatible with existing Read UI.
+		// Paths are explicitly specified to prevent unnecessary request to read handler.
+		for _, p := range []string{
+			"graph",
+			"stores",
+			"status",
+		} {
+			p := p
+			r.Get(path.Join("/", p), func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, path.Join(uiPath, p), http.StatusMovedPermanently)
+			})
+		}
 	}
 
 	namespace := "/api/metrics/v1"
@@ -96,20 +109,6 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		writePath := "/write"
 		r.Post(writePath,
 			ins.newHandler("write", proxy.New(logger, path.Join(namespace, writePath), options.metricsWriteEndpoint, options.proxyOptions...)))
-	})
-
-	// NOTICE: Following redirects added to be compatible with existing Read UI.
-	// Paths are explicitly specified to prevent unnecessary request to read handler.
-	r.Get("/graph", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/ui/v1/metrics/graph", http.StatusMovedPermanently)
-	})
-
-	r.Get("/stores", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/ui/v1/metrics/stores", http.StatusMovedPermanently)
-	})
-
-	r.Get("/status", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/ui/v1/metrics/status", http.StatusMovedPermanently)
 	})
 
 	p.Healthy()
