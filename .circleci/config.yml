@@ -63,15 +63,6 @@ workflows:
       - lint
       - test
       - generate
-  tagged-master:
-    jobs:
-      - container-release:
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              only:
-                - master
   commit-master:
     jobs:
       - build
@@ -85,3 +76,18 @@ workflows:
             branches:
               only:
                 - master
+  tagged-master:
+    jobs:
+      - container-release:
+          filters:
+            tags:
+              # v1.1.0
+              # v1.1.0-rc0
+              # v1.1.0-rc1
+              # v1.1.0-rc.0
+              # v1.1.0-rc.1
+              only: /^v([0-9]+)\.([0-9]+)\.([0-9]+)(?:-rc(\.)?([0-9]+))?$/
+            branches:
+              only:
+                - master
+                - /release-.*/
