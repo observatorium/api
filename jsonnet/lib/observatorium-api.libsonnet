@@ -71,7 +71,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.mixin.readinessProbe.httpGet.withScheme('HTTP') +
       container.mixin.readinessProbe.httpGet.withPath('/-/ready');
 
-    deployment.new(gateway.config.name, 1, c, gateway.config.commonLabels) +
+    deployment.new(gateway.config.name, gateway.config.replicas, c, gateway.config.commonLabels) +
     deployment.mixin.metadata.withNamespace(gateway.config.namespace) +
     deployment.mixin.metadata.withLabels(gateway.config.commonLabels) +
     deployment.mixin.spec.selector.withMatchLabels(gateway.config.podLabelSelector) +
