@@ -59,7 +59,7 @@ func NewServerConfig(logger log.Logger, certFile, keyFile, clientCAFile, minVers
 
 		certPool := x509.NewCertPool()
 		if !certPool.AppendCertsFromPEM(caPEM) {
-			return nil, fmt.Errorf("building client CA: %w", err)
+			return nil, errors.New("parsing client CA failed")
 		}
 
 		tlsCfg.ClientCAs = certPool
