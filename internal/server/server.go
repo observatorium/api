@@ -80,6 +80,10 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 			ins.newHandler("ui", proxy.New(logger, uiPath, options.metricsUIEndpoint, options.proxyOptions...)))
 	}
 
+	r.Get("/api/v1/query",
+		ins.newHandler("query_legacy", proxy.New(logger, "/api/v1", options.metricsReadEndpoint, options.proxyOptions...)),
+	)
+
 	namespace := "/api/metrics/v1"
 	r.Route(namespace, func(r chi.Router) {
 		if options.metricsReadEndpoint != nil {
