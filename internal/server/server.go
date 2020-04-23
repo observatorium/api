@@ -69,6 +69,16 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
 	})
 
+	{
+		// Legacy endpoints
+		r.Handle("/api/v1/query",
+			ins.newHandler("query_legacy", proxy.New(logger, "/api/v1", options.metricsReadEndpoint, options.proxyOptions...)),
+		)
+		r.Handle("/api/v1/query_range",
+			ins.newHandler("query_range_legacy", proxy.New(logger, "/api/v1", options.metricsReadEndpoint, options.proxyOptions...)),
+		)
+	}
+
 	if options.metricsUIEndpoint != nil {
 		uiPath := "/ui/metrics/v1"
 
@@ -92,10 +102,6 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 			})
 		}
 	}
-
-	r.Get("/api/v1/query",
-		ins.newHandler("query_legacy", proxy.New(logger, "/api/v1", options.metricsReadEndpoint, options.proxyOptions...)),
-	)
 
 	namespace := "/api/metrics/v1"
 	r.Route(namespace, func(r chi.Router) {
