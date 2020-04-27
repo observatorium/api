@@ -1,7 +1,7 @@
 local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
 
 {
-  local gateway = self,
+  local api = self,
 
   config:: {
     name: error 'must provide name',
@@ -14,15 +14,15 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     writeEndpoint: error 'must provide writeEndpoint',
 
     commonLabels:: {
-      'app.kubernetes.io/name': 'observatorium-api-gateway',
-      'app.kubernetes.io/instance': gateway.config.name,
-      'app.kubernetes.io/version': gateway.config.version,
-      'app.kubernetes.io/component': 'api-gateway',
+      'app.kubernetes.io/name': 'observatorium-api',
+      'app.kubernetes.io/instance': api.config.name,
+      'app.kubernetes.io/version': api.config.version,
+      'app.kubernetes.io/component': 'api',
     },
 
     podLabelSelector:: {
-      [labelName]: gateway.config.commonLabels[labelName]
-      for labelName in std.objectFields(gateway.config.commonLabels)
+      [labelName]: api.config.commonLabels[labelName]
+      for labelName in std.objectFields(api.config.commonLabels)
       if !std.setMember(labelName, ['app.kubernetes.io/version'])
     },
   },
@@ -32,14 +32,14 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     local ports = service.mixin.spec.portsType;
 
     service.new(
-      gateway.config.name,
-      gateway.config.podLabelSelector,
+      api.config.name,
+      api.config.podLabelSelector,
       [
         ports.newNamed('http', 8080, 8080),
       ],
     ) +
-    service.mixin.metadata.withNamespace(gateway.config.namespace) +
-    service.mixin.metadata.withLabels(gateway.config.commonLabels),
+    service.mixin.metadata.withNamespace(api.config.namespace) +
+    service.mixin.metadata.withLabels(api.config.commonLabels),
 
   deployment:
     local deployment = k.apps.v1.deployment;
@@ -47,12 +47,12 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     local containerPort = container.portsType;
 
     local c =
-      container.new('observatorium-api-gateway', gateway.config.image) +
+      container.new('observatorium-api', api.config.image) +
       container.withArgs([
         '--web.listen=0.0.0.0:8080',
-        '--metrics.ui.endpoint=' + gateway.config.uiEndpoint,
-        '--metrics.read.endpoint=' + gateway.config.readEndpoint,
-        '--metrics.write.endpoint=' + gateway.config.writeEndpoint,
+        '--metrics.ui.endpoint=' + api.config.uiEndpoint,
+        '--metrics.read.endpoint=' + api.config.readEndpoint,
+        '--metrics.write.endpoint=' + api.config.writeEndpoint,
         '--log.level=warn',
       ]) +
       container.withPorts(
@@ -61,36 +61,36 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.mixin.livenessProbe +
       container.mixin.livenessProbe.withPeriodSeconds(30) +
       container.mixin.livenessProbe.withFailureThreshold(8) +
-      container.mixin.livenessProbe.httpGet.withPort(gateway.service.spec.ports[0].port) +
+      container.mixin.livenessProbe.httpGet.withPort(api.service.spec.ports[0].port) +
       container.mixin.livenessProbe.httpGet.withScheme('HTTP') +
       container.mixin.livenessProbe.httpGet.withPath('/-/healthy') +
       container.mixin.readinessProbe +
       container.mixin.readinessProbe.withPeriodSeconds(5) +
       container.mixin.readinessProbe.withFailureThreshold(20) +
-      container.mixin.readinessProbe.httpGet.withPort(gateway.service.spec.ports[0].port) +
+      container.mixin.readinessProbe.httpGet.withPort(api.service.spec.ports[0].port) +
       container.mixin.readinessProbe.httpGet.withScheme('HTTP') +
       container.mixin.readinessProbe.httpGet.withPath('/-/ready');
 
-    deployment.new(gateway.config.name, gateway.config.replicas, c, gateway.config.commonLabels) +
-    deployment.mixin.metadata.withNamespace(gateway.config.namespace) +
-    deployment.mixin.metadata.withLabels(gateway.config.commonLabels) +
-    deployment.mixin.spec.selector.withMatchLabels(gateway.config.podLabelSelector) +
+    deployment.new(api.config.name, api.config.replicas, c, api.config.commonLabels) +
+    deployment.mixin.metadata.withNamespace(api.config.namespace) +
+    deployment.mixin.metadata.withLabels(api.config.commonLabels) +
+    deployment.mixin.spec.selector.withMatchLabels(api.config.podLabelSelector) +
     deployment.mixin.spec.strategy.rollingUpdate.withMaxSurge(0) +
     deployment.mixin.spec.strategy.rollingUpdate.withMaxUnavailable(1),
 
   withServiceMonitor:: {
-    local gateway = self,
+    local api = self,
 
     serviceMonitor: {
       apiVersion: 'monitoring.coreos.com/v1',
       kind: 'ServiceMonitor',
       metadata+: {
-        name: gateway.config.name,
-        namespace: gateway.config.namespace,
+        name: api.config.name,
+        namespace: api.config.namespace,
       },
       spec: {
         selector: {
-          matchLabels: gateway.config.commonLabels,
+          matchLabels: api.config.commonLabels,
         },
         endpoints: [
           { port: 'http' },
@@ -100,7 +100,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
   },
 
   withResources:: {
-    local gateway = self,
+    local api = self,
 
     config+:: {
       resources: error 'must provide resources',
@@ -111,8 +111,8 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         template+: {
           spec+: {
             containers: [
-              if c.name == 'observatorium-api-gateway' then c {
-                resources: gateway.config.resources,
+              if c.name == 'observatorium-api' then c {
+                resources: api.config.resources,
               } else c
               for c in super.containers
             ],
@@ -123,7 +123,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
   },
 
   withTLS:: {
-    local gateway = self,
+    local api = self,
 
     config+:: {
       tls: {
@@ -139,12 +139,12 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         template+: {
           spec+: {
             containers: [
-              if c.name == 'observatorium-api-gateway' then c {
+              if c.name == 'observatorium-api' then c {
                 args+: [
-                  '--tls-cert-file=' + gateway.config.tls.certFile,
-                  '--tls-private-key-file=' + gateway.config.tls.privateKeyFile,
-                  '--tls-client-ca-file=' + gateway.config.tls.clientCAFile,
-                  '--tls-reload-interval=' + gateway.config.tls.reloadInterval,
+                  '--tls-cert-file=' + api.config.tls.certFile,
+                  '--tls-private-key-file=' + api.config.tls.privateKeyFile,
+                  '--tls-client-ca-file=' + api.config.tls.clientCAFile,
+                  '--tls-reload-interval=' + api.config.tls.reloadInterval,
                 ],
               } else c
               for c in super.containers
