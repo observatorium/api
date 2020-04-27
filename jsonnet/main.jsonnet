@@ -1,7 +1,7 @@
-local gateway = (import 'lib/observatorium-api.libsonnet') {
+local api = (import 'lib/observatorium-api.libsonnet') {
   config+:: {
     local cfg = self,
-    name: 'observatorium-api-gateway',
+    name: 'observatorium-api',
     namespace: 'observatorium',
     version: 'master-2020-01-28-e009b4a',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
@@ -12,7 +12,7 @@ local gateway = (import 'lib/observatorium-api.libsonnet') {
   },
 };
 
-local gatewayWithTLS = gateway + gateway.withTLS {
+local apiWithTLS = api + api.withTLS {
   config+:: {
     tls+: {
       certFile: './tmp/certs/server.pem',
@@ -22,5 +22,5 @@ local gatewayWithTLS = gateway + gateway.withTLS {
   },
 };
 
-{ [name]: gateway[name] for name in std.objectFields(gateway) } +
-{ ['%s-with-tls' % name]: gatewayWithTLS[name] for name in std.objectFields(gateway) }
+{ [name]: api[name] for name in std.objectFields(api) } +
+{ ['%s-with-tls' % name]: apiWithTLS[name] for name in std.objectFields(api) }

@@ -1,6 +1,6 @@
 # Benchmark baseline results
 
-This document contains baseline benchmark results for Observatorium API Gateway under synthetic load.
+This document contains baseline benchmark results for Observatorium API  under synthetic load.
 
 Tested on:
 
@@ -14,7 +14,7 @@ Generated using:
 
 [embedmd]:# (../tmp/load_help.txt)
 ```txt
-load.sh [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium gateway and report results.
+load.sh [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium api and report results.
 
 where:
     -h  show this help text

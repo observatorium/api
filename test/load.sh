@@ -101,7 +101,7 @@ plot() {
         --storage.tsdb.path="$(mktemp -d)"
 ) &
 
-usage="$(basename "$0") [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium gateway and report results.
+usage="$(basename "$0") [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium api and report results.
 
 where:
     -h  show this help text
