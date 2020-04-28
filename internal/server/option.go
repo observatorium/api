@@ -9,7 +9,6 @@ import (
 )
 
 type options struct {
-	gracePeriod    time.Duration
 	timeout        time.Duration
 	requestTimeout time.Duration
 	readTimeout    time.Duration

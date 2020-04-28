@@ -242,7 +242,7 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which public server runs.")
-	flag.StringVar(&cfg.server.listen, "web.internal.listen", ":8081",
+	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
 		"The address on which internal server runs.")
 	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")

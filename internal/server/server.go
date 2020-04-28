@@ -15,8 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// DefaultGracePeriod is the default value of the duration gracefully shuts down the server without interrupting any active connections.
-const DefaultGracePeriod = 5 * time.Second
+// gracePeriod is duration the server gracefully shuts down.
+const gracePeriod = 2 * time.Minute
 
 // DefaultRequestTimeout is the default value of the timeout duration per request.
 const DefaultRequestTimeout = 2 * time.Minute
@@ -130,14 +130,7 @@ func (s *Server) Shutdown(err error) {
 		return
 	}
 
-	if s.opts.gracePeriod == 0 {
-		level.Info(s.logger).Log("msg", "immediately closing internal server")
-		s.srv.Close()
-
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), s.opts.gracePeriod)
+	ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 	defer cancel()
 
 	level.Info(s.logger).Log("msg", "shutting down internal server")
