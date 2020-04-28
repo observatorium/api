@@ -14,6 +14,7 @@ require (
 	github.com/google/go-jsonnet v0.15.1-0.20200310221949-724650d358b6
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3 // indirect
 	github.com/jsonnet-bundler/jsonnet-bundler v0.3.1
+	github.com/metalmatze/signal v0.0.0-20200428133549-c4243ecaf121
 	github.com/observatorium/up v0.0.0-20200415082017-83c3d20f7088
 	github.com/oklog/run v1.1.0
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
