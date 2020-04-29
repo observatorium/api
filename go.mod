@@ -27,5 +27,6 @@ require (
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
 	google.golang.org/genproto v0.0.0-20200413115906-b5235f65be36 // indirect
 	google.golang.org/grpc v1.28.1 // indirect
+	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/component-base v0.18.0
 )
