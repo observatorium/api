@@ -50,6 +50,7 @@ type debugConfig struct {
 type serverConfig struct {
 	listen         string
 	listenInternal string
+	healthcheckURL string
 	gracePeriod    time.Duration
 	requestTimeout time.Duration
 	readTimeout    time.Duration
@@ -163,16 +164,24 @@ func main() {
 	}
 	{
 		{
-			// checks if server is up
-			healthchecks.AddLivenessCheck("http",
-				// TODO: Make use of cfg.server.listen to dynamically configure this too
-				healthcheck.HTTPCheck("http://localhost:8080/", http.MethodGet, http.StatusMovedPermanently, time.Second),
-			)
-			// checks if upstream is reachable through server proxy
-			healthchecks.AddReadinessCheck("http-proxy",
-				// TODO: Make use of cfg.server.listen to dynamically configure this too
-				healthcheck.HTTPGetCheck("http://localhost:8080/ui/metrics/v1/graph", time.Second),
-			)
+			if cfg.server.healthcheckURL != "" {
+				// checks if server is up
+				healthchecks.AddLivenessCheck("http",
+					healthcheck.HTTPCheck(
+						cfg.server.healthcheckURL,
+						http.MethodGet,
+						http.StatusMovedPermanently,
+						time.Second,
+					),
+				)
+				// checks if upstream is reachable through server proxy
+				healthchecks.AddReadinessCheck("http-proxy",
+					healthcheck.HTTPGetCheck(
+						cfg.server.healthcheckURL,
+						time.Second,
+					),
+				)
+			}
 		}
 
 		srv := server.New(
@@ -244,6 +253,8 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The address on which public server runs.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
 		"The address on which internal server runs.")
+	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
+		"The URL like http://localhost:8080 on which public server runs and to run healthcheck tests against.")
 	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
 	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
