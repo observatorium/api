@@ -3,16 +3,16 @@ package server
 import (
 	"context"
 	"net/http"
-	"path"
 	"time"
-
-	"github.com/observatorium/observatorium/internal/proxy"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+
+	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
+	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
 )
 
 // gracePeriod is duration the server gracefully shuts down.
@@ -49,60 +49,30 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(options.requestTimeout))
+	r.Use(Logger(logger))
 
-	ins := newInstrumentationMiddleware(reg)
+	ins := NewInstrumentationMiddleware(reg)
 
-	{
-		// Legacy endpoints
-		r.Handle("/api/v1/query",
-			ins.newHandler("query_legacy", proxy.New(logger, "/api/v1", options.metricsReadEndpoint, options.proxyOptions...)),
-		)
-		r.Handle("/api/v1/query_range",
-			ins.newHandler("query_range_legacy", proxy.New(logger, "/api/v1", options.metricsReadEndpoint, options.proxyOptions...)),
-		)
-	}
+	r.Mount("/api/v1",
+		metricslegacy.NewHandler(
+			options.metricsReadEndpoint,
+			metricslegacy.Logger(logger),
+			metricslegacy.Registry(reg),
+			metricslegacy.HandlerInstrumenter(ins),
+		))
 
-	if options.metricsUIEndpoint != nil {
-		uiPath := "/ui/metrics/v1"
-
-		r.Get(path.Join(uiPath, "*"),
-			ins.newHandler("ui", proxy.New(logger, uiPath, options.metricsUIEndpoint, options.proxyOptions...)))
-
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, path.Join(uiPath, "graph"), http.StatusMovedPermanently)
-		})
-
-		// NOTICE: Following redirects added to be compatible with existing Read UI.
-		// Paths are explicitly specified to prevent unnecessary request to read handler.
-		for _, p := range []string{
-			"graph",
-			"stores",
-			"status",
-		} {
-			p := p
-			r.Get(path.Join("/", p), func(w http.ResponseWriter, r *http.Request) {
-				http.Redirect(w, r, path.Join(uiPath, p), http.StatusMovedPermanently)
-			})
-		}
-	}
-
-	namespace := "/api/metrics/v1"
-	r.Route(namespace, func(r chi.Router) {
-		if options.metricsReadEndpoint != nil {
-			r.Get("/api/v1/query",
-				ins.newHandler("query", proxy.New(logger, path.Join(namespace, "api/v1"), options.metricsReadEndpoint, options.proxyOptions...)))
-
-			r.Get("/api/v1/query_range",
-				ins.newHandler("query_range", proxy.New(logger, path.Join(namespace, "api/v1"), options.metricsReadEndpoint, options.proxyOptions...)))
-
-			r.Get("/api/v1/*",
-				ins.newHandler("read", proxy.New(logger, path.Join(namespace, "api/v1"), options.metricsReadEndpoint, options.proxyOptions...)))
-		}
-
-		writePath := "/write"
-		r.Post(writePath,
-			ins.newHandler("write", proxy.New(logger, path.Join(namespace, writePath), options.metricsWriteEndpoint, options.proxyOptions...)))
-	})
+	r.Mount("/api/metrics/v1",
+		http.StripPrefix("/api/metrics/v1",
+			metricsv1.NewHandler(
+				options.metricsReadEndpoint,
+				options.metricsWriteEndpoint,
+				options.metricsUIEndpoint,
+				metricsv1.Logger(logger),
+				metricsv1.Registry(reg),
+				metricsv1.HandlerInstrumenter(ins),
+			),
+		),
+	)
 
 	return Server{
 		logger: logger,
@@ -114,6 +84,35 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 			WriteTimeout: options.writeTimeout,
 		},
 		opts: options,
+	}
+}
+
+// Logger returns a middleware to log HTTP requests
+func Logger(logger log.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(ww, r)
+
+			keyvals := []interface{}{
+				"request", middleware.GetReqID(r.Context()),
+				"proto", r.Proto,
+				"method", r.Method,
+				"status", ww.Status(),
+				"content", r.Header.Get("Content-Type"),
+				"path", r.URL.Path,
+				"duration", time.Since(start),
+				"bytes", ww.BytesWritten(),
+			}
+
+			if ww.Status()/100 == 5 {
+				level.Warn(logger).Log(keyvals...)
+				return
+			}
+			level.Debug(logger).Log(keyvals...)
+		})
 	}
 }
 

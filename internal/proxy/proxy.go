@@ -12,9 +12,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/oxtoacart/bpool"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -45,7 +47,7 @@ type Proxy struct {
 	reverseProxy *httputil.ReverseProxy
 }
 
-func New(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *Proxy {
+func NewBig(logger log.Logger, prefix string, endpoint *url.URL, opts ...Option) *Proxy {
 	options := options{
 		bufferCount:           DefaultBufferCount,
 		bufferSizeBytes:       DefaultBufferSizeBytes,
@@ -108,4 +110,47 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.reverseProxy.ServeHTTP(w, r)
+}
+
+type Middleware func(r *http.Request)
+
+func Middlewares(middlewares ...Middleware) func(r *http.Request) {
+	return func(r *http.Request) {
+		for _, m := range middlewares {
+			m(r)
+		}
+	}
+}
+
+func MiddlewareSetUpstream(upstream *url.URL) Middleware {
+	return func(r *http.Request) {
+
+		r.URL.Scheme = upstream.Scheme
+		r.URL.Host = upstream.Host
+	}
+}
+
+func MiddlewareLogger(logger log.Logger) Middleware {
+	return func(r *http.Request) {
+		rlogger := log.With(logger, "request", middleware.GetReqID(r.Context()))
+		level.Debug(rlogger).Log("msg", "request to upstream", "url", r.URL.String())
+	}
+}
+
+func MiddlewareMetrics(registry *prometheus.Registry, constLabels prometheus.Labels) Middleware {
+	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "http_proxy_requests_total",
+		Help:        "Counter of proxy HTTP requests.",
+		ConstLabels: constLabels,
+	}, []string{"method"})
+
+	registry.MustRegister(requests)
+
+	return func(r *http.Request) {
+		requests.With(prometheus.Labels{"method": r.Method}).Inc()
+	}
+}
+
+func Logger(logger log.Logger) *stdlog.Logger {
+	return stdlog.New(log.NewStdlibAdapter(level.Warn(logger)), "", stdlog.Lshortfile)
 }
