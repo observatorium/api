@@ -15,6 +15,8 @@ import (
 	"time"
 
 	rbacproxytls "github.com/brancz/kube-rbac-proxy/pkg/tls"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/metalmatze/signal/healthcheck"
@@ -25,6 +27,8 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/observatorium/observatorium/internal"
+	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
+	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
 	"github.com/observatorium/observatorium/internal/proxy"
 	"github.com/observatorium/observatorium/internal/server"
 	"github.com/observatorium/observatorium/internal/tls"
@@ -52,9 +56,6 @@ type serverConfig struct {
 	listenInternal string
 	healthcheckURL string
 	gracePeriod    time.Duration
-	requestTimeout time.Duration
-	readTimeout    time.Duration
-	writeTimeout   time.Duration
 }
 
 type tlsConfig struct {
@@ -161,47 +162,88 @@ func main() {
 				cancel()
 			})
 		}
-	}
-	{
-		{
-			if cfg.server.healthcheckURL != "" {
-				// checks if server is up
-				healthchecks.AddLivenessCheck("http",
-					healthcheck.HTTPCheck(
-						cfg.server.healthcheckURL,
-						http.MethodGet,
-						http.StatusMovedPermanently,
-						time.Second,
-					),
-				)
-				// checks if upstream is reachable through server proxy
-				healthchecks.AddReadinessCheck("http-proxy",
-					healthcheck.HTTPGetCheck(
-						cfg.server.healthcheckURL,
-						time.Second,
-					),
-				)
-			}
+
+		if cfg.server.healthcheckURL != "" {
+			// checks if server is up
+			healthchecks.AddLivenessCheck("http",
+				healthcheck.HTTPCheck(
+					cfg.server.healthcheckURL,
+					http.MethodGet,
+					http.StatusMovedPermanently,
+					time.Second,
+				),
+			)
+			// checks if upstream is reachable through server proxy
+			healthchecks.AddReadinessCheck("http-proxy",
+				healthcheck.HTTPGetCheck(
+					cfg.server.healthcheckURL+"/api/metrics/v1/graph",
+					time.Second,
+				),
+			)
 		}
 
-		srv := server.New(
-			logger,
-			reg,
-			server.WithListen(cfg.server.listen),
-			server.WithRequestTimeout(cfg.server.requestTimeout),
-			server.WithReadTimeout(cfg.server.readTimeout),
-			server.WithWriteTimeout(cfg.server.writeTimeout),
-			server.WithTLSConfig(tlsConfig),
-			server.WithMetricUIEndpoint(cfg.metrics.uiEndpoint),
-			server.WithMetricReadEndpoint(cfg.metrics.readEndpoint),
-			server.WithMetricWriteEndpoint(cfg.metrics.writeEndpoint),
-			server.WithProxyOptions(
-				proxy.WithBufferCount(cfg.proxy.bufferCount),
-				proxy.WithBufferSizeBytes(cfg.proxy.bufferSizeBytes),
-				proxy.WithFlushInterval(cfg.proxy.flushInterval),
+		r := chi.NewRouter()
+		r.Use(middleware.RequestID)
+		r.Use(middleware.RealIP)
+		r.Use(middleware.Recoverer)
+		r.Use(middleware.StripSlashes)
+		r.Use(middleware.Timeout(2 * time.Minute)) // best set per handler
+		r.Use(server.Logger(logger))
+
+		ins := server.NewInstrumentationMiddleware(reg)
+
+		r.Mount("/api/v1",
+			metricslegacy.NewHandler(
+				cfg.metrics.readEndpoint,
+				metricslegacy.Logger(logger),
+				metricslegacy.Registry(reg),
+				metricslegacy.HandlerInstrumenter(ins),
+			))
+
+		r.Mount("/api/metrics/v1",
+			http.StripPrefix("/api/metrics/v1",
+				metricsv1.NewHandler(
+					cfg.metrics.readEndpoint,
+					cfg.metrics.writeEndpoint,
+					cfg.metrics.uiEndpoint,
+					metricsv1.Logger(logger),
+					metricsv1.Registry(reg),
+					metricsv1.HandlerInstrumenter(ins),
+				),
 			),
 		)
-		g.Add(srv.ListenAndServe, srv.Shutdown)
+
+		r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/api/metrics/v1/graph", http.StatusMovedPermanently)
+		})
+
+		s := http.Server{
+			Addr:         cfg.server.listen,
+			Handler:      r,
+			TLSConfig:    tlsConfig,
+			ReadTimeout:  2 * time.Minute, // best set per handler
+			WriteTimeout: 2 * time.Minute, // best set per handler
+		}
+
+		g.Add(func() error {
+			level.Info(logger).Log("msg", "starting the HTTP server", "address", cfg.server.listen)
+
+			if tlsConfig != nil {
+				// certFile and keyFile passed in TLSConfig at initialization.
+				return s.ListenAndServeTLS("", "")
+			}
+
+			return s.ListenAndServe()
+		}, func(err error) {
+			// gracePeriod is duration the server gracefully shuts down.
+			const gracePeriod = 2 * time.Minute
+
+			ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
+			defer cancel()
+
+			level.Info(logger).Log("msg", "shutting down the HTTP server")
+			_ = s.Shutdown(ctx)
+		})
 	}
 	{
 		h := internalserver.NewHandler(
@@ -255,12 +297,6 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The address on which internal server runs.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL on which public server runs and to run healthchecks against.")
-	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
-		"The maximum duration before timing out the request, and closing idle connections.")
-	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
-		"The maximum duration before reading the entire request, including the body.")
-	flag.DurationVar(&cfg.server.writeTimeout, "web.timeout.write", server.DefaultWriteTimeout,
-		"The maximum duration  before timing out writes of the response.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "",

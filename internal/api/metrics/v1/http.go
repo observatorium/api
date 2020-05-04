@@ -25,20 +25,24 @@ type handlerConfiguration struct {
 	instrument handlerInstrumenter
 }
 
+// HandlerOption modifies the handler's configuration
 type HandlerOption func(h *handlerConfiguration)
 
+// Logger add a custom logger for the handler to use.
 func Logger(logger log.Logger) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.logger = logger
 	}
 }
 
+// Registry adds a custom Prometheus registry for the handler to use.
 func Registry(r *prometheus.Registry) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.registry = r
 	}
 }
 
+// HandlerInstrumenter adds a custom HTTP handler instrument middleware for the handler to use.
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
@@ -55,6 +59,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
+// NewHandler creates the new metrics v1 handler
 func NewHandler(read, write, ui *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
@@ -133,9 +138,10 @@ func NewHandler(read, write, ui *url.URL, opts ...HandlerOption) http.Handler {
 				Director: middlewares,
 			}
 		}
-		r.Handle("/graph", uiProxy)
-		r.Handle("/stores", uiProxy)
-		r.Handle("/status", uiProxy)
+		r.Mount("/", c.instrument.NewHandler(
+			prometheus.Labels{"group": "metricsv1", "handler": "ui"},
+			uiProxy,
+		))
 	}
 
 	return r

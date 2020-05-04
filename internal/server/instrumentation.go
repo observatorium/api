@@ -2,10 +2,16 @@ package server
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// TODO(metalmatze): Move this file to github.com/metalmatze/signal. It's applicable outside this project as well.
 
 type instrumentationMiddleware struct {
 	requestCounter  *prometheus.CounterVec
@@ -14,6 +20,7 @@ type instrumentationMiddleware struct {
 	responseSize    *prometheus.HistogramVec
 }
 
+// NewInstrumentationMiddleware creates a new middleware that observes some metrics for HTTP handlers.
 func NewInstrumentationMiddleware(r prometheus.Registerer) *instrumentationMiddleware {
 	labels := []string{"code", "method", "group", "handler"}
 	ins := &instrumentationMiddleware{
@@ -61,6 +68,7 @@ func NewInstrumentationMiddleware(r prometheus.Registerer) *instrumentationMiddl
 	return ins
 }
 
+// NewHandler wraps a HTTP handler with some metrics for HTTP handlers.
 func (ins *instrumentationMiddleware) NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc {
 	return promhttp.InstrumentHandlerCounter(ins.requestCounter.MustCurryWith(labels),
 		promhttp.InstrumentHandlerRequestSize(ins.requestSize.MustCurryWith(labels),
@@ -71,4 +79,33 @@ func (ins *instrumentationMiddleware) NewHandler(labels prometheus.Labels, handl
 			),
 		),
 	)
+}
+
+// Logger returns a middleware to log HTTP requests.
+func Logger(logger log.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
+
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(ww, r)
+
+			keyvals := []interface{}{
+				"request", middleware.GetReqID(r.Context()),
+				"proto", r.Proto,
+				"method", r.Method,
+				"status", ww.Status(),
+				"content", r.Header.Get("Content-Type"),
+				"path", r.URL.Path,
+				"duration", time.Since(start),
+				"bytes", ww.BytesWritten(),
+			}
+
+			if ww.Status()/100 == 5 {
+				level.Warn(logger).Log(keyvals...)
+				return
+			}
+			level.Debug(logger).Log(keyvals...)
+		})
+	}
 }
