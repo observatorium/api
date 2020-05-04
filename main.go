@@ -254,7 +254,7 @@ func parseFlags(logger log.Logger) (config, error) {
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
 		"The address on which internal server runs.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
-		"The URL like http://localhost:8080 on which public server runs and to run healthcheck tests against.")
+		"The URL on which public server runs and to run healthchecks against.")
 	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
 	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
