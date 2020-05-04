@@ -43,10 +43,12 @@ Usage of ./observatorium:
     	File containing the default x509 private key matching --tls-cert-file. Leave blank to disable TLS.
   -tls-reload-interval duration
     	The interval at which to watch for TLS certificate changes, by default set to 1 minute. (default 1m0s)
-  -web.grace-period duration
-    	The time to wait after an OS interrupt received. (default 5s)
+  -web.healthchecks.url string
+    	The URL on which public server runs and to run healthchecks against. (default "http://localhost:8080")
+  -web.internal.listen string
+    	The address on which internal server runs. (default ":8081")
   -web.listen string
-    	The address on which internal server runs. (default ":8080")
+    	The address on which public server runs. (default ":8080")
   -web.timeout duration
     	The maximum duration before timing out the request, and closing idle connections. (default 2m0s)
   -web.timeout.read duration

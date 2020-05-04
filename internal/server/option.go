@@ -9,7 +9,6 @@ import (
 )
 
 type options struct {
-	gracePeriod    time.Duration
 	timeout        time.Duration
 	requestTimeout time.Duration
 	readTimeout    time.Duration
@@ -21,8 +20,7 @@ type options struct {
 	metricsReadEndpoint  *url.URL
 	metricsWriteEndpoint *url.URL
 
-	profile bool
-	listen  string
+	listen string
 
 	proxyOptions []proxy.Option
 }
@@ -36,13 +34,6 @@ type optionFunc func(*options)
 
 func (f optionFunc) apply(o *options) {
 	f(o)
-}
-
-// WithGracePeriod sets graceful shutdown period for the server.
-func WithGracePeriod(t time.Duration) Option {
-	return optionFunc(func(o *options) {
-		o.gracePeriod = t
-	})
 }
 
 // WithListen sets the port to listen for the server.
@@ -98,13 +89,6 @@ func WithMetricReadEndpoint(u *url.URL) Option {
 func WithMetricWriteEndpoint(u *url.URL) Option {
 	return optionFunc(func(o *options) {
 		o.metricsWriteEndpoint = u
-	})
-}
-
-// WithProfile sets the option to enable/disable profiler endpoint.
-func WithProfile(p bool) Option {
-	return optionFunc(func(o *options) {
-		o.profile = p
 	})
 }
 

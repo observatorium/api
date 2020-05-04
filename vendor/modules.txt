@@ -125,6 +125,10 @@ github.com/mattn/go-colorable
 github.com/mattn/go-isatty
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/metalmatze/signal v0.0.0-20200428133549-c4243ecaf121
+## explicit
+github.com/metalmatze/signal/healthcheck
+github.com/metalmatze/signal/internalserver
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1

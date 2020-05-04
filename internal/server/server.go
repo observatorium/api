@@ -7,18 +7,16 @@ import (
 	"time"
 
 	"github.com/observatorium/observatorium/internal/proxy"
-	"github.com/observatorium/observatorium/prober"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// DefaultGracePeriod is the default value of the duration gracefully shuts down the server without interrupting any active connections.
-const DefaultGracePeriod = 5 * time.Second
+// gracePeriod is duration the server gracefully shuts down.
+const gracePeriod = 2 * time.Minute
 
 // DefaultRequestTimeout is the default value of the timeout duration per request.
 const DefaultRequestTimeout = 2 * time.Minute
@@ -32,7 +30,6 @@ const DefaultWriteTimeout = 2 * time.Minute
 // Server defines parameters for running an HTTP server.
 type Server struct {
 	logger log.Logger
-	prober *prober.Prober
 	srv    *http.Server
 
 	opts options
@@ -40,10 +37,7 @@ type Server struct {
 
 // New creates a new Server.
 func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
-	options := options{
-		gracePeriod: DefaultGracePeriod,
-		profile:     false,
-	}
+	options := options{}
 
 	for _, o := range opts {
 		o.apply(&options)
@@ -56,18 +50,7 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(options.requestTimeout))
 
-	if options.profile {
-		r.Mount("/debug", middleware.Profiler())
-	}
-
 	ins := newInstrumentationMiddleware(reg)
-	p := prober.New(logger)
-
-	registerProber(r, p)
-
-	r.Get("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		promhttp.InstrumentMetricHandler(reg, promhttp.HandlerFor(reg, promhttp.HandlerOpts{})).ServeHTTP(w, r)
-	})
 
 	{
 		// Legacy endpoints
@@ -121,11 +104,8 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 			ins.newHandler("write", proxy.New(logger, path.Join(namespace, writePath), options.metricsWriteEndpoint, options.proxyOptions...)))
 	})
 
-	p.Healthy()
-
 	return Server{
 		logger: logger,
-		prober: p,
 		srv: &http.Server{
 			Addr:         options.listen,
 			Handler:      r,
@@ -140,7 +120,6 @@ func New(logger log.Logger, reg *prometheus.Registry, opts ...Option) Server {
 // ListenAndServe listens on the TCP network address and handles connections with given server configuration.
 func (s *Server) ListenAndServe() error {
 	level.Info(s.logger).Log("msg", "starting the HTTP server", "address", s.opts.listen)
-	s.prober.Ready()
 
 	if s.opts.tlsConfig != nil {
 		// certFile and keyFile passed in TLSConfig at initialization.
@@ -152,21 +131,12 @@ func (s *Server) ListenAndServe() error {
 
 // Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown(err error) {
-	s.prober.NotReady(err)
-
 	if err == http.ErrServerClosed {
 		level.Warn(s.logger).Log("msg", "internal server closed unexpectedly")
 		return
 	}
 
-	if s.opts.gracePeriod == 0 {
-		level.Info(s.logger).Log("msg", "immediately closing internal server")
-		s.srv.Close()
-
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), s.opts.gracePeriod)
+	ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 	defer cancel()
 
 	level.Info(s.logger).Log("msg", "shutting down internal server")
@@ -174,9 +144,4 @@ func (s *Server) Shutdown(err error) {
 	if err := s.srv.Shutdown(ctx); err != nil {
 		level.Error(s.logger).Log("msg", "shutting down failed", "err", err)
 	}
-}
-
-func registerProber(r *chi.Mux, p *prober.Prober) {
-	r.Get("/-/healthy", p.HealthyHandler())
-	r.Get("/-/ready", p.ReadyHandler())
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	stdlog "log"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -12,18 +14,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/observatorium/observatorium/internal"
-	"github.com/observatorium/observatorium/internal/proxy"
-	"github.com/observatorium/observatorium/internal/server"
-	"github.com/observatorium/observatorium/internal/tls"
-
 	rbacproxytls "github.com/brancz/kube-rbac-proxy/pkg/tls"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/metalmatze/signal/healthcheck"
+	"github.com/metalmatze/signal/internalserver"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
 	"go.uber.org/automaxprocs/maxprocs"
+
+	"github.com/observatorium/observatorium/internal"
+	"github.com/observatorium/observatorium/internal/proxy"
+	"github.com/observatorium/observatorium/internal/server"
+	"github.com/observatorium/observatorium/internal/tls"
 )
 
 type config struct {
@@ -45,6 +49,8 @@ type debugConfig struct {
 
 type serverConfig struct {
 	listen         string
+	listenInternal string
+	healthcheckURL string
 	gracePeriod    time.Duration
 	requestTimeout time.Duration
 	readTimeout    time.Duration
@@ -75,12 +81,20 @@ type metricsConfig struct {
 func main() {
 	cfg, err := parseFlags(log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout)))
 	if err != nil {
-		log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr)).Log("msg", "parse flag", "err", err)
-		os.Exit(1)
+		stdlog.Fatalf("parse flag: %v", err)
 	}
 
 	logger := internal.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		version.NewCollector("observatorium"),
+		prometheus.NewGoCollector(),
+		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+	)
+
+	healthchecks := healthcheck.NewMetricsHandler(healthcheck.NewHandler(), reg)
 
 	debug := os.Getenv("DEBUG") != ""
 	if debug {
@@ -99,24 +113,8 @@ func main() {
 
 	defer undo()
 
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(
-		version.NewCollector("observatorium"),
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
-	)
-
 	level.Info(logger).Log("msg", "starting observatorium")
 
-	if err := exec(logger, reg, cfg); err != nil {
-		level.Error(logger).Log("msg", "observatorium failed", "err", err)
-		os.Exit(1)
-	}
-
-	os.Exit(0)
-}
-
-func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 	var g run.Group
 	{
 		// Signal channels must be buffered.
@@ -140,7 +138,7 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 		cfg.tls.cipherSuites,
 	)
 	if err != nil {
-		return fmt.Errorf("tls config: %w", err)
+		stdlog.Fatalf("failed to initialize tls config: %v", err)
 	}
 
 	{
@@ -151,7 +149,7 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 				cfg.tls.reloadInterval,
 			)
 			if err != nil {
-				return fmt.Errorf("initialize certificate reloader: %w", err)
+				stdlog.Fatalf("failed to initialize certificate reloader: %v", err)
 			}
 
 			tlsConfig.GetCertificate = r.GetCertificate
@@ -165,16 +163,35 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 		}
 	}
 	{
+		{
+			if cfg.server.healthcheckURL != "" {
+				// checks if server is up
+				healthchecks.AddLivenessCheck("http",
+					healthcheck.HTTPCheck(
+						cfg.server.healthcheckURL,
+						http.MethodGet,
+						http.StatusMovedPermanently,
+						time.Second,
+					),
+				)
+				// checks if upstream is reachable through server proxy
+				healthchecks.AddReadinessCheck("http-proxy",
+					healthcheck.HTTPGetCheck(
+						cfg.server.healthcheckURL,
+						time.Second,
+					),
+				)
+			}
+		}
+
 		srv := server.New(
 			logger,
 			reg,
 			server.WithListen(cfg.server.listen),
-			server.WithGracePeriod(cfg.server.gracePeriod),
 			server.WithRequestTimeout(cfg.server.requestTimeout),
 			server.WithReadTimeout(cfg.server.readTimeout),
 			server.WithWriteTimeout(cfg.server.writeTimeout),
 			server.WithTLSConfig(tlsConfig),
-			server.WithProfile(os.Getenv("PROFILE") != ""),
 			server.WithMetricUIEndpoint(cfg.metrics.uiEndpoint),
 			server.WithMetricReadEndpoint(cfg.metrics.readEndpoint),
 			server.WithMetricWriteEndpoint(cfg.metrics.writeEndpoint),
@@ -186,8 +203,30 @@ func exec(logger log.Logger, reg *prometheus.Registry, cfg config) error {
 		)
 		g.Add(srv.ListenAndServe, srv.Shutdown)
 	}
+	{
+		h := internalserver.NewHandler(
+			internalserver.WithName("Internal - Observatorium API"),
+			internalserver.WithHealthchecks(healthchecks),
+			internalserver.WithPrometheusRegistry(reg),
+			internalserver.WithPProf(),
+		)
 
-	return g.Run()
+		s := http.Server{
+			Addr:    cfg.server.listenInternal,
+			Handler: h,
+		}
+
+		g.Add(func() error {
+			level.Info(logger).Log("msg", "starting internal HTTP server", "address", s.Addr)
+			return s.ListenAndServe()
+		}, func(err error) {
+			_ = s.Shutdown(context.Background())
+		})
+	}
+
+	if err := g.Run(); err != nil {
+		stdlog.Fatal(err)
+	}
 }
 
 func parseFlags(logger log.Logger) (config, error) {
@@ -211,9 +250,11 @@ func parseFlags(logger log.Logger) (config, error) {
 	flag.StringVar(&cfg.logFormat, "log.format", internal.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
+		"The address on which public server runs.")
+	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
 		"The address on which internal server runs.")
-	flag.DurationVar(&cfg.server.gracePeriod, "web.grace-period", server.DefaultGracePeriod,
-		"The time to wait after an OS interrupt received.")
+	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
+		"The URL on which public server runs and to run healthchecks against.")
 	flag.DurationVar(&cfg.server.requestTimeout, "web.timeout", server.DefaultRequestTimeout,
 		"The maximum duration before timing out the request, and closing idle connections.")
 	flag.DurationVar(&cfg.server.readTimeout, "web.timeout.read", server.DefaultReadTimeout,
