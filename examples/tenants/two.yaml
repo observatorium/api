@@ -1,0 +1,13 @@
+tenants:
+  - name: telemeter
+    oidc:
+      clientID:     telemeter
+      clientSecret: ov7zikeipai4neih7Chahcae
+      issuerURL:    http://127.0.0.1:5556/dex
+      redirectURL:  http://localhost:8080/telemeter/oidc/callback
+  - name: ci
+    oidc:
+      clientID:     ci
+      clientSecret: eiqu5aaVePhaibothohshooP
+      issuerURL:    http://127.0.0.1:5556/dex
+      redirectURL:  http://localhost:8080/ci/oidc/callback

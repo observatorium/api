@@ -23,6 +23,8 @@ Usage of ./observatorium:
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
+  -tenants.config string
+    	Path to the tenants file. (default "tenants.yaml")
   -tls-cert-file string
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls-cipher-suites string
