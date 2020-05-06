@@ -7,6 +7,8 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/campoy/embedmd v1.0.0
 	github.com/cloudflare/cfssl v1.4.1
+	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-kit/kit v0.10.0
 	github.com/go-pluto/styx v0.0.0-20200109161911-78a77eb717b4
@@ -24,6 +26,7 @@ require (
 	github.com/urfave/cli v1.22.2 // indirect
 	go.uber.org/automaxprocs v1.2.0
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
+	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
 	google.golang.org/genproto v0.0.0-20200413115906-b5235f65be36 // indirect
 	google.golang.org/grpc v1.28.1 // indirect
