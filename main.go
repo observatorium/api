@@ -29,7 +29,6 @@ import (
 	"github.com/observatorium/observatorium/internal"
 	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
-	"github.com/observatorium/observatorium/internal/proxy"
 	"github.com/observatorium/observatorium/internal/server"
 	"github.com/observatorium/observatorium/internal/tls"
 )
@@ -303,13 +302,6 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The endpoint which forward ui requests.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
-	flag.IntVar(&cfg.proxy.bufferCount, "proxy.buffer-count", proxy.DefaultBufferCount,
-		"Maximum number of of reusable buffer used for copying HTTP reverse proxy responses.")
-	flag.IntVar(&cfg.proxy.bufferSizeBytes, "proxy.buffer-size-bytes", proxy.DefaultBufferSizeBytes,
-		"Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses.")
-	flag.DurationVar(&cfg.proxy.flushInterval, "proxy.flush-interval", proxy.DefaultFlushInterval,
-		"The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. "+
-			"A negative value means to flush immediately after each write to the client.")
 	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.keyFile, "tls-private-key-file", "",

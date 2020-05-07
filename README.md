@@ -25,12 +25,6 @@ Usage of ./observatorium:
     	The endpoint which forward ui requests.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
-  -proxy.buffer-count int
-    	Maximum number of of reusable buffer used for copying HTTP reverse proxy responses. (default 2048)
-  -proxy.buffer-size-bytes int
-    	Size (bytes) of reusable buffer used for copying HTTP reverse proxy responses. (default 32768)
-  -proxy.flush-interval duration
-    	The flush interval to flush to the proxy while copying the response body. If zero, no periodic flushing is done. A negative value means to flush immediately after each write to the client. (default -1ns)
   -tls-cert-file string
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls-cipher-suites string

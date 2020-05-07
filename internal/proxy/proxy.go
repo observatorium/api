@@ -4,21 +4,11 @@ import (
 	stdlog "log"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
-)
-
-const (
-	// DefaultBufferCount is the default value for the maximum size of the buffer pool for the reverse proxy.
-	DefaultBufferCount = 2 * 1024
-	// DefaultBufferSizeBytes is the default value for the length of the buffers in the buffer pool for the reverse proxy.
-	DefaultBufferSizeBytes = 32 * 1024
-	// DefaultFlushInterval is the default value for the flush interval of reverse proxy to flush to the client while copying the response body.
-	DefaultFlushInterval = time.Duration(-1)
 )
 
 type Middleware func(r *http.Request)
