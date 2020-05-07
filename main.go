@@ -73,7 +73,6 @@ type proxyConfig struct {
 }
 
 type metricsConfig struct {
-	uiEndpoint    *url.URL
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
 }
@@ -204,7 +203,6 @@ func main() {
 				metricsv1.NewHandler(
 					cfg.metrics.readEndpoint,
 					cfg.metrics.writeEndpoint,
-					cfg.metrics.uiEndpoint,
 					metricsv1.Logger(logger),
 					metricsv1.Registry(reg),
 					metricsv1.HandlerInstrumenter(ins),
@@ -273,7 +271,6 @@ func main() {
 func parseFlags(logger log.Logger) (config, error) {
 	var (
 		rawTLSCipherSuites      string
-		rawMetricsUIEndpoint    string
 		rawMetricsReadEndpoint  string
 		rawMetricsWriteEndpoint string
 	)
@@ -298,8 +295,6 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The URL on which public server runs and to run healthchecks against.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
-	flag.StringVar(&rawMetricsUIEndpoint, "metrics.ui.endpoint", "",
-		"The endpoint which forward ui requests.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "",
@@ -320,17 +315,6 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The interval at which to watch for TLS certificate changes, by default set to 1 minute.")
 
 	flag.Parse()
-
-	if rawMetricsUIEndpoint != "" {
-		metricsUIEndpoint, err := url.ParseRequestURI(rawMetricsUIEndpoint)
-		if err != nil {
-			return cfg, fmt.Errorf("--metrics.ui.endpoint is invalid, raw %s: %w", rawMetricsUIEndpoint, err)
-		}
-
-		cfg.metrics.uiEndpoint = metricsUIEndpoint
-	} else {
-		level.Info(logger).Log("msg", "--metrics.ui.endpoint is not specified, UI will not be accessible")
-	}
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
 	if err != nil {

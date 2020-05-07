@@ -60,7 +60,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 }
 
 // NewHandler creates the new metrics v1 handler
-func NewHandler(read, write, ui *url.URL, opts ...HandlerOption) http.Handler {
+func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -99,6 +99,23 @@ func NewHandler(read, write, ui *url.URL, opts ...HandlerOption) http.Handler {
 			prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
 			proxyRead,
 		))
+
+		var uiProxy http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
+			)
+
+			uiProxy = &httputil.ReverseProxy{
+				Director: middlewares,
+			}
+		}
+		r.Mount("/", c.instrument.NewHandler(
+			prometheus.Labels{"group": "metricsv1", "handler": "ui"},
+			uiProxy,
+		))
 	}
 
 	if write != nil {
@@ -123,24 +140,6 @@ func NewHandler(read, write, ui *url.URL, opts ...HandlerOption) http.Handler {
 		r.Handle("/write", c.instrument.NewHandler(
 			prometheus.Labels{"group": "metricsv1", "handler": "write"},
 			proxyWrite,
-		))
-	}
-
-	if ui != nil {
-		var uiProxy http.Handler
-		{
-			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(ui),
-				proxy.MiddlewareLogger(c.logger),
-			)
-
-			uiProxy = &httputil.ReverseProxy{
-				Director: middlewares,
-			}
-		}
-		r.Mount("/", c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "ui"},
-			uiProxy,
 		))
 	}
 
