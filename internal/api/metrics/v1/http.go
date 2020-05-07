@@ -139,7 +139,9 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		}
 		r.Handle("/write", c.instrument.NewHandler(
 			prometheus.Labels{"group": "metricsv1", "handler": "write"},
-			proxyWrite,
+			http.StripPrefix("/write",
+				proxyWrite,
+			),
 		))
 	}
 
