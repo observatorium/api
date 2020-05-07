@@ -21,8 +21,6 @@ Usage of ./observatorium:
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
-  -metrics.ui.endpoint string
-    	The endpoint which forward ui requests.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -tls-cert-file string
