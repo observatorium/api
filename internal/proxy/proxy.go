@@ -4,6 +4,7 @@ import (
 	stdlog "log"
 	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
@@ -23,9 +24,9 @@ func Middlewares(middlewares ...Middleware) func(r *http.Request) {
 
 func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 	return func(r *http.Request) {
-
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
+		r.URL.Path = path.Join(upstream.Path, r.URL.Path)
 	}
 }
 
