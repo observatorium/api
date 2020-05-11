@@ -61,7 +61,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.withArgs([
         '--web.listen=0.0.0.0:%s' % api.config.ports.public,
         '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
-        '--metrics.ui.endpoint=' + api.config.uiEndpoint,
         '--metrics.read.endpoint=' + api.config.readEndpoint,
         '--metrics.write.endpoint=' + api.config.writeEndpoint,
         '--log.level=warn',

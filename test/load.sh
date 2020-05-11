@@ -73,7 +73,7 @@ plot() {
         ./observatorium \
             --web.listen=0.0.0.0:8080 \
             --metrics.read.endpoint=http://127.0.0.1:9091/api/v1 \
-            --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
+            --metrics.write.endpoint=http://127.0.0.1:19291/
         ;;
 
     darwin)
@@ -81,7 +81,7 @@ plot() {
             quay.io/observatorium/observatorium \
             --web.listen=0.0.0.0:8080 \
             --metrics.read.endpoint=http://host.docker.internal:8888/ \
-            --metrics.write.endpoint=http://host.docker.internal:8888/write
+            --metrics.write.endpoint=http://host.docker.internal:8888/
         ;;
     *)
         echo "unknown platform: $platform"
@@ -169,7 +169,7 @@ sleep 5
         -query-step=30s \
         -query-concurrency="$number_of_concurrent_queries" \
         -write=true \
-        -target=http://127.0.0.1:8080/api/metrics/v1/write \
+        -target=http://127.0.0.1:8080/api/metrics/v1/api/v1/receive \
         -hosts="$hosts" \
         -interval=5
 ) &
