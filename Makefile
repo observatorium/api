@@ -48,11 +48,11 @@ SERVER_CERT ?= $(CERT_DIR)/server.pem
 default: observatorium
 all: clean lint test observatorium
 
-tmp/help.txt: build
-	-./observatorium --help >tmp/help.txt 2>&1
+tmp/help.txt: observatorium
+	./observatorium --help &> tmp/help.txt || true
 
 tmp/load_help.txt:
-	-./test/load.sh -h >tmp/load_help.txt 2>&1
+	-./test/load.sh -h > tmp/load_help.txt 2&>1
 
 README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md
@@ -66,8 +66,7 @@ observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ .
 
 .PHONY: build
-build: vendor main.go $(wildcard *.go) $(wildcard */*.go)
-	go build -mod=vendor -a -ldflags '-s -w' -o observatorium .
+build: observatorium
 
 .PHONY: vendor
 vendor: go.mod go.sum
@@ -216,7 +215,7 @@ CONTAINER_CMD:=docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 .PHONY: generate
-generate: jsonnet-vendor examples/manifests README.md
+generate: examples/vendor examples/manifests README.md
 
 .PHONY: generate-in-docker
 generate-in-docker:
