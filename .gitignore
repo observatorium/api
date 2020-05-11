@@ -13,4 +13,4 @@
 
 observatorium
 tmp/
-jsonnet/vendor
+examples/vendor
