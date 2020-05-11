@@ -15,7 +15,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --tls-client-ca-file=./tmp/certs/ca.pem \
     --tls-private-key-file=./tmp/certs/server.key \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
-    --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive \
+    --metrics.write.endpoint=http://127.0.0.1:19291 \
     --log.level=debug
 ) &
 
@@ -46,7 +46,7 @@ if ./tmp/bin/up \
   --tls-client-cert-file=./tmp/certs/client.pem \
   --tls-client-private-key-file=./tmp/certs/client.key \
   --endpoint-read=https://127.0.0.1:8443/api/metrics/v1/api/v1/query \
-  --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/write \
+  --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/api/v1/receive \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \
