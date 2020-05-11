@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/instance: observatorium-api
     app.kubernetes.io/name: observatorium-api
-    app.kubernetes.io/version: master-2020-01-28-e009b4a
+    app.kubernetes.io/version: master-2020-05-04-v0.1.1-21-gabb9864
   name: observatorium-api
   namespace: observatorium
 spec:
@@ -25,31 +25,34 @@ spec:
         app.kubernetes.io/component: api
         app.kubernetes.io/instance: observatorium-api
         app.kubernetes.io/name: observatorium-api
-        app.kubernetes.io/version: master-2020-01-28-e009b4a
+        app.kubernetes.io/version: master-2020-05-04-v0.1.1-21-gabb9864
     spec:
       containers:
       - args:
         - --web.listen=0.0.0.0:8080
-        - --metrics.ui.endpoint=http://127.0.0.1:9091/
-        - --metrics.read.endpoint=http://127.0.0.1:9091/api/v1
-        - --metrics.write.endpoint=http://127.0.0.1:19291/api/v1/receive
+        - --web.internal.listen=0.0.0.0:8081
+        - --metrics.ui.endpoint=http://127.0.0.1:9091
+        - --metrics.read.endpoint=http://127.0.0.1:9091
+        - --metrics.write.endpoint=http://127.0.0.1:19291
         - --log.level=warn
-        image: quay.io/observatorium/observatorium:master-2020-01-28-e009b4a
+        image: quay.io/observatorium/observatorium:master-2020-05-04-v0.1.1-21-gabb9864
         livenessProbe:
-          failureThreshold: 8
+          failureThreshold: 10
           httpGet:
-            path: /-/healthy
-            port: 8080
+            path: /live
+            port: 8081
             scheme: HTTP
           periodSeconds: 30
         name: observatorium-api
         ports:
+        - containerPort: 8081
+          name: internal
         - containerPort: 8080
-          name: http
+          name: public
         readinessProbe:
-          failureThreshold: 20
+          failureThreshold: 12
           httpGet:
-            path: /-/ready
-            port: 8080
+            path: /ready
+            port: 8081
             scheme: HTTP
           periodSeconds: 5

@@ -206,9 +206,6 @@ $(GENERATE_TLS_CERT): | vendor $(BIN_DIR)
 
 # Jsonnet and Example manifests
 
-EXAMPLES := examples
-MANIFESTS := ${EXAMPLES}/manifests/
-
 CONTAINER_CMD:=docker run --rm \
 		-u="$(shell id -u):$(shell id -g)" \
 		-v "$(shell go env GOCACHE):/.cache/go-build" \
@@ -219,24 +216,22 @@ CONTAINER_CMD:=docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 .PHONY: generate
-generate: jsonnet-vendor ${MANIFESTS} README.md
+generate: jsonnet-vendor examples/manifests README.md
 
 .PHONY: generate-in-docker
 generate-in-docker:
 	@echo ">> Compiling assets and generating Kubernetes manifests"
 	$(CONTAINER_CMD) make $(MFLAGS) generate
 
-.PHONY: ${MANIFESTS}
-${MANIFESTS}: jsonnet/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
-	@rm -rf ${MANIFESTS}
-	@mkdir -p ${MANIFESTS}
-	$(JSONNET) -J jsonnet/vendor -m ${MANIFESTS} jsonnet/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
+examples/manifests: examples/main.jsonnet examples/vendor jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
+	@rm -rf examples/manifests
+	@mkdir -p examples/manifests
+	$(JSONNET) -J examples/vendor -m examples/manifests examples/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
 
-.PHONY: jsonnet-vendor
-jsonnet-vendor: jsonnet/jsonnetfile.json | $(JSONNET_BUNDLER)
-	cd jsonnet && $(JSONNET_BUNDLER) install
+examples/vendor: examples/jsonnetfile.json examples/jsonnetfile.lock.json | $(JSONNET_BUNDLER)
+	cd examples && $(JSONNET_BUNDLER) install
 
-JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'jsonnet/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
+JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'examples/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
 JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
 
 .PHONY: jsonnet-fmt

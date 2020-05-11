@@ -1,14 +1,14 @@
-local api = (import 'lib/observatorium-api.libsonnet') {
+local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
   config+:: {
     local cfg = self,
     name: 'observatorium-api',
     namespace: 'observatorium',
-    version: 'master-2020-01-28-e009b4a',
+    version: 'master-2020-05-04-v0.1.1-21-gabb9864',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
-    uiEndpoint: 'http://127.0.0.1:9091/',
-    readEndpoint: 'http://127.0.0.1:9091/api/v1',
-    writeEndpoint: 'http://127.0.0.1:19291/api/v1/receive',
+    uiEndpoint: 'http://127.0.0.1:9091',
+    readEndpoint: 'http://127.0.0.1:9091',
+    writeEndpoint: 'http://127.0.0.1:19291',
   },
 };
 

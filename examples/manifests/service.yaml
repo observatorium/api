@@ -5,12 +5,15 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/instance: observatorium-api
     app.kubernetes.io/name: observatorium-api
-    app.kubernetes.io/version: master-2020-01-28-e009b4a
+    app.kubernetes.io/version: master-2020-05-04-v0.1.1-21-gabb9864
   name: observatorium-api
   namespace: observatorium
 spec:
   ports:
-  - name: http
+  - name: internal
+    port: 8081
+    targetPort: 8081
+  - name: public
     port: 8080
     targetPort: 8080
   selector:
