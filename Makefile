@@ -126,9 +126,11 @@ container-push: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: container-release
+container-release: VERSION_TAG = $(strip $(shell [ -d .git ] && git tag --points-at HEAD))
 container-release: container
-	@docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION)
-	docker push $(DOCKER_REPO):$(VERSION)
+	# https://git-scm.com/docs/git-tag#Documentation/git-tag.txt---points-atltobjectgt
+	@docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION_TAG)
+	docker push $(DOCKER_REPO):$(VERSION_TAG)
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies

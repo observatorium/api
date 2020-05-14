@@ -63,15 +63,6 @@ workflows:
       - lint
       - test
       - generate
-  tagged-master:
-    jobs:
-      - container-release:
-          filters:
-            tags:
-              only: /^v.*/
-            branches:
-              only:
-                - master
   commit-master:
     jobs:
       - build
@@ -85,3 +76,17 @@ workflows:
             branches:
               only:
                 - master
+  tagged-master:
+    jobs:
+      - container-release:
+          filters:
+            tags:
+              # Suggested SemVer regex:
+              # https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+              # https://regex101.com/r/vkijKf/1/
+              # NOTICE: with an additional "v" as prefix.
+              only: /v^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/
+            branches:
+              only:
+                - master
+                - /release-.*/
