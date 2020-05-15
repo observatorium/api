@@ -7,7 +7,8 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/campoy/embedmd v1.0.0
 	github.com/cloudflare/cfssl v1.4.1
-	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/dexidp/dex v0.0.0-20200512115545-709d4169d646
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-kit/kit v0.10.0
@@ -29,7 +30,8 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
 	google.golang.org/genproto v0.0.0-20200413115906-b5235f65be36 // indirect
-	google.golang.org/grpc v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/component-base v0.18.0
 )
+
+replace go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20200329194405-dd816f0735f8
