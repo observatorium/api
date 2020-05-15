@@ -8,6 +8,23 @@ set -euo pipefail
 result=1
 trap 'kill $(jobs -p); exit $result' EXIT
 
+(./tmp/bin/dex serve ./test/config/dex.yaml) &
+
+printf "\t## getting authentication token..."
+sleep 2
+
+token=$(curl --request POST \
+    --silent \
+    --url http://localhost:5556/dex/token \
+    --header 'content-type: application/x-www-form-urlencoded' \
+    --data grant_type=password \
+    --data username=admin@example.com \
+    --data password=password \
+    --data audience=telemeter \
+    --data client_id=test \
+    --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0  \
+    --data scope=openid | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
+
 (
   ./observatorium \
     --web.listen=0.0.0.0:8443 \
@@ -16,6 +33,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --tls-private-key-file=./tmp/certs/server.key \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
     --metrics.write.endpoint=http://127.0.0.1:19291 \
+    --tenants.config=./test/config/tenants.yaml \
     --log.level=debug
 ) &
 
@@ -45,8 +63,8 @@ if ./tmp/bin/up \
   --tls-ca-file=./tmp/certs/ca.pem \
   --tls-client-cert-file=./tmp/certs/client.pem \
   --tls-client-private-key-file=./tmp/certs/client.key \
-  --endpoint-read=https://127.0.0.1:8443/api/metrics/v1/api/v1/query \
-  --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/api/v1/receive \
+  --endpoint-read=https://127.0.0.1:8443/api/metrics/v1/test/api/v1/query \
+  --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/test/api/v1/receive \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \
@@ -54,7 +72,8 @@ if ./tmp/bin/up \
   --duration=10s \
   --log.level=debug \
   --name=observatorium_write \
-  --labels='_id="test"'; then
+  --labels='_id="test"' \
+  --token="$token"; then
   result=0
   printf "\t## tests: ok"
   exit 0

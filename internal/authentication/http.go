@@ -2,7 +2,6 @@ package authentication
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strings"
@@ -144,12 +143,7 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 					return
 				}
 
-				rawToken, err := base64.StdEncoding.DecodeString(authorization[1])
-				if err != nil {
-					http.Error(w, "failed to decode authorization token", http.StatusBadRequest)
-					return
-				}
-				token = string(rawToken)
+				token = authorization[1]
 			} else {
 				cookie, err := r.Cookie(getCookieForTenant(config.Tenant))
 				if err != nil {

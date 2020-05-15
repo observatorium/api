@@ -1,0 +1,7 @@
+tenants:
+- name: test
+  oidc:
+    clientID:     test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerURL:    http://127.0.0.1:5556/dex
+    redirectURL:  http://localhost:8080/oidc/test/callback

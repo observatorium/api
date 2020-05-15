@@ -4,4 +4,4 @@ tenants:
       clientID:     telemeter
       clientSecret: ov7zikeipai4neih7Chahcae
       issuerURL:    http://127.0.0.1:5556/dex
-      redirectURL:  http://localhost:8080/telemeter/oidc/callback
+      redirectURL:  http://localhost:8080/oidc/telemeter/callback
