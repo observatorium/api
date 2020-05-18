@@ -190,7 +190,7 @@ func main() {
 
 		ins := server.NewInstrumentationMiddleware(reg)
 
-		r.Mount("/api/v1",
+		r.Mount("/",
 			metricslegacy.NewHandler(
 				cfg.metrics.readEndpoint,
 				metricslegacy.Logger(logger),
@@ -211,10 +211,6 @@ func main() {
 		)
 
 		r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			r.URL.Path = "/api/metrics/v1/graph"
-			http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
-		})
-		r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
 			r.URL.Path = "/api/metrics/v1/graph"
 			http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
 		})
