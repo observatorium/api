@@ -84,14 +84,19 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 		}
 	}
 
-	r.Handle("/query", c.instrument.NewHandler(
+	r.Handle("/api/v1/query", c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query"},
 		legacyProxy,
 	))
-	r.Handle("/query_range", c.instrument.NewHandler(
+	r.Handle("/api/v1/query_range", c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
 		legacyProxy,
 	))
+
+	r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/api/metrics/v1/graph"
+		http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+	})
 
 	return r
 }
