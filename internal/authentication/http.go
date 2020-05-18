@@ -27,6 +27,7 @@ const (
 	tenantKey contextKey = "tenant"
 )
 
+// WithTenant finds the tenant from the URL parameters and adds it to the request context.
 func WithTenant(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant := chi.URLParam(r, "tenant")
@@ -34,6 +35,17 @@ func WithTenant(next http.Handler) http.Handler {
 			context.WithValue(r.Context(), tenantKey, tenant),
 		))
 	})
+}
+
+// WithTenantHeader returns a new middleware that adds the ID of the tenant to the specified header.
+func WithTenantHeader(header string, tenantIDs map[string]string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant := chi.URLParam(r, "tenant")
+			r.Header.Add(header, tenantIDs[tenant])
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func GetTenant(ctx context.Context) (string, bool) {

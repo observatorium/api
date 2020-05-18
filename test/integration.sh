@@ -39,6 +39,8 @@ token=$(curl --request POST \
 
 (
   ./tmp/bin/thanos receive \
+    --receive.hashrings-file=./test/config/hashrings.json \
+    --receive.local-endpoint=127.0.0.1:10901 \
     --grpc-address=127.0.0.1:10901 \
     --http-address=127.0.0.1:10902 \
     --remote-write.address=127.0.0.1:19291 \

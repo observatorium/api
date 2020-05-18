@@ -1,5 +1,6 @@
 tenants:
 - name: test
+  id: 1610b0c3-c509-4592-a256-a1871353dbfa
   oidc:
     clientID:     test
     clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0

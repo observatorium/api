@@ -73,6 +73,7 @@ type tlsConfig struct {
 type metricsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
+	tenantHeader  string
 }
 
 const (
@@ -90,6 +91,7 @@ func main() {
 
 	type tenant struct {
 		Name string `json:"name"`
+		ID   string `json:"id"`
 		OIDC struct {
 			ClientID     string `json:"clientID"`
 			ClientSecret string `json:"clientSecret"`
@@ -217,9 +219,11 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(authentication.WithTenant)
 
+			tenantIDs := make(map[string]string)
 			var oidcs []authentication.OIDCConfig
 			for _, t := range tenantsCfg.Tenants {
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
+				tenantIDs[t.Name] = t.ID
 				oidcs = append(oidcs, authentication.OIDCConfig{
 					Tenant:       t.Name,
 					ClientID:     t.OIDC.ClientID,
@@ -237,6 +241,7 @@ func main() {
 
 			r.Group(func(r chi.Router) {
 				r.Use(oidcMiddleware)
+				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 
 				r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 					tenant, ok := authentication.GetTenant(r.Context())
@@ -356,6 +361,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
+		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.keyFile, "tls-private-key-file", "",
