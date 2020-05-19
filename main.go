@@ -4,17 +4,20 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	stdlog "log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"runtime"
 	"strings"
 	"syscall"
 	"time"
 
 	rbacproxytls "github.com/brancz/kube-rbac-proxy/pkg/tls"
+	"github.com/ghodss/yaml"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
@@ -29,6 +32,7 @@ import (
 	"github.com/observatorium/observatorium/internal"
 	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
+	"github.com/observatorium/observatorium/internal/authentication"
 	"github.com/observatorium/observatorium/internal/server"
 	"github.com/observatorium/observatorium/internal/tls"
 )
@@ -37,10 +41,11 @@ type config struct {
 	logLevel  string
 	logFormat string
 
+	tenantsConfigPath string
+
 	debug   debugConfig
 	server  serverConfig
 	tls     tlsConfig
-	proxy   proxyConfig
 	metrics metricsConfig
 }
 
@@ -54,7 +59,6 @@ type serverConfig struct {
 	listen         string
 	listenInternal string
 	healthcheckURL string
-	gracePeriod    time.Duration
 }
 
 type tlsConfig struct {
@@ -66,21 +70,50 @@ type tlsConfig struct {
 	reloadInterval time.Duration
 }
 
-type proxyConfig struct {
-	bufferSizeBytes int
-	bufferCount     int
-	flushInterval   time.Duration
-}
-
 type metricsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
+	tenantHeader  string
 }
 
+const (
+	readTimeout = 2 * time.Minute
+	writeTimeout
+	gracePeriod
+	middlewareTimeout
+)
+
 func main() {
-	cfg, err := parseFlags(log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout)))
+	cfg, err := parseFlags()
 	if err != nil {
 		stdlog.Fatalf("parse flag: %v", err)
+	}
+
+	type tenant struct {
+		Name string `json:"name"`
+		ID   string `json:"id"`
+		OIDC struct {
+			ClientID     string `json:"clientID"`
+			ClientSecret string `json:"clientSecret"`
+			IssuerURL    string `json:"issuerURL"`
+			RedirectURL  string `json:"redirectURL"`
+		} `json:"oidc"`
+	}
+
+	type tenantsConfig struct {
+		Tenants []tenant `json:"tenants"`
+	}
+
+	var tenantsCfg tenantsConfig
+	{
+		file, err := ioutil.ReadFile(cfg.tenantsConfigPath)
+		if err != nil {
+			stdlog.Fatalf("cannot read tenant config from path %s: %v", cfg.tenantsConfigPath, err)
+		}
+
+		if err := yaml.Unmarshal(file, &tenantsCfg); err != nil {
+			stdlog.Fatalf("unable to read tenant yaml: %v", err)
+		}
 	}
 
 	logger := internal.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
@@ -167,14 +200,7 @@ func main() {
 				healthcheck.HTTPCheck(
 					cfg.server.healthcheckURL,
 					http.MethodGet,
-					http.StatusMovedPermanently,
-					time.Second,
-				),
-			)
-			// checks if upstream is reachable through server proxy
-			healthchecks.AddReadinessCheck("http-proxy",
-				healthcheck.HTTPGetCheck(
-					cfg.server.healthcheckURL+"/api/metrics/v1/graph",
+					http.StatusNotFound,
 					time.Second,
 				),
 			)
@@ -185,42 +211,77 @@ func main() {
 		r.Use(middleware.RealIP)
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
-		r.Use(middleware.Timeout(2 * time.Minute)) // best set per handler
+		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler
 		r.Use(server.Logger(logger))
 
 		ins := server.NewInstrumentationMiddleware(reg)
 
-		r.Mount("/",
-			metricslegacy.NewHandler(
-				cfg.metrics.readEndpoint,
-				metricslegacy.Logger(logger),
-				metricslegacy.Registry(reg),
-				metricslegacy.HandlerInstrumenter(ins),
-			))
+		r.Group(func(r chi.Router) {
+			r.Use(authentication.WithTenant)
 
-		r.Mount("/api/metrics/v1",
-			http.StripPrefix("/api/metrics/v1",
-				metricsv1.NewHandler(
-					cfg.metrics.readEndpoint,
-					cfg.metrics.writeEndpoint,
-					metricsv1.Logger(logger),
-					metricsv1.Registry(reg),
-					metricsv1.HandlerInstrumenter(ins),
-				),
-			),
-		)
+			tenantIDs := make(map[string]string)
+			var oidcs []authentication.OIDCConfig
+			for _, t := range tenantsCfg.Tenants {
+				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
+				tenantIDs[t.Name] = t.ID
+				oidcs = append(oidcs, authentication.OIDCConfig{
+					Tenant:       t.Name,
+					ClientID:     t.OIDC.ClientID,
+					ClientSecret: t.OIDC.ClientSecret,
+					IssuerURL:    t.OIDC.IssuerURL,
+					RedirectURL:  t.OIDC.RedirectURL,
+				})
+			}
 
-		r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			r.URL.Path = "/api/metrics/v1/graph"
-			http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+			oidcHandler, oidcMiddleware, err := authentication.NewOIDCHandler(oidcs...)
+			if err != nil {
+				stdlog.Fatalf("failed to create OIDC handler: %v", err)
+			}
+			r.Mount("/oidc/{tenant}", oidcHandler)
+
+			r.Group(func(r chi.Router) {
+				r.Use(oidcMiddleware)
+				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
+
+				r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
+					tenant, ok := authentication.GetTenant(r.Context())
+					if !ok {
+						w.WriteHeader(http.StatusNotFound)
+						return
+					}
+
+					http.Redirect(w, r, path.Join("/api/metrics/v1/", tenant, "graph"), http.StatusMovedPermanently)
+				})
+
+				r.Mount("/api/v1/{tenant}",
+					metricslegacy.NewHandler(
+						cfg.metrics.readEndpoint,
+						metricslegacy.Logger(logger),
+						metricslegacy.Registry(reg),
+						metricslegacy.HandlerInstrumenter(ins),
+					),
+				)
+
+				r.Mount("/api/metrics/v1/{tenant}",
+					StripTenantPrefix("/api/metrics/v1",
+						metricsv1.NewHandler(
+							cfg.metrics.readEndpoint,
+							cfg.metrics.writeEndpoint,
+							metricsv1.Logger(logger),
+							metricsv1.Registry(reg),
+							metricsv1.HandlerInstrumenter(ins),
+						),
+					),
+				)
+			})
 		})
 
 		s := http.Server{
 			Addr:         cfg.server.listen,
 			Handler:      r,
 			TLSConfig:    tlsConfig,
-			ReadTimeout:  2 * time.Minute, // best set per handler
-			WriteTimeout: 2 * time.Minute, // best set per handler
+			ReadTimeout:  readTimeout,  // best set per handler
+			WriteTimeout: writeTimeout, // best set per handler
 		}
 
 		g.Add(func() error {
@@ -234,7 +295,7 @@ func main() {
 			return s.ListenAndServe()
 		}, func(err error) {
 			// gracePeriod is duration the server gracefully shuts down.
-			const gracePeriod = 2 * time.Minute
+			const gracePeriod = gracePeriod
 
 			ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 			defer cancel()
@@ -269,7 +330,7 @@ func main() {
 	}
 }
 
-func parseFlags(logger log.Logger) (config, error) {
+func parseFlags() (config, error) {
 	var (
 		rawTLSCipherSuites      string
 		rawMetricsReadEndpoint  string
@@ -278,6 +339,8 @@ func parseFlags(logger log.Logger) (config, error) {
 
 	cfg := config{}
 
+	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
+		"Path to the tenants file.")
 	flag.StringVar(&cfg.debug.name, "debug.name", "observatorium",
 		"The name to add as prefix to log lines.")
 	flag.IntVar(&cfg.debug.mutexProfileFraction, "debug.mutex-profile-fraction", 10,
@@ -298,6 +361,8 @@ func parseFlags(logger log.Logger) (config, error) {
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
+		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.keyFile, "tls-private-key-file", "",
@@ -336,4 +401,15 @@ func parseFlags(logger log.Logger) (config, error) {
 	}
 
 	return cfg, nil
+}
+
+func StripTenantPrefix(prefix string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tenant, ok := authentication.GetTenant(r.Context())
+		if !ok {
+			http.Error(w, "tenant not found", http.StatusInternalServerError)
+			return
+		}
+		http.StripPrefix(path.Join("/", prefix, tenant), next).ServeHTTP(w, r)
+	})
 }

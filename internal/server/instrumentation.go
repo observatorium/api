@@ -20,8 +20,13 @@ type instrumentationMiddleware struct {
 	responseSize    *prometheus.HistogramVec
 }
 
+// HandlerInstrumenter can instrument handlers.
+type HandlerInstrumenter interface {
+	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
+}
+
 // NewInstrumentationMiddleware creates a new middleware that observes some metrics for HTTP handlers.
-func NewInstrumentationMiddleware(r prometheus.Registerer) *instrumentationMiddleware {
+func NewInstrumentationMiddleware(r prometheus.Registerer) HandlerInstrumenter {
 	labels := []string{"code", "method", "group", "handler"}
 	ins := &instrumentationMiddleware{
 		requestCounter: prometheus.NewCounterVec(

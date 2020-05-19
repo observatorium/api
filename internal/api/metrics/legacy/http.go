@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ReadTimeout = 15 * time.Minute
+	readTimeout = 15 * time.Minute
 )
 
 type handlerConfiguration struct {
@@ -59,6 +59,7 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
 	}
+
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -78,7 +79,7 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 			ErrorLog: proxy.Logger(c.logger),
 			Transport: &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: ReadTimeout,
+					Timeout: readTimeout,
 				}).DialContext,
 			},
 		}

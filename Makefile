@@ -28,6 +28,7 @@ PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
 
 UP ?= $(BIN_DIR)/up
+DEX ?= $(BIN_DIR)/dex
 MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 PROMREMOTEBENCH ?= $(BIN_DIR)/promremotebench
 PROMREMOTEBENCH_VERSION ?= 0.8.0
@@ -134,7 +135,7 @@ container-release: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies
-integration-test-dependencies: $(THANOS) $(UP)
+integration-test-dependencies: $(THANOS) $(UP) $(DEX)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -164,6 +165,9 @@ $(PROMETHEUS): | $(BIN_DIR)
 
 $(UP): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up
+
+$(DEX): | vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/dexidp/dex/cmd/dex
 
 $(MOCKPROVIDER): | vendor $(BIN_DIR)
 	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/mock

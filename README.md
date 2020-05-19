@@ -21,8 +21,12 @@ Usage of ./observatorium:
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
+  -metrics.tenant-header string
+    	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
+  -tenants.config string
+    	Path to the tenants file. (default "tenants.yaml")
   -tls-cert-file string
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls-cipher-suites string
