@@ -33,14 +33,17 @@ import (
 	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
 	"github.com/observatorium/observatorium/internal/authentication"
+	"github.com/observatorium/observatorium/internal/authorization"
 	"github.com/observatorium/observatorium/internal/server"
 	"github.com/observatorium/observatorium/internal/tls"
+	"github.com/observatorium/observatorium/rbac"
 )
 
 type config struct {
 	logLevel  string
 	logFormat string
 
+	rbacConfigPath    string
 	tenantsConfigPath string
 
 	debug   debugConfig
@@ -93,10 +96,11 @@ func main() {
 		Name string `json:"name"`
 		ID   string `json:"id"`
 		OIDC struct {
-			ClientID     string `json:"clientID"`
-			ClientSecret string `json:"clientSecret"`
-			IssuerURL    string `json:"issuerURL"`
-			RedirectURL  string `json:"redirectURL"`
+			ClientID      string `json:"clientID"`
+			ClientSecret  string `json:"clientSecret"`
+			IssuerURL     string `json:"issuerURL"`
+			RedirectURL   string `json:"redirectURL"`
+			UsernameClaim string `json:"usernameClaim"`
 		} `json:"oidc"`
 	}
 
@@ -106,13 +110,25 @@ func main() {
 
 	var tenantsCfg tenantsConfig
 	{
-		file, err := ioutil.ReadFile(cfg.tenantsConfigPath)
+		f, err := ioutil.ReadFile(cfg.tenantsConfigPath)
 		if err != nil {
-			stdlog.Fatalf("cannot read tenant config from path %s: %v", cfg.tenantsConfigPath, err)
+			stdlog.Fatalf("cannot read tenant configuration file from path %s: %v", cfg.tenantsConfigPath, err)
 		}
 
-		if err := yaml.Unmarshal(file, &tenantsCfg); err != nil {
-			stdlog.Fatalf("unable to read tenant yaml: %v", err)
+		if err := yaml.Unmarshal(f, &tenantsCfg); err != nil {
+			stdlog.Fatalf("unable to read tenant YAML: %v", err)
+		}
+	}
+
+	var authorizer rbac.Authorizer
+	{
+		f, err := os.Open(cfg.rbacConfigPath)
+		if err != nil {
+			stdlog.Fatalf("cannot read RBAC configuration file from path %s: %v", cfg.rbacConfigPath, err)
+		}
+		defer f.Close()
+		if authorizer, err = rbac.Parse(f); err != nil {
+			stdlog.Fatalf("unable to read RBAC YAML: %v", err)
 		}
 	}
 
@@ -225,11 +241,12 @@ func main() {
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
 				tenantIDs[t.Name] = t.ID
 				oidcs = append(oidcs, authentication.OIDCConfig{
-					Tenant:       t.Name,
-					ClientID:     t.OIDC.ClientID,
-					ClientSecret: t.OIDC.ClientSecret,
-					IssuerURL:    t.OIDC.IssuerURL,
-					RedirectURL:  t.OIDC.RedirectURL,
+					Tenant:        t.Name,
+					ClientID:      t.OIDC.ClientID,
+					ClientSecret:  t.OIDC.ClientSecret,
+					IssuerURL:     t.OIDC.IssuerURL,
+					RedirectURL:   t.OIDC.RedirectURL,
+					UsernameClaim: t.OIDC.UsernameClaim,
 				})
 			}
 
@@ -259,6 +276,7 @@ func main() {
 						metricslegacy.Logger(logger),
 						metricslegacy.Registry(reg),
 						metricslegacy.HandlerInstrumenter(ins),
+						metricslegacy.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "metrics")),
 					),
 				)
 
@@ -270,6 +288,8 @@ func main() {
 							metricsv1.Logger(logger),
 							metricsv1.Registry(reg),
 							metricsv1.HandlerInstrumenter(ins),
+							metricsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "metrics")),
+							metricsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "metrics")),
 						),
 					),
 				)
@@ -339,6 +359,8 @@ func parseFlags() (config, error) {
 
 	cfg := config{}
 
+	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
+		"Path to the RBAC configuration file.")
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
 		"Path to the tenants file.")
 	flag.StringVar(&cfg.debug.name, "debug.name", "observatorium",

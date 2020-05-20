@@ -20,10 +20,9 @@ token=$(curl --request POST \
     --data grant_type=password \
     --data username=admin@example.com \
     --data password=password \
-    --data audience=telemeter \
     --data client_id=test \
     --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0  \
-    --data scope=openid | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
+    --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
 
 (
   ./observatorium \
@@ -33,6 +32,7 @@ token=$(curl --request POST \
     --tls-private-key-file=./tmp/certs/server.key \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
     --metrics.write.endpoint=http://127.0.0.1:19291 \
+    --rbac.config=./test/config/rbac.yaml \
     --tenants.config=./test/config/tenants.yaml \
     --log.level=debug
 ) &

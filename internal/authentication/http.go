@@ -23,6 +23,8 @@ func (c contextKey) String() string {
 
 const (
 	state = "I love Observatorium"
+	// subjectKey is the key that holds the subject in a request context.
+	subjectKey contextKey = "subject"
 	// tenantKey is the key that holds the tenant in a request context.
 	tenantKey contextKey = "tenant"
 )
@@ -48,6 +50,7 @@ func WithTenantHeader(header string, tenantIDs map[string]string) Middleware {
 	}
 }
 
+// GetTenant extracts the tenant from provided context.
 func GetTenant(ctx context.Context) (string, bool) {
 	value := ctx.Value(tenantKey)
 	tenant, ok := value.(string)
@@ -55,12 +58,21 @@ func GetTenant(ctx context.Context) (string, bool) {
 	return tenant, ok
 }
 
+// GetSubject extracts the subject from provided context.
+func GetSubject(ctx context.Context) (string, bool) {
+	value := ctx.Value(subjectKey)
+	subject, ok := value.(string)
+
+	return subject, ok
+}
+
 type OIDCConfig struct {
-	Tenant       string
-	IssuerURL    string
-	ClientID     string
-	ClientSecret string
-	RedirectURL  string
+	Tenant        string
+	IssuerURL     string
+	ClientID      string
+	ClientSecret  string
+	RedirectURL   string
+	UsernameClaim string
 }
 
 type Middleware func(http.Handler) http.Handler
@@ -165,13 +177,35 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 				token = cookie.Value
 			}
 
-			_, err = verifier.Verify(r.Context(), token)
+			idToken, err := verifier.Verify(r.Context(), token)
 			if err != nil {
 				http.Error(w, "failed to authenticate", http.StatusBadRequest)
 				return
 			}
 
-			next.ServeHTTP(w, r)
+			sub := idToken.Subject
+			if config.UsernameClaim != "" {
+				claims := make(map[string]interface{})
+				if err := idToken.Claims(&claims); err != nil {
+					http.Error(w, "failed to read claims", http.StatusInternalServerError)
+					return
+				}
+				rawUsername, ok := claims[config.UsernameClaim]
+				if !ok {
+					http.Error(w, "username cannot be empty", http.StatusBadRequest)
+					return
+				}
+				username, ok := rawUsername.(string)
+				if !ok || username == "" {
+					http.Error(w, "invalid username claim value", http.StatusBadRequest)
+					return
+				}
+				sub = username
+			}
+
+			next.ServeHTTP(w, r.WithContext(
+				context.WithValue(r.Context(), subjectKey, sub),
+			))
 		})
 	}
 

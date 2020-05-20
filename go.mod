@@ -30,7 +30,6 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
 	google.golang.org/genproto v0.0.0-20200413115906-b5235f65be36 // indirect
-	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/component-base v0.18.0
 )
 

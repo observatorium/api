@@ -1,0 +1,15 @@
+roles:
+- name: read-write
+  resources:
+  - metrics
+  tenants:
+  - test
+  permissions:
+  - read
+  - write
+roleBindings:
+- name: test
+  roles:
+  - read-write
+  subjects:
+  - admin@example.com

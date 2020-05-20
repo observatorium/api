@@ -2,7 +2,8 @@ tenants:
 - name: test
   id: 1610b0c3-c509-4592-a256-a1871353dbfa
   oidc:
-    clientID:     test
+    clientID: test
     clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
-    issuerURL:    http://127.0.0.1:5556/dex
-    redirectURL:  http://localhost:8080/oidc/test/callback
+    issuerURL: http://127.0.0.1:5556/dex
+    redirectURL: http://localhost:8080/oidc/test/callback
+    usernameClaim: email
