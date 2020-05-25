@@ -25,6 +25,8 @@ Usage of ./observatorium:
     	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
+  -rbac.config string
+    	Path to the RBAC configuration file. (default "rbac.yaml")
   -tenants.config string
     	Path to the tenants file. (default "tenants.yaml")
   -tls-cert-file string

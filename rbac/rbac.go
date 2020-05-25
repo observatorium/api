@@ -3,8 +3,9 @@ package rbac
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 )
 
 // Permission is an Observatorium RBAC permission.
@@ -19,17 +20,17 @@ const (
 
 // Role describes a set of permissions to interact with a tenant.
 type Role struct {
-	Name        string       `json:"name" yaml:"name"`
-	Resources   []string     `json:"resources" yaml:"resources"`
-	Tenants     []string     `json:"tenants" yaml:"tenants"`
-	Permissions []Permission `json:"permissions" yaml:"permissions"`
+	Name        string       `json:"name"`
+	Resources   []string     `json:"resources"`
+	Tenants     []string     `json:"tenants"`
+	Permissions []Permission `json:"permissions"`
 }
 
 // RoleBinding binds a set of roles to a set of subjects.
 type RoleBinding struct {
-	Name     string   `json:"name" yaml:"name"`
-	Subjects []string `json:"subjects" yaml:"subjects"`
-	Roles    []string `json:"roles" yaml:"roles"`
+	Name     string   `json:"name"`
+	Subjects []string `json:"subjects"`
+	Roles    []string `json:"roles"`
 }
 
 // TODO: move interface definition.
@@ -83,7 +84,6 @@ func NewAuthorzer(roles []Role, roleBindings []RoleBinding) Authorizer {
 	}
 
 	resources := make(resources)
-
 	for _, rb := range roleBindings {
 		for _, roleName := range rb.Roles {
 			role, ok := rs[roleName]
@@ -127,11 +127,15 @@ func NewAuthorzer(roles []Role, roleBindings []RoleBinding) Authorizer {
 // Parse parses RBAC data from a reader and creates a new Authorizer.
 func Parse(r io.Reader) (Authorizer, error) {
 	rbac := struct {
-		Roles        []Role        `json:"roles" yaml:"roles"`
-		RoleBindings []RoleBinding `json:"roleBindings" yaml:"roleBindings"`
+		Roles        []Role        `json:"roles"`
+		RoleBindings []RoleBinding `json:"roleBindings"`
 	}{}
 
-	if err := yaml.NewDecoder(r).Decode(&rbac); err != nil {
+	raw, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("could not read RBAC data: %w", err)
+	}
+	if err := yaml.Unmarshal(raw, &rbac); err != nil {
 		return nil, fmt.Errorf("could not parse RBAC data: %w", err)
 	}
 

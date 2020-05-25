@@ -19,9 +19,10 @@ const (
 )
 
 type handlerConfiguration struct {
-	logger     log.Logger
-	registry   *prometheus.Registry
-	instrument handlerInstrumenter
+	logger          log.Logger
+	registry        *prometheus.Registry
+	instrument      handlerInstrumenter
+	readMiddlewares []func(http.Handler) http.Handler
 }
 
 type HandlerOption func(h *handlerConfiguration)
@@ -44,6 +45,13 @@ func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	}
 }
 
+// ReadMiddleware adds a middleware for all read operations.
+func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.readMiddlewares = append(h.readMiddlewares, m)
+	}
+}
+
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
@@ -53,6 +61,7 @@ type nopInstrumentHandler struct{}
 func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc {
 	return handler.ServeHTTP
 }
+
 func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
@@ -85,6 +94,7 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 		}
 	}
 
+	r.Use(c.readMiddlewares...)
 	r.Handle("/api/v1/query", c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query"},
 		legacyProxy,

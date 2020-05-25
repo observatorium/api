@@ -20,9 +20,11 @@ const (
 )
 
 type handlerConfiguration struct {
-	logger     log.Logger
-	registry   *prometheus.Registry
-	instrument handlerInstrumenter
+	logger           log.Logger
+	registry         *prometheus.Registry
+	instrument       handlerInstrumenter
+	readMiddlewares  []func(http.Handler) http.Handler
+	writeMiddlewares []func(http.Handler) http.Handler
 }
 
 // HandlerOption modifies the handler's configuration
@@ -46,6 +48,20 @@ func Registry(r *prometheus.Registry) HandlerOption {
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
+	}
+}
+
+// ReadMiddleware adds a middleware for all read operations.
+func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.readMiddlewares = append(h.readMiddlewares, m)
+	}
+}
+
+// WriteMiddleware adds a middleware for all write operations.
+func WriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.writeMiddlewares = append(h.writeMiddlewares, m)
 	}
 }
 
@@ -92,31 +108,34 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				},
 			}
 		}
-		r.Handle("/api/v1/query", c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "query"},
-			proxyRead,
-		))
-		r.Handle("/api/v1/query_range", c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
-			proxyRead,
-		))
+		r.Group(func(r chi.Router) {
+			r.Use(c.readMiddlewares...)
+			r.Handle("/api/v1/query", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "query"},
+				proxyRead,
+			))
+			r.Handle("/api/v1/query_range", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
+				proxyRead,
+			))
 
-		var uiProxy http.Handler
-		{
-			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(read),
-				proxy.MiddlewareLogger(c.logger),
-				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
-			)
+			var uiProxy http.Handler
+			{
+				middlewares := proxy.Middlewares(
+					proxy.MiddlewareSetUpstream(read),
+					proxy.MiddlewareLogger(c.logger),
+					proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
+				)
 
-			uiProxy = &httputil.ReverseProxy{
-				Director: middlewares,
+				uiProxy = &httputil.ReverseProxy{
+					Director: middlewares,
+				}
 			}
-		}
-		r.Mount("/", c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "ui"},
-			uiProxy,
-		))
+			r.Mount("/", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "ui"},
+				uiProxy,
+			))
+		})
 	}
 
 	if write != nil {
@@ -138,10 +157,13 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				},
 			}
 		}
-		r.Handle("/api/v1/receive", c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "receive"},
-			proxyWrite,
-		))
+		r.Group(func(r chi.Router) {
+			r.Use(c.writeMiddlewares...)
+			r.Handle("/api/v1/receive", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "receive"},
+				proxyWrite,
+			))
+		})
 	}
 
 	return r
