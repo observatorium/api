@@ -289,7 +289,7 @@ func main() {
 				)
 
 				r.Mount("/api/metrics/v1/{tenant}",
-					StripTenantPrefix("/api/metrics/v1",
+					stripTenantPrefix("/api/metrics/v1",
 						metricsv1.NewHandler(
 							cfg.metrics.readEndpoint,
 							cfg.metrics.writeEndpoint,
@@ -308,7 +308,7 @@ func main() {
 				r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 				r.Mount("/api/logs/v1/{tenant}",
-					StripTenantPrefix("/api/logs/v1",
+					stripTenantPrefix("/api/logs/v1",
 						logsv1.NewHandler(
 							cfg.logs.readEndpoint,
 							cfg.logs.writeEndpoint,
@@ -393,21 +393,21 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
 		"Path to the tenants file.")
 	flag.StringVar(&cfg.debug.name, "debug.name", "observatorium",
-		"The name to add as prefix to log lines.")
+		"A name to add as a prefix to log lines.")
 	flag.IntVar(&cfg.debug.mutexProfileFraction, "debug.mutex-profile-fraction", 10,
-		"The parameter which controls the fraction of mutex contention events that are reported in the mutex profile.")
+		"The percentage of mutex contention events that are reported in the mutex profile.")
 	flag.IntVar(&cfg.debug.blockProfileRate, "debug.block-profile-rate", 10,
-		"The parameter controls the fraction of goroutine blocking events that are reported in the blocking profile.")
+		"The percentage of goroutine blocking events that are reported in the blocking profile.")
 	flag.StringVar(&cfg.logLevel, "log.level", "info",
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&cfg.logFormat, "log.format", internal.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
-		"The address on which public server runs.")
+		"The address on which the public server listens.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
-		"The address on which internal server runs.")
+		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
-		"The URL on which public server runs and to run healthchecks against.")
+		"The URL against which to run healthchecks.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
 		"The endpoint against which to make read requests for logs.")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
@@ -425,7 +425,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.tls.keyFile, "tls-private-key-file", "",
 		"File containing the default x509 private key matching --tls-cert-file. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.clientCAFile, "tls-client-ca-file", "",
-		"File containing the TLS CA to verify clients against."+
+		"File containing the TLS CA against which to verify clients."+
 			"If no client CA is specified, there won't be any client verification on server side.")
 	flag.StringVar(&cfg.tls.minVersion, "tls-min-version", "VersionTLS13",
 		"Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
@@ -435,20 +435,20 @@ func parseFlags() (config, error) {
 			"If omitted, the default Go cipher suites will be used."+
 			"Note that TLS 1.3 ciphersuites are not configurable.")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls-reload-interval", time.Minute,
-		"The interval at which to watch for TLS certificate changes, by default set to 1 minute.")
+		"The interval at which to watch for TLS certificate changes.")
 
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
 	if err != nil {
-		return cfg, fmt.Errorf("--metrics.read.endpoint is invalid, raw %s: %w", rawMetricsReadEndpoint, err)
+		return cfg, fmt.Errorf("--metrics.read.endpoint %q is invalid: %w", rawMetricsReadEndpoint, err)
 	}
 
 	cfg.metrics.readEndpoint = metricsReadEndpoint
 
 	metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
 	if err != nil {
-		return cfg, fmt.Errorf("--metrics.write.endpoint is invalid, raw %s: %w", rawMetricsWriteEndpoint, err)
+		return cfg, fmt.Errorf("--metrics.write.endpoint %q is invalid: %w", rawMetricsWriteEndpoint, err)
 	}
 
 	cfg.metrics.writeEndpoint = metricsWriteEndpoint
@@ -474,7 +474,7 @@ func parseFlags() (config, error) {
 	return cfg, nil
 }
 
-func StripTenantPrefix(prefix string, next http.Handler) http.Handler {
+func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
