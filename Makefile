@@ -27,6 +27,9 @@ THANOS_VERSION ?= 0.12.2
 PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
 
+LOKI ?= $(BIN_DIR)/loki
+LOKI_VERSION ?= 1.5.0
+
 UP ?= $(BIN_DIR)/up
 DEX ?= $(BIN_DIR)/dex
 MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
@@ -135,7 +138,8 @@ container-release: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies
-integration-test-dependencies: $(THANOS) $(UP) $(DEX)
+
+integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -162,6 +166,14 @@ $(THANOS): | $(BIN_DIR)
 $(PROMETHEUS): | $(BIN_DIR)
 	@echo "Downloading Prometheus"
 	curl -L "https://github.com/prometheus/prometheus/releases/download/v$(PROMETHEUS_VERSION)/prometheus-$(PROMETHEUS_VERSION).$$(go env GOOS)-$$(go env GOARCH).tar.gz" | tar --strip-components=1 -xzf - -C $(BIN_DIR)
+
+$(LOKI): | $(BIN_DIR)
+	@echo "Downloading Loki"
+	(loki_pkg="loki-$$(go env GOOS)-$$(go env GOARCH)" && \
+	cd $(BIN_DIR) && curl -O -L "https://github.com/grafana/loki/releases/download/v$(LOKI_VERSION)/$$loki_pkg.zip" && \
+	unzip $$loki_pkg.zip && \
+	mv $$loki_pkg loki && \
+	rm $$loki_pkg.zip)
 
 $(UP): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up

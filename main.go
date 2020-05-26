@@ -30,6 +30,7 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"github.com/observatorium/observatorium/internal"
+	logsv1 "github.com/observatorium/observatorium/internal/api/logs/v1"
 	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
 	"github.com/observatorium/observatorium/internal/authentication"
@@ -50,6 +51,7 @@ type config struct {
 	server  serverConfig
 	tls     tlsConfig
 	metrics metricsConfig
+	logs    logsConfig
 }
 
 type debugConfig struct {
@@ -74,6 +76,12 @@ type tlsConfig struct {
 }
 
 type metricsConfig struct {
+	readEndpoint  *url.URL
+	writeEndpoint *url.URL
+	tenantHeader  string
+}
+
+type logsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
 	tenantHeader  string
@@ -294,6 +302,25 @@ func main() {
 					),
 				)
 			})
+
+			r.Group(func(r chi.Router) {
+				r.Use(oidcMiddleware)
+				r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
+
+				r.Mount("/api/logs/v1/{tenant}",
+					StripTenantPrefix("/api/logs/v1",
+						logsv1.NewHandler(
+							cfg.logs.readEndpoint,
+							cfg.logs.writeEndpoint,
+							logsv1.Logger(logger),
+							logsv1.Registry(reg),
+							logsv1.HandlerInstrumenter(ins),
+							logsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "logs")),
+							logsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "logs")),
+						),
+					),
+				)
+			})
 		})
 
 		s := http.Server{
@@ -355,6 +382,8 @@ func parseFlags() (config, error) {
 		rawTLSCipherSuites      string
 		rawMetricsReadEndpoint  string
 		rawMetricsWriteEndpoint string
+		rawLogsReadEndpoint     string
+		rawLogsWriteEndpoint    string
 	)
 
 	cfg := config{}
@@ -379,6 +408,12 @@ func parseFlags() (config, error) {
 		"The address on which internal server runs.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL on which public server runs and to run healthchecks against.")
+	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
+		"The endpoint against which to make read requests for logs.")
+	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
+		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
+	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
+		"The endpoint against which to make write requests for logs.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
@@ -417,6 +452,20 @@ func parseFlags() (config, error) {
 	}
 
 	cfg.metrics.writeEndpoint = metricsWriteEndpoint
+
+	logsReadEndpoint, err := url.ParseRequestURI(rawLogsReadEndpoint)
+	if err != nil {
+		return cfg, fmt.Errorf("--logs.read.endpoint is invalid, raw %s: %w", rawLogsReadEndpoint, err)
+	}
+
+	cfg.logs.readEndpoint = logsReadEndpoint
+
+	logsWriteEndpoint, err := url.ParseRequestURI(rawLogsWriteEndpoint)
+	if err != nil {
+		return cfg, fmt.Errorf("--logs.write.endpoint is invalid, raw %s: %w", rawLogsWriteEndpoint, err)
+	}
+
+	cfg.logs.writeEndpoint = logsWriteEndpoint
 
 	if rawTLSCipherSuites != "" {
 		cfg.tls.cipherSuites = strings.Split(rawTLSCipherSuites, ",")

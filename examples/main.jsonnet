@@ -6,8 +6,14 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
     version: 'master-2020-05-04-v0.1.1-21-gabb9864',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
-    readEndpoint: 'http://127.0.0.1:9091',
-    writeEndpoint: 'http://127.0.0.1:19291',
+    metrics:{
+      readEndpoint: 'http://127.0.0.1:9091',
+      writeEndpoint: 'http://127.0.0.1:19291',
+    },
+    logs:{
+      readEndpoint: 'http://127.0.0.1:3100',
+      writeEndpoint: 'http://127.0.0.1:3100',
+    },
   },
 };
 

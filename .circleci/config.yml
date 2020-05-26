@@ -24,7 +24,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          apt-get update && apt-get install xz-utils
+          apt-get update && apt-get install xz-utils unzip
           make test --always-make
 
   generate:

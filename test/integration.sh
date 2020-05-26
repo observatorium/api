@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Runs a semi-realistic integration test with one producer generating metrics,
-# a Observatorium API, a thanos receive for ingestion, and a thanos query for querying the metrics.
+# a Observatorium API, a thanos receive for ingestion, a thanos query for querying the metrics
+# and a loki for reading and writing logs.
 
 set -euo pipefail
 
@@ -30,6 +31,8 @@ token=$(curl --request POST \
     --tls-cert-file=./tmp/certs/server.pem \
     --tls-client-ca-file=./tmp/certs/ca.pem \
     --tls-private-key-file=./tmp/certs/server.key \
+    --logs.read.endpoint=http://127.0.0.1:3100 \
+    --logs.write.endpoint=http://127.0.0.1:3100 \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
     --metrics.write.endpoint=http://127.0.0.1:19291 \
     --rbac.config=./test/config/rbac.yaml \
@@ -57,8 +60,19 @@ token=$(curl --request POST \
     --web.external-prefix=/ui/metrics/v1
 ) &
 
+(
+  ./tmp/bin/loki \
+    -log.level=info \
+    -target=all \
+    -config.file=./test/config/loki.yml
+) &
+
 printf "\t## waiting for dependencies to come up..."
-sleep 5
+sleep 10
+
+echo "-------------------------------------------"
+echo "- Metrics tests                           -"
+echo "-------------------------------------------"
 
 if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
@@ -77,10 +91,58 @@ if ./tmp/bin/up \
   --labels='_id="test"' \
   --token="$token"; then
   result=0
-  printf "\t## tests: ok"
-  exit 0
+  printf "\t## metrics tests: ok\n\n"
+else
+  result=1
+  printf "\t## metrics tests: failed\n\n"
+  exit 1
 fi
 
-printf "\t## tests: failed" 1>&2
-result=1
-exit 1
+echo "-------------------------------------------"
+echo "- Logs Write tests                        -"
+echo "-------------------------------------------"
+
+if curl \
+     -v \
+     -f \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $token" \
+     --cacert ./tmp/certs/ca.pem \
+     --cert ./tmp/certs/client.pem \
+     --key ./tmp/certs/client.key \
+     -XPOST \
+     -s "https://127.0.0.1:8443/api/logs/v1/test/api/v1/push" \
+     --data-raw \
+     '{"streams": [{ "stream": { "foo": "bar2" }, "values": [ [ "1570818238000000000", "fizzbuzz" ] ] }]}'; then
+  result=0
+  printf "\t## logs write tests: ok\n\n"
+else
+  result=1
+  printf "\t## logs write tests: failed\n\n"
+  exit 1
+fi
+
+echo "-------------------------------------------"
+echo "- Logs Read tests                         -"
+echo "-------------------------------------------"
+
+if curl \
+     -v \
+     -G \
+     -f \
+     -H "Authorization: Bearer $token" \
+     --cacert ./tmp/certs/ca.pem \
+     --cert ./tmp/certs/client.pem \
+     --key ./tmp/certs/client.key \
+     -s "https://127.0.0.1:8443/api/logs/v1/test/api/v1/query" \
+     --data-urlencode 'query=sum(rate({foo="bar2"}[10m]))'; then
+  result=0
+  printf "\t## logs read tests: ok\n\n"
+else
+  result=1
+  printf "\t## logs read tests: failed\n\n"
+  exit 1
+fi
+
+printf "\t## all tests: ok\n\n" 1>&2
+exit 0

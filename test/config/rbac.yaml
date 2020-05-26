@@ -2,6 +2,7 @@ roles:
 - name: read-write
   resources:
   - metrics
+  - logs
   tenants:
   - test
   permissions:

@@ -31,6 +31,8 @@ spec:
       - args:
         - --web.listen=0.0.0.0:8080
         - --web.internal.listen=0.0.0.0:8081
+        - --logs.read.endpoint=http://127.0.0.1:3100
+        - --logs.write.endpoint=http://127.0.0.1:3100
         - --metrics.read.endpoint=http://127.0.0.1:9091
         - --metrics.write.endpoint=http://127.0.0.1:19291
         - --log.level=warn

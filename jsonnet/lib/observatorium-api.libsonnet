@@ -10,8 +10,16 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     image: error 'must provide image',
     replicas: error 'must provide replicas',
     uiEndpoint: error 'must provide uiEndpoint',
-    readEnpoint: error 'must provide readEnpoint',
-    writeEndpoint: error 'must provide writeEndpoint',
+
+    metrics: {
+      readEnpoint: error 'must provide metrics readEnpoint',
+      writeEndpoint: error 'must provide metrics writeEndpoint',
+    },
+
+    logs: {
+      readEnpoint: error 'must provide logs readEnpoint',
+      writeEndpoint: error 'must provide logs writeEndpoint',
+    },
 
     ports: {
       public: 8080,
@@ -61,8 +69,10 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.withArgs([
         '--web.listen=0.0.0.0:%s' % api.config.ports.public,
         '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
-        '--metrics.read.endpoint=' + api.config.readEndpoint,
-        '--metrics.write.endpoint=' + api.config.writeEndpoint,
+        '--logs.read.endpoint=' + api.config.logs.readEndpoint,
+        '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
+        '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
+        '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
         '--log.level=warn',
       ]) +
       container.withPorts([

@@ -19,6 +19,12 @@ Usage of ./observatorium:
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
+  -logs.read.endpoint string
+    	The endpoint against which to make read requests for logs.
+  -logs.tenant-header string
+    	The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Scope-OrgID")
+  -logs.write.endpoint string
+    	The endpoint against which to make write requests for logs.
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
   -metrics.tenant-header string
