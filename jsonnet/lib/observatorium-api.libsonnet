@@ -9,7 +9,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     version: error 'must provide version',
     image: error 'must provide image',
     replicas: error 'must provide replicas',
-    uiEndpoint: error 'must provide uiEndpoint',
 
     metrics: {
       readEnpoint: error 'must provide metrics readEnpoint',
@@ -141,7 +140,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         (if api.config.tenants != {} then [
            {
              secret: {
-               name: api.config.name,
+               secretName: api.config.name,
              },
              name: 'tenants',
            },
