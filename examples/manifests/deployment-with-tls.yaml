@@ -78,4 +78,4 @@ spec:
         name: rbac
       - name: tenants
         secret:
-          name: observatorium-api
+          secretName: observatorium-api
