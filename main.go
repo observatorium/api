@@ -88,8 +88,8 @@ type logsConfig struct {
 }
 
 const (
-	readTimeout = 2 * time.Minute
-	writeTimeout
+	readTimeout  = 15 * time.Minute
+	writeTimeout = 2 * time.Minute
 	gracePeriod
 	middlewareTimeout
 )
