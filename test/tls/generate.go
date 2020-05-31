@@ -45,6 +45,7 @@ func main() {
 	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
 	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
 	flag.DurationVar(&clientExpiration, "client-duration", defaultConfig.Expiry, "")
+	flag.Parse()
 
 	caBundle, err := generateCACert(caCommonName)
 	if err != nil {
