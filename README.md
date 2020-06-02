@@ -42,7 +42,7 @@ Usage of ./observatorium:
   -tls-client-ca-file string
     	File containing the TLS CA against which to verify clients.If no client CA is specified, there won't be any client verification on server side.
   -tls-min-version string
-    	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
+    	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS12")
   -tls-private-key-file string
     	File containing the default x509 private key matching --tls-cert-file. Leave blank to disable TLS.
   -tls-reload-interval duration

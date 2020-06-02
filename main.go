@@ -427,7 +427,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.tls.clientCAFile, "tls-client-ca-file", "",
 		"File containing the TLS CA against which to verify clients."+
 			"If no client CA is specified, there won't be any client verification on server side.")
-	flag.StringVar(&cfg.tls.minVersion, "tls-min-version", "VersionTLS13",
+	flag.StringVar(&cfg.tls.minVersion, "tls-min-version", "VersionTLS12",
 		"Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
 	flag.StringVar(&rawTLSCipherSuites, "tls-cipher-suites", "",
 		"Comma-separated list of cipher suites for the server."+
