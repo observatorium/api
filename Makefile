@@ -215,7 +215,7 @@ $(GOLANGCILINT):
 		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
 
 $(SHELLCHECK): $(BIN_DIR)
-	curl -sNL "https://storage.googleapis.com/shellcheck/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
+	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 $(GENERATE_TLS_CERT): | vendor $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
