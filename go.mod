@@ -18,7 +18,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3 // indirect
 	github.com/jsonnet-bundler/jsonnet-bundler v0.3.1
 	github.com/metalmatze/signal v0.0.0-20200428133549-c4243ecaf121
-	github.com/observatorium/up v0.0.0-20200515164021-716e0b4731a7
+	github.com/observatorium/up v0.0.0-20200603110215-8a20b4e48ac0
 	github.com/oklog/run v1.1.0
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
