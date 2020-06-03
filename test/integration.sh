@@ -76,6 +76,7 @@ echo "-------------------------------------------"
 
 if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
+  --endpoint-type=metrics \
   --tls-ca-file=./tmp/certs/ca.pem \
   --tls-client-cert-file=./tmp/certs/client.pem \
   --tls-client-private-key-file=./tmp/certs/client.key \
@@ -99,48 +100,32 @@ else
 fi
 
 echo "-------------------------------------------"
-echo "- Logs Write tests                        -"
+echo "- Logs tests                              -"
 echo "-------------------------------------------"
 
-if curl \
-     -v \
-     -f \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer $token" \
-     --cacert ./tmp/certs/ca.pem \
-     --cert ./tmp/certs/client.pem \
-     --key ./tmp/certs/client.key \
-     -XPOST \
-     -s "https://127.0.0.1:8443/api/logs/v1/test/api/v1/push" \
-     --data-raw \
-     '{"streams": [{ "stream": { "foo": "bar2" }, "values": [ [ "1570818238000000000", "fizzbuzz" ] ] }]}'; then
+if ./tmp/bin/up \
+  --listen=0.0.0.0:8888 \
+  --endpoint-type=logs \
+  --tls-ca-file=./tmp/certs/ca.pem \
+  --tls-client-cert-file=./tmp/certs/client.pem \
+  --tls-client-private-key-file=./tmp/certs/client.key \
+  --endpoint-read=https://127.0.0.1:8443/api/logs/v1/test/api/v1/query \
+  --endpoint-write=https://127.0.0.1:8443/api/logs/v1/test/api/v1/push \
+  --period=500ms \
+  --initial-query-delay=250ms \
+  --threshold=1 \
+  --latency=10s \
+  --duration=10s \
+  --log.level=debug \
+  --name=up_test \
+  --labels='foo="bar"'\
+  --logs="[\"$(date '+%s%N')\",\"log line 1\"]" \
+  --token="$token"; then
   result=0
-  printf "\t## logs write tests: ok\n\n"
+  echo "## logs tests: ok"
 else
   result=1
-  printf "\t## logs write tests: failed\n\n"
-  exit 1
-fi
-
-echo "-------------------------------------------"
-echo "- Logs Read tests                         -"
-echo "-------------------------------------------"
-
-if curl \
-     -v \
-     -G \
-     -f \
-     -H "Authorization: Bearer $token" \
-     --cacert ./tmp/certs/ca.pem \
-     --cert ./tmp/certs/client.pem \
-     --key ./tmp/certs/client.key \
-     -s "https://127.0.0.1:8443/api/logs/v1/test/api/v1/query" \
-     --data-urlencode 'query=sum(rate({foo="bar2"}[10m]))'; then
-  result=0
-  printf "\t## logs read tests: ok\n\n"
-else
-  result=1
-  printf "\t## logs read tests: failed\n\n"
+  printf "## logs tests: failed\n\n"
   exit 1
 fi
 

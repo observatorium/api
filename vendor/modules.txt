@@ -205,9 +205,15 @@ github.com/metalmatze/signal/internalserver
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/observatorium/up v0.0.0-20200515164021-716e0b4731a7
+# github.com/observatorium/up v0.0.0-20200603110215-8a20b4e48ac0
 ## explicit
-github.com/observatorium/up
+github.com/observatorium/up/cmd/up
+github.com/observatorium/up/pkg/auth
+github.com/observatorium/up/pkg/instr
+github.com/observatorium/up/pkg/logs
+github.com/observatorium/up/pkg/metrics
+github.com/observatorium/up/pkg/options
+github.com/observatorium/up/pkg/transport
 # github.com/oklog/run v1.1.0
 ## explicit
 github.com/oklog/run

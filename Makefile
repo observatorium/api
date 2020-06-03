@@ -176,7 +176,7 @@ $(LOKI): | $(BIN_DIR)
 	rm $$loki_pkg.zip)
 
 $(UP): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/observatorium/up
+	go build -mod=vendor -o $@ github.com/observatorium/up/cmd/up
 
 $(DEX): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/dexidp/dex/cmd/dex
