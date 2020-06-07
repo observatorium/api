@@ -41,6 +41,7 @@ spec:
         - --tls-cert-file=./tmp/certs/server.pem
         - --tls-private-key-file=./tmp/certs/server.key
         - --tls-reload-interval=1m
+        - --tls-client-ca-file=./tmp/certs/ca.pem
         image: quay.io/observatorium/observatorium:master-2020-05-04-v0.1.1-21-gabb9864
         livenessProbe:
           failureThreshold: 10

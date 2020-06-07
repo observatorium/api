@@ -226,7 +226,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       tls: {
         certFile: error 'must provide cert file',
         privateKeyFile: error 'must provide private key file',
-        clientCAFile: error 'must provide client ca file',
         reloadInterval: '1m',
       },
     },
@@ -240,8 +239,34 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
                 args+: [
                   '--tls-cert-file=' + api.config.tls.certFile,
                   '--tls-private-key-file=' + api.config.tls.privateKeyFile,
-                  '--tls-client-ca-file=' + api.config.tls.clientCAFile,
                   '--tls-reload-interval=' + api.config.tls.reloadInterval,
+                ],
+              } else c
+              for c in super.containers
+            ],
+          },
+        },
+      },
+    },
+  },
+
+  withMTLS:: {
+    local api = self,
+
+    config+:: {
+      tls+: {
+        clientCAFile: error 'must provide client ca file',
+      },
+    },
+
+    deployment+: {
+      spec+: {
+        template+: {
+          spec+: {
+            containers: [
+              if c.name == 'observatorium-api' then c {
+                args+: [
+                  '--tls-client-ca-file=' + api.config.tls.clientCAFile,
                 ],
               } else c
               for c in super.containers
