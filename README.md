@@ -1,8 +1,45 @@
-# observatorium
+# Observatorium
 
-[![semver](https://img.shields.io/badge/semver--0.0.0-blue.svg?cacheSeconds=2592000)](https://github.com/observatorium/observatorium/releases) [![Maintenance](https://img.shields.io/maintenance/yes/2020.svg)](https://github.com/observatorium/observatorium/commits/master) [![CircleCI](https://circleci.com/gh/observatorium/observatorium.svg?style=svg)](https://circleci.com/gh/observatorium/observatorium)[![Go Doc](https://godoc.org/github.com/observatorium/observatorium?status.svg)](http://godoc.org/github.com/observatorium/observatorium) [![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/observatorium)](https://goreportcard.com/report/github.com/observatorium/observatorium)[![Docker Repository on Quay](https://quay.io/repository/observatorium/observatorium/status "Docker Repository on Quay")](https://quay.io/repository/observatorium/observatorium)
+[![CircleCI](https://circleci.com/gh/observatorium/observatorium.svg?style=svg)](https://circleci.com/gh/observatorium/observatorium)
+[![Go Doc](https://godoc.org/github.com/observatorium/observatorium?status.svg)](http://godoc.org/github.com/observatorium/observatorium)
+[![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/observatorium)](https://goreportcard.com/report/github.com/observatorium/observatorium)
 
-Observatorium API
+This project is an API server for Observatorium.
+The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.
+
+## Backends
+
+The Observatorium API server fulfills requests by proxying reads and writes to a backend for each type of observability signal.
+
+### Metrics
+
+The Observatorium API server can serve read and write requests for Prometheus metrics.
+In order to handle requests for metrics, a compatible backend must be configured.
+
+#### --metrics.read.endpoint
+
+The backend from which to read metrics can be specified with the `--metrics.read.endpoint` flag.
+Compatible backends must implement the Prometheus HTTP API, e.g. Prometheus, Thanos querier, Cortex, etc.
+
+#### --metrics.write.endpoint
+
+The backend to which to write metrics can be specified with the `--metrics.write.endpoint` flag.
+Compatible backends must implement the Prometheus remote-write API, e.g. Thanos receiver, Cortex, etc.
+
+### Logs
+
+The Observatorium API server can serve read and write requests for logs.
+In order to handle requests for logs, a compatible backend must be configured.
+
+#### --logs.read.endpoint
+
+The backend from which to read logs can be specified with the `--logs.read.endpoint` flag.
+Compatible backends must implement the Loki read API, e.g. Loki.
+
+#### --logs.write.endpoint
+
+The backend to which to write logs can be specified with the `--logs.write.endpoint` flag.
+Compatible backends must implement the Loki write API, e.g. Loki.
 
 ## Usage
 
