@@ -64,8 +64,15 @@ local apiWithTLS = api + api.withTLS {
   config+:: {
     tls+: {
       certFile: './tmp/certs/server.pem',
-      privateKeyFile: './tmp/certs/ca.pem',
-      clientCAFile: './tmp/certs/server.key',
+      privateKeyFile: './tmp/certs/server.key',
+    },
+  },
+};
+
+local withMTLS = apiWithTLS + api.withMTLS {
+  config+:: {
+    tls+: {
+      clientCAFile: './tmp/certs/ca.pem',
     },
   },
 };
@@ -79,4 +86,9 @@ local apiWithTLS = api + api.withTLS {
   ['%s-with-tls' % name]: apiWithTLS[name]
   for name in std.objectFields(api)
   if apiWithTLS[name] != null
+} +
+{
+  ['%s-with-mtls' % name]: withMTLS[name]
+  for name in std.objectFields(api)
+  if withMTLS[name] != null
 }
