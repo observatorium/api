@@ -102,7 +102,7 @@ test-unit:
 
 .PHONY: test-integration
 test-integration: build integration-test-dependencies generate-cert
-	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
+	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh -t $(tls_cfg)
 
 .PHONY: test-load
 test-load: build load-test-dependencies

@@ -18,14 +18,32 @@ jobs:
           apt-get update && apt-get install xz-utils
           make lint --always-make
 
-  test:
+  test-no-tls:
     docker:
       - image: golang:1.14.1
     steps:
       - checkout
       - run: |
           apt-get update && apt-get install xz-utils unzip
-          make test --always-make
+          make tls_cfg=no-tls test --always-make
+
+  test-tls:
+    docker:
+      - image: golang:1.14.1
+    steps:
+      - checkout
+      - run: |
+          apt-get update && apt-get install xz-utils unzip
+          make tls_cfg=tls test --always-make
+
+  test-mtls:
+    docker:
+      - image: golang:1.14.1
+    steps:
+      - checkout
+      - run: |
+          apt-get update && apt-get install xz-utils unzip
+          make tls_cfg=mtls test --always-make
 
   generate:
     docker:
@@ -61,7 +79,9 @@ workflows:
     jobs:
       - build
       - lint
-      - test
+      - test-no-tls
+      - test-tls
+      - test-mtls
       - generate
       - container-push:
           requires:
