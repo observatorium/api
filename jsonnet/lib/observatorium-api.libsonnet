@@ -27,6 +27,8 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
 
     rbac: {},
     tenants: {},
+    tls: {},
+    mtls: {},
 
     commonLabels:: {
       'app.kubernetes.io/name': 'observatorium-api',
@@ -84,6 +86,16 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         if api.config.tenants != {} then
           ['--tenants.config=/etc/observatorium/tenants.yaml']
         else []
+      ) + (
+        if api.config.tls != {} then
+          ['--tls-cert-file=' + api.config.tls.secret.certFile,
+           '--tls-private-key-file=' + api.config.tls.secret.privateKeyFile,
+           '--tls-reload-interval=' + api.config.tls.secret.reloadInterval,]
+        else []
+      ) + (
+        if api.config.mtls != {} then
+          ['--tls-client-ca-file=' + api.config.mtls.configMap.clientCAFile]
+        else []
       )) +
       container.withPorts([
         containerPort.newNamed(api.config.ports[name], name)
@@ -101,25 +113,38 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.mixin.readinessProbe.httpGet.withPort(api.config.ports.internal) +
       container.mixin.readinessProbe.httpGet.withScheme('HTTP') +
       container.mixin.readinessProbe.httpGet.withPath('/ready') +
-      if api.config.rbac != {} || api.config.tenants != {} then
-        container.withVolumeMounts(
-          (if api.config.rbac != {} then [
-             {
-               name: 'rbac',
-               mountPath: '/etc/observatorium/rbac.yaml',
-               subPath: 'rbac.yaml',
-               readOnly: true,
-             },
-           ] else []) +
-          (if api.config.tenants != {} then [
-             {
-               name: 'tenants',
-               mountPath: '/etc/observatorium/tenants.yaml',
-               subPath: 'tenants.yaml',
-               readOnly: true,
-             },
-           ] else [])
-        ) else {};
+      container.withVolumeMounts(
+        (if api.config.rbac != {} then [
+           {
+             name: 'rbac',
+             mountPath: '/etc/observatorium/rbac.yaml',
+             subPath: 'rbac.yaml',
+             readOnly: true,
+           },
+         ] else []) +
+        (if api.config.tenants != {} then [
+           {
+             name: 'tenants',
+             mountPath: '/etc/observatorium/tenants.yaml',
+             subPath: 'tenants.yaml',
+             readOnly: true,
+           },
+         ] else []) +
+        (if api.config.tls != {} then [
+           {
+             name: 'certs',
+             mountPath: '/mnt/certs',
+             readOnly: true,
+           },
+         ] else []) +
+        (if api.config.mtls != {} then [
+           {
+             name: 'client-ca',
+             mountPath: '/mnt/clientca',
+             readOnly: true,
+           },
+         ] else [])
+      );
 
     deployment.new(api.config.name, api.config.replicas, c, api.config.commonLabels) +
     deployment.mixin.metadata.withNamespace(api.config.namespace) +
@@ -127,25 +152,40 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     deployment.mixin.spec.selector.withMatchLabels(api.config.podLabelSelector) +
     deployment.mixin.spec.strategy.rollingUpdate.withMaxSurge(0) +
     deployment.mixin.spec.strategy.rollingUpdate.withMaxUnavailable(1) +
-    if api.config.rbac != {} || api.config.tenants != {} then
-      deployment.mixin.spec.template.spec.withVolumes(
-        (if api.config.rbac != {} then [
-           {
-             configMap: {
-               name: api.config.name,
-             },
-             name: 'rbac',
+    deployment.mixin.spec.template.spec.withVolumes(
+      (if api.config.rbac != {} then [
+         {
+           configMap: {
+             name: api.config.name,
            },
-         ] else []) +
-        (if api.config.tenants != {} then [
-           {
-             secret: {
-               secretName: api.config.name,
-             },
-             name: 'tenants',
+           name: 'rbac',
+         },
+       ] else []) +
+      (if api.config.tenants != {} then [
+         {
+           secret: {
+             secretName: api.config.name,
            },
-         ] else [])
-      ) else {},
+           name: 'tenants',
+         },
+       ] else []) +
+      (if api.config.tls != {} then [
+         {
+           secret: {
+             secretName: 'observatorium-api-tls-certs',
+           },
+           name: 'certs',
+         },
+       ] else []) +
+      (if api.config.mtls != {} then [
+         {
+           configMap: {
+             name: 'observatorium-api-tls-client-ca',
+           },
+           name: 'client-ca',
+         },
+       ] else [])
+    ),
 
   configmap:
     if api.config.rbac != {} then {
@@ -210,64 +250,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
             containers: [
               if c.name == 'observatorium-api' then c {
                 resources: api.config.resources,
-              } else c
-              for c in super.containers
-            ],
-          },
-        },
-      },
-    },
-  },
-
-  withTLS:: {
-    local api = self,
-
-    config+:: {
-      tls: {
-        certFile: error 'must provide cert file',
-        privateKeyFile: error 'must provide private key file',
-        reloadInterval: '1m',
-      },
-    },
-
-    deployment+: {
-      spec+: {
-        template+: {
-          spec+: {
-            containers: [
-              if c.name == 'observatorium-api' then c {
-                args+: [
-                  '--tls-cert-file=' + api.config.tls.certFile,
-                  '--tls-private-key-file=' + api.config.tls.privateKeyFile,
-                  '--tls-reload-interval=' + api.config.tls.reloadInterval,
-                ],
-              } else c
-              for c in super.containers
-            ],
-          },
-        },
-      },
-    },
-  },
-
-  withMTLS:: {
-    local api = self,
-
-    config+:: {
-      tls+: {
-        clientCAFile: error 'must provide client ca file',
-      },
-    },
-
-    deployment+: {
-      spec+: {
-        template+: {
-          spec+: {
-            containers: [
-              if c.name == 'observatorium-api' then c {
-                args+: [
-                  '--tls-client-ca-file=' + api.config.tls.clientCAFile,
-                ],
               } else c
               for c in super.containers
             ],
