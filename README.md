@@ -72,18 +72,24 @@ Usage of ./observatorium:
     	Path to the RBAC configuration file. (default "rbac.yaml")
   -tenants.config string
     	Path to the tenants file. (default "tenants.yaml")
-  -tls-cert-file string
-    	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
-  -tls-cipher-suites string
+  -tls.cipher-suites string
     	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants).If omitted, the default Go cipher suites will be used.Note that TLS 1.3 ciphersuites are not configurable.
-  -tls-client-ca-file string
-    	File containing the TLS CA against which to verify clients.If no client CA is specified, there won't be any client verification on server side.
-  -tls-min-version string
+  -tls.healthchecks.cert-file string
+    	File containing the x509 client certificate for HTTPS healthchecks. Provide for healthchecks to use TLS.
+  -tls.healthchecks.key-file string
+    	File containing the x509 private key matching --tls.healthchecks.cert-file. Provide for healthchecks to use TLS.
+  -tls.healthchecks.server-ca-file string
+    	File containing the TLS CA against which to verify servers.If no server CA is specified, the client will use the system certificates.
+  -tls.min-version string
     	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
-  -tls-private-key-file string
-    	File containing the default x509 private key matching --tls-cert-file. Leave blank to disable TLS.
-  -tls-reload-interval duration
+  -tls.reload-interval duration
     	The interval at which to watch for TLS certificate changes. (default 1m0s)
+  -tls.server.cert-file string
+    	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
+  -tls.server.client-ca-file string
+    	File containing the TLS CA against which to verify clients.If no client CA is specified, there won't be any client verification on server side.
+  -tls.server.key-file string
+    	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
   -web.healthchecks.url string
     	The URL against which to run healthchecks. (default "http://localhost:8080")
   -web.internal.listen string
