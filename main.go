@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	stdtls "crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -67,12 +69,17 @@ type serverConfig struct {
 }
 
 type tlsConfig struct {
-	certFile       string
-	keyFile        string
-	clientCAFile   string
 	minVersion     string
 	cipherSuites   []string
 	reloadInterval time.Duration
+
+	serverCertFile     string
+	serverKeyFile      string
+	serverClientCAFile string
+
+	healthchecksCertFile     string
+	healthchecksKeyFile      string
+	healthchecksServerCAFile string
 }
 
 type metricsConfig struct {
@@ -184,44 +191,39 @@ func main() {
 			close(sig)
 		})
 	}
-
-	tlsConfig, err := tls.NewServerConfig(
-		log.With(logger, "protocol", "HTTP"),
-		cfg.tls.certFile,
-		cfg.tls.keyFile,
-		cfg.tls.clientCAFile,
-		cfg.tls.minVersion,
-		cfg.tls.cipherSuites,
-	)
-	if err != nil {
-		stdlog.Fatalf("failed to initialize tls config: %v", err)
-	}
-
 	{
-		if tlsConfig != nil {
-			r, err := rbacproxytls.NewCertReloader(
-				cfg.tls.certFile,
-				cfg.tls.keyFile,
-				cfg.tls.reloadInterval,
-			)
-			if err != nil {
-				stdlog.Fatalf("failed to initialize certificate reloader: %v", err)
+		if cfg.server.healthcheckURL != "" {
+			client := &http.Client{}
+
+			tlsClientConfig := &stdtls.Config{}
+
+			if cfg.tls.healthchecksServerCAFile != "" {
+				caCert, err := ioutil.ReadFile(cfg.tls.healthchecksServerCAFile)
+				if err != nil {
+					stdlog.Fatalf("failed to initialize healthcheck server TLS CA: %v", err)
+				}
+				caCertPool := x509.NewCertPool()
+				caCertPool.AppendCertsFromPEM(caCert)
+
+				tlsClientConfig.RootCAs = caCertPool
 			}
 
-			tlsConfig.GetCertificate = r.GetCertificate
+			if cfg.tls.healthchecksCertFile != "" && cfg.tls.healthchecksKeyFile != "" {
+				cert, err := stdtls.LoadX509KeyPair(cfg.tls.healthchecksCertFile, cfg.tls.healthchecksKeyFile)
+				if err != nil {
+					stdlog.Fatalf("failed to initialize the healthcheck client TLS config: %v", err)
+				}
+				tlsClientConfig.Certificates = []stdtls.Certificate{cert}
+			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			g.Add(func() error {
-				return r.Watch(ctx)
-			}, func(error) {
-				cancel()
-			})
-		}
+			client.Transport = &http.Transport{
+				TLSClientConfig: tlsClientConfig,
+			}
 
-		if cfg.server.healthcheckURL != "" {
 			// checks if server is up
 			healthchecks.AddLivenessCheck("http",
-				healthcheck.HTTPCheck(
+				healthcheck.HTTPCheckClient(
+					client,
 					cfg.server.healthcheckURL,
 					http.MethodGet,
 					http.StatusNotFound,
@@ -323,6 +325,38 @@ func main() {
 			})
 		})
 
+		tlsConfig, err := tls.NewServerConfig(
+			log.With(logger, "protocol", "HTTP"),
+			cfg.tls.serverCertFile,
+			cfg.tls.serverKeyFile,
+			cfg.tls.serverClientCAFile,
+			cfg.tls.minVersion,
+			cfg.tls.cipherSuites,
+		)
+		if err != nil {
+			stdlog.Fatalf("failed to initialize tls config: %v", err)
+		}
+
+		if tlsConfig != nil {
+			r, err := rbacproxytls.NewCertReloader(
+				cfg.tls.serverCertFile,
+				cfg.tls.serverKeyFile,
+				cfg.tls.reloadInterval,
+			)
+			if err != nil {
+				stdlog.Fatalf("failed to initialize certificate reloader: %v", err)
+			}
+
+			tlsConfig.GetCertificate = r.GetCertificate
+
+			ctx, cancel := context.WithCancel(context.Background())
+			g.Add(func() error {
+				return r.Watch(ctx)
+			}, func(error) {
+				cancel()
+			})
+		}
+
 		s := http.Server{
 			Addr:         cfg.server.listen,
 			Handler:      r,
@@ -335,7 +369,7 @@ func main() {
 			level.Info(logger).Log("msg", "starting the HTTP server", "address", cfg.server.listen)
 
 			if tlsConfig != nil {
-				// certFile and keyFile passed in TLSConfig at initialization.
+				// serverCertFile and serverKeyFile passed in TLSConfig at initialization.
 				return s.ListenAndServeTLS("", "")
 			}
 
@@ -420,23 +454,29 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
-	flag.StringVar(&cfg.tls.certFile, "tls-cert-file", "",
+	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
-	flag.StringVar(&cfg.tls.keyFile, "tls-private-key-file", "",
-		"File containing the default x509 private key matching --tls-cert-file. Leave blank to disable TLS.")
-	flag.StringVar(&cfg.tls.clientCAFile, "tls-client-ca-file", "",
+	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
+		"File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.tls.serverClientCAFile, "tls.server.client-ca-file", "",
 		"File containing the TLS CA against which to verify clients."+
 			"If no client CA is specified, there won't be any client verification on server side.")
-	flag.StringVar(&cfg.tls.minVersion, "tls-min-version", "VersionTLS13",
+	flag.StringVar(&cfg.tls.healthchecksCertFile, "tls.healthchecks.cert-file", "",
+		"File containing the x509 client certificate for HTTPS healthchecks. Provide for healthchecks to use TLS.")
+	flag.StringVar(&cfg.tls.healthchecksKeyFile, "tls.healthchecks.key-file", "",
+		"File containing the x509 private key matching --tls.healthchecks.cert-file. Provide for healthchecks to use TLS.")
+	flag.StringVar(&cfg.tls.healthchecksServerCAFile, "tls.healthchecks.server-ca-file", "",
+		"File containing the TLS CA against which to verify servers."+
+			"If no server CA is specified, the client will use the system certificates.")
+	flag.StringVar(&cfg.tls.minVersion, "tls.min-version", "VersionTLS13",
 		"Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
-	flag.StringVar(&rawTLSCipherSuites, "tls-cipher-suites", "",
+	flag.StringVar(&rawTLSCipherSuites, "tls.cipher-suites", "",
 		"Comma-separated list of cipher suites for the server."+
 			" Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants)."+
 			"If omitted, the default Go cipher suites will be used."+
 			"Note that TLS 1.3 ciphersuites are not configurable.")
-	flag.DurationVar(&cfg.tls.reloadInterval, "tls-reload-interval", time.Minute,
+	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
-
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)

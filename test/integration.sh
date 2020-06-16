@@ -28,9 +28,14 @@ token=$(curl --request POST \
 (
   ./observatorium \
     --web.listen=0.0.0.0:8443 \
-    --tls-cert-file=./tmp/certs/server.pem \
-    --tls-client-ca-file=./tmp/certs/ca.pem \
-    --tls-private-key-file=./tmp/certs/server.key \
+    --web.internal.listen=0.0.0.0:8448 \
+    --web.healthchecks.url=https://localhost:8443 \
+    --tls.server.client-ca-file=./tmp/certs/ca.pem \
+    --tls.server.cert-file=./tmp/certs/server.pem \
+    --tls.server.key-file=./tmp/certs/server.key \
+    --tls.healthchecks.cert-file=./tmp/certs/client.pem \
+    --tls.healthchecks.key-file=./tmp/certs/client.key \
+    --tls.healthchecks.server-ca-file=./tmp/certs/ca.pem \
     --logs.read.endpoint=http://127.0.0.1:3100 \
     --logs.write.endpoint=http://127.0.0.1:3100 \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
@@ -69,6 +74,11 @@ token=$(curl --request POST \
 
 printf "\t## waiting for dependencies to come up..."
 sleep 10
+
+until curl --output /dev/null --silent --fail http://localhost:8448/ready; do
+    printf '.'
+    sleep 1
+done
 
 echo "-------------------------------------------"
 echo "- Metrics tests                           -"

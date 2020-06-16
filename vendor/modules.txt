@@ -197,7 +197,7 @@ github.com/mattn/go-isatty
 github.com/mattn/go-sqlite3
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/metalmatze/signal v0.0.0-20200428133549-c4243ecaf121
+# github.com/metalmatze/signal v0.0.0-20200616171423-be84551ba3ce
 ## explicit
 github.com/metalmatze/signal/healthcheck
 github.com/metalmatze/signal/internalserver
