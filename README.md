@@ -58,6 +58,8 @@ Usage of ./observatorium:
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -logs.read.endpoint string
     	The endpoint against which to make read requests for logs.
+  -logs.tail.endpoint string
+    	The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Scope-OrgID")
   -logs.write.endpoint string

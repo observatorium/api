@@ -29,6 +29,14 @@ PROMETHEUS_VERSION ?= 2.15.2
 
 LOKI ?= $(BIN_DIR)/loki
 LOKI_VERSION ?= 1.5.0
+WEBSOCAT ?= $(BIN_DIR)/websocat
+WEBSOCAT_VERSION ?= 1.5.0
+WEBSOCAT_PKG =
+ifeq ($(shell go env GOOS),linux)
+	WEBSOCAT_PKG = "websocat_amd64-linux"
+else
+	WEBSOCAT_PKG = "websocat_mac"
+endif
 
 UP ?= $(BIN_DIR)/up
 DEX ?= $(BIN_DIR)/dex
@@ -139,7 +147,7 @@ container-release: container
 
 .PHONY: integration-test-dependencies
 
-integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI)
+integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -174,6 +182,12 @@ $(LOKI): | $(BIN_DIR)
 	unzip $$loki_pkg.zip && \
 	mv $$loki_pkg loki && \
 	rm $$loki_pkg.zip)
+
+$(WEBSOCAT): | $(BIN_DIR)
+	@echo "Downloading Websocat"
+	cd $(BIN_DIR) && curl -O -L "https://github.com/vi/websocat/releases/download/v$(WEBSOCAT_VERSION)/$(WEBSOCAT_PKG)" && \
+	mv $(WEBSOCAT_PKG) websocat && \
+	chmod u+x websocat
 
 $(UP): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/observatorium/up/cmd/up
