@@ -60,19 +60,24 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
   },
 };
 
-local apiWithTLS = api + api.withTLS {
+local apiWithTLS = api + {
   config+:: {
     tls+: {
-      certFile: './tmp/certs/server.pem',
-      privateKeyFile: './tmp/certs/server.key',
+      secret: {
+        certFile: '/mnt/certs/server.pem',
+        privateKeyFile: '/mnt/certs/server.key',
+        reloadInterval: '1m',
+      },
     },
   },
 };
 
-local withMTLS = apiWithTLS + api.withMTLS {
+local withMTLS = apiWithTLS + {
   config+:: {
-    tls+: {
-      clientCAFile: './tmp/certs/ca.pem',
+    mtls+: {
+      configMap: {
+        clientCAFile: '/mnt/clientca/ca.pem',
+      },
     },
   },
 };
