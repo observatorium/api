@@ -88,13 +88,15 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         else []
       ) + (
         if api.config.tls != {} then
-          ['--tls-cert-file=' + api.config.tls.secret.certFile,
-           '--tls-private-key-file=' + api.config.tls.secret.privateKeyFile,
-           '--tls-reload-interval=' + api.config.tls.secret.reloadInterval,]
+          [
+            '--tls.server.cert-file=' + api.config.tls.secret.certFile,
+            '--tls.server.key-file=' + api.config.tls.secret.privateKeyFile,
+            '--tls.reload-interval=' + api.config.tls.secret.reloadInterval,
+          ]
         else []
       ) + (
         if api.config.mtls != {} then
-          ['--tls-client-ca-file=' + api.config.mtls.configMap.clientCAFile]
+          ['--tls.server.client-ca-file=' + api.config.mtls.configMap.clientCAFile]
         else []
       )) +
       container.withPorts([

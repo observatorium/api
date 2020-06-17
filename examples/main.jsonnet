@@ -3,7 +3,7 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
     local cfg = self,
     name: 'observatorium-api',
     namespace: 'observatorium',
-    version: 'master-2020-05-04-v0.1.1-21-gabb9864',
+    version: 'master-2020-06-16-v0.1.1-86-g25a3e86',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
     metrics: {
@@ -60,7 +60,7 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
   },
 };
 
-local apiWithTLS = api + {
+local apiWithTLS = api {
   config+:: {
     tls+: {
       secret: {
@@ -72,7 +72,7 @@ local apiWithTLS = api + {
   },
 };
 
-local withMTLS = apiWithTLS + {
+local withMTLS = apiWithTLS {
   config+:: {
     mtls+: {
       configMap: {
