@@ -38,6 +38,7 @@ spec:
         - --log.level=warn
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
+        - --web.healthchecks.url=https://127.0.0.1:8080
         - --tls.server.cert-file=/mnt/certs/server.pem
         - --tls.server.key-file=/mnt/certs/server.key
         - --tls.reload-interval=1m

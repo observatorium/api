@@ -89,6 +89,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       ) + (
         if api.config.tls != {} then
           [
+            '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
             '--tls.server.cert-file=' + api.config.tls.secret.certFile,
             '--tls.server.key-file=' + api.config.tls.secret.privateKeyFile,
             '--tls.reload-interval=' + api.config.tls.secret.reloadInterval,
