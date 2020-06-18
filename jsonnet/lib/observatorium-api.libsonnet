@@ -89,8 +89,12 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       ) + (
         if api.config.tls != {} then
           [
-            '--tls.server.cert-file=' + api.config.tls.secret.certFile,
-            '--tls.server.key-file=' + api.config.tls.secret.privateKeyFile,
+            '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
+            '--tls.server.cert-file=' + api.config.tls.secret.serverCertFile,
+            '--tls.server.key-file=' + api.config.tls.secret.serverPrivateKeyFile,
+            '--tls.healthchecks.cert-file=' + api.config.tls.secret.clientCertFile,
+            '--tls.healthchecks.key-file=' + api.config.tls.secret.clientPrivateKeyFile,
+            '--tls.healthchecks.server-ca-file=' + api.config.tls.secret.serverCAFile,
             '--tls.reload-interval=' + api.config.tls.secret.reloadInterval,
           ]
         else []

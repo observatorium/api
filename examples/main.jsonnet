@@ -64,8 +64,11 @@ local apiWithTLS = api {
   config+:: {
     tls+: {
       secret: {
-        certFile: '/mnt/certs/server.pem',
-        privateKeyFile: '/mnt/certs/server.key',
+        serverCertFile: '/mnt/certs/server.pem',
+        serverPrivateKeyFile: '/mnt/certs/server.key',
+        serverCAFile: '/mnt/certs/ca.pem',
+        clientCertFile: '/mnt/certs/client.pem',
+        clientPrivateKeyFile: '/mnt/certs/client.key',
         reloadInterval: '1m',
       },
     },

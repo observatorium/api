@@ -38,8 +38,12 @@ spec:
         - --log.level=warn
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
+        - --web.healthchecks.url=https://127.0.0.1:8080
         - --tls.server.cert-file=/mnt/certs/server.pem
         - --tls.server.key-file=/mnt/certs/server.key
+        - --tls.healthchecks.cert-file=/mnt/certs/client.pem
+        - --tls.healthchecks.key-file=/mnt/certs/client.key
+        - --tls.healthchecks.server-ca-file=/mnt/certs/ca.pem
         - --tls.reload-interval=1m
         image: quay.io/observatorium/observatorium:master-2020-06-16-v0.1.1-86-g25a3e86
         livenessProbe:
