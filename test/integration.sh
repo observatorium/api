@@ -32,11 +32,8 @@ token=$(curl --request POST \
     --web.listen=0.0.0.0:8443 \
     --web.internal.listen=0.0.0.0:8448 \
     --web.healthchecks.url=https://localhost:8443 \
-    --tls.server.client-ca-file=./tmp/certs/ca.pem \
     --tls.server.cert-file=./tmp/certs/server.pem \
     --tls.server.key-file=./tmp/certs/server.key \
-    --tls.healthchecks.cert-file=./tmp/certs/client.pem \
-    --tls.healthchecks.key-file=./tmp/certs/client.key \
     --tls.healthchecks.server-ca-file=./tmp/certs/ca.pem \
     --logs.read.endpoint=http://127.0.0.1:3100 \
     --logs.tail.endpoint=http://127.0.0.1:3100 \
@@ -93,10 +90,8 @@ if ./tmp/bin/up \
   --listen=0.0.0.0:8888 \
   --endpoint-type=metrics \
   --tls-ca-file=./tmp/certs/ca.pem \
-  --tls-client-cert-file=./tmp/certs/client.pem \
-  --tls-client-private-key-file=./tmp/certs/client.key \
-  --endpoint-read=https://127.0.0.1:8443/api/metrics/v1/test/api/v1/query \
-  --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/test/api/v1/receive \
+  --endpoint-read=https://127.0.0.1:8443/api/metrics/v1/test-oidc/api/v1/query \
+  --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/test-oidc/api/v1/receive \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \
@@ -128,8 +123,8 @@ if ./tmp/bin/up \
   --tls-ca-file=./tmp/certs/ca.pem \
   --tls-client-cert-file=./tmp/certs/client.pem \
   --tls-client-private-key-file=./tmp/certs/client.key \
-  --endpoint-read=https://127.0.0.1:8443/api/logs/v1/test/api/v1/query \
-  --endpoint-write=https://127.0.0.1:8443/api/logs/v1/test/api/v1/push \
+  --endpoint-read=https://127.0.0.1:8443/api/logs/v1/test-mtls/api/v1/query \
+  --endpoint-write=https://127.0.0.1:8443/api/logs/v1/test-mtls/api/v1/push \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \
@@ -158,15 +153,15 @@ echo "-------------------------------------------"
 
 write_logs=$(curl \
                -v -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-               --cacert ./tmp/certs/ca.pem --cert ./tmp/certs/client.pem --key ./tmp/certs/client.key \
-               -XPOST -s https://127.0.0.1:8443/api/logs/v1/test/api/v1/push --data-raw \
+               --cacert ./tmp/certs/ca.pem \
+               -XPOST -s https://127.0.0.1:8443/api/logs/v1/test-oidc/api/v1/push --data-raw \
                "{\"streams\": [{ \"stream\": { \"__name__\": \"up_test\", \"foo\": \"bar\" }, \"values\": [ [ \"$(date '+%s%N')\", \"log line 1\" ] ] }]}" \
                2> /dev/null && echo $?)
 
 tail_logs=$(./tmp/bin/websocat \
               -b -1 -U -H="Authorization: Bearer $token" \
-              --ws-c-uri=wss://127.0.0.1:8443/api/logs/v1/test/api/v1/tail\?query=%7Bfoo%3D%22bar%22%2C__name__%3D%22up_test%22%7D  - \
-              ws-c:cmd:'openssl s_client -connect 127.0.0.1:8443 -CAfile ./tmp/certs/ca.pem -cert ./tmp/certs/client.pem -key ./tmp/certs/client.key -quiet' \
+              --ws-c-uri=wss://127.0.0.1:8443/api/logs/v1/test-oidc/api/v1/tail\?query=%7Bfoo%3D%22bar%22%2C__name__%3D%22up_test%22%7D  - \
+              ws-c:cmd:'openssl s_client -connect 127.0.0.1:8443 -CAfile ./tmp/certs/ca.pem -quiet' \
               1> /dev/null && echo $?)
 
 if [ "$write_logs" = "0" ] && [ "$tail_logs" = "0" ]; then

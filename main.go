@@ -4,6 +4,7 @@ import (
 	"context"
 	stdtls "crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -73,12 +74,9 @@ type tlsConfig struct {
 	cipherSuites   []string
 	reloadInterval time.Duration
 
-	serverCertFile     string
-	serverKeyFile      string
-	serverClientCAFile string
+	serverCertFile string
+	serverKeyFile  string
 
-	healthchecksCertFile     string
-	healthchecksKeyFile      string
 	healthchecksServerCAFile string
 }
 
@@ -111,13 +109,18 @@ func main() {
 	type tenant struct {
 		Name string `json:"name"`
 		ID   string `json:"id"`
-		OIDC struct {
+		OIDC *struct {
 			ClientID      string `json:"clientID"`
 			ClientSecret  string `json:"clientSecret"`
 			IssuerURL     string `json:"issuerURL"`
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
 		} `json:"oidc"`
+		MTLS *struct {
+			RawCA  []byte `json:"ca"`
+			CAPath string `json:"caPath"`
+			ca     *x509.Certificate
+		} `json:"mTLS"`
 	}
 
 	type tenantsConfig struct {
@@ -128,11 +131,32 @@ func main() {
 	{
 		f, err := ioutil.ReadFile(cfg.tenantsConfigPath)
 		if err != nil {
-			stdlog.Fatalf("cannot read tenant configuration file from path %s: %v", cfg.tenantsConfigPath, err)
+			stdlog.Fatalf("cannot read tenant configuration file from path %q: %v", cfg.tenantsConfigPath, err)
 		}
 
 		if err := yaml.Unmarshal(f, &tenantsCfg); err != nil {
 			stdlog.Fatalf("unable to read tenant YAML: %v", err)
+		}
+
+		for _, t := range tenantsCfg.Tenants {
+			if t.MTLS == nil {
+				continue
+			}
+			if t.MTLS.CAPath != "" {
+				t.MTLS.RawCA, err = ioutil.ReadFile(t.MTLS.CAPath)
+				if err != nil {
+					stdlog.Fatalf("cannot read CA certificate file from path %q for tenant %q: %v", t.MTLS.CAPath, t.Name, err)
+				}
+			}
+			block, _ := pem.Decode(t.MTLS.RawCA)
+			if block == nil {
+				stdlog.Fatalf("failed to parse CA certificate PEM for tenant %q", t.Name)
+			}
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				stdlog.Fatalf("failed to parse certificate: %v", err)
+			}
+			t.MTLS.ca = cert
 		}
 	}
 
@@ -140,7 +164,7 @@ func main() {
 	{
 		f, err := os.Open(cfg.rbacConfigPath)
 		if err != nil {
-			stdlog.Fatalf("cannot read RBAC configuration file from path %s: %v", cfg.rbacConfigPath, err)
+			stdlog.Fatalf("cannot read RBAC configuration file from path %q: %v", cfg.rbacConfigPath, err)
 		}
 		defer f.Close()
 		if authorizer, err = rbac.Parse(f); err != nil {
@@ -196,8 +220,6 @@ func main() {
 		if cfg.server.healthcheckURL != "" {
 			client := &http.Client{}
 
-			tlsClientConfig := &stdtls.Config{}
-
 			if cfg.tls.healthchecksServerCAFile != "" {
 				caCert, err := ioutil.ReadFile(cfg.tls.healthchecksServerCAFile)
 				if err != nil {
@@ -205,20 +227,11 @@ func main() {
 				}
 				caCertPool := x509.NewCertPool()
 				caCertPool.AppendCertsFromPEM(caCert)
-
-				tlsClientConfig.RootCAs = caCertPool
-			}
-
-			if cfg.tls.healthchecksCertFile != "" && cfg.tls.healthchecksKeyFile != "" {
-				cert, err := stdtls.LoadX509KeyPair(cfg.tls.healthchecksCertFile, cfg.tls.healthchecksKeyFile)
-				if err != nil {
-					stdlog.Fatalf("failed to initialize the healthcheck client TLS config: %v", err)
+				client.Transport = &http.Transport{
+					TLSClientConfig: &stdtls.Config{
+						RootCAs: caCertPool,
+					},
 				}
-				tlsClientConfig.Certificates = []stdtls.Certificate{cert}
-			}
-
-			client.Transport = &http.Transport{
-				TLSClientConfig: tlsClientConfig,
 			}
 
 			// checks if server is up
@@ -246,29 +259,42 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(authentication.WithTenant)
 
-			tenantIDs := make(map[string]string)
+			tenantIDs := map[string]string{}
 			var oidcs []authentication.OIDCConfig
+			var mTLSs []authentication.MTLSConfig
 			for _, t := range tenantsCfg.Tenants {
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
 				tenantIDs[t.Name] = t.ID
-				oidcs = append(oidcs, authentication.OIDCConfig{
-					Tenant:        t.Name,
-					ClientID:      t.OIDC.ClientID,
-					ClientSecret:  t.OIDC.ClientSecret,
-					IssuerURL:     t.OIDC.IssuerURL,
-					RedirectURL:   t.OIDC.RedirectURL,
-					UsernameClaim: t.OIDC.UsernameClaim,
-				})
+				if t.OIDC != nil {
+					oidcs = append(oidcs, authentication.OIDCConfig{
+						Tenant:        t.Name,
+						ClientID:      t.OIDC.ClientID,
+						ClientSecret:  t.OIDC.ClientSecret,
+						IssuerURL:     t.OIDC.IssuerURL,
+						RedirectURL:   t.OIDC.RedirectURL,
+						UsernameClaim: t.OIDC.UsernameClaim,
+					})
+					continue
+				}
+				if t.MTLS != nil {
+					mTLSs = append(mTLSs, authentication.MTLSConfig{
+						Tenant: t.Name,
+						CA:     t.MTLS.ca,
+					})
+					continue
+				}
+				stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
 			}
 
-			oidcHandler, oidcMiddleware, err := authentication.NewOIDCHandler(oidcs...)
+			oidcHandler, oidcTenantMiddlewares, err := authentication.NewOIDC(oidcs...)
 			if err != nil {
 				stdlog.Fatalf("failed to create OIDC handler: %v", err)
 			}
 			r.Mount("/oidc/{tenant}", oidcHandler)
 
+			// Metrics
 			r.Group(func(r chi.Router) {
-				r.Use(oidcMiddleware)
+				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs...)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 
 				r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
@@ -306,8 +332,9 @@ func main() {
 				)
 			})
 
+			// Logs
 			r.Group(func(r chi.Router) {
-				r.Use(oidcMiddleware)
+				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs...)))
 				r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 				r.Mount("/api/logs/v1/{tenant}",
@@ -331,7 +358,6 @@ func main() {
 			log.With(logger, "protocol", "HTTP"),
 			cfg.tls.serverCertFile,
 			cfg.tls.serverKeyFile,
-			cfg.tls.serverClientCAFile,
 			cfg.tls.minVersion,
 			cfg.tls.cipherSuites,
 		)
@@ -463,13 +489,6 @@ func parseFlags() (config, error) {
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
 		"File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.")
-	flag.StringVar(&cfg.tls.serverClientCAFile, "tls.server.client-ca-file", "",
-		"File containing the TLS CA against which to verify clients."+
-			"If no client CA is specified, there won't be any client verification on server side.")
-	flag.StringVar(&cfg.tls.healthchecksCertFile, "tls.healthchecks.cert-file", "",
-		"File containing the x509 client certificate for HTTPS healthchecks. Provide for healthchecks to use TLS.")
-	flag.StringVar(&cfg.tls.healthchecksKeyFile, "tls.healthchecks.key-file", "",
-		"File containing the x509 private key matching --tls.healthchecks.cert-file. Provide for healthchecks to use TLS.")
 	flag.StringVar(&cfg.tls.healthchecksServerCAFile, "tls.healthchecks.server-ca-file", "",
 		"File containing the TLS CA against which to verify servers."+
 			"If no server CA is specified, the client will use the system certificates.")
