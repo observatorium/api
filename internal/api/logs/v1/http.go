@@ -76,7 +76,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
+func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -117,6 +117,35 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			r.Handle("/api/v1/query_range", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query_range"},
 				proxyRead,
+			))
+		})
+	}
+
+	if tail != nil {
+		var tailRead http.Handler
+		{
+			tail.Path = path.Join(tail.Path, lokiUpstreamPrefix)
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(tail),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-tail"}),
+			)
+
+			tailRead = &httputil.ReverseProxy{
+				Director: middlewares,
+				ErrorLog: proxy.Logger(c.logger),
+				Transport: &http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout: ReadTimeout,
+					}).DialContext,
+				},
+			}
+		}
+		r.Group(func(r chi.Router) {
+			r.Use(c.readMiddlewares...)
+			r.Handle("/api/v1/tail", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "tail"},
+				tailRead,
 			))
 		})
 	}

@@ -91,6 +91,7 @@ type metricsConfig struct {
 type logsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
+	tailEndpoint  *url.URL
 	tenantHeader  string
 }
 
@@ -313,6 +314,7 @@ func main() {
 					stripTenantPrefix("/api/logs/v1",
 						logsv1.NewHandler(
 							cfg.logs.readEndpoint,
+							cfg.logs.tailEndpoint,
 							cfg.logs.writeEndpoint,
 							logsv1.Logger(logger),
 							logsv1.Registry(reg),
@@ -417,6 +419,7 @@ func parseFlags() (config, error) {
 		rawMetricsReadEndpoint  string
 		rawMetricsWriteEndpoint string
 		rawLogsReadEndpoint     string
+		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
 	)
 
@@ -442,6 +445,8 @@ func parseFlags() (config, error) {
 		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL against which to run healthchecks.")
+	flag.StringVar(&rawLogsTailEndpoint, "logs.tail.endpoint", "",
+		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
 		"The endpoint against which to make read requests for logs.")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
@@ -499,6 +504,13 @@ func parseFlags() (config, error) {
 	}
 
 	cfg.logs.readEndpoint = logsReadEndpoint
+
+	logsTailEndpoint, err := url.ParseRequestURI(rawLogsTailEndpoint)
+	if err != nil {
+		return cfg, fmt.Errorf("--logs.tail.endpoint is invalid, raw %s: %w", rawLogsTailEndpoint, err)
+	}
+
+	cfg.logs.tailEndpoint = logsTailEndpoint
 
 	logsWriteEndpoint, err := url.ParseRequestURI(rawLogsWriteEndpoint)
 	if err != nil {

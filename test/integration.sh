@@ -11,7 +11,9 @@ trap 'kill $(jobs -p); exit $result' EXIT
 
 (./tmp/bin/dex serve ./test/config/dex.yaml) &
 
-printf "\t## getting authentication token..."
+echo "-------------------------------------------"
+echo "- Getting authentication token...         -"
+echo "-------------------------------------------"
 sleep 2
 
 token=$(curl --request POST \
@@ -37,6 +39,7 @@ token=$(curl --request POST \
     --tls.healthchecks.key-file=./tmp/certs/client.key \
     --tls.healthchecks.server-ca-file=./tmp/certs/ca.pem \
     --logs.read.endpoint=http://127.0.0.1:3100 \
+    --logs.tail.endpoint=http://127.0.0.1:3100 \
     --logs.write.endpoint=http://127.0.0.1:3100 \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
     --metrics.write.endpoint=http://127.0.0.1:19291 \
@@ -52,7 +55,7 @@ token=$(curl --request POST \
     --grpc-address=127.0.0.1:10901 \
     --http-address=127.0.0.1:10902 \
     --remote-write.address=127.0.0.1:19291 \
-    --log.level=debug \
+    --log.level=error \
     --tsdb.path="$(mktemp -d)"
 ) &
 
@@ -61,18 +64,20 @@ token=$(curl --request POST \
     --grpc-address=127.0.0.1:10911 \
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
-    --log.level=debug \
+    --log.level=error \
     --web.external-prefix=/ui/metrics/v1
 ) &
 
 (
   ./tmp/bin/loki \
-    -log.level=info \
+    -log.level=error \
     -target=all \
     -config.file=./test/config/loki.yml
 ) &
 
-printf "\t## waiting for dependencies to come up..."
+echo "-------------------------------------------"
+echo "- Waiting for dependencies to come up...  -"
+echo "-------------------------------------------"
 sleep 10
 
 until curl --output /dev/null --silent --fail http://localhost:8448/ready; do
@@ -97,20 +102,24 @@ if ./tmp/bin/up \
   --threshold=1 \
   --latency=10s \
   --duration=10s \
-  --log.level=debug \
+  --log.level=error \
   --name=observatorium_write \
   --labels='_id="test"' \
   --token="$token"; then
   result=0
-  printf "\t## metrics tests: ok\n\n"
+  echo "-------------------------------------------"
+  echo "- Metrics tests: OK                        -"
+  echo "-------------------------------------------"
 else
   result=1
-  printf "\t## metrics tests: failed\n\n"
+  echo "-------------------------------------------"
+  echo "- Metrics tests: FAILED                   -"
+  echo "-------------------------------------------"
   exit 1
 fi
 
 echo "-------------------------------------------"
-echo "- Logs tests                              -"
+echo "- Logs Read/Write tests                   -"
 echo "-------------------------------------------"
 
 if ./tmp/bin/up \
@@ -126,18 +135,54 @@ if ./tmp/bin/up \
   --threshold=1 \
   --latency=10s \
   --duration=10s \
-  --log.level=debug \
+  --log.level=error \
   --name=up_test \
   --labels='foo="bar"'\
   --logs="[\"$(date '+%s%N')\",\"log line 1\"]" \
   --token="$token"; then
   result=0
-  echo "## logs tests: ok"
+  echo "-------------------------------------------"
+  echo "- Logs Read/Write tests: OK               -"
+  echo "-------------------------------------------"
 else
   result=1
-  printf "## logs tests: failed\n\n"
+  echo "-------------------------------------------"
+  echo "- Logs Read/Write tests: FAILED           -"
+  echo "-------------------------------------------"
   exit 1
 fi
 
-printf "\t## all tests: ok\n\n" 1>&2
+echo "-------------------------------------------"
+echo "- Logs Tail/Write tests                   -"
+echo "-------------------------------------------"
+
+write_logs=$(curl \
+               -v -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+               --cacert ./tmp/certs/ca.pem --cert ./tmp/certs/client.pem --key ./tmp/certs/client.key \
+               -XPOST -s https://127.0.0.1:8443/api/logs/v1/test/api/v1/push --data-raw \
+               "{\"streams\": [{ \"stream\": { \"__name__\": \"up_test\", \"foo\": \"bar\" }, \"values\": [ [ \"$(date '+%s%N')\", \"log line 1\" ] ] }]}" \
+               2> /dev/null && echo $?)
+
+tail_logs=$(./tmp/bin/websocat \
+              -b -1 -U -H="Authorization: Bearer $token" \
+              --ws-c-uri=wss://127.0.0.1:8443/api/logs/v1/test/api/v1/tail\?query=%7Bfoo%3D%22bar%22%2C__name__%3D%22up_test%22%7D  - \
+              ws-c:cmd:'openssl s_client -connect 127.0.0.1:8443 -CAfile ./tmp/certs/ca.pem -cert ./tmp/certs/client.pem -key ./tmp/certs/client.key -quiet' \
+              1> /dev/null && echo $?)
+
+if [ "$write_logs" = "0" ] && [ "$tail_logs" = "0" ]; then
+  result=0
+  echo "-------------------------------------------"
+  echo "- Logs Tail/Write tests: OK               -"
+  echo "-------------------------------------------"
+else
+  result=1
+  echo "-------------------------------------------"
+  echo "- Logs Tail/Write tests: FAILED           -"
+  echo "-------------------------------------------"
+  exit 1
+fi
+
+echo "-------------------------------------------"
+echo "- All tests: OK                           -"
+echo "-------------------------------------------"
 exit 0

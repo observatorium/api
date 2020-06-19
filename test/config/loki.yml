@@ -14,6 +14,11 @@ ingester:
   chunk_idle_period: 5m
   chunk_retain_period: 30s
 
+querier:
+  engine:
+    max_look_back_period: 5m
+    timeout: 3m
+
 schema_config:
   configs:
   - from: 2019-01-01
