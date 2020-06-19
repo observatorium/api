@@ -12,6 +12,7 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
     },
     logs: {
       readEndpoint: 'http://127.0.0.1:3100',
+      tailEndpoint: 'http://127.0.0.1:3100',
       writeEndpoint: 'http://127.0.0.1:3100',
     },
     rbac: {

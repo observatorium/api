@@ -36,6 +36,11 @@ In order to handle requests for logs, a compatible backend must be configured.
 The backend from which to read logs can be specified with the `--logs.read.endpoint` flag.
 Compatible backends must implement the Loki read API, e.g. Loki.
 
+#### --logs.tail.endpoint
+
+The backend from which to tail logs can be specified with the `--logs.tail.endpoint` flag.
+Compatible backends must implement the Loki tail API, e.g. Loki.
+
 #### --logs.write.endpoint
 
 The backend to which to write logs can be specified with the `--logs.write.endpoint` flag.
