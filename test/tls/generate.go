@@ -25,12 +25,13 @@ type certBundle struct {
 
 func main() {
 	var (
-		caCommonName      string
-		serverCommonName  string
-		serverHostsJoined string
-		serverExpiration  time.Duration
-		clientCommonName  string
-		clientExpiration  time.Duration
+		caCommonName     string
+		serverCommonName string
+		serverSANs       string
+		serverExpiration time.Duration
+		clientCommonName string
+		clientSANs       string
+		clientExpiration time.Duration
 
 		defaultConfig        = config.DefaultConfig()
 		defaultSigningConfig = config.SigningProfile{
@@ -41,9 +42,10 @@ func main() {
 
 	flag.StringVar(&caCommonName, "root-common-name", "observatorium", "")
 	flag.StringVar(&serverCommonName, "server-common-name", "localhost", "")
-	flag.StringVar(&serverHostsJoined, "server-hosts", "localhost,127.0.0.1", "")
+	flag.StringVar(&serverSANs, "server-sans", "localhost,127.0.0.1", "A comma-separated list of SANs for the client.")
 	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
 	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
+	flag.StringVar(&clientSANs, "client-sans", "up", "A comma-separated list of SANs for the client.")
 	flag.DurationVar(&clientExpiration, "client-duration", defaultConfig.Expiry, "")
 	flag.Parse()
 
@@ -64,9 +66,9 @@ func main() {
 		},
 	}
 
-	serverBundle, err := generateCert(serverCommonName, signer.SplitHosts(serverHostsJoined), "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	serverBundle, err := generateCert(serverCommonName, signer.SplitHosts(serverSANs), "www", &serverSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
-		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverHostsJoined, err)
+		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
 		os.Exit(1)
 	}
 
@@ -81,9 +83,9 @@ func main() {
 		},
 	}
 
-	clientBundle, err := generateCert(clientCommonName, nil, "client", &clientSigningConfig, caBundle.cert, caBundle.key)
+	clientBundle, err := generateCert(clientCommonName, signer.SplitHosts(clientSANs), "client", &clientSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
-		fmt.Printf("generate client cert %s: %v\n", caCommonName, err)
+		fmt.Printf("generate client cert %s, %s: %v\n", clientCommonName, clientSANs, err)
 		os.Exit(1)
 	}
 

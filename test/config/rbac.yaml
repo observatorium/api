@@ -1,16 +1,30 @@
 roles:
-- name: read-write
+- name: read-write-oidc
   resources:
   - metrics
   - logs
   tenants:
-  - test
+  - test-oidc
+  permissions:
+  - read
+  - write
+- name: read-write-mtls
+  resources:
+  - metrics
+  - logs
+  tenants:
+  - test-mtls
   permissions:
   - read
   - write
 roleBindings:
-- name: test
+- name: test-oidc
   roles:
-  - read-write
+  - read-write-oidc
   subjects:
   - admin@example.com
+- name: test-mtls
+  roles:
+  - read-write-mtls
+  subjects:
+  - up
