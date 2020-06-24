@@ -3,7 +3,7 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
     local cfg = self,
     name: 'observatorium-api',
     namespace: 'observatorium',
-    version: 'master-2020-06-16-v0.1.1-86-g25a3e86',
+    version: 'master-2020-06-22-v0.1.1-100-g571ce24',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
     metrics: {
@@ -68,19 +68,7 @@ local apiWithTLS = api {
         serverCertFile: '/mnt/certs/server.pem',
         serverPrivateKeyFile: '/mnt/certs/server.key',
         serverCAFile: '/mnt/certs/ca.pem',
-        clientCertFile: '/mnt/certs/client.pem',
-        clientPrivateKeyFile: '/mnt/certs/client.key',
         reloadInterval: '1m',
-      },
-    },
-  },
-};
-
-local withMTLS = apiWithTLS {
-  config+:: {
-    mtls+: {
-      configMap: {
-        clientCAFile: '/mnt/clientca/ca.pem',
       },
     },
   },
@@ -95,9 +83,4 @@ local withMTLS = apiWithTLS {
   ['%s-with-tls' % name]: apiWithTLS[name]
   for name in std.objectFields(api)
   if apiWithTLS[name] != null
-} +
-{
-  ['%s-with-mtls' % name]: withMTLS[name]
-  for name in std.objectFields(api)
-  if withMTLS[name] != null
 }

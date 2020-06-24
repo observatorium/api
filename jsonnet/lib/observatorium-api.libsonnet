@@ -29,7 +29,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     rbac: {},
     tenants: {},
     tls: {},
-    mtls: {},
 
     commonLabels:: {
       'app.kubernetes.io/name': 'observatorium-api',
@@ -94,15 +93,9 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
             '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
             '--tls.server.cert-file=' + api.config.tls.secret.serverCertFile,
             '--tls.server.key-file=' + api.config.tls.secret.serverPrivateKeyFile,
-            '--tls.healthchecks.cert-file=' + api.config.tls.secret.clientCertFile,
-            '--tls.healthchecks.key-file=' + api.config.tls.secret.clientPrivateKeyFile,
             '--tls.healthchecks.server-ca-file=' + api.config.tls.secret.serverCAFile,
             '--tls.reload-interval=' + api.config.tls.secret.reloadInterval,
           ]
-        else []
-      ) + (
-        if api.config.mtls != {} then
-          ['--tls.server.client-ca-file=' + api.config.mtls.configMap.clientCAFile]
         else []
       )) +
       container.withPorts([
@@ -144,13 +137,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
              mountPath: '/mnt/certs',
              readOnly: true,
            },
-         ] else []) +
-        (if api.config.mtls != {} then [
-           {
-             name: 'client-ca',
-             mountPath: '/mnt/clientca',
-             readOnly: true,
-           },
          ] else [])
       );
 
@@ -183,14 +169,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
              secretName: 'observatorium-api-tls-certs',
            },
            name: 'certs',
-         },
-       ] else []) +
-      (if api.config.mtls != {} then [
-         {
-           configMap: {
-             name: 'observatorium-api-tls-client-ca',
-           },
-           name: 'client-ca',
          },
        ] else [])
     ),
