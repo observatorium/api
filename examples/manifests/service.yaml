@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/instance: observatorium-api
     app.kubernetes.io/name: observatorium-api
-    app.kubernetes.io/version: master-2020-06-16-v0.1.1-86-g25a3e86
+    app.kubernetes.io/version: master-2020-06-22-v0.1.1-100-g571ce24
   name: observatorium-api
   namespace: observatorium
 spec:
