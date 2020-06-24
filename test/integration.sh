@@ -77,6 +77,10 @@ echo "- Waiting for dependencies to come up...  -"
 echo "-------------------------------------------"
 sleep 10
 
+until curl --output /dev/null --silent --fail http://localhost:8448/live; do
+    printf '.'
+    sleep 1
+done
 until curl --output /dev/null --silent --fail http://localhost:8448/ready; do
     printf '.'
     sleep 1
