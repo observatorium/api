@@ -11,11 +11,19 @@ import (
 // Permission is an Observatorium RBAC permission.
 type Permission string
 
+// SubjectKind is a kind of Observatorium RBAC subject.
+type SubjectKind string
+
 const (
 	// Write gives access to write data to a tenant.
 	Write Permission = "write"
 	// Read gives access to read data from a tenant.
 	Read Permission = "read"
+
+	// User represents a subject that is a user.
+	User SubjectKind = "user"
+	// Group represents a subject that is a group.
+	Group SubjectKind = "group"
 )
 
 // Role describes a set of permissions to interact with a tenant.
@@ -26,24 +34,30 @@ type Role struct {
 	Permissions []Permission `json:"permissions"`
 }
 
+// Subject represents a subject that has been bound to a role.
+type Subject struct {
+	Name string      `json:"name"`
+	Kind SubjectKind `json:"kind"`
+}
+
 // RoleBinding binds a set of roles to a set of subjects.
 type RoleBinding struct {
-	Name     string   `json:"name"`
-	Subjects []string `json:"subjects"`
-	Roles    []string `json:"roles"`
+	Name     string    `json:"name"`
+	Subjects []Subject `json:"subjects"`
+	Roles    []string  `json:"roles"`
 }
 
 // TODO: move interface definition.
 // Authorizer can authorize a subject's permission for a tentant's resource.
 type Authorizer interface {
-	// Authorize answers the question: can subject S perform permission P on resource R for Tenant T?
-	Authorize(subject string, permission Permission, resource, tenant string) bool
+	// Authorize answers the question: can subject S in groups G perform permission P on resource R for Tenant T?
+	Authorize(subject string, groups []string, permission Permission, resource, tenant string) bool
 }
 
 // tenant represents the read and write permissions of many subjects on a single tenant.
 type tenant struct {
-	read  map[string]struct{}
-	write map[string]struct{}
+	read  map[Subject]struct{}
+	write map[Subject]struct{}
 }
 
 // tenants is a map of tenant names to read and write permissions for subjects.
@@ -53,7 +67,7 @@ type tenants map[string]tenant
 type resources map[string]tenants
 
 // Authorize implements the Authorizer interface.
-func (rs resources) Authorize(subject string, permission Permission, resource, tenant string) bool {
+func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant string) bool {
 	ts, ok := rs[resource]
 	if !ok {
 		return false
@@ -64,13 +78,24 @@ func (rs resources) Authorize(subject string, permission Permission, resource, t
 		return false
 	}
 
+	var pmap map[Subject]struct{}
 	switch permission {
 	case Read:
-		_, ok := t.read[subject]
-		return ok
+		pmap = t.read
 	case Write:
-		_, ok := t.write[subject]
+		pmap = t.write
+	}
+
+	// First check the user directly
+	if _, ok := pmap[Subject{Name: subject, Kind: User}]; ok {
 		return ok
+	}
+
+	// Now check the user's groups.
+	for _, group := range groups {
+		if _, ok := pmap[Subject{Name: group, Kind: Group}]; ok {
+			return ok
+		}
 	}
 
 	return false
@@ -101,8 +126,8 @@ func NewAuthorzer(roles []Role, roleBindings []RoleBinding) Authorizer {
 				for _, tenantName := range role.Tenants {
 					if _, ok := t[tenantName]; !ok {
 						t[tenantName] = tenant{
-							read:  make(map[string]struct{}),
-							write: make(map[string]struct{}),
+							read:  make(map[Subject]struct{}),
+							write: make(map[Subject]struct{}),
 						}
 					}
 

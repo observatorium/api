@@ -22,6 +22,7 @@ type OIDCConfig struct {
 	IssuerURL     string
 	ClientID      string
 	ClientSecret  string
+	GroupClaim    string
 	RedirectURL   string
 	UsernameClaim string
 }
@@ -72,17 +73,6 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 		return nil, nil, err
 	}
 
-	var s struct {
-		// What scopes does a provider support?
-		//
-		// See: https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderMetadata
-		ScopesSupported []string `json:"scopes_supported"`
-	}
-
-	if err := provider.Claims(&s); err != nil {
-		return nil, nil, err
-	}
-
 	verifier := provider.Verifier(&oidc.Config{ClientID: config.ClientID})
 
 	oauth2Config := oauth2.Config{
@@ -90,7 +80,7 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 		ClientSecret: config.ClientSecret,
 		Endpoint:     provider.Endpoint(),
 		RedirectURL:  config.RedirectURL,
-		Scopes:       []string{"openid", "profile", "email"},
+		Scopes:       []string{"openid", "profile", "email", "groups"},
 	}
 
 	m := func(next http.Handler) http.Handler {
@@ -140,10 +130,30 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 				}
 				sub = username
 			}
+			ctx := context.WithValue(r.Context(), subjectKey, sub)
 
-			next.ServeHTTP(w, r.WithContext(
-				context.WithValue(r.Context(), subjectKey, sub),
-			))
+			if config.GroupClaim != "" {
+				var groups []string
+				claims := map[string]interface{}{}
+				if err := idToken.Claims(&claims); err != nil {
+					http.Error(w, "failed to read claims", http.StatusInternalServerError)
+					return
+				}
+				rawGroup, ok := claims[config.GroupClaim]
+				if !ok {
+					http.Error(w, "group cannot be empty", http.StatusBadRequest)
+					return
+				}
+				switch v := rawGroup.(type) {
+				case string:
+					groups = append(groups, v)
+				case []string:
+					groups = v
+				}
+				ctx = context.WithValue(r.Context(), groupsKey, groups)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 

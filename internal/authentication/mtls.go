@@ -58,9 +58,12 @@ func NewMTLS(configs ...MTLSConfig) map[string]Middleware {
 					http.Error(w, "could not determine subject", http.StatusBadRequest)
 					return
 				}
-				next.ServeHTTP(w, r.WithContext(
-					context.WithValue(r.Context(), subjectKey, sub),
-				))
+				ctx := context.WithValue(r.Context(), subjectKey, sub)
+
+				// Add organizational units as groups.
+				ctx = context.WithValue(ctx, groupsKey, r.TLS.PeerCertificates[0].Subject.OrganizationalUnit)
+
+				next.ServeHTTP(w, r.WithContext(ctx))
 			})
 		}
 	}

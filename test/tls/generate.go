@@ -31,6 +31,7 @@ func main() {
 		serverExpiration time.Duration
 		clientCommonName string
 		clientSANs       string
+		clientGroups     string
 		clientExpiration time.Duration
 
 		defaultConfig        = config.DefaultConfig()
@@ -46,6 +47,7 @@ func main() {
 	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
 	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
 	flag.StringVar(&clientSANs, "client-sans", "up", "A comma-separated list of SANs for the client.")
+	flag.StringVar(&clientGroups, "client-groups", "test", "A comma-separated list of groups for the client.")
 	flag.DurationVar(&clientExpiration, "client-duration", defaultConfig.Expiry, "")
 	flag.Parse()
 
@@ -66,7 +68,7 @@ func main() {
 		},
 	}
 
-	serverBundle, err := generateCert(serverCommonName, signer.SplitHosts(serverSANs), "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	serverBundle, err := generateCert(serverCommonName, signer.SplitHosts(serverSANs), nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
 		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
 		os.Exit(1)
@@ -83,7 +85,7 @@ func main() {
 		},
 	}
 
-	clientBundle, err := generateCert(clientCommonName, signer.SplitHosts(clientSANs), "client", &clientSigningConfig, caBundle.cert, caBundle.key)
+	clientBundle, err := generateCert(clientCommonName, signer.SplitHosts(clientSANs), signer.SplitHosts(clientGroups), "client", &clientSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
 		fmt.Printf("generate client cert %s, %s: %v\n", clientCommonName, clientSANs, err)
 		os.Exit(1)
@@ -119,10 +121,15 @@ func generateCACert(commonName string) (certBundle, error) {
 	return certBundle{cert: cert, key: key}, nil
 }
 
-func generateCert(commonName string, hosts []string, profile string, signingConfig *config.Signing, ca []byte, caKey []byte) (certBundle, error) {
-	fmt.Printf("cert generate, commonName=%s, hosts=%v, profile=%s, signingConfig=%+v\n", commonName, hosts, profile, signingConfig)
+func generateCert(commonName string, hosts []string, groups []string, profile string, signingConfig *config.Signing, ca []byte, caKey []byte) (certBundle, error) {
+	fmt.Printf("cert generate, commonName=%s, hosts=%v, groups=%v, profile=%s, signingConfig=%+v\n", commonName, hosts, groups, profile, signingConfig)
+	names := make([]csr.Name, 0, len(groups))
+	for _, g := range groups {
+		names = append(names, csr.Name{OU: g})
+	}
 	req := csr.CertificateRequest{
 		CN:         commonName,
+		Names:      names,
 		Hosts:      hosts,
 		KeyRequest: csr.NewKeyRequest(),
 	}

@@ -6,7 +6,8 @@ data:
       "roles":
       - "read-write"
       "subjects":
-      - "admin@example.com"
+      - "kind": "user"
+        "name": "admin@example.com"
     "roles":
     - "name": "read-write"
       "permissions":
