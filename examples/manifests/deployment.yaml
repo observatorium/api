@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/instance: observatorium-api
     app.kubernetes.io/name: observatorium-api
-    app.kubernetes.io/version: master-2020-06-22-v0.1.1-100-g571ce24
+    app.kubernetes.io/version: master-2020-06-26-v0.1.1-105-gc784d77
   name: observatorium-api
   namespace: observatorium
 spec:
@@ -25,7 +25,7 @@ spec:
         app.kubernetes.io/component: api
         app.kubernetes.io/instance: observatorium-api
         app.kubernetes.io/name: observatorium-api
-        app.kubernetes.io/version: master-2020-06-22-v0.1.1-100-g571ce24
+        app.kubernetes.io/version: master-2020-06-26-v0.1.1-105-gc784d77
     spec:
       containers:
       - args:
@@ -39,7 +39,7 @@ spec:
         - --log.level=warn
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
-        image: quay.io/observatorium/observatorium:master-2020-06-22-v0.1.1-100-g571ce24
+        image: quay.io/observatorium/observatorium:master-2020-06-26-v0.1.1-105-gc784d77
         livenessProbe:
           failureThreshold: 10
           httpGet:
