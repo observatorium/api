@@ -3,7 +3,7 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
     local cfg = self,
     name: 'observatorium-api',
     namespace: 'observatorium',
-    version: 'master-2020-06-22-v0.1.1-100-g571ce24',
+    version: 'master-2020-06-26-v0.1.1-105-gc784d77',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
     metrics: {
