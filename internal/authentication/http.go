@@ -17,6 +17,8 @@ func (c contextKey) String() string {
 }
 
 const (
+	// groupsKey is the key that holds the groups in a request context.
+	groupsKey contextKey = "groups"
 	// subjectKey is the key that holds the subject in a request context.
 	subjectKey contextKey = "subject"
 	// tenantKey is the key that holds the tenant in a request context.
@@ -58,6 +60,14 @@ func GetSubject(ctx context.Context) (string, bool) {
 	subject, ok := value.(string)
 
 	return subject, ok
+}
+
+// GetGroups extracts the groups from provided context.
+func GetGroups(ctx context.Context) ([]string, bool) {
+	value := ctx.Value(groupsKey)
+	groups, ok := value.([]string)
+
+	return groups, ok
 }
 
 // WithTenantMiddlewares creates a single Middleware for all

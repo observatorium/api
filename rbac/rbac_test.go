@@ -6,6 +6,7 @@ import "testing"
 func TestNewAuthorizer(t *testing.T) {
 	type io struct {
 		subject    string
+		groups     []string
 		permission Permission
 		resource   string
 		tenant     string
@@ -124,12 +125,12 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "erika-a",
 					Roles:    []string{"a-write"},
-					Subjects: []string{"erika"},
+					Subjects: []Subject{{Name: "erika", Kind: User}},
 				},
 				{
 					Name:     "max-a",
 					Roles:    []string{"b-write"},
-					Subjects: []string{"max"},
+					Subjects: []Subject{{Name: "max", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -162,7 +163,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "a-b",
 					Roles:    []string{"a-b-write"},
-					Subjects: []string{"erika", "max"},
+					Subjects: []Subject{{Name: "erika", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -209,7 +210,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "erika-a",
 					Roles:    []string{"a-write"},
-					Subjects: []string{"erika"},
+					Subjects: []Subject{{Name: "erika", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -270,7 +271,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "erika-a",
 					Roles:    []string{"a-write"},
-					Subjects: []string{"erika"},
+					Subjects: []Subject{{Name: "erika", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -331,7 +332,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "erika-a",
 					Roles:    []string{"rw"},
-					Subjects: []string{"erika"},
+					Subjects: []Subject{{Name: "erika", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -399,7 +400,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "a",
 					Roles:    []string{"writer"},
-					Subjects: []string{"erika", "max"},
+					Subjects: []Subject{{Name: "erika", Kind: User}, {Name: "max", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -460,7 +461,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "a",
 					Roles:    []string{"writer"},
-					Subjects: []string{"erika", "max"},
+					Subjects: []Subject{{Name: "erika", Kind: User}, {Name: "max", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -528,7 +529,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "b",
 					Roles:    []string{"reader"},
-					Subjects: []string{"erika", "max"},
+					Subjects: []Subject{{Name: "erika", Kind: User}, {Name: "max", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -610,7 +611,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "a-b",
 					Roles:    []string{"reader", "writer"},
-					Subjects: []string{"erika", "max"},
+					Subjects: []Subject{{Name: "erika", Kind: User}, {Name: "max", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -679,7 +680,7 @@ func TestNewAuthorizer(t *testing.T) {
 				{
 					Name:     "a-b",
 					Roles:    []string{"rw"},
-					Subjects: []string{"erika", "max"},
+					Subjects: []Subject{{Name: "erika", Kind: User}, {Name: "max", Kind: User}},
 				},
 			},
 			ios: []io{
@@ -734,11 +735,163 @@ func TestNewAuthorizer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "group mustermann read for a",
+			roles: []Role{
+				{
+					Name:        "a-read",
+					Resources:   []string{"foo"},
+					Tenants:     []string{"a"},
+					Permissions: []Permission{"read"},
+				},
+			},
+			roleBindings: []RoleBinding{
+				{
+					Name:     "mustermann-a",
+					Roles:    []string{"a-read"},
+					Subjects: []Subject{{Name: "mustermann", Kind: Group}},
+				},
+			},
+			ios: []io{
+				{
+					subject:    "erika",
+					groups:     []string{"mustermann"},
+					permission: Read,
+					resource:   "foo",
+					tenant:     "a",
+					output:     true,
+				},
+				{
+					subject:    "erika",
+					groups:     []string{"mustermann"},
+					permission: Write,
+					resource:   "foo",
+					tenant:     "a",
+					output:     false,
+				},
+				{
+					subject:    "erika",
+					groups:     []string{"mustermann"},
+					permission: Read,
+					resource:   "foo",
+					tenant:     "b",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Read,
+					resource:   "foo",
+					tenant:     "a",
+					output:     true,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Write,
+					resource:   "foo",
+					tenant:     "a",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Write,
+					resource:   "foo",
+					tenant:     "b",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Write,
+					resource:   "bar",
+					tenant:     "b",
+					output:     false,
+				},
+			},
+		},
+		{
+			name: "group erika read for a",
+			roles: []Role{
+				{
+					Name:        "a-read",
+					Resources:   []string{"foo"},
+					Tenants:     []string{"a"},
+					Permissions: []Permission{"read"},
+				},
+			},
+			roleBindings: []RoleBinding{
+				{
+					Name:     "erika-a",
+					Roles:    []string{"a-read"},
+					Subjects: []Subject{{Name: "erika", Kind: Group}},
+				},
+			},
+			ios: []io{
+				{
+					subject:    "erika",
+					groups:     []string{"erika", "mustermann"},
+					permission: Read,
+					resource:   "foo",
+					tenant:     "a",
+					output:     true,
+				},
+				{
+					subject:    "erika",
+					groups:     []string{"erika", "mustermann"},
+					permission: Write,
+					resource:   "foo",
+					tenant:     "a",
+					output:     false,
+				},
+				{
+					subject:    "erika",
+					groups:     []string{"erika", "mustermann"},
+					permission: Read,
+					resource:   "foo",
+					tenant:     "b",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Read,
+					resource:   "foo",
+					tenant:     "a",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Write,
+					resource:   "foo",
+					tenant:     "a",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Write,
+					resource:   "foo",
+					tenant:     "b",
+					output:     false,
+				},
+				{
+					subject:    "max",
+					groups:     []string{"mustermann", "other"},
+					permission: Write,
+					resource:   "bar",
+					tenant:     "b",
+					output:     false,
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a := NewAuthorzer(tc.roles, tc.roleBindings)
 			for i := range tc.ios {
-				if a.Authorize(tc.ios[i].subject, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant) != tc.ios[i].output {
+				if a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant) != tc.ios[i].output {
 					t.Errorf("test case %d: expected %t; got %t", i, tc.ios[i].output, !tc.ios[i].output)
 				}
 			}

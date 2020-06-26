@@ -38,7 +38,10 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
             'read-write',
           ],
           subjects: [
-            'admin@example.com',
+            {
+              name: 'admin@example.com',
+              kind: 'user',
+            },
           ],
         },
       ],

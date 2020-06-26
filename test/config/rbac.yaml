@@ -22,9 +22,11 @@ roleBindings:
   roles:
   - read-write-oidc
   subjects:
-  - admin@example.com
+  - name: admin@example.com
+    kind: user
 - name: test-mtls
   roles:
   - read-write-mtls
   subjects:
-  - up
+  - name: test
+    kind: group

@@ -22,7 +22,11 @@ func WithAuthorizer(a rbac.Authorizer, permission rbac.Permission, resource stri
 				http.Error(w, "unknown subject", http.StatusUnauthorized)
 				return
 			}
-			if !a.Authorize(subject, permission, resource, tenant) {
+			groups, ok := authentication.GetGroups(r.Context())
+			if !ok {
+				groups = []string{}
+			}
+			if !a.Authorize(subject, groups, permission, resource, tenant) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}

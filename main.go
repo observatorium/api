@@ -112,6 +112,7 @@ func main() {
 		OIDC *struct {
 			ClientID      string `json:"clientID"`
 			ClientSecret  string `json:"clientSecret"`
+			GroupClaim    string `json:"groupClaim"`
 			IssuerURL     string `json:"issuerURL"`
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
@@ -270,6 +271,7 @@ func main() {
 						Tenant:        t.Name,
 						ClientID:      t.OIDC.ClientID,
 						ClientSecret:  t.OIDC.ClientSecret,
+						GroupClaim:    t.OIDC.GroupClaim,
 						IssuerURL:     t.OIDC.IssuerURL,
 						RedirectURL:   t.OIDC.RedirectURL,
 						UsernameClaim: t.OIDC.UsernameClaim,
