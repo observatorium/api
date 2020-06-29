@@ -149,6 +149,11 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 					groups = append(groups, v)
 				case []string:
 					groups = v
+				case []interface{}:
+					groups = make([]string, 0, len(v))
+					for i := range v {
+						groups = append(groups, fmt.Sprintf("%v", v[i]))
+					}
 				}
 				ctx = context.WithValue(ctx, groupsKey, groups)
 			}
