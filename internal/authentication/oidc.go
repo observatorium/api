@@ -150,7 +150,7 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 				case []string:
 					groups = v
 				}
-				ctx = context.WithValue(r.Context(), groupsKey, groups)
+				ctx = context.WithValue(ctx, groupsKey, groups)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
