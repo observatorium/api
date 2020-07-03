@@ -113,6 +113,9 @@ func main() {
 			ClientID      string `json:"clientID"`
 			ClientSecret  string `json:"clientSecret"`
 			GroupClaim    string `json:"groupClaim"`
+			IssuerRawCA   []byte `json:"issuerCA"`
+			IssuerCAPath  string `json:"issuerCAPath"`
+			issuerCA      *x509.Certificate
 			IssuerURL     string `json:"issuerURL"`
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
@@ -140,24 +143,43 @@ func main() {
 		}
 
 		for _, t := range tenantsCfg.Tenants {
-			if t.MTLS == nil {
-				continue
-			}
-			if t.MTLS.CAPath != "" {
-				t.MTLS.RawCA, err = ioutil.ReadFile(t.MTLS.CAPath)
-				if err != nil {
-					stdlog.Fatalf("cannot read CA certificate file from path %q for tenant %q: %v", t.MTLS.CAPath, t.Name, err)
+			if t.OIDC != nil {
+				if t.OIDC.IssuerCAPath != "" {
+					t.OIDC.IssuerRawCA, err = ioutil.ReadFile(t.OIDC.IssuerCAPath)
+					if err != nil {
+						stdlog.Fatalf("cannot read issuer CA certificate file from path %q for tenant %q: %v", t.OIDC.IssuerCAPath, t.Name, err)
+					}
 				}
+				if len(t.OIDC.IssuerRawCA) == 0 {
+					continue
+				}
+				block, _ := pem.Decode(t.OIDC.IssuerRawCA)
+				if block == nil {
+					stdlog.Fatalf("failed to parse issuer CA certificate PEM for tenant %q", t.Name)
+				}
+				cert, err := x509.ParseCertificate(block.Bytes)
+				if err != nil {
+					stdlog.Fatalf("failed to parse issuer certificate: %v", err)
+				}
+				t.OIDC.issuerCA = cert
 			}
-			block, _ := pem.Decode(t.MTLS.RawCA)
-			if block == nil {
-				stdlog.Fatalf("failed to parse CA certificate PEM for tenant %q", t.Name)
+			if t.MTLS != nil {
+				if t.MTLS.CAPath != "" {
+					t.MTLS.RawCA, err = ioutil.ReadFile(t.MTLS.CAPath)
+					if err != nil {
+						stdlog.Fatalf("cannot read CA certificate file from path %q for tenant %q: %v", t.MTLS.CAPath, t.Name, err)
+					}
+				}
+				block, _ := pem.Decode(t.MTLS.RawCA)
+				if block == nil {
+					stdlog.Fatalf("failed to parse CA certificate PEM for tenant %q", t.Name)
+				}
+				cert, err := x509.ParseCertificate(block.Bytes)
+				if err != nil {
+					stdlog.Fatalf("failed to parse certificate: %v", err)
+				}
+				t.MTLS.ca = cert
 			}
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				stdlog.Fatalf("failed to parse certificate: %v", err)
-			}
-			t.MTLS.ca = cert
 		}
 	}
 
@@ -272,6 +294,7 @@ func main() {
 						ClientID:      t.OIDC.ClientID,
 						ClientSecret:  t.OIDC.ClientSecret,
 						GroupClaim:    t.OIDC.GroupClaim,
+						IssuerCA:      t.OIDC.issuerCA,
 						IssuerURL:     t.OIDC.IssuerURL,
 						RedirectURL:   t.OIDC.RedirectURL,
 						UsernameClaim: t.OIDC.UsernameClaim,

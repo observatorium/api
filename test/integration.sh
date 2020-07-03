@@ -18,7 +18,8 @@ sleep 2
 
 token=$(curl --request POST \
     --silent \
-    --url http://localhost:5556/dex/token \
+    --cacert ./tmp/certs/ca.pem \
+    --url https://localhost:5556/dex/token \
     --header 'content-type: application/x-www-form-urlencoded' \
     --data grant_type=password \
     --data username=admin@example.com \

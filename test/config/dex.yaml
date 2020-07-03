@@ -1,4 +1,4 @@
-issuer: http://127.0.0.1:5556/dex
+issuer: https://127.0.0.1:5556/dex
 storage:
   type: sqlite3
   config:
@@ -6,7 +6,9 @@ storage:
 frontend:
   dir: ./test/dex
 web:
-  http: 0.0.0.0:5556
+  https: 0.0.0.0:5556
+  tlsCert: ./tmp/certs/server.pem
+  tlsKey: ./tmp/certs/server.key
 telemetry:
   http: 0.0.0.0:5558
 logger:
