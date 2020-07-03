@@ -2,7 +2,10 @@ package authentication
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -19,6 +22,7 @@ const (
 // OIDCConfig represents the OIDC configuration for a single tenant.
 type OIDCConfig struct {
 	Tenant        string
+	IssuerCA      *x509.Certificate
 	IssuerURL     string
 	ClientID      string
 	ClientSecret  string
@@ -66,9 +70,30 @@ func NewOIDC(configs ...OIDCConfig) (http.Handler, map[string]Middleware, error)
 }
 
 func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
-
-	provider, err := oidc.NewProvider(context.TODO(), config.IssuerURL)
+	t := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if config.IssuerCA != nil {
+		t.TLSClientConfig = &tls.Config{
+			RootCAs: x509.NewCertPool(),
+		}
+		t.TLSClientConfig.RootCAs.AddCert(config.IssuerCA)
+	}
+	client := &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: t,
+	}
+	provider, err := oidc.NewProvider(oidc.ClientContext(context.TODO(), client), config.IssuerURL)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -105,7 +130,7 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 				token = cookie.Value
 			}
 
-			idToken, err := verifier.Verify(r.Context(), token)
+			idToken, err := verifier.Verify(oidc.ClientContext(r.Context(), client), token)
 			if err != nil {
 				http.Error(w, "failed to authenticate", http.StatusBadRequest)
 				return
@@ -200,7 +225,7 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 			return
 		}
 
-		_, err = verifier.Verify(r.Context(), rawIDToken)
+		_, err = verifier.Verify(ctx, rawIDToken)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to verify ID token: %v", err), http.StatusInternalServerError)
 			return
