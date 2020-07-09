@@ -23,7 +23,7 @@ CONTAINER_CMD := docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 THANOS ?= $(BIN_DIR)/thanos
-THANOS_VERSION ?= 0.12.2
+THANOS_VERSION ?= 0.13.0
 PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
 

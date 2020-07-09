@@ -17,16 +17,16 @@ echo "-------------------------------------------"
 sleep 2
 
 token=$(curl --request POST \
-    --silent \
-    --cacert ./tmp/certs/ca.pem \
-    --url https://localhost:5556/dex/token \
-    --header 'content-type: application/x-www-form-urlencoded' \
-    --data grant_type=password \
-    --data username=admin@example.com \
-    --data password=password \
-    --data client_id=test \
-    --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0  \
-    --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
+  --silent \
+  --cacert ./tmp/certs/ca.pem \
+  --url https://localhost:5556/dex/token \
+  --header 'content-type: application/x-www-form-urlencoded' \
+  --data grant_type=password \
+  --data username=admin@example.com \
+  --data password=password \
+  --data client_id=test \
+  --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 \
+  --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
 
 (
   ./observatorium \
@@ -50,6 +50,7 @@ token=$(curl --request POST \
   ./tmp/bin/thanos receive \
     --receive.hashrings-file=./test/config/hashrings.json \
     --receive.local-endpoint=127.0.0.1:10901 \
+    --receive.default-tenant-id="1610b0c3-c509-4592-a256-a1871353dbfa" \
     --grpc-address=127.0.0.1:10901 \
     --http-address=127.0.0.1:10902 \
     --remote-write.address=127.0.0.1:19291 \
@@ -79,8 +80,8 @@ echo "-------------------------------------------"
 sleep 10
 
 until curl --output /dev/null --silent --fail http://localhost:8448/ready; do
-    printf '.'
-    sleep 1
+  printf '.'
+  sleep 1
 done
 
 echo "-------------------------------------------"
@@ -133,7 +134,7 @@ if ./tmp/bin/up \
   --duration=10s \
   --log.level=error \
   --name=up_test \
-  --labels='foo="bar"'\
+  --labels='foo="bar"' \
   --logs="[\"$(date '+%s%N')\",\"log line 1\"]" \
   --token="$token"; then
   result=0
