@@ -31,12 +31,12 @@ spec:
       - args:
         - --web.listen=0.0.0.0:8080
         - --web.internal.listen=0.0.0.0:8081
-        - --logs.read.endpoint=http://127.0.0.1:3100
-        - --logs.tail.endpoint=http://127.0.0.1:3100
-        - --logs.write.endpoint=http://127.0.0.1:3100
         - --metrics.read.endpoint=http://127.0.0.1:9091
         - --metrics.write.endpoint=http://127.0.0.1:19291
         - --log.level=warn
+        - --logs.read.endpoint=http://127.0.0.1:3100
+        - --logs.tail.endpoint=http://127.0.0.1:3100
+        - --logs.write.endpoint=http://127.0.0.1:3100
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
         - --web.healthchecks.url=https://127.0.0.1:8080
