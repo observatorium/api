@@ -15,17 +15,12 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       writeEndpoint: error 'must provide metrics writeEndpoint',
     },
 
-    logs: {
-      readEnpoint: error 'must provide logs readEnpoint',
-      tailEnpoint: error 'must provide logs tailEnpoint',
-      writeEndpoint: error 'must provide logs writeEndpoint',
-    },
-
     ports: {
       public: 8080,
       internal: 8081,
     },
 
+    logs: {},
     rbac: {},
     tenants: {},
     tls: {},
@@ -73,13 +68,18 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       container.withArgs([
         '--web.listen=0.0.0.0:%s' % api.config.ports.public,
         '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
-        '--logs.read.endpoint=' + api.config.logs.readEndpoint,
-        '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
-        '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
         '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
         '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
         '--log.level=warn',
       ] + (
+        if api.config.logs != {} then
+          [
+            '--logs.read.endpoint=' + api.config.logs.readEndpoint,
+            '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
+            '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
+          ]
+        else []
+      ) + (
         if api.config.rbac != {} then
           ['--rbac.config=/etc/observatorium/rbac.yaml']
         else []
