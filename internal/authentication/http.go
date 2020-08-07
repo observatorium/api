@@ -83,7 +83,7 @@ func WithTenantMiddlewares(middlewareSets ...map[string]Middleware) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := GetTenant(r.Context())
 			if !ok {
-				http.Error(w, "error finding tenant", http.StatusInternalServerError)
+				http.Error(w, "error finding tenant", http.StatusBadRequest)
 				return
 			}
 			m, ok := middlewares[tenant]

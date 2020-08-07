@@ -37,14 +37,15 @@ type Middleware func(http.Handler) http.Handler
 // NewOIDC creates a single http.Handler and a set of Middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(configs ...OIDCConfig) (http.Handler, map[string]Middleware, error) {
+func NewOIDC(configs []OIDCConfig) (http.Handler, map[string]Middleware, []error) {
 	handlers := map[string]http.Handler{}
 	middlewares := map[string]Middleware{}
+	warnings := make([]error, 0, len(configs))
 
 	for _, c := range configs {
 		h, m, err := newProvider(c)
 		if err != nil {
-			return nil, nil, err
+			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
 		}
 
 		handlers[c.Tenant] = h
@@ -66,7 +67,7 @@ func NewOIDC(configs ...OIDCConfig) (http.Handler, map[string]Middleware, error)
 		h.ServeHTTP(w, r)
 	}))
 
-	return r, middlewares, nil
+	return r, middlewares, warnings
 }
 
 func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {

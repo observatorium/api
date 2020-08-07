@@ -311,15 +311,15 @@ func main() {
 				stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
 			}
 
-			oidcHandler, oidcTenantMiddlewares, err := authentication.NewOIDC(oidcs...)
-			if err != nil {
-				stdlog.Fatalf("failed to create OIDC handler: %v", err)
+			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(oidcs)
+			for _, w := range warnings {
+				level.Warn(logger).Log("msg", w.Error())
 			}
 			r.Mount("/oidc/{tenant}", oidcHandler)
 
 			// Metrics
 			r.Group(func(r chi.Router) {
-				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs...)))
+				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 
 				r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
@@ -359,7 +359,7 @@ func main() {
 
 			// Logs
 			r.Group(func(r chi.Router) {
-				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs...)))
+				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 				r.Mount("/api/logs/v1/{tenant}",
