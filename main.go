@@ -91,6 +91,8 @@ type logsConfig struct {
 	writeEndpoint *url.URL
 	tailEndpoint  *url.URL
 	tenantHeader  string
+	// enable logs at least one {read,write,tail}Endpoint} is provided.
+	enabled bool
 }
 
 const (
@@ -358,25 +360,27 @@ func main() {
 			})
 
 			// Logs
-			r.Group(func(r chi.Router) {
-				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
-				r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
+			if cfg.logs.enabled {
+				r.Group(func(r chi.Router) {
+					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
+					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
-				r.Mount("/api/logs/v1/{tenant}",
-					stripTenantPrefix("/api/logs/v1",
-						logsv1.NewHandler(
-							cfg.logs.readEndpoint,
-							cfg.logs.tailEndpoint,
-							cfg.logs.writeEndpoint,
-							logsv1.Logger(logger),
-							logsv1.Registry(reg),
-							logsv1.HandlerInstrumenter(ins),
-							logsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "logs")),
-							logsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "logs")),
+					r.Mount("/api/logs/v1/{tenant}",
+						stripTenantPrefix("/api/logs/v1",
+							logsv1.NewHandler(
+								cfg.logs.readEndpoint,
+								cfg.logs.tailEndpoint,
+								cfg.logs.writeEndpoint,
+								logsv1.Logger(logger),
+								logsv1.Registry(reg),
+								logsv1.HandlerInstrumenter(ins),
+								logsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "logs")),
+								logsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "logs")),
+							),
 						),
-					),
-				)
-			})
+					)
+				})
+			}
 		})
 
 		tlsConfig, err := tls.NewServerConfig(
@@ -542,26 +546,38 @@ func parseFlags() (config, error) {
 
 	cfg.metrics.writeEndpoint = metricsWriteEndpoint
 
-	logsReadEndpoint, err := url.ParseRequestURI(rawLogsReadEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--logs.read.endpoint is invalid, raw %s: %w", rawLogsReadEndpoint, err)
+	if rawLogsReadEndpoint != "" {
+		cfg.logs.enabled = true
+
+		logsReadEndpoint, err := url.ParseRequestURI(rawLogsReadEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--logs.read.endpoint is invalid, raw %s: %w", rawLogsReadEndpoint, err)
+		}
+
+		cfg.logs.readEndpoint = logsReadEndpoint
 	}
 
-	cfg.logs.readEndpoint = logsReadEndpoint
+	if rawLogsTailEndpoint != "" {
+		cfg.logs.enabled = true
 
-	logsTailEndpoint, err := url.ParseRequestURI(rawLogsTailEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--logs.tail.endpoint is invalid, raw %s: %w", rawLogsTailEndpoint, err)
+		logsTailEndpoint, err := url.ParseRequestURI(rawLogsTailEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--logs.tail.endpoint is invalid, raw %s: %w", rawLogsTailEndpoint, err)
+		}
+
+		cfg.logs.tailEndpoint = logsTailEndpoint
 	}
 
-	cfg.logs.tailEndpoint = logsTailEndpoint
+	if rawLogsWriteEndpoint != "" {
+		cfg.logs.enabled = true
 
-	logsWriteEndpoint, err := url.ParseRequestURI(rawLogsWriteEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--logs.write.endpoint is invalid, raw %s: %w", rawLogsWriteEndpoint, err)
+		logsWriteEndpoint, err := url.ParseRequestURI(rawLogsWriteEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--logs.write.endpoint is invalid, raw %s: %w", rawLogsWriteEndpoint, err)
+		}
+
+		cfg.logs.writeEndpoint = logsWriteEndpoint
 	}
-
-	cfg.logs.writeEndpoint = logsWriteEndpoint
 
 	if rawTLSCipherSuites != "" {
 		cfg.tls.cipherSuites = strings.Split(rawTLSCipherSuites, ",")
