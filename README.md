@@ -80,9 +80,9 @@ Usage of ./observatorium:
   -tenants.config string
     	Path to the tenants file. (default "tenants.yaml")
   -tls.cipher-suites string
-    	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants).If omitted, the default Go cipher suites will be used.Note that TLS 1.3 ciphersuites are not configurable.
+    	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
   -tls.healthchecks.server-ca-file string
-    	File containing the TLS CA against which to verify servers.If no server CA is specified, the client will use the system certificates.
+    	File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
   -tls.min-version string
     	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
   -tls.reload-interval duration
