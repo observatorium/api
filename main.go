@@ -516,14 +516,14 @@ func parseFlags() (config, error) {
 		"File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.healthchecksServerCAFile, "tls.healthchecks.server-ca-file", "",
 		"File containing the TLS CA against which to verify servers."+
-			"If no server CA is specified, the client will use the system certificates.")
+			" If no server CA is specified, the client will use the system certificates.")
 	flag.StringVar(&cfg.tls.minVersion, "tls.min-version", "VersionTLS13",
 		"Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
 	flag.StringVar(&rawTLSCipherSuites, "tls.cipher-suites", "",
 		"Comma-separated list of cipher suites for the server."+
 			" Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants)."+
-			"If omitted, the default Go cipher suites will be used."+
-			"Note that TLS 1.3 ciphersuites are not configurable.")
+			" If omitted, the default Go cipher suites will be used."+
+			" Note that TLS 1.3 ciphersuites are not configurable.")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
 	flag.Parse()
