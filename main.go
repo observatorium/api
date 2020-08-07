@@ -362,7 +362,7 @@ func main() {
 			// Logs
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs...)))
+					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",
