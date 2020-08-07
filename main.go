@@ -91,6 +91,8 @@ type logsConfig struct {
 	writeEndpoint *url.URL
 	tailEndpoint  *url.URL
 	tenantHeader  string
+	// enable logs at least one {read,write,tail}Endpoint} is provided.
+	enabled bool
 }
 
 const (
@@ -99,8 +101,6 @@ const (
 	gracePeriod
 	middlewareTimeout
 )
-
-var enableLogs = true
 
 func main() {
 	cfg, err := parseFlags()
@@ -360,7 +360,7 @@ func main() {
 			})
 
 			// Logs
-			if enableLogs {
+			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs...)))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
@@ -546,10 +546,9 @@ func parseFlags() (config, error) {
 
 	cfg.metrics.writeEndpoint = metricsWriteEndpoint
 
-	if rawLogsReadEndpoint == "" && rawLogsTailEndpoint == "" && rawLogsWriteEndpoint == "" {
-		enableLogs = false
-	} else {
-		enableLogs = true
+	if rawLogsReadEndpoint != "" {
+
+		cfg.logs.enabled = true
 
 		logsReadEndpoint, err := url.ParseRequestURI(rawLogsReadEndpoint)
 		if err != nil {
@@ -557,6 +556,10 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.readEndpoint = logsReadEndpoint
+	}
+
+	if rawLogsTailEndpoint != "" {
+		cfg.logs.enabled = true
 
 		logsTailEndpoint, err := url.ParseRequestURI(rawLogsTailEndpoint)
 		if err != nil {
@@ -564,6 +567,11 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.tailEndpoint = logsTailEndpoint
+	}
+
+	if rawLogsWriteEndpoint != "" {
+
+		cfg.logs.enabled = true
 
 		logsWriteEndpoint, err := url.ParseRequestURI(rawLogsWriteEndpoint)
 		if err != nil {
