@@ -547,7 +547,6 @@ func parseFlags() (config, error) {
 	cfg.metrics.writeEndpoint = metricsWriteEndpoint
 
 	if rawLogsReadEndpoint != "" {
-
 		cfg.logs.enabled = true
 
 		logsReadEndpoint, err := url.ParseRequestURI(rawLogsReadEndpoint)
@@ -570,7 +569,6 @@ func parseFlags() (config, error) {
 	}
 
 	if rawLogsWriteEndpoint != "" {
-
 		cfg.logs.enabled = true
 
 		logsWriteEndpoint, err := url.ParseRequestURI(rawLogsWriteEndpoint)
