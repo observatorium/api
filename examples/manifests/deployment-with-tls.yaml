@@ -40,9 +40,9 @@ spec:
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
         - --web.healthchecks.url=https://127.0.0.1:8080
-        - --tls.server.cert-file=/mnt/certs/server.pem
-        - --tls.server.key-file=/mnt/certs/server.key
-        - --tls.healthchecks.server-ca-file=/mnt/certs/ca.pem
+        - --tls.server.cert-file=/mnt/tls/cert.pem
+        - --tls.server.key-file=/mnt/tls/key.pem
+        - --tls.healthchecks.server-ca-file=/mnt/tls/ca.pem
         - --tls.reload-interval=1m
         image: quay.io/observatorium/observatorium:master-2020-06-26-v0.1.1-105-gc784d77
         livenessProbe:
@@ -74,8 +74,8 @@ spec:
           name: tenants
           readOnly: true
           subPath: tenants.yaml
-        - mountPath: /mnt/certs
-          name: certs
+        - mountPath: /mnt/tls
+          name: tls
           readOnly: true
       volumes:
       - configMap:
@@ -84,6 +84,6 @@ spec:
       - name: tenants
         secret:
           secretName: observatorium-api
-      - name: certs
+      - name: tls
         secret:
-          secretName: observatorium-api-tls-certs
+          secretName: observatorium-api
