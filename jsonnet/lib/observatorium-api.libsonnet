@@ -91,10 +91,10 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         if api.config.tls != {} then
           [
             '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
-            '--tls.server.cert-file=' + api.config.tls.secret.serverCertFile,
-            '--tls.server.key-file=' + api.config.tls.secret.serverPrivateKeyFile,
-            '--tls.healthchecks.server-ca-file=' + api.config.tls.secret.serverCAFile,
-            '--tls.reload-interval=' + api.config.tls.secret.reloadInterval,
+            '--tls.server.cert-file=/mnt/tls/cert.pem',
+            '--tls.server.key-file=/mnt/tls/key.pem',
+            '--tls.healthchecks.server-ca-file=/mnt/tls/ca.pem',
+            '--tls.reload-interval=' + api.config.tls.reloadInterval,
           ]
         else []
       )) +
@@ -133,8 +133,8 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
          ] else []) +
         (if api.config.tls != {} then [
            {
-             name: 'certs',
-             mountPath: '/mnt/certs',
+             name: 'tls',
+             mountPath: '/mnt/tls',
              readOnly: true,
            },
          ] else [])
@@ -166,9 +166,9 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       (if api.config.tls != {} then [
          {
            secret: {
-             secretName: 'observatorium-api-tls-certs',
+             secretName: api.config.name,
            },
-           name: 'certs',
+           name: 'tls',
          },
        ] else [])
     ),
@@ -188,11 +188,20 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     } else null,
 
   secret:
-    if api.config.tenants != {} then {
+    if api.config.tenants != {} || api.config.tls != {} then {
       apiVersion: 'v1',
-      stringData: {
-        'tenants.yaml': std.manifestYamlDoc(api.config.tenants),
-      },
+      stringData: (
+                    if api.config.tenants != {} then {
+                      'tenants.yaml': std.manifestYamlDoc(api.config.tenants),
+                    } else {}
+                  ) +
+                  (
+                    if api.config.tls != {} then {
+                      'ca.pem': api.config.tls.ca,
+                      'cert.pem': api.config.tls.cert,
+                      'key.pem': api.config.tls.key,
+                    } else {}
+                  ),
       kind: 'Secret',
       metadata: {
         labels: api.config.commonLabels,

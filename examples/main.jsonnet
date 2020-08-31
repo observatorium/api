@@ -67,12 +67,10 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
 local apiWithTLS = api {
   config+:: {
     tls+: {
-      secret: {
-        serverCertFile: '/mnt/certs/server.pem',
-        serverPrivateKeyFile: '/mnt/certs/server.key',
-        serverCAFile: '/mnt/certs/ca.pem',
-        reloadInterval: '1m',
-      },
+      ca: '<PEM-encoded CA>',
+      cert: '<PEM-encoded cert>',
+      key: '<PEM-encoded key>',
+      reloadInterval: '1m',
     },
   },
 };
