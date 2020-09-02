@@ -91,10 +91,14 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         if api.config.tls != {} then
           [
             '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
-            '--tls.server.cert-file=/mnt/tls/cert.pem',
-            '--tls.server.key-file=/mnt/tls/key.pem',
-            '--tls.healthchecks.server-ca-file=/mnt/tls/ca.pem',
+            '--tls.server.cert-file=/var/run/tls/' + api.config.tls.certKey,
+            '--tls.server.key-file=/var/run/tls/' + api.config.tls.keyKey,
           ] + (
+            if std.objectHas(api.config.tls, 'caKey') then [
+              '--tls.healthchecks.server-ca-file=/var/run/tls/' + api.config.tls.caKey,
+            ]
+            else []
+          ) + (
             if std.objectHas(api.config.tls, 'reloadInterval') then
               [
                 '--tls.reload-interval=' + api.config.tls.reloadInterval,
@@ -105,7 +109,6 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
               [
                 '--tls.healthchecks.server-name=' + api.config.tls.serverName,
               ]
-            else []
           )
         else []
       )) +
@@ -144,11 +147,27 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
          ] else []) +
         (if api.config.tls != {} then [
            {
-             name: 'tls',
-             mountPath: '/mnt/tls',
+             name: 'tls-secret',
+             mountPath: '/var/run/tls/' + api.config.tls.certKey,
+             subPath: api.config.tls.certKey,
              readOnly: true,
            },
-         ] else [])
+           {
+             name: 'tls-secret',
+             mountPath: '/var/run/tls/' + api.config.tls.keyKey,
+             subPath: api.config.tls.keyKey,
+             readOnly: true,
+           },
+         ] + (
+           if std.objectHas(api.config.tls, 'caKey') then [
+             {
+               name: 'tls-configmap',
+               mountPath: '/var/run/tls/' + api.config.tls.caKey,
+               subPath: api.config.tls.caKey,
+               readOnly: true,
+             },
+           ] else []
+         ) else [])
       );
 
     deployment.new(api.config.name, api.config.replicas, c, api.config.commonLabels) +
@@ -177,11 +196,20 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
       (if api.config.tls != {} then [
          {
            secret: {
-             secretName: api.config.name,
+             secretName: api.config.tls.secretName,
            },
-           name: 'tls',
+           name: 'tls-secret',
          },
-       ] else [])
+       ] + (
+         if std.objectHas(api.config.tls, 'caKey') then [
+           {
+             configMap: {
+               name: api.config.tls.configMapName,
+             },
+             name: 'tls-configmap',
+           },
+         ] else []
+       ) else [])
     ),
 
   configmap:
@@ -199,20 +227,11 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     } else null,
 
   secret:
-    if api.config.tenants != {} || api.config.tls != {} then {
+    if api.config.tenants != {} then {
       apiVersion: 'v1',
-      stringData: (
-                    if api.config.tenants != {} then {
-                      'tenants.yaml': std.manifestYamlDoc(api.config.tenants),
-                    } else {}
-                  ) +
-                  (
-                    if api.config.tls != {} then {
-                      'ca.pem': api.config.tls.ca,
-                      'cert.pem': api.config.tls.cert,
-                      'key.pem': api.config.tls.key,
-                    } else {}
-                  ),
+      stringData: {
+        'tenants.yaml': std.manifestYamlDoc(api.config.tenants),
+      },
       kind: 'Secret',
       metadata: {
         labels: api.config.commonLabels,
