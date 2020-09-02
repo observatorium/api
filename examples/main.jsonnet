@@ -3,7 +3,7 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
     local cfg = self,
     name: 'observatorium-api',
     namespace: 'observatorium',
-    version: 'master-2020-06-26-v0.1.1-105-gc784d77',
+    version: 'master-2020-09-04-v0.1.1-131-ga4c5a9c',
     image: 'quay.io/observatorium/observatorium:' + cfg.version,
     replicas: 3,
     metrics: {
@@ -67,10 +67,13 @@ local api = (import '../jsonnet/lib/observatorium-api.libsonnet') {
 local apiWithTLS = api {
   config+:: {
     tls+: {
-      ca: '<PEM-encoded CA>',
-      cert: '<PEM-encoded cert>',
-      key: '<PEM-encoded key>',
+      certKey: 'cert',
+      keyKey: 'key',
+      secretName: 'observatorium-api-tls',
+      configMapName: 'observatorium-api-tls',
+      caKey: 'ca',
       reloadInterval: '1m',
+      serverName: 'example.com',
     },
   },
 };
