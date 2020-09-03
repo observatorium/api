@@ -83,6 +83,8 @@ Usage of ./observatorium:
     	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
   -tls.healthchecks.server-ca-file string
     	File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
+  -tls.healthchecks.server-name string
+    	Server name is used to verify the hostname of the certificates returned by the server. If no server name is specified, the server name will be inferred from the healthcheck URL.
   -tls.min-version string
     	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
   -tls.reload-interval duration
