@@ -78,6 +78,7 @@ type tlsConfig struct {
 	serverKeyFile  string
 
 	healthchecksServerCAFile string
+	healthchecksServerName   string
 }
 
 type metricsConfig struct {
@@ -243,26 +244,24 @@ func main() {
 	}
 	{
 		if cfg.server.healthcheckURL != "" {
-			client := &http.Client{}
+			t := (http.DefaultTransport).(*http.Transport).Clone()
+			t.TLSClientConfig = &stdtls.Config{
+				ServerName: cfg.tls.healthchecksServerName,
+			}
 
 			if cfg.tls.healthchecksServerCAFile != "" {
 				caCert, err := ioutil.ReadFile(cfg.tls.healthchecksServerCAFile)
 				if err != nil {
 					stdlog.Fatalf("failed to initialize healthcheck server TLS CA: %v", err)
 				}
-				caCertPool := x509.NewCertPool()
-				caCertPool.AppendCertsFromPEM(caCert)
-				client.Transport = &http.Transport{
-					TLSClientConfig: &stdtls.Config{
-						RootCAs: caCertPool,
-					},
-				}
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(caCert)
 			}
 
 			// checks if server is up
 			healthchecks.AddLivenessCheck("http",
 				healthcheck.HTTPCheckClient(
-					client,
+					&http.Client{Transport: t},
 					cfg.server.healthcheckURL,
 					http.MethodGet,
 					http.StatusNotFound,
@@ -521,6 +520,9 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.tls.healthchecksServerCAFile, "tls.healthchecks.server-ca-file", "",
 		"File containing the TLS CA against which to verify servers."+
 			" If no server CA is specified, the client will use the system certificates.")
+	flag.StringVar(&cfg.tls.healthchecksServerName, "tls.healthchecks.server-name", "",
+		"Server name is used to verify the hostname of the certificates returned by the server."+
+			" If no server name is specified, the server name will be inferred from the healthcheck URL.")
 	flag.StringVar(&cfg.tls.minVersion, "tls.min-version", "VersionTLS13",
 		"Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
 	flag.StringVar(&rawTLSCipherSuites, "tls.cipher-suites", "",
