@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/component: api
     app.kubernetes.io/instance: observatorium-api
     app.kubernetes.io/name: observatorium-api
-    app.kubernetes.io/version: master-2020-06-26-v0.1.1-105-gc784d77
+    app.kubernetes.io/version: master-2020-09-04-v0.1.1-131-ga4c5a9c
   name: observatorium-api
   namespace: observatorium
 spec:
@@ -25,7 +25,7 @@ spec:
         app.kubernetes.io/component: api
         app.kubernetes.io/instance: observatorium-api
         app.kubernetes.io/name: observatorium-api
-        app.kubernetes.io/version: master-2020-06-26-v0.1.1-105-gc784d77
+        app.kubernetes.io/version: master-2020-09-04-v0.1.1-131-ga4c5a9c
     spec:
       containers:
       - args:
@@ -40,11 +40,12 @@ spec:
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
         - --web.healthchecks.url=https://127.0.0.1:8080
-        - --tls.server.cert-file=/mnt/tls/cert.pem
-        - --tls.server.key-file=/mnt/tls/key.pem
-        - --tls.healthchecks.server-ca-file=/mnt/tls/ca.pem
+        - --tls.server.cert-file=/var/run/tls/cert
+        - --tls.server.key-file=/var/run/tls/key
+        - --tls.healthchecks.server-ca-file=/var/run/tls/ca
         - --tls.reload-interval=1m
-        image: quay.io/observatorium/observatorium:master-2020-06-26-v0.1.1-105-gc784d77
+        - --tls.healthchecks.server-name=example.com
+        image: quay.io/observatorium/observatorium:master-2020-09-04-v0.1.1-131-ga4c5a9c
         livenessProbe:
           failureThreshold: 10
           httpGet:
@@ -74,9 +75,18 @@ spec:
           name: tenants
           readOnly: true
           subPath: tenants.yaml
-        - mountPath: /mnt/tls
-          name: tls
+        - mountPath: /var/run/tls/cert
+          name: tls-secret
           readOnly: true
+          subPath: cert
+        - mountPath: /var/run/tls/key
+          name: tls-secret
+          readOnly: true
+          subPath: key
+        - mountPath: /var/run/tls/ca
+          name: tls-configmap
+          readOnly: true
+          subPath: ca
       volumes:
       - configMap:
           name: observatorium-api
@@ -84,6 +94,9 @@ spec:
       - name: tenants
         secret:
           secretName: observatorium-api
-      - name: tls
+      - name: tls-secret
         secret:
-          secretName: observatorium-api
+          secretName: observatorium-api-tls
+      - configMap:
+          name: observatorium-api-tls
+        name: tls-configmap
