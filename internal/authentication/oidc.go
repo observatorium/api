@@ -46,6 +46,7 @@ func NewOIDC(configs []OIDCConfig) (http.Handler, map[string]Middleware, []error
 		h, m, err := newProvider(c)
 		if err != nil {
 			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
+			continue
 		}
 
 		handlers[c.Tenant] = h
