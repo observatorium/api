@@ -94,8 +94,19 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
             '--tls.server.cert-file=/mnt/tls/cert.pem',
             '--tls.server.key-file=/mnt/tls/key.pem',
             '--tls.healthchecks.server-ca-file=/mnt/tls/ca.pem',
-            '--tls.reload-interval=' + api.config.tls.reloadInterval,
-          ]
+          ] + (
+            if std.objectHas(api.config.tls, 'reloadInterval') then
+              [
+                '--tls.reload-interval=' + api.config.tls.reloadInterval,
+              ]
+            else []
+          ) + (
+            if std.objectHas(api.config.tls, 'serverName') then
+              [
+                '--tls.healthchecks.server-name=' + api.config.tls.serverName,
+              ]
+            else []
+          )
         else []
       )) +
       container.withPorts([
