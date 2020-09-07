@@ -109,6 +109,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
               [
                 '--tls.healthchecks.server-name=' + api.config.tls.serverName,
               ]
+            else []
           )
         else []
       )) +
