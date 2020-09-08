@@ -146,6 +146,17 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
              readOnly: true,
            },
          ] else []) +
+        (if api.config.tenants.tenants != {} then [
+            {
+              name: tenant.name + '-mtls-%s' % (if std.objectHas(tenant.mTLS, 'configMapName') then 'configmap' else 'secret'),
+              mountPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
+              subPath: tenant.mTLS.caKey,
+              readOnly: true,
+            },
+            for tenant in api.config.tenants.tenants
+            if std.objectHas(tenant, 'mTLS')
+            if std.objectHas(tenant.mTLS, 'caKey')
+         ] else []) +
         (if api.config.tls != {} then [
            {
              name: 'tls-secret',
@@ -194,6 +205,28 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
            name: 'tenants',
          },
        ] else []) +
+      (if api.config.tenants.tenants != {} then [
+          {
+           secret: {
+             secretName: tenant.mTLS.secretName,
+           },
+           name: tenant.name + '-mtls-secret',
+          },
+          for tenant in api.config.tenants.tenants
+          if std.objectHas(tenant, 'mTLS')
+          if std.objectHas(tenant.mTLS, 'secretName')
+       ] else []) +
+      (if api.config.tenants.tenants != {} then [
+          {
+           configMap: {
+             name: tenant.mTLS.configMapName,
+           },
+           name: tenant.name + '-mtls-configmap',
+          },
+          for tenant in api.config.tenants.tenants
+          if std.objectHas(tenant, 'mTLS')
+          if std.objectHas(tenant.mTLS, 'configMapName')
+       ] else []) +
       (if api.config.tls != {} then [
          {
            secret: {
@@ -229,9 +262,26 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
 
   secret:
     if api.config.tenants != {} then {
+      local tenants = {
+        tenants: [
+          {
+            id: tenant.id,
+            name: tenant.name,
+            mTLS: {
+              caPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
+            },
+          },
+          for tenant in api.config.tenants.tenants
+          if std.objectHas(tenant, 'mTLS')
+        ] + [
+          tenant,
+          for tenant in api.config.tenants.tenants
+          if std.objectHas(tenant, 'oidc')
+        ],
+      },
       apiVersion: 'v1',
       stringData: {
-        'tenants.yaml': std.manifestYamlDoc(api.config.tenants),
+        'tenants.yaml': std.manifestYamlDoc(tenants),
       },
       kind: 'Secret',
       metadata: {
