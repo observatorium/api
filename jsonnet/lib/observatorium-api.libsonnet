@@ -162,7 +162,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
          ] + (
            if std.objectHas(api.config.tls, 'caKey') then [
              {
-               name: 'tls-configmap',
+               name: 'tls-%s' % (if std.objectHas(api.config.tls, 'configMapName') then 'configmap' else 'secret'),
                mountPath: '/var/run/tls/' + api.config.tls.caKey,
                subPath: api.config.tls.caKey,
                readOnly: true,
@@ -202,7 +202,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
            name: 'tls-secret',
          },
        ] + (
-         if std.objectHas(api.config.tls, 'caKey') then [
+         if std.objectHas(api.config.tls, 'configMapName') then [
            {
              configMap: {
                name: api.config.tls.configMapName,
