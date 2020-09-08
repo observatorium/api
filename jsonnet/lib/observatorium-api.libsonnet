@@ -146,7 +146,7 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
              readOnly: true,
            },
          ] else []) +
-        (if api.config.tenants.tenants != {} then [
+        (if std.objectHas(api.config.tenants, 'tenants') then [
             {
               name: tenant.name + '-mtls-%s' % (if std.objectHas(tenant.mTLS, 'configMapName') then 'configmap' else 'secret'),
               mountPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
@@ -205,27 +205,20 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
            name: 'tenants',
          },
        ] else []) +
-      (if api.config.tenants.tenants != {} then [
-          {
-           secret: {
-             secretName: tenant.mTLS.secretName,
-           },
-           name: tenant.name + '-mtls-secret',
+      (if std.objectHas(api.config.tenants, 'tenants') then [
+        if std.objectHas(tenant.mTLS, 'secretName') then {
+          secret: {
+            secretName: tenant.mTLS.secretName,
           },
-          for tenant in api.config.tenants.tenants
-          if std.objectHas(tenant, 'mTLS')
-          if std.objectHas(tenant.mTLS, 'secretName')
-       ] else []) +
-      (if api.config.tenants.tenants != {} then [
-          {
-           configMap: {
-             name: tenant.mTLS.configMapName,
-           },
-           name: tenant.name + '-mtls-configmap',
+          name: tenant.name + '-mtls-secret',
+        } else if std.objectHas(tenant.mTLS, 'configMapName') then {
+          confiMap: {
+            name: tenant.mTLS.configMapName,
           },
-          for tenant in api.config.tenants.tenants
-          if std.objectHas(tenant, 'mTLS')
-          if std.objectHas(tenant.mTLS, 'configMapName')
+          name: tenant.name + '-mtls-configmap',
+        },
+        for tenant in api.config.tenants.tenants
+        if std.objectHas(tenant, 'mTLS')
        ] else []) +
       (if api.config.tls != {} then [
          {
