@@ -87,6 +87,7 @@ spec:
           name: tls-configmap
           readOnly: true
           subPath: ca
+      serviceAccount: observatorium-api
       volumes:
       - configMap:
           name: observatorium-api
