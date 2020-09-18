@@ -19,6 +19,8 @@ staticClients:
 - id: test
   name: test
   secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+  redirectURIs:
+  - https://localhost:8443/oidc/test-oidc/callback
 enablePasswordDB: true
 staticPasswords:
 - email: "admin@example.com"

@@ -1,1 +1,27 @@
-<html></html>
+<html>
+  <h1 class="theme-heading">Grant Access</h1>
+  <hr>
+  <div>
+    <div>{{ .Client }} would like to:</div>
+    <ul>
+      {{ range $scope := .Scopes }}
+      <li>{{ $scope }}</li>
+      {{ end }}
+    </ul>
+  </div>
+  <hr>
+  <form method="post">
+    <input type="hidden" name="req" value="{{ .AuthReqID }}"/>
+    <input type="hidden" name="approval" value="approve">
+    <button type="submit">
+      <span>Grant Access</span>
+    </button>
+  </form>
+  <form method="post">
+    <input type="hidden" name="req" value="{{ .AuthReqID }}"/>
+    <input type="hidden" name="approval" value="rejected">
+    <button type="submit">
+      <span>Cancel</span>
+    </button>
+  </form>
+</html>
