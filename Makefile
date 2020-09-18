@@ -53,6 +53,7 @@ JSONNET_FMT ?= $(BIN_DIR)/jsonnetfmt
 GOJSONTOYAML ?= $(BIN_DIR)/gojsontoyaml
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 GENERATE_TLS_CERT ?= $(BIN_DIR)/generate-tls-cert
+KUBEVAL ?= $(BIN_DIR)/kubeval
 
 SERVER_CERT ?= $(CERT_DIR)/server.pem
 
@@ -87,6 +88,10 @@ vendor: go.mod go.sum
 .PHONY: format
 format: $(GOLANGCILINT)
 	$(GOLANGCILINT) run --fix --enable-all -c .golangci.yml
+
+.PHONY: validate
+validate: $(KUBEVAL)
+	$(KUBEVAL) examples/manifests/*.yaml
 
 .PHONY: go-fmt
 go-fmt:
@@ -221,6 +226,10 @@ $(JSONNET_FMT): vendor |  $(BIN_DIR)
 
 $(JSONNET_BUNDLER): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
+
+$(KUBEVAL): $(BIN_DIR)
+	go get -d github.com/instrumenta/kubeval
+	go build -o $@ github.com/instrumenta/kubeval
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
