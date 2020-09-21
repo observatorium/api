@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -126,7 +127,14 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 			} else {
 				cookie, err := r.Cookie(getCookieForTenant(config.Tenant))
 				if err != nil {
-					http.Error(w, "failed to find token", http.StatusUnauthorized)
+					tenant, ok := GetTenant(r.Context())
+					if !ok {
+						http.Error(w, "error finding tenant", http.StatusInternalServerError)
+						return
+					}
+					// Redirect users to the OIDC login
+					w.Header().Set("Location", path.Join("/oidc", tenant, "/login"))
+					http.Error(w, "failed to find token", http.StatusFound)
 					return
 				}
 				token = cookie.Value
