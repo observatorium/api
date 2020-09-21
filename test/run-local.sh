@@ -10,11 +10,20 @@ trap 'kill $(jobs -p); exit $result' EXIT
 
 (./tmp/bin/dex serve ./test/config/dex.yaml) &
 
+echo "-------------------------------------------"
+echo "- Waiting for Dex to come up...  -"
+echo "-------------------------------------------"
+
+until curl --output /dev/null --silent --fail --insecure https://127.0.0.1:5556/dex/.well-known/openid-configuration; do
+  printf '.'
+  sleep 1
+done
+
 (
   ./observatorium \
     --web.listen=0.0.0.0:8443 \
     --web.internal.listen=0.0.0.0:8448 \
-    --web.healthchecks.url=https://localhost:8443 \
+    --web.healthchecks.url=https://127.0.0.1:8443 \
     --tls.server.cert-file=./tmp/certs/server.pem \
     --tls.server.key-file=./tmp/certs/server.key \
     --tls.healthchecks.server-ca-file=./tmp/certs/ca.pem \
@@ -46,7 +55,7 @@ trap 'kill $(jobs -p); exit $result' EXIT
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
     --log.level=error \
-    --web.external-prefix=/ui/metrics/v1
+    --web.external-prefix=.
 ) &
 
 (
@@ -59,9 +68,8 @@ trap 'kill $(jobs -p); exit $result' EXIT
 echo "-------------------------------------------"
 echo "- Waiting for dependencies to come up...  -"
 echo "-------------------------------------------"
-sleep 10
 
-until curl --output /dev/null --silent --fail http://localhost:8448/ready; do
+until curl --output /dev/null --silent --fail http://127.0.0.1:8448/ready; do
   printf '.'
   sleep 1
 done
