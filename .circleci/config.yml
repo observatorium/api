@@ -34,7 +34,7 @@ jobs:
       - checkout
       - run: |
           make README.md
-          make generate --always-make
+          make generate validate --always-make
           git diff --exit-code
 
   container-push:

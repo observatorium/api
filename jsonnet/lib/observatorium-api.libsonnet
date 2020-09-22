@@ -1,5 +1,3 @@
-local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
-
 {
   local api = self,
 
@@ -39,22 +37,27 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
     },
   },
 
-  serviceAccount:
-    local sa = k.core.v1.serviceAccount;
+  serviceAccount: {
+    apiVersion: 'v1',
+    kind: 'ServiceAccount',
+    metadata: {
+      name: api.config.name,
+      namespace: api.config.namespace,
+      labels: api.config.commonLabels,
+    },
+  },
 
-    sa.new() +
-    sa.mixin.metadata.withName(api.config.name) +
-    sa.mixin.metadata.withNamespace(api.config.namespace) +
-    sa.mixin.metadata.withLabels(api.config.commonLabels),
-
-  service:
-    local service = k.core.v1.service;
-    local ports = service.mixin.spec.portsType;
-
-    service.new(
-      api.config.name,
-      api.config.podLabelSelector,
-      [
+  service: {
+    apiVersion: 'v1',
+    kind: 'Service',
+    metadata: {
+      name: api.config.name,
+      namespace: api.config.namespace,
+      labels: api.config.commonLabels,
+    },
+    spec: {
+      selector: api.config.podLabelSelector,
+      ports: [
         {
           name: name,
           port: api.config.ports[name],
@@ -62,236 +65,253 @@ local k = import 'ksonnet/ksonnet.beta.4/k.libsonnet';
         }
         for name in std.objectFields(api.config.ports)
       ],
-    ) +
-    service.mixin.metadata.withNamespace(api.config.namespace) +
-    service.mixin.metadata.withLabels(api.config.commonLabels),
+    },
+  },
 
-  deployment:
-    local deployment = k.apps.v1.deployment;
-    local container = deployment.mixin.spec.template.spec.containersType;
-    local containerPort = container.portsType;
-
-    local c =
-      container.new('observatorium-api', api.config.image) +
-      container.withArgs([
-        '--web.listen=0.0.0.0:%s' % api.config.ports.public,
-        '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
-        '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
-        '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
-        '--log.level=warn',
-      ] + (
-        if api.config.logs != {} then
-          [
-            '--logs.read.endpoint=' + api.config.logs.readEndpoint,
-            '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
-            '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
-          ]
-        else []
-      ) + (
-        if api.config.rbac != {} then
-          ['--rbac.config=/etc/observatorium/rbac.yaml']
-        else []
-      ) + (
-        if api.config.tenants != {} then
-          ['--tenants.config=/etc/observatorium/tenants.yaml']
-        else []
-      ) + (
-        if api.config.tls != {} then
-          [
-            '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
-            '--tls.server.cert-file=/var/run/tls/' + api.config.tls.certKey,
-            '--tls.server.key-file=/var/run/tls/' + api.config.tls.keyKey,
-          ] + (
-            if std.objectHas(api.config.tls, 'caKey') then [
-              '--tls.healthchecks.server-ca-file=/var/run/tls/' + api.config.tls.caKey,
-            ]
-            else []
-          ) + (
-            if std.objectHas(api.config.tls, 'reloadInterval') then
-              [
-                '--tls.reload-interval=' + api.config.tls.reloadInterval,
-              ]
-            else []
-          ) + (
-            if std.objectHas(api.config.tls, 'serverName') then
-              [
-                '--tls.healthchecks.server-name=' + api.config.tls.serverName,
-              ]
-            else []
-          )
-        else []
-      )) +
-      container.withPorts([
-        containerPort.newNamed(api.config.ports[name], name)
-        for name in std.objectFields(api.config.ports)
-      ]) +
-      container.mixin.livenessProbe +
-      container.mixin.livenessProbe.withPeriodSeconds(30) +
-      container.mixin.livenessProbe.withFailureThreshold(10) +
-      container.mixin.livenessProbe.httpGet.withPort(api.config.ports.internal) +
-      container.mixin.livenessProbe.httpGet.withScheme('HTTP') +
-      container.mixin.livenessProbe.httpGet.withPath('/live') +
-      container.mixin.readinessProbe +
-      container.mixin.readinessProbe.withPeriodSeconds(5) +
-      container.mixin.readinessProbe.withFailureThreshold(12) +
-      container.mixin.readinessProbe.httpGet.withPort(api.config.ports.internal) +
-      container.mixin.readinessProbe.httpGet.withScheme('HTTP') +
-      container.mixin.readinessProbe.httpGet.withPath('/ready') +
-      container.withVolumeMounts(
-        (if api.config.rbac != {} then [
-           {
-             name: 'rbac',
-             mountPath: '/etc/observatorium/rbac.yaml',
-             subPath: 'rbac.yaml',
-             readOnly: true,
-           },
-         ] else []) +
-        (if api.config.tenants != {} then [
-           {
-             name: 'tenants',
-             mountPath: '/etc/observatorium/tenants.yaml',
-             subPath: 'tenants.yaml',
-             readOnly: true,
-           },
-         ] else []) +
-        (if std.objectHas(api.config.tenants, 'tenants') then [
-            {
-              name: tenant.name + '-mtls-%s' % (if std.objectHas(tenant.mTLS, 'configMapName') then 'configmap' else 'secret'),
-              mountPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
-              subPath: tenant.mTLS.caKey,
-              readOnly: true,
-            },
-            for tenant in api.config.tenants.tenants
-            if std.objectHas(tenant, 'mTLS')
-            if std.objectHas(tenant.mTLS, 'caKey')
-         ] else []) +
-        (if api.config.tls != {} then [
-           {
-             name: 'tls-secret',
-             mountPath: '/var/run/tls/' + api.config.tls.certKey,
-             subPath: api.config.tls.certKey,
-             readOnly: true,
-           },
-           {
-             name: 'tls-secret',
-             mountPath: '/var/run/tls/' + api.config.tls.keyKey,
-             subPath: api.config.tls.keyKey,
-             readOnly: true,
-           },
-         ] + (
-           if std.objectHas(api.config.tls, 'caKey') then [
-             {
-               name: 'tls-%s' % (if std.objectHas(api.config.tls, 'configMapName') then 'configmap' else 'secret'),
-               mountPath: '/var/run/tls/' + api.config.tls.caKey,
-               subPath: api.config.tls.caKey,
-               readOnly: true,
-             },
-           ] else []
-         ) else [])
-      );
-
-    deployment.new(api.config.name, api.config.replicas, c, api.config.commonLabels) +
-    deployment.mixin.metadata.withNamespace(api.config.namespace) +
-    deployment.mixin.metadata.withLabels(api.config.commonLabels) +
-    deployment.mixin.spec.selector.withMatchLabels(api.config.podLabelSelector) +
-    deployment.mixin.spec.template.spec.withServiceAccount(api.serviceAccount.metadata.name) +
-    deployment.mixin.spec.strategy.rollingUpdate.withMaxSurge(0) +
-    deployment.mixin.spec.strategy.rollingUpdate.withMaxUnavailable(1) +
-    deployment.mixin.spec.template.spec.withVolumes(
-      (if api.config.rbac != {} then [
-         {
-           configMap: {
-             name: api.config.name,
-           },
-           name: 'rbac',
-         },
-       ] else []) +
-      (if api.config.tenants != {} then [
-         {
-           secret: {
-             secretName: api.config.name,
-           },
-           name: 'tenants',
-         },
-       ] else []) +
-      (if std.objectHas(api.config.tenants, 'tenants') then [
-        if std.objectHas(tenant.mTLS, 'secretName') then {
-          secret: {
-            secretName: tenant.mTLS.secretName,
-          },
-          name: tenant.name + '-mtls-secret',
-        } else if std.objectHas(tenant.mTLS, 'configMapName') then {
-          confiMap: {
-            name: tenant.mTLS.configMapName,
-          },
-          name: tenant.name + '-mtls-configmap',
+  deployment: {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: api.config.name,
+      namespace: api.config.namespace,
+      labels: api.config.commonLabels,
+    },
+    spec: {
+      replicas: api.config.replicas,
+      selector: { matchLabels: api.config.podLabelSelector },
+      strategy: {
+        rollingUpdate: {
+          maxSurge: 0,
+          maxUnavailable: 1,
         },
+      },
+      template: {
+        metadata: { labels: api.config.commonLabels },
+        spec: {
+          serviceAccount: api.serviceAccount.metadata.name,
+          containers: [
+            {
+              name: 'observatorium-api',
+              image: api.config.image,
+              args: [
+                '--web.listen=0.0.0.0:%s' % api.config.ports.public,
+                '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
+                '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
+                '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
+                '--log.level=warn',
+              ] + (
+                if api.config.logs != {} then
+                  [
+                    '--logs.read.endpoint=' + api.config.logs.readEndpoint,
+                    '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
+                    '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
+                  ]
+                else []
+              ) + (
+                if api.config.rbac != {} then
+                  ['--rbac.config=/etc/observatorium/rbac.yaml']
+                else []
+              ) + (
+                if api.config.tenants != {} then
+                  ['--tenants.config=/etc/observatorium/tenants.yaml']
+                else []
+              ) + (
+                if api.config.tls != {} then
+                  [
+                    '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
+                    '--tls.server.cert-file=/var/run/tls/' + api.config.tls.certKey,
+                    '--tls.server.key-file=/var/run/tls/' + api.config.tls.keyKey,
+                  ] + (
+                    if std.objectHas(api.config.tls, 'caKey') then [
+                      '--tls.healthchecks.server-ca-file=/var/run/tls/' + api.config.tls.caKey,
+                    ]
+                    else []
+                  ) + (
+                    if std.objectHas(api.config.tls, 'reloadInterval') then
+                      [
+                        '--tls.reload-interval=' + api.config.tls.reloadInterval,
+                      ]
+                    else []
+                  ) + (
+                    if std.objectHas(api.config.tls, 'serverName') then
+                      [
+                        '--tls.healthchecks.server-name=' + api.config.tls.serverName,
+                      ]
+                    else []
+                  )
+                else []
+              ),
+              ports: [
+                {
+                  name: name,
+                  containerPort: api.config.ports[name],
+                }
+                for name in std.objectFields(api.config.ports)
+              ],
+              livenessProbe: {
+                failureThreshold: 10,
+                periodSeconds: 30,
+                httpGet: {
+                  path: '/live',
+                  port: api.config.ports.internal,
+                  scheme: 'HTTP',
+                },
+              },
+              readinessProbe: {
+                failureThreshold: 12,
+                periodSeconds: 5,
+                httpGet: {
+                  path: '/ready',
+                  port: api.config.ports.internal,
+                  scheme: 'HTTP',
+                },
+              },
+              volumeMounts:
+                (if std.length(api.config.rbac) != 0 then [{
+                   name: 'rbac',
+                   mountPath: '/etc/observatorium/rbac.yaml',
+                   subPath: 'rbac.yaml',
+                   readOnly: true,
+                 }] else []) +
+                (if std.length(api.config.tenants) != 0 then [{
+                   name: 'tenants',
+                   mountPath: '/etc/observatorium/tenants.yaml',
+                   subPath: 'tenants.yaml',
+                   readOnly: true,
+                 }] else []) +
+                (if std.objectHas(api.config.tenants, 'tenants') then [
+                   {
+                     name: tenant.name + '-mtls-%s' % (if std.objectHas(tenant.mTLS, 'configMapName') then 'configmap' else 'secret'),
+                     mountPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
+                     subPath: tenant.mTLS.caKey,
+                     readOnly: true,
+                   }
+                   for tenant in api.config.tenants.tenants
+                   if std.objectHas(tenant, 'mTLS')
+                   if std.objectHas(tenant.mTLS, 'caKey')
+                 ] else []) +
+                (if api.config.tls != {} then [
+                   {
+                     name: 'tls-secret',
+                     mountPath: '/var/run/tls/' + api.config.tls.certKey,
+                     subPath: api.config.tls.certKey,
+                     readOnly: true,
+                   },
+                   {
+                     name: 'tls-secret',
+                     mountPath: '/var/run/tls/' + api.config.tls.keyKey,
+                     subPath: api.config.tls.keyKey,
+                     readOnly: true,
+                   },
+                 ] + (
+                   if std.objectHas(api.config.tls, 'caKey') then [
+                     {
+                       name: 'tls-%s' % (if std.objectHas(api.config.tls, 'configMapName') then 'configmap' else 'secret'),
+                       mountPath: '/var/run/tls/' + api.config.tls.caKey,
+                       subPath: api.config.tls.caKey,
+                       readOnly: true,
+                     },
+                   ] else []
+                 ) else []),
+            },
+          ],
+          volumes:
+            (if api.config.rbac != {} then [
+               {
+                 configMap: {
+                   name: api.config.name,
+                 },
+                 name: 'rbac',
+               },
+             ] else []) +
+            (if api.config.tenants != {} then [
+               {
+                 secret: {
+                   secretName: api.config.name,
+                 },
+                 name: 'tenants',
+               },
+             ] else []) +
+            (if std.objectHas(api.config.tenants, 'tenants') then [
+               if std.objectHas(tenant.mTLS, 'secretName') then {
+                 secret: {
+                   secretName: tenant.mTLS.secretName,
+                 },
+                 name: tenant.name + '-mtls-secret',
+               } else if std.objectHas(tenant.mTLS, 'configMapName') then {
+                 confiMap: {
+                   name: tenant.mTLS.configMapName,
+                 },
+                 name: tenant.name + '-mtls-configmap',
+               }
+               for tenant in api.config.tenants.tenants
+               if std.objectHas(tenant, 'mTLS')
+             ] else []) +
+            (if api.config.tls != {} then [
+               {
+                 secret: {
+                   secretName: api.config.tls.secretName,
+                 },
+                 name: 'tls-secret',
+               },
+             ] + (
+               if std.objectHas(api.config.tls, 'configMapName') then [
+                 {
+                   configMap: {
+                     name: api.config.tls.configMapName,
+                   },
+                   name: 'tls-configmap',
+                 },
+               ] else []
+             ) else []),
+        },
+      },
+    },
+  },
+
+  configmap: if std.length(api.config.rbac) != 0 then {
+    apiVersion: 'v1',
+    kind: 'ConfigMap',
+    metadata: {
+      labels: api.config.commonLabels,
+      name: api.config.name,
+      namespace: api.config.namespace,
+    },
+    data: {
+      'rbac.yaml': std.manifestYamlDoc(api.config.rbac),
+    },
+  } else null,
+
+  secret: if api.config.tenants != {} then {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    metadata: {
+      labels: api.config.commonLabels,
+      name: api.config.name,
+      namespace: api.config.namespace,
+    },
+
+    local tenants = {
+      tenants: [
+        {
+          id: tenant.id,
+          name: tenant.name,
+          mTLS: {
+            caPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
+          },
+        }
         for tenant in api.config.tenants.tenants
         if std.objectHas(tenant, 'mTLS')
-       ] else []) +
-      (if api.config.tls != {} then [
-         {
-           secret: {
-             secretName: api.config.tls.secretName,
-           },
-           name: 'tls-secret',
-         },
-       ] + (
-         if std.objectHas(api.config.tls, 'configMapName') then [
-           {
-             configMap: {
-               name: api.config.tls.configMapName,
-             },
-             name: 'tls-configmap',
-           },
-         ] else []
-       ) else [])
-    ),
-
-  configmap:
-    if api.config.rbac != {} then {
-      apiVersion: 'v1',
-      data: {
-        'rbac.yaml': std.manifestYamlDoc(api.config.rbac),
-      },
-      kind: 'ConfigMap',
-      metadata: {
-        labels: api.config.commonLabels,
-        name: api.config.name,
-        namespace: api.config.namespace,
-      },
-    } else null,
-
-  secret:
-    if api.config.tenants != {} then {
-      local tenants = {
-        tenants: [
-          {
-            id: tenant.id,
-            name: tenant.name,
-            mTLS: {
-              caPath: '/var/run/mtls/' + tenant.name + '/' + tenant.mTLS.caKey,
-            },
-          },
-          for tenant in api.config.tenants.tenants
-          if std.objectHas(tenant, 'mTLS')
-        ] + [
-          tenant,
-          for tenant in api.config.tenants.tenants
-          if std.objectHas(tenant, 'oidc')
-        ],
-      },
-      apiVersion: 'v1',
-      stringData: {
-        'tenants.yaml': std.manifestYamlDoc(tenants),
-      },
-      kind: 'Secret',
-      metadata: {
-        labels: api.config.commonLabels,
-        name: api.config.name,
-        namespace: api.config.namespace,
-      },
-    } else null,
+      ] + [
+        tenant
+        for tenant in api.config.tenants.tenants
+        if std.objectHas(tenant, 'oidc')
+      ],
+    },
+    stringData: {
+      'tenants.yaml': std.manifestYamlDoc(tenants),
+    },
+  } else null,
 
   withServiceMonitor:: {
     local api = self,

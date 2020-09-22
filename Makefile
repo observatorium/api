@@ -49,11 +49,11 @@ GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
 GOLANGCILINT_VERSION ?= v1.21.0
 EMBEDMD ?= $(BIN_DIR)/embedmd
 JSONNET ?= $(BIN_DIR)/jsonnet
-JSONNET_BUNDLER ?= $(BIN_DIR)/jb
 JSONNET_FMT ?= $(BIN_DIR)/jsonnetfmt
 GOJSONTOYAML ?= $(BIN_DIR)/gojsontoyaml
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 GENERATE_TLS_CERT ?= $(BIN_DIR)/generate-tls-cert
+KUBEVAL ?= $(BIN_DIR)/kubeval
 
 SERVER_CERT ?= $(CERT_DIR)/server.pem
 
@@ -88,6 +88,10 @@ vendor: go.mod go.sum
 .PHONY: format
 format: $(GOLANGCILINT)
 	$(GOLANGCILINT) run --fix --enable-all -c .golangci.yml
+
+.PHONY: validate
+validate: $(KUBEVAL)
+	$(KUBEVAL) examples/manifests/*.yaml
 
 .PHONY: go-fmt
 go-fmt:
@@ -220,8 +224,9 @@ $(JSONNET): | vendor $(BIN_DIR)
 $(JSONNET_FMT): vendor |  $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
 
-$(JSONNET_BUNDLER): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
+$(KUBEVAL): $(BIN_DIR)
+	go get -d github.com/instrumenta/kubeval
+	go build -o $@ github.com/instrumenta/kubeval
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
@@ -247,20 +252,17 @@ CONTAINER_CMD:=docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 .PHONY: generate
-generate: examples/vendor examples/manifests README.md
+generate: examples/manifests README.md
 
 .PHONY: generate-in-docker
 generate-in-docker:
 	@echo ">> Compiling assets and generating Kubernetes manifests"
 	$(CONTAINER_CMD) make $(MFLAGS) generate
 
-examples/manifests: examples/main.jsonnet examples/vendor jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
+examples/manifests: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
 	@rm -rf examples/manifests
 	@mkdir -p examples/manifests
-	$(JSONNET) -J examples/vendor -m examples/manifests examples/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
-
-examples/vendor: examples/jsonnetfile.json examples/jsonnetfile.lock.json | $(JSONNET_BUNDLER)
-	cd examples && $(JSONNET_BUNDLER) install
+	$(JSONNET) -m examples/manifests examples/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
 
 JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'examples/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
 JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
