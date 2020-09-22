@@ -80,6 +80,10 @@ observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
 .PHONY: build
 build: observatorium
 
+.PHONY: run
+run: build $(THANOS) $(DEX) $(LOKI) generate-cert
+	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/run-local.sh
+
 .PHONY: vendor
 vendor: go.mod go.sum
 	go mod tidy
