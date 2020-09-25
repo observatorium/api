@@ -1,0 +1,33 @@
+# development environment
+.DS_Store
+.vscode
+.idea
+*~
+
+# build artifacts
+coverage.txt
+opa_*
+.Dockerfile_*
+_release
+wasm/_obj
+_test
+site.tar.gz
+policy.wasm
+.npm
+.gitbook
+.go
+release-notes.md
+
+# ci artifacts
+fuzzit
+ast-fuzzer
+ast-fuzzer.a
+
+# runtime artifacts
+policies
+
+# Local Netlify folder
+.netlify
+
+# man pages
+man
