@@ -83,6 +83,15 @@ token=$(curl --request POST \
     -config.file=./test/config/loki.yml
 ) &
 
+(
+  ./tmp/bin/opa \
+      run \
+      --server \
+      ./test/config \
+      --ignore '*.json' \
+      --ignore '*.yml'
+) &
+
 echo "-------------------------------------------"
 echo "- Waiting for dependencies to come up...  -"
 echo "-------------------------------------------"

@@ -8,7 +8,14 @@ tenants:
     issuerURL: https://127.0.0.1:5556/dex
     redirectURL: https://localhost:8443/oidc/test-oidc/callback
     usernameClaim: email
+  opa:
+    query: data.observatorium.allow
+    paths:
+    - ./test/config/observatorium.rego
+    - ./test/config/rbac.yaml
 - name: test-mtls
   id: 845cdfd9-f936-443c-979c-2ee7dc91f646
   mTLS:
     caPath: ./tmp/certs/ca.pem
+  opa:
+    url: http://127.0.0.1:8181/v1/data/observatorium/allow
