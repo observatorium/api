@@ -40,6 +40,7 @@ import (
 	"github.com/observatorium/observatorium/internal/authorization"
 	"github.com/observatorium/observatorium/internal/server"
 	"github.com/observatorium/observatorium/internal/tls"
+	"github.com/observatorium/observatorium/opa"
 	"github.com/observatorium/observatorium/rbac"
 )
 
@@ -109,6 +110,9 @@ func main() {
 		stdlog.Fatalf("parse flag: %v", err)
 	}
 
+	logger := internal.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
+	defer level.Info(logger).Log("msg", "exiting")
+
 	type tenant struct {
 		Name string `json:"name"`
 		ID   string `json:"id"`
@@ -128,10 +132,16 @@ func main() {
 			CAPath string `json:"caPath"`
 			ca     *x509.Certificate
 		} `json:"mTLS"`
+		OPA *struct {
+			Query      string   `json:"query"`
+			Paths      []string `json:"paths"`
+			URL        string   `json:"url"`
+			authorizer rbac.Authorizer
+		} `json:"opa"`
 	}
 
 	type tenantsConfig struct {
-		Tenants []tenant `json:"tenants"`
+		Tenants []*tenant `json:"tenants"`
 	}
 
 	var tenantsCfg tenantsConfig
@@ -145,43 +155,74 @@ func main() {
 			stdlog.Fatalf("unable to read tenant YAML: %v", err)
 		}
 
-		for _, t := range tenantsCfg.Tenants {
+		skip := level.Warn(log.With(logger, "msg", "skipping invalid tenant"))
+		for i, t := range tenantsCfg.Tenants {
 			if t.OIDC != nil {
 				if t.OIDC.IssuerCAPath != "" {
 					t.OIDC.IssuerRawCA, err = ioutil.ReadFile(t.OIDC.IssuerCAPath)
 					if err != nil {
-						stdlog.Fatalf("cannot read issuer CA certificate file from path %q for tenant %q: %v", t.OIDC.IssuerCAPath, t.Name, err)
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read issuer CA certificate file from path %q: %v", t.OIDC.IssuerCAPath, err))
+						tenantsCfg.Tenants[i] = nil
+						continue
 					}
 				}
-				if len(t.OIDC.IssuerRawCA) == 0 {
-					continue
+				if len(t.OIDC.IssuerRawCA) != 0 {
+					block, _ := pem.Decode(t.OIDC.IssuerRawCA)
+					if block == nil {
+						skip.Log("tenant", t.Name, "err", "failed to parse issuer CA certificate PEM")
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+					cert, err := x509.ParseCertificate(block.Bytes)
+					if err != nil {
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse issuer certificate: %v", err))
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+					t.OIDC.issuerCA = cert
 				}
-				block, _ := pem.Decode(t.OIDC.IssuerRawCA)
-				if block == nil {
-					stdlog.Fatalf("failed to parse issuer CA certificate PEM for tenant %q", t.Name)
-				}
-				cert, err := x509.ParseCertificate(block.Bytes)
-				if err != nil {
-					stdlog.Fatalf("failed to parse issuer certificate: %v", err)
-				}
-				t.OIDC.issuerCA = cert
 			}
 			if t.MTLS != nil {
 				if t.MTLS.CAPath != "" {
 					t.MTLS.RawCA, err = ioutil.ReadFile(t.MTLS.CAPath)
 					if err != nil {
-						stdlog.Fatalf("cannot read CA certificate file from path %q for tenant %q: %v", t.MTLS.CAPath, t.Name, err)
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read CA certificate file from path %q: %v", t.OIDC.IssuerCAPath, err))
+						tenantsCfg.Tenants[i] = nil
+						continue
 					}
 				}
 				block, _ := pem.Decode(t.MTLS.RawCA)
 				if block == nil {
-					stdlog.Fatalf("failed to parse CA certificate PEM for tenant %q", t.Name)
+					skip.Log("tenant", t.Name, "err", "failed to parse CA certificate PEM")
+					tenantsCfg.Tenants[i] = nil
+					continue
 				}
 				cert, err := x509.ParseCertificate(block.Bytes)
 				if err != nil {
-					stdlog.Fatalf("failed to parse certificate: %v", err)
+					skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse CA certificate: %v", err))
+					tenantsCfg.Tenants[i] = nil
+					continue
 				}
 				t.MTLS.ca = cert
+			}
+			if t.OPA != nil {
+				if t.OPA.URL != "" {
+					u, err := url.Parse(t.OPA.URL)
+					if err != nil {
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse OPA URL: %v", err))
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+					t.OPA.authorizer = opa.NewRESTAuthorizer(u, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
+				} else {
+					a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
+					if err != nil {
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+					t.OPA.authorizer = a
+				}
 			}
 		}
 	}
@@ -197,9 +238,6 @@ func main() {
 			stdlog.Fatalf("unable to read RBAC YAML: %v", err)
 		}
 	}
-
-	logger := internal.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
-	defer level.Info(logger).Log("msg", "exiting")
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
@@ -286,10 +324,15 @@ func main() {
 			tenantIDs := map[string]string{}
 			var oidcs []authentication.OIDCConfig
 			var mTLSs []authentication.MTLSConfig
+			authorizers := map[string]rbac.Authorizer{}
 			for _, t := range tenantsCfg.Tenants {
+				if t == nil {
+					continue
+				}
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
 				tenantIDs[t.Name] = t.ID
-				if t.OIDC != nil {
+				switch {
+				case t.OIDC != nil:
 					oidcs = append(oidcs, authentication.OIDCConfig{
 						Tenant:        t.Name,
 						ClientID:      t.OIDC.ClientID,
@@ -300,16 +343,19 @@ func main() {
 						RedirectURL:   t.OIDC.RedirectURL,
 						UsernameClaim: t.OIDC.UsernameClaim,
 					})
-					continue
-				}
-				if t.MTLS != nil {
+				case t.MTLS != nil:
 					mTLSs = append(mTLSs, authentication.MTLSConfig{
 						Tenant: t.Name,
 						CA:     t.MTLS.ca,
 					})
-					continue
+				default:
+					stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
 				}
-				stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
+				if t.OPA != nil {
+					authorizers[t.Name] = t.OPA.authorizer
+				} else {
+					authorizers[t.Name] = authorizer
+				}
 			}
 
 			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, oidcs)
@@ -339,7 +385,7 @@ func main() {
 						metricslegacy.Logger(logger),
 						metricslegacy.Registry(reg),
 						metricslegacy.HandlerInstrumenter(ins),
-						metricslegacy.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "metrics")),
+						metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					),
 				)
 
@@ -351,8 +397,8 @@ func main() {
 							metricsv1.Logger(logger),
 							metricsv1.Registry(reg),
 							metricsv1.HandlerInstrumenter(ins),
-							metricsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "metrics")),
-							metricsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "metrics")),
+							metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						),
 					),
 				)
@@ -373,8 +419,8 @@ func main() {
 								logsv1.Logger(logger),
 								logsv1.Registry(reg),
 								logsv1.HandlerInstrumenter(ins),
-								logsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "logs")),
-								logsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "logs")),
+								logsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
+								logsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
 							),
 						),
 					)

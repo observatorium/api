@@ -40,6 +40,7 @@ endif
 
 UP ?= $(BIN_DIR)/up
 DEX ?= $(BIN_DIR)/dex
+OPA ?= $(BIN_DIR)/opa
 MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 PROMREMOTEBENCH ?= $(BIN_DIR)/promremotebench
 PROMREMOTEBENCH_VERSION ?= 0.8.0
@@ -155,7 +156,7 @@ container-release: container
 
 .PHONY: integration-test-dependencies
 
-integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT)
+integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT) $(OPA)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -202,6 +203,9 @@ $(UP): | vendor $(BIN_DIR)
 
 $(DEX): | vendor $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/dexidp/dex/cmd/dex
+
+$(OPA): | vendor $(BIN_DIR)
+	go build -mod=vendor -o $@ github.com/open-policy-agent/opa
 
 $(MOCKPROVIDER): | vendor $(BIN_DIR)
 	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/mock

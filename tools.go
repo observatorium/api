@@ -12,4 +12,5 @@ import (
 	_ "github.com/instrumenta/kubeval"
 	_ "github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb"
 	_ "github.com/observatorium/up/cmd/up"
+	_ "github.com/open-policy-agent/opa"
 )
