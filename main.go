@@ -312,7 +312,7 @@ func main() {
 				stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
 			}
 
-			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(oidcs)
+			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, oidcs)
 			for _, w := range warnings {
 				level.Warn(logger).Log("msg", w.Error())
 			}
