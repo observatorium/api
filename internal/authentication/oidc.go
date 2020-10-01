@@ -13,6 +13,8 @@ import (
 
 	"github.com/coreos/go-oidc"
 	"github.com/go-chi/chi"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"golang.org/x/oauth2"
 )
 
@@ -38,13 +40,13 @@ type Middleware func(http.Handler) http.Handler
 // NewOIDC creates a single http.Handler and a set of Middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(configs []OIDCConfig) (http.Handler, map[string]Middleware, []error) {
+func NewOIDC(logger log.Logger, configs []OIDCConfig) (http.Handler, map[string]Middleware, []error) {
 	handlers := map[string]http.Handler{}
 	middlewares := map[string]Middleware{}
 	warnings := make([]error, 0, len(configs))
 
 	for _, c := range configs {
-		h, m, err := newProvider(c)
+		h, m, err := newProvider(logger, c)
 		if err != nil {
 			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
 			continue
@@ -57,13 +59,16 @@ func NewOIDC(configs []OIDCConfig) (http.Handler, map[string]Middleware, []error
 	r := chi.NewRouter()
 	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := GetTenant(r.Context())
+		const msg = "error finding tenant"
 		if !ok {
-			http.Error(w, "error finding tenant", http.StatusInternalServerError)
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 		h, ok := handlers[tenant]
 		if !ok {
-			http.Error(w, "error finding tenant", http.StatusUnauthorized)
+			level.Debug(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusUnauthorized)
 			return
 		}
 		h.ServeHTTP(w, r)
@@ -72,13 +77,12 @@ func NewOIDC(configs []OIDCConfig) (http.Handler, map[string]Middleware, []error
 	return r, middlewares, warnings
 }
 
-func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
+func newProvider(logger log.Logger, config OIDCConfig) (http.Handler, Middleware, error) {
 	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-			DualStack: true,
 		}).DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
@@ -119,7 +123,9 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 			if authorizationHeader != "" {
 				authorization := strings.Split(authorizationHeader, " ")
 				if len(authorization) != 2 {
-					http.Error(w, "invalid Authorization header", http.StatusUnauthorized)
+					const msg = "invalid Authorization header"
+					level.Debug(logger).Log("msg", msg)
+					http.Error(w, msg, http.StatusUnauthorized)
 					return
 				}
 
@@ -129,7 +135,9 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 				if err != nil {
 					tenant, ok := GetTenant(r.Context())
 					if !ok {
-						http.Error(w, "error finding tenant", http.StatusInternalServerError)
+						const msg = "error finding tenant"
+						level.Warn(logger).Log("msg", msg)
+						http.Error(w, msg, http.StatusInternalServerError)
 						return
 					}
 					// Redirect users to the OIDC login
@@ -142,7 +150,9 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 
 			idToken, err := verifier.Verify(oidc.ClientContext(r.Context(), client), token)
 			if err != nil {
-				http.Error(w, "failed to authenticate", http.StatusBadRequest)
+				const msg = "failed to authenticate"
+				level.Debug(logger).Log("msg", msg, "err", err)
+				http.Error(w, msg, http.StatusBadRequest)
 				return
 			}
 
@@ -150,17 +160,23 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 			if config.UsernameClaim != "" {
 				claims := map[string]interface{}{}
 				if err := idToken.Claims(&claims); err != nil {
-					http.Error(w, "failed to read claims", http.StatusInternalServerError)
+					const msg = "failed to read claims"
+					level.Warn(logger).Log("msg", msg, "err", err)
+					http.Error(w, msg, http.StatusInternalServerError)
 					return
 				}
 				rawUsername, ok := claims[config.UsernameClaim]
 				if !ok {
-					http.Error(w, "username cannot be empty", http.StatusBadRequest)
+					const msg = "username cannot be empty"
+					level.Debug(logger).Log("msg", msg)
+					http.Error(w, msg, http.StatusBadRequest)
 					return
 				}
 				username, ok := rawUsername.(string)
 				if !ok || username == "" {
-					http.Error(w, "invalid username claim value", http.StatusBadRequest)
+					const msg = "invalid username claim value"
+					level.Debug(logger).Log("msg", msg)
+					http.Error(w, msg, http.StatusBadRequest)
 					return
 				}
 				sub = username
@@ -171,12 +187,16 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 				var groups []string
 				claims := map[string]interface{}{}
 				if err := idToken.Claims(&claims); err != nil {
-					http.Error(w, "failed to read claims", http.StatusInternalServerError)
+					const msg = "failed to read claims"
+					level.Warn(logger).Log("msg", msg, "err", err)
+					http.Error(w, msg, http.StatusInternalServerError)
 					return
 				}
 				rawGroup, ok := claims[config.GroupClaim]
 				if !ok {
-					http.Error(w, "group cannot be empty", http.StatusBadRequest)
+					const msg = "group cannot be empty"
+					level.Debug(logger).Log("msg", msg)
+					http.Error(w, msg, http.StatusBadRequest)
 					return
 				}
 				switch v := rawGroup.(type) {
@@ -208,36 +228,48 @@ func newProvider(config OIDCConfig) (http.Handler, Middleware, error) {
 
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			desc := r.URL.Query().Get("error_description")
-			http.Error(w, fmt.Sprintf("%s: %s", errMsg, desc), http.StatusBadRequest)
+			msg := fmt.Sprintf("%s: %s", errMsg, desc)
+			level.Debug(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
 		queryCode := r.URL.Query().Get("code")
 		if queryCode == "" {
-			http.Error(w, "no code in request", http.StatusBadRequest)
+			const msg = "no code in request"
+			level.Debug(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 		queryState := r.URL.Query().Get("state")
 		if queryState != state {
-			http.Error(w, "incorrect state in request", http.StatusBadRequest)
+			const msg = "incorrect state in request"
+			level.Debug(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
 		token, err := oauth2Config.Exchange(ctx, queryCode)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to get token: %v", err), http.StatusInternalServerError)
+			msg := fmt.Sprintf("failed to get token: %v", err)
+			level.Warn(logger).Log("msg", msg, "err", err)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
 		rawIDToken, ok := token.Extra("id_token").(string)
 		if !ok {
-			http.Error(w, "no id_token in token response", http.StatusInternalServerError)
+			const msg = "no id_token in token response"
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
 		_, err = verifier.Verify(ctx, rawIDToken)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to verify ID token: %v", err), http.StatusInternalServerError)
+			msg := fmt.Sprintf("failed to verify ID token: %v", err)
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
