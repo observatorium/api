@@ -7,9 +7,9 @@ import (
 	"github.com/observatorium/observatorium/rbac"
 )
 
-// WithAuthorizer returns a middleware that authorizes subjects taken from a request context
+// WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
-func WithAuthorizer(a rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
+func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := authentication.GetTenant(r.Context())
@@ -26,6 +26,12 @@ func WithAuthorizer(a rbac.Authorizer, permission rbac.Permission, resource stri
 			if !ok {
 				groups = []string{}
 			}
+			a, ok := authorizers[tenant]
+			if !ok {
+				http.Error(w, "error finding tenant", http.StatusUnauthorized)
+				return
+			}
+
 			if !a.Authorize(subject, groups, permission, resource, tenant) {
 				w.WriteHeader(http.StatusForbidden)
 				return
