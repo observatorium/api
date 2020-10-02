@@ -27,6 +27,7 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/metalmatze/signal/healthcheck"
 	"github.com/metalmatze/signal/internalserver"
+	"github.com/metalmatze/signal/server/signalhttp"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
@@ -316,7 +317,7 @@ func main() {
 		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler
 		r.Use(server.Logger(logger))
 
-		ins := server.NewInstrumentationMiddleware(reg)
+		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
 
 		r.Group(func(r chi.Router) {
 			r.Use(authentication.WithTenant)
