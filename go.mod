@@ -18,7 +18,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.14.3 // indirect
 	github.com/instrumenta/kubeval v0.0.0-20200515185822-7721cbec724c
 	github.com/jsonnet-bundler/jsonnet-bundler v0.3.1
-	github.com/metalmatze/signal v0.0.0-20200616171423-be84551ba3ce
+	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
 	github.com/observatorium/up v0.0.0-20200603110215-8a20b4e48ac0
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2
