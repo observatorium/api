@@ -3,7 +3,6 @@ include .bingo/Variables.mk
 SHELL=/usr/bin/env bash -o pipefail
 TMP_DIR := $(shell pwd)/tmp
 BIN_DIR ?= $(TMP_DIR)/bin
-GOBIN = $(TMP_DIR)/bin
 CERT_DIR ?= $(TMP_DIR)/certs
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
@@ -49,11 +48,11 @@ SERVER_CERT ?= $(CERT_DIR)/server.pem
 default: observatorium
 all: clean lint test observatorium
 
-tmp/help.txt: observatorium
-	./observatorium --help &> tmp/help.txt || true
+tmp/help.txt: observatorium $(TMP_DIR)
+	./observatorium --help &> $(TMP_DIR)/help.txt || true
 
-tmp/load_help.txt:
-	-./test/load.sh -h > tmp/load_help.txt 2&>1
+tmp/load_help.txt: $(TMP_DIR)
+	-./test/load.sh -h > $(TMP_DIR)/load_help.txt 2&>1
 
 README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md
@@ -104,11 +103,11 @@ test-unit:
 
 .PHONY: test-integration
 test-integration: build integration-test-dependencies generate-cert
-	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
+	THANOS=$(THANOS) UP=$(UP) DEX=$(DEX) LOKI=$(LOKI) WOBSOCAT=$(WEBSOCAT) OPA=$(OPA) ./test/integration.sh
 
 .PHONY: test-load
 test-load: build load-test-dependencies
-	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh
+	PROMREMOTEBENCH=$(PROMREMOTEBENCH) PROMETHEUS=$(PROMETHEUS) STYX=$(STYX) MOCKPROVIDER=$(MOCKPROVIDER) ./test/load.sh
 
 .PHONY: clean
 clean:
@@ -140,7 +139,6 @@ container-release: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies
-
 integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT) $(OPA)
 
 .PHONY: load-test-dependencies
@@ -154,6 +152,9 @@ $(SERVER_CERT): | $(GENERATE_TLS_CERT) $(CERT_DIR)
 
 # Generate TLS certificates for local development.
 generate-cert: $(SERVER_CERT) | $(GENERATE_TLS_CERT)
+
+$(TMP_DIR):
+	mkdir -p $(TMP_DIR)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -229,4 +230,4 @@ JSONNETFMT_CMD := $(JSONNETFMT) -n 2 --max-blank-lines 2 --string-style s --comm
 
 .PHONY: jsonnet-fmt
 jsonnet-fmt: | $(JSONNETFMT)
-	PATH=$$PATH:$(BIN_DIR) echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i
+	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i
