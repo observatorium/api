@@ -233,8 +233,7 @@ $(JSONNET_FMT): vendor |  $(BIN_DIR)
 	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
 
 $(KUBEVAL): $(BIN_DIR)
-	go get -d github.com/instrumenta/kubeval
-	go build -o $@ github.com/instrumenta/kubeval
+	go build -mod=vendor -o $@ github.com/instrumenta/kubeval
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
