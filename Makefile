@@ -75,8 +75,8 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 	$(EMBEDMD) -w docs/benchmark.md
 
-observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -mod vendor -a -ldflags '-s -w' -o $@ .
+observatorium: deps main.go $(wildcard *.go) $(wildcard */*.go)
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $@ .
 
 .PHONY: build
 build: observatorium
@@ -85,10 +85,11 @@ build: observatorium
 run: build $(THANOS) $(DEX) $(LOKI) generate-cert
 	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/run-local.sh
 
-.PHONY: vendor
-vendor: go.mod go.sum
+.PHONY: deps
+deps: go.mod go.sum
 	go mod tidy
-	go mod vendor
+	go mod download
+	go mod verify
 
 .PHONY: format
 format: $(GOLANGCILINT)
@@ -107,7 +108,7 @@ shellcheck: $(SHELLCHECK)
 	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*" -not -path "${TMP_DIR}/*")
 
 .PHONY: lint
-lint: $(GOLANGCILINT) vendor go-fmt shellcheck jsonnet-fmt
+lint: $(GOLANGCILINT) deps go-fmt shellcheck jsonnet-fmt
 	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
@@ -115,7 +116,7 @@ test: build test-unit test-integration
 
 .PHONY: test-unit
 test-unit:
-	CGO_ENABLED=1 GO111MODULE=on go test -mod vendor -v -race -short ./...
+	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short ./...
 
 .PHONY: test-integration
 test-integration: build integration-test-dependencies generate-cert
@@ -198,42 +199,42 @@ $(WEBSOCAT): | $(BIN_DIR)
 	mv $(WEBSOCAT_PKG) websocat && \
 	chmod u+x websocat
 
-$(UP): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/observatorium/up/cmd/up
+$(UP): | deps $(BIN_DIR)
+	go build -o $@ github.com/observatorium/up/cmd/up
 
-$(DEX): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/dexidp/dex/cmd/dex
+$(DEX): | deps $(BIN_DIR)
+	go build -o $@ github.com/dexidp/dex/cmd/dex
 
-$(OPA): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/open-policy-agent/opa
+$(OPA): | deps $(BIN_DIR)
+	go build -o $@ github.com/open-policy-agent/opa
 
-$(MOCKPROVIDER): | vendor $(BIN_DIR)
-	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/mock
+$(MOCKPROVIDER): | deps $(BIN_DIR)
+	go build -tags tools -o $@ github.com/observatorium/observatorium/test/mock
 
-$(PROMREMOTEBENCH): | vendor $(BIN_DIR)
+$(PROMREMOTEBENCH): | deps $(BIN_DIR)
 	mkdir -p $(TMP_DIR)/promremotebench
 	curl -L https://github.com/m3dbx/promremotebench/archive/v$(PROMREMOTEBENCH_VERSION).tar.gz | tar --strip-components=1 -xzf - -C $(TMP_DIR)/promremotebench
 	cd $(TMP_DIR)/promremotebench/src && \
 		go build ./cmd/promremotebench
 	mv $(TMP_DIR)/promremotebench/src/promremotebench $@
 
-$(EMBEDMD): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/campoy/embedmd
+$(EMBEDMD): | deps $(BIN_DIR)
+	go build -o $@ github.com/campoy/embedmd
 
-$(STYX): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/go-pluto/styx
+$(STYX): | deps $(BIN_DIR)
+	go build -o $@ github.com/go-pluto/styx
 
-$(GOJSONTOYAML): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/brancz/gojsontoyaml
+$(GOJSONTOYAML): | deps $(BIN_DIR)
+	go build -o $@ github.com/brancz/gojsontoyaml
 
-$(JSONNET): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
+$(JSONNET): | deps $(BIN_DIR)
+	go build -o $@ github.com/google/go-jsonnet/cmd/jsonnet
 
-$(JSONNET_FMT): vendor |  $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
+$(JSONNET_FMT): deps |  $(BIN_DIR)
+	go build -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
 
 $(KUBEVAL): $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/instrumenta/kubeval
+	go build -o $@ github.com/instrumenta/kubeval
 
 $(GOLANGCILINT):
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
@@ -243,9 +244,9 @@ $(GOLANGCILINT):
 $(SHELLCHECK): $(BIN_DIR)
 	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
-$(GENERATE_TLS_CERT): | vendor $(BIN_DIR)
+$(GENERATE_TLS_CERT): | deps $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
-	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/tls
+	go build -tags tools -o $@ github.com/observatorium/observatorium/test/tls
 
 # Jsonnet and Example manifests
 
