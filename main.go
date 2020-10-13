@@ -105,6 +105,7 @@ const (
 	middlewareTimeout
 )
 
+//nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
 	if err != nil {

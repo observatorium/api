@@ -889,7 +889,7 @@ func TestNewAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := NewAuthorzer(tc.roles, tc.roleBindings)
+			a := NewAuthorizer(tc.roles, tc.roleBindings)
 			for i := range tc.ios {
 				if a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant) != tc.ios[i].output {
 					t.Errorf("test case %d: expected %t; got %t", i, tc.ios[i].output, !tc.ios[i].output)

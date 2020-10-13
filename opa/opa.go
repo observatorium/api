@@ -66,9 +66,11 @@ func (a *restAuthorizer) Authorize(subject string, groups []string, permission r
 		Subject:    subject,
 		Tenant:     tenant,
 	}
+
 	dreq := types.DataRequestV1{
 		Input: &i,
 	}
+
 	j, err := json.Marshal(dreq)
 	if err != nil {
 		level.Error(a.logger).Log("msg", "failed to marshal OPA input to JSON", "err", err.Error())
@@ -84,24 +86,33 @@ func (a *restAuthorizer) Authorize(subject string, groups []string, permission r
 	if res.StatusCode/100 != 2 {
 		body, _ := ioutil.ReadAll(res.Body)
 		res.Body.Close()
-		level.Error(a.logger).Log("msg", "received non-200 status code from OPA endpoint", "URL", a.url.String(), "body", body, "status", res.Status)
+		level.Error(a.logger).Log(
+			"msg", "received non-200 status code from OPA endpoint",
+			"URL", a.url.String(),
+			"body", body,
+			"status", res.Status,
+		)
+
 		return false
 	}
 
 	dres := types.DataResponseV1{}
 	if err := json.NewDecoder(res.Body).Decode(&dres); err != nil {
 		level.Error(a.logger).Log("msg", "failed to unmarshal OPA response", "err", err.Error())
+
 		return false
 	}
 
 	if dres.Result == nil {
 		level.Error(a.logger).Log("msg", "received an empty OPA response")
+
 		return false
 	}
 
 	result, ok := (*dres.Result).(bool)
 	if !ok {
 		level.Error(a.logger).Log("msg", "received a malformed OPA response")
+
 		return false
 	}
 
@@ -143,6 +154,7 @@ func (a *inProcessAuthorizer) Authorize(subject string, groups []string, permiss
 		Subject:    subject,
 		Tenant:     tenant,
 	}
+
 	res, err := a.query.Eval(context.Background(), rego.EvalInput(i))
 	if err != nil {
 		level.Error(a.logger).Log("msg", "failed to evaluate OPA query", "err", err.Error())
@@ -175,6 +187,7 @@ func NewInProcessAuthorizer(query string, paths []string, opts ...Option) (rbac.
 	}
 
 	r := rego.New(rego.Query(query), rego.Load(paths, nil))
+
 	q, err := r.PrepareForEval(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare OPA query: %w", err)
