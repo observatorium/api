@@ -12,7 +12,6 @@ import (
 // NewServerConfig provides new server TLS configuration.
 func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion string, cipherSuites []string) (*tls.Config, error) {
 	if certFile == "" && keyFile == "" {
-
 		level.Info(logger).Log("msg", "TLS disabled; key and cert must be set to enable")
 
 		return nil, nil
