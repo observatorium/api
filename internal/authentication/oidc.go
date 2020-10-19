@@ -77,6 +77,7 @@ func NewOIDC(logger log.Logger, configs []OIDCConfig) (http.Handler, map[string]
 	return r, middlewares, warnings
 }
 
+//nolint:funlen,gocognit
 func newProvider(logger log.Logger, config OIDCConfig) (http.Handler, Middleware, error) {
 	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -96,10 +97,12 @@ func newProvider(logger log.Logger, config OIDCConfig) (http.Handler, Middleware
 		}
 		t.TLSClientConfig.RootCAs.AddCert(config.IssuerCA)
 	}
+
 	client := &http.Client{
 		Timeout:   5 * time.Second,
 		Transport: t,
 	}
+
 	provider, err := oidc.NewProvider(oidc.ClientContext(context.TODO(), client), config.IssuerURL)
 	if err != nil {
 		return nil, nil, err

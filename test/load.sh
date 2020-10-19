@@ -1,9 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-BIN_DIR=./tmp/bin
 DATA_DIR=./docs/loadtests/results
 DOC_DIR=./docs
+
+STYX=${STYX:-styx}
+PROMETHEUS=${PROMETHEUS:-prometheus}
+MOCKPROVIDER=${MOCKPROVIDER:-mockprovider}
+PROMREMOTEBENCH=${PROMREMOTEBENCH:-promremotebench}
 
 trap 'kill $(jobs -p); exit 0' EXIT
 
@@ -14,11 +18,11 @@ generate_report() {
 
     case $1 in
     csv)
-        collect $BIN_DIR/styx "$1"
+        collect "$STYX" "$1"
         ;;
 
     gnuplot)
-        collect "$BIN_DIR/styx gnuplot" "$1"
+        collect "$STYX gnuplot" "$1"
         plot
         ;;
     *)
@@ -90,12 +94,12 @@ plot() {
 ) &
 
 (
-    $BIN_DIR/mockprovider \
+    $MOCKPROVIDER \
         --listen=0.0.0.0:8888
 ) &
 
 (
-    $BIN_DIR/prometheus \
+    $PROMETHEUS \
         --log.level=warn \
         --config.file=./test/config/prometheus.yml \
         --storage.tsdb.path="$(mktemp -d)"
@@ -163,7 +167,7 @@ printf "\tWaiting for dependencies to come up...\n"
 sleep 5
 
 (
-    $BIN_DIR/promremotebench \
+    $PROMREMOTEBENCH \
         -query=true \
         -query-target=http://127.0.0.1:8080/api/metrics/v1/api/v1/query_range \
         -query-step=30s \

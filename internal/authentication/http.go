@@ -74,11 +74,13 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 // provided tenant-middleware sets.
 func WithTenantMiddlewares(middlewareSets ...map[string]Middleware) Middleware {
 	middlewares := map[string]Middleware{}
+
 	for _, ms := range middlewareSets {
 		for t, m := range ms {
 			middlewares[t] = m
 		}
 	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := GetTenant(r.Context())

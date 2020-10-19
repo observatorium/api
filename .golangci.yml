@@ -11,5 +11,5 @@ linters-settings:
   lll:
     line-length: 140
   funlen:
-    lines: 110
+    lines: 120
     statements: 60
