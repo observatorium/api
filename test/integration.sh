@@ -9,7 +9,16 @@ set -euo pipefail
 result=1
 trap 'kill $(jobs -p); exit $result' EXIT
 
-(./tmp/bin/dex serve ./test/config/dex.yaml) &
+OBSERVATORIUM=${OBSERVATORIUM:=./observatorium}
+DEX=${DEX:-dex}
+PROMETHEUS=${PROMETHEUS:-prometheus}
+THANOS=${THANOS:-thanos}
+LOKI=${LOKI:-loki}
+OPA=${OPA:-opa}
+UP=${UP:-up}
+WEBSOCAT=${WEBSOCAT:=websocat}
+
+($DEX serve ./test/config/dex.yaml) &
 
 echo "-------------------------------------------"
 echo "- Getting authentication token...         -"
@@ -29,7 +38,7 @@ token=$(curl --request POST \
   --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
 
 (
-  ./observatorium \
+  $OBSERVATORIUM \
     --web.listen=0.0.0.0:8443 \
     --web.internal.listen=0.0.0.0:8448 \
     --web.healthchecks.url=https://localhost:8443 \
@@ -47,7 +56,7 @@ token=$(curl --request POST \
 ) &
 
 (
-  ./tmp/bin/thanos receive \
+  $THANOS receive \
     --receive.hashrings-file=./test/config/hashrings.json \
     --receive.local-endpoint=127.0.0.1:10901 \
     --receive.default-tenant-id="1610b0c3-c509-4592-a256-a1871353dbfa" \
@@ -59,7 +68,7 @@ token=$(curl --request POST \
 ) &
 
 (
-  ./tmp/bin/thanos query \
+  $THANOS query \
     --grpc-address=127.0.0.1:10911 \
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
@@ -68,7 +77,7 @@ token=$(curl --request POST \
 ) &
 
 (
-  ./tmp/bin/loki \
+  $LOKI \
     -log.level=error \
     -target=all \
     -config.file=./test/config/loki.yml
@@ -88,7 +97,7 @@ echo "-------------------------------------------"
 echo "- Metrics tests                           -"
 echo "-------------------------------------------"
 
-if ./tmp/bin/up \
+if $UP \
   --listen=0.0.0.0:8888 \
   --endpoint-type=metrics \
   --tls-ca-file=./tmp/certs/ca.pem \
@@ -119,7 +128,7 @@ echo "-------------------------------------------"
 echo "- Logs Read/Write tests                   -"
 echo "-------------------------------------------"
 
-if ./tmp/bin/up \
+if $UP \
   --listen=0.0.0.0:8888 \
   --endpoint-type=logs \
   --tls-ca-file=./tmp/certs/ca.pem \
@@ -160,7 +169,7 @@ write_logs=$(curl \
                "{\"streams\": [{ \"stream\": { \"__name__\": \"up_test\", \"foo\": \"bar\" }, \"values\": [ [ \"$(date '+%s%N')\", \"log line 1\" ] ] }]}" \
                2> /dev/null && echo $?)
 
-tail_logs=$(./tmp/bin/websocat \
+tail_logs=$($WEBSOCAT \
               -b -1 -U -H="Authorization: Bearer $token" \
               --ws-c-uri=wss://127.0.0.1:8443/api/logs/v1/test-oidc/api/v1/tail\?query=%7Bfoo%3D%22bar%22%2C__name__%3D%22up_test%22%7D  - \
               ws-c:cmd:'openssl s_client -connect 127.0.0.1:8443 -CAfile ./tmp/certs/ca.pem -quiet' \

@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/timestamp"
 	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/promql/parser"
 )
 
 type response struct {
@@ -23,13 +24,13 @@ type response struct {
 	Warnings  []string    `json:"warnings,omitempty"`
 }
 type queryData struct {
-	ResultType promql.ValueType `json:"resultType"`
-	Result     promql.Value     `json:"result"`
+	ResultType parser.ValueType `json:"resultType"`
+	Result     parser.Value     `json:"result"`
 }
 
 var (
 	data = queryData{
-		ResultType: promql.ValueTypeScalar,
+		ResultType: parser.ValueTypeScalar,
 		Result: promql.Scalar{
 			V: 0.333,
 			T: timestamp.FromTime(time.Unix(0, 0).Add(123 * time.Second)),
@@ -37,7 +38,7 @@ var (
 	}
 
 	rangeData = queryData{
-		ResultType: promql.ValueTypeVector,
+		ResultType: parser.ValueTypeVector,
 		Result: promql.Vector{
 			{
 				Metric: labels.Labels{

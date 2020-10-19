@@ -47,8 +47,7 @@ type RoleBinding struct {
 	Roles    []string  `json:"roles"`
 }
 
-// TODO: move interface definition.
-// Authorizer can authorize a subject's permission for a tentant's resource.
+// Authorizer can authorize a subject's permission for a tenant's resource.
 type Authorizer interface {
 	// Authorize answers the question: can subject S in groups G perform permission P on resource R for Tenant T?
 	Authorize(subject string, groups []string, permission Permission, resource, tenant string) bool
@@ -79,6 +78,7 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 	}
 
 	var pmap map[Subject]struct{}
+
 	switch permission {
 	case Read:
 		pmap = t.read
@@ -101,14 +101,16 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 	return false
 }
 
+//nolint:gocognit
 // NewAuthorizer creates a new Authorizer.
-func NewAuthorzer(roles []Role, roleBindings []RoleBinding) Authorizer {
+func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
 	rs := make(map[string]Role)
 	for _, role := range roles {
 		rs[role.Name] = role
 	}
 
 	resources := make(resources)
+
 	for _, rb := range roleBindings {
 		for _, roleName := range rb.Roles {
 			role, ok := rs[roleName]
@@ -160,9 +162,10 @@ func Parse(r io.Reader) (Authorizer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read RBAC data: %w", err)
 	}
+
 	if err := yaml.Unmarshal(raw, &rbac); err != nil {
 		return nil, fmt.Errorf("could not parse RBAC data: %w", err)
 	}
 
-	return NewAuthorzer(rbac.Roles, rbac.RoleBindings), nil
+	return NewAuthorizer(rbac.Roles, rbac.RoleBindings), nil
 }

@@ -116,6 +116,7 @@ const (
 	gracePeriod = 2 * time.Minute
 )
 
+//nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
 	if err != nil {

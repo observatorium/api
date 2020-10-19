@@ -1,3 +1,5 @@
+include .bingo/Variables.mk
+
 SHELL=/usr/bin/env bash -o pipefail
 TMP_DIR := $(shell pwd)/tmp
 BIN_DIR ?= $(TMP_DIR)/bin
@@ -27,7 +29,6 @@ THANOS ?= $(BIN_DIR)/thanos
 THANOS_VERSION ?= 0.13.0
 PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
-
 LOKI ?= $(BIN_DIR)/loki
 LOKI_VERSION ?= 1.5.0
 WEBSOCAT ?= $(BIN_DIR)/websocat
@@ -39,21 +40,10 @@ else
 	WEBSOCAT_PKG = "websocat_mac"
 endif
 
-UP ?= $(BIN_DIR)/up
-DEX ?= $(BIN_DIR)/dex
-MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 PROMREMOTEBENCH ?= $(BIN_DIR)/promremotebench
 PROMREMOTEBENCH_VERSION ?= 0.8.0
-STYX ?= $(BIN_DIR)/styx
-
-GOLANGCILINT ?= $(FIRST_GOPATH)/bin/golangci-lint
-GOLANGCILINT_VERSION ?= v1.21.0
-EMBEDMD ?= $(BIN_DIR)/embedmd
-JSONNET ?= $(BIN_DIR)/jsonnet
-JSONNET_BUNDLER ?= $(BIN_DIR)/jb
-JSONNET_FMT ?= $(BIN_DIR)/jsonnetfmt
-GOJSONTOYAML ?= $(BIN_DIR)/gojsontoyaml
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
+MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 GENERATE_TLS_CERT ?= $(BIN_DIR)/generate-tls-cert
 
 SERVER_CERT ?= $(CERT_DIR)/server.pem
@@ -61,18 +51,18 @@ SERVER_CERT ?= $(CERT_DIR)/server.pem
 default: observatorium
 all: clean lint test observatorium
 
-tmp/help.txt: observatorium
-	./observatorium --help &> tmp/help.txt || true
+tmp/help.txt: observatorium $(TMP_DIR)
+	./observatorium --help &> $(TMP_DIR)/help.txt || true
 
-tmp/load_help.txt:
-	-./test/load.sh -h > tmp/load_help.txt 2&>1
+tmp/load_help.txt: $(TMP_DIR)
+	-./test/load.sh -h > $(TMP_DIR)/load_help.txt 2&>1
 
 README.md: $(EMBEDMD) tmp/help.txt
 	$(EMBEDMD) -w README.md
 
 benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	-rm -rf ./docs/loadtests
-	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
+	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 	$(EMBEDMD) -w docs/benchmark.md
 
 observatorium: vendor main.go $(wildcard *.go) $(wildcard */*.go)
@@ -85,21 +75,35 @@ build: observatorium
 vendor: go.mod go.sum
 	go mod vendor
 
+.PHONY: run
+run: build $(THANOS) $(DEX) $(LOKI) generate-cert
+	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/run-local.sh
+
+.PHONY: deps
+deps: go.mod go.sum
+	go mod tidy
+	go mod download
+	go mod verify
+
 .PHONY: format
-format: $(GOLANGCILINT)
-	$(GOLANGCILINT) run --fix --enable-all -c .golangci.yml
+format: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run --fix --enable-all -c .golangci.yml
 
 .PHONY: go-fmt
 go-fmt:
 	@fmt_res=$$(gofmt -d -s $$(find . -type f -name '*.go' -not -path './vendor/*' -not -path './jsonnet/vendor/*' -not -path '${TMP_DIR}/*')); if [ -n "$$fmt_res" ]; then printf '\nGofmt found style issues. Please check the reported issues\nand fix them if necessary before submitting the code for review:\n\n%s' "$$fmt_res"; exit 1; fi
+
+.PHONY: validate
+validate: $(KUBEVAL)
+	$(KUBEVAL) examples/manifests/*.yaml
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
 	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*" -not -path "${TMP_DIR}/*")
 
 .PHONY: lint
-lint: $(GOLANGCILINT) vendor go-fmt shellcheck jsonnet-fmt
-	$(GOLANGCILINT) run -v --enable-all -c .golangci.yml
+lint: $(GOLANGCI_LINT) deps shellcheck jsonnet-fmt
+	$(GOLANGCI_LINT) run -v --enable-all -c .golangci.yml
 
 .PHONY: test
 test: build test-unit test-integration
@@ -110,11 +114,11 @@ test-unit:
 
 .PHONY: test-integration
 test-integration: build integration-test-dependencies generate-cert
-	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/integration.sh
+	THANOS=$(THANOS) UP=$(UP) DEX=$(DEX) LOKI=$(LOKI) WOBSOCAT=$(WEBSOCAT) OPA=$(OPA) ./test/integration.sh
 
 .PHONY: test-load
 test-load: build load-test-dependencies
-	PATH=$$PATH:$$(pwd)/$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh
+	PROMREMOTEBENCH=$(PROMREMOTEBENCH) PROMETHEUS=$(PROMETHEUS) STYX=$(STYX) MOCKPROVIDER=$(MOCKPROVIDER) ./test/load.sh
 
 .PHONY: clean
 clean:
@@ -146,20 +150,22 @@ container-release: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies
-
 integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
 
 .PHONY: test-dependencies
-test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCILINT) $(SHELLCHECK)
+test-dependencies: $(THANOS) $(UP) $(EMBEDMD) $(GOLANGCI_LINT) $(SHELLCHECK)
 
 $(SERVER_CERT): | $(GENERATE_TLS_CERT) $(CERT_DIR)
 	cd $(CERT_DIR) && $(GENERATE_TLS_CERT)
 
 # Generate TLS certificates for local development.
 generate-cert: $(SERVER_CERT) | $(GENERATE_TLS_CERT)
+
+$(TMP_DIR):
+	mkdir -p $(TMP_DIR)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -189,49 +195,20 @@ $(WEBSOCAT): | $(BIN_DIR)
 	mv $(WEBSOCAT_PKG) websocat && \
 	chmod u+x websocat
 
-$(UP): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/observatorium/up/cmd/up
-
-$(DEX): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/dexidp/dex/cmd/dex
-
-$(MOCKPROVIDER): | vendor $(BIN_DIR)
-	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/mock
-
-$(PROMREMOTEBENCH): | vendor $(BIN_DIR)
+$(PROMREMOTEBENCH): | $(BIN_DIR)
 	mkdir -p $(TMP_DIR)/promremotebench
 	curl -L https://github.com/m3dbx/promremotebench/archive/v$(PROMREMOTEBENCH_VERSION).tar.gz | tar --strip-components=1 -xzf - -C $(TMP_DIR)/promremotebench
 	cd $(TMP_DIR)/promremotebench/src && \
 		go build ./cmd/promremotebench
 	mv $(TMP_DIR)/promremotebench/src/promremotebench $@
 
-$(EMBEDMD): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/campoy/embedmd
-
-$(STYX): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/go-pluto/styx
-
-$(GOJSONTOYAML): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/brancz/gojsontoyaml
-
-$(JSONNET): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnet
-
-$(JSONNET_FMT): vendor |  $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/google/go-jsonnet/cmd/jsonnetfmt
-
-$(JSONNET_BUNDLER): | vendor $(BIN_DIR)
-	go build -mod=vendor -o $@ github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb
-
-$(GOLANGCILINT):
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCILINT_VERSION)/install.sh \
-		| sed -e '/install -d/d' \
-		| sh -s -- -b $(FIRST_GOPATH)/bin $(GOLANGCILINT_VERSION)
-
 $(SHELLCHECK): $(BIN_DIR)
 	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
-$(GENERATE_TLS_CERT): | vendor $(BIN_DIR)
+$(MOCKPROVIDER): | deps $(BIN_DIR)
+	go build  -tags tools -o $@ github.com/observatorium/observatorium/test/mock
+
+$(GENERATE_TLS_CERT): | deps $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
 	go build -mod=vendor -tags tools -o $@ github.com/observatorium/observatorium/test/tls
 
@@ -263,8 +240,8 @@ examples/vendor: examples/jsonnetfile.json examples/jsonnetfile.lock.json | $(JS
 	cd examples && $(JSONNET_BUNDLER) install
 
 JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'examples/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
-JSONNET_FMT_CMD := $(JSONNET_FMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
+JSONNETFMT_CMD := $(JSONNETFMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
 
 .PHONY: jsonnet-fmt
-jsonnet-fmt: | $(JSONNET_FMT)
-	PATH=$$PATH:$$(pwd)/$(BIN_DIR) echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNET_FMT_CMD) -i
+jsonnet-fmt: | $(JSONNETFMT)
+	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i

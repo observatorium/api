@@ -10,8 +10,9 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
-	"github.com/observatorium/observatorium/internal/proxy"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/observatorium/observatorium/internal/proxy"
 )
 
 const (
@@ -81,6 +82,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
 	}
+
 	for _, o := range opts {
 		o(c)
 	}
