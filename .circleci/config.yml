@@ -35,7 +35,7 @@ jobs:
       - run: |
           make README.md
           make generate validate --always-make
-          apt-get update; apt-get install zip unzip
+          apt-get update && apt-get -y install unzip
           make proto
           git diff --exit-code
 

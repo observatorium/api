@@ -110,7 +110,6 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 			Requests: []*gubernator.RateLimitReq{l.req},
 		})
 		if err != nil {
-			// TODO(kakkoyun): Should we add metric and fail gracefully gracefully?
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

@@ -35,7 +35,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
 	"go.uber.org/automaxprocs/maxprocs"
-	"google.golang.org/grpc"
 
 	logsv1 "github.com/observatorium/observatorium/api/logs/v1"
 	metricslegacy "github.com/observatorium/observatorium/api/metrics/legacy"
@@ -56,6 +55,7 @@ const (
 	writeTimeout = 2 * time.Minute
 	gracePeriod
 	middlewareTimeout
+	grpcDialTimeout = 1 * time.Second
 )
 
 type config struct {
@@ -282,12 +282,10 @@ func main() {
 	var gubernatorClient gubernator.V1Client
 
 	if cfg.rateLimiterAddress != "" {
-		conn, err := grpc.Dial(cfg.rateLimiterAddress, grpc.WithInsecure())
-		if err != nil {
-			stdlog.Fatalf("failed to dial gubernator with %q: %v", cfg.rateLimiterAddress, err)
-		}
+		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
+		defer cancel()
 
-		gubernatorClient = gubernator.NewV1Client(conn)
+		gubernatorClient = gubernator.NewClient(reg, ctx, cfg.rateLimiterAddress)
 	}
 
 	level.Info(logger).Log("msg", "starting observatorium")
