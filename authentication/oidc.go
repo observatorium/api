@@ -22,9 +22,15 @@ const (
 	state = "I love Observatorium"
 )
 
-// OIDCConfig represents the OIDC configuration for a single tenant.
+// TenantOIDCConfig represents the OIDC configuration for a single tenant.
+type TenantOIDCConfig struct {
+	Tenant string
+
+	OIDCConfig
+}
+
+// OIDCConfig represents a generic OIDC configuration.
 type OIDCConfig struct {
-	Tenant        string
 	IssuerCA      *x509.Certificate
 	IssuerURL     string
 	ClientID      string
@@ -40,13 +46,13 @@ type Middleware func(http.Handler) http.Handler
 // NewOIDC creates a single http.Handler and a set of Middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(logger log.Logger, configs []OIDCConfig) (http.Handler, map[string]Middleware, []error) {
+func NewOIDC(logger log.Logger, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
 	handlers := map[string]http.Handler{}
 	middlewares := map[string]Middleware{}
 	warnings := make([]error, 0, len(configs))
 
 	for _, c := range configs {
-		h, m, err := newProvider(logger, c)
+		h, m, err := NewProvider(logger, getCookieForTenant(c.Tenant), "/"+c.Tenant, c.OIDCConfig)
 		if err != nil {
 			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
 			continue
@@ -77,8 +83,10 @@ func NewOIDC(logger log.Logger, configs []OIDCConfig) (http.Handler, map[string]
 	return r, middlewares, warnings
 }
 
+// NewProvider creates a handler to allow users to authenticate as well as a
+// middleware to authenticate subsequent user requests.
 //nolint:funlen,gocognit
-func newProvider(logger log.Logger, config OIDCConfig) (http.Handler, Middleware, error) {
+func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config OIDCConfig) (http.Handler, Middleware, error) {
 	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -134,7 +142,7 @@ func newProvider(logger log.Logger, config OIDCConfig) (http.Handler, Middleware
 
 				token = authorization[1]
 			} else {
-				cookie, err := r.Cookie(getCookieForTenant(config.Tenant))
+				cookie, err := r.Cookie(cookieName)
 				if err != nil {
 					tenant, ok := GetTenant(r.Context())
 					if !ok {
@@ -277,13 +285,13 @@ func newProvider(logger log.Logger, config OIDCConfig) (http.Handler, Middleware
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:    getCookieForTenant(config.Tenant),
+			Name:    cookieName,
 			Value:   rawIDToken,
 			Path:    "/",
 			Expires: token.Expiry,
 		})
 
-		http.Redirect(w, r, "/"+config.Tenant, http.StatusFound)
+		http.Redirect(w, r, callbackRedirect, http.StatusFound)
 	})
 
 	return r, m, nil
