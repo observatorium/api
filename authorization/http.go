@@ -3,7 +3,7 @@ package authorization
 import (
 	"net/http"
 
-	"github.com/observatorium/observatorium/internal/authentication"
+	"github.com/observatorium/observatorium/authentication"
 	"github.com/observatorium/observatorium/rbac"
 )
 

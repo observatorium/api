@@ -12,7 +12,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/observatorium/observatorium/internal/proxy"
+	"github.com/observatorium/observatorium/proxy"
 )
 
 const (

@@ -33,16 +33,16 @@ import (
 	"github.com/prometheus/common/version"
 	"go.uber.org/automaxprocs/maxprocs"
 
-	"github.com/observatorium/observatorium/internal"
-	logsv1 "github.com/observatorium/observatorium/internal/api/logs/v1"
-	metricslegacy "github.com/observatorium/observatorium/internal/api/metrics/legacy"
-	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
-	"github.com/observatorium/observatorium/internal/authentication"
-	"github.com/observatorium/observatorium/internal/authorization"
-	"github.com/observatorium/observatorium/internal/server"
-	"github.com/observatorium/observatorium/internal/tls"
+	logsv1 "github.com/observatorium/observatorium/api/logs/v1"
+	metricslegacy "github.com/observatorium/observatorium/api/metrics/legacy"
+	metricsv1 "github.com/observatorium/observatorium/api/metrics/v1"
+	"github.com/observatorium/observatorium/authentication"
+	"github.com/observatorium/observatorium/authorization"
+	"github.com/observatorium/observatorium/logger"
 	"github.com/observatorium/observatorium/opa"
 	"github.com/observatorium/observatorium/rbac"
+	"github.com/observatorium/observatorium/server"
+	"github.com/observatorium/observatorium/tls"
 )
 
 type config struct {
@@ -112,7 +112,7 @@ func main() {
 		stdlog.Fatalf("parse flag: %v", err)
 	}
 
-	logger := internal.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
+	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
 
 	type tenant struct {
@@ -539,7 +539,7 @@ func parseFlags() (config, error) {
 		"The percentage of goroutine blocking events that are reported in the blocking profile.")
 	flag.StringVar(&cfg.logLevel, "log.level", "info",
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
-	flag.StringVar(&cfg.logFormat, "log.format", internal.LogFormatLogfmt,
+	flag.StringVar(&cfg.logFormat, "log.format", logger.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which the public server listens.")
