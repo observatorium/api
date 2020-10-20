@@ -52,14 +52,18 @@ func NewOIDC(logger log.Logger, configs []TenantOIDCConfig) (http.Handler, map[s
 	warnings := make([]error, 0, len(configs))
 
 	for _, c := range configs {
-		h, m, err := NewProvider(logger, getCookieForTenant(c.Tenant), "/"+c.Tenant, c.OIDCConfig)
+		p, err := NewProvider(context.TODO(), logger, getCookieForTenant(c.Tenant), "/"+c.Tenant, c.OIDCConfig)
 		if err != nil {
 			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
 			continue
 		}
 
-		handlers[c.Tenant] = h
-		middlewares[c.Tenant] = m
+		r := chi.NewRouter()
+		r.Handle("/login", p.LoginHandler())
+		r.Handle("/callback", p.CallbackHandler())
+
+		handlers[c.Tenant] = r
+		middlewares[c.Tenant] = p.Middleware()
 	}
 
 	r := chi.NewRouter()
@@ -83,10 +87,26 @@ func NewOIDC(logger log.Logger, configs []TenantOIDCConfig) (http.Handler, map[s
 	return r, middlewares, warnings
 }
 
-// NewProvider creates a handler to allow users to authenticate as well as a
-// middleware to authenticate subsequent user requests.
-//nolint:funlen,gocognit
-func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config OIDCConfig) (http.Handler, Middleware, error) {
+func getCookieForTenant(tenant string) string {
+	return fmt.Sprintf("observatorium_%s", tenant)
+}
+
+// OIDCProvider wraps the oidc.Provider in an opinionated way to create login
+// and callback handlers as well as HTTP middlewares to authenticate requests
+// against the provider.
+type OIDCProvider struct {
+	logger       log.Logger
+	provider     *oidc.Provider
+	client       *http.Client
+	config       OIDCConfig
+	cookieName   string
+	redirectURL  string
+	oauth2Config oauth2.Config
+	verifier     *oidc.IDTokenVerifier
+}
+
+// NewProvider creates a new OIDCProvider.
+func NewProvider(ctx context.Context, logger log.Logger, cookieName, redirectURL string, config OIDCConfig) (*OIDCProvider, error) {
 	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -111,12 +131,10 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 		Transport: t,
 	}
 
-	provider, err := oidc.NewProvider(oidc.ClientContext(context.TODO(), client), config.IssuerURL)
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, client), config.IssuerURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	verifier := provider.Verifier(&oidc.Config{ClientID: config.ClientID})
 
 	oauth2Config := oauth2.Config{
 		ClientID:     config.ClientID,
@@ -126,7 +144,31 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 		Scopes:       []string{"openid", "profile", "email", "groups"},
 	}
 
-	m := func(next http.Handler) http.Handler {
+	verifier := provider.Verifier(&oidc.Config{ClientID: config.ClientID})
+
+	return &OIDCProvider{
+		logger:       logger,
+		provider:     provider,
+		client:       client,
+		config:       config,
+		cookieName:   cookieName,
+		redirectURL:  redirectURL,
+		oauth2Config: oauth2Config,
+		verifier:     verifier,
+	}, nil
+}
+
+// OIDCProvider returns the internal oidc.Provider, this can be used to for
+// example access the UserInfo function of the provider.
+func (p *OIDCProvider) OIDCProvider() *oidc.Provider {
+	return p.provider
+}
+
+// Middleware creates an HTTP middleware, that can be used to wrap a
+// http.Handler to authenticate requests for it.
+//nolint:gocognit
+func (p *OIDCProvider) Middleware() Middleware {
+	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var token string
 
@@ -135,19 +177,19 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 				authorization := strings.Split(authorizationHeader, " ")
 				if len(authorization) != 2 {
 					const msg = "invalid Authorization header"
-					level.Debug(logger).Log("msg", msg)
+					level.Debug(p.logger).Log("msg", msg)
 					http.Error(w, msg, http.StatusUnauthorized)
 					return
 				}
 
 				token = authorization[1]
 			} else {
-				cookie, err := r.Cookie(cookieName)
+				cookie, err := r.Cookie(p.cookieName)
 				if err != nil {
 					tenant, ok := GetTenant(r.Context())
 					if !ok {
 						const msg = "error finding tenant"
-						level.Warn(logger).Log("msg", msg)
+						level.Warn(p.logger).Log("msg", msg)
 						http.Error(w, msg, http.StatusInternalServerError)
 						return
 					}
@@ -159,34 +201,34 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 				token = cookie.Value
 			}
 
-			idToken, err := verifier.Verify(oidc.ClientContext(r.Context(), client), token)
+			idToken, err := p.verifier.Verify(oidc.ClientContext(r.Context(), p.client), token)
 			if err != nil {
 				const msg = "failed to authenticate"
-				level.Debug(logger).Log("msg", msg, "err", err)
+				level.Debug(p.logger).Log("msg", msg, "err", err)
 				http.Error(w, msg, http.StatusBadRequest)
 				return
 			}
 
 			sub := idToken.Subject
-			if config.UsernameClaim != "" {
+			if p.config.UsernameClaim != "" {
 				claims := map[string]interface{}{}
 				if err := idToken.Claims(&claims); err != nil {
 					const msg = "failed to read claims"
-					level.Warn(logger).Log("msg", msg, "err", err)
+					level.Warn(p.logger).Log("msg", msg, "err", err)
 					http.Error(w, msg, http.StatusInternalServerError)
 					return
 				}
-				rawUsername, ok := claims[config.UsernameClaim]
+				rawUsername, ok := claims[p.config.UsernameClaim]
 				if !ok {
 					const msg = "username cannot be empty"
-					level.Debug(logger).Log("msg", msg)
+					level.Debug(p.logger).Log("msg", msg)
 					http.Error(w, msg, http.StatusBadRequest)
 					return
 				}
 				username, ok := rawUsername.(string)
 				if !ok || username == "" {
 					const msg = "invalid username claim value"
-					level.Debug(logger).Log("msg", msg)
+					level.Debug(p.logger).Log("msg", msg)
 					http.Error(w, msg, http.StatusBadRequest)
 					return
 				}
@@ -194,19 +236,19 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 			}
 			ctx := context.WithValue(r.Context(), subjectKey, sub)
 
-			if config.GroupClaim != "" {
+			if p.config.GroupClaim != "" {
 				var groups []string
 				claims := map[string]interface{}{}
 				if err := idToken.Claims(&claims); err != nil {
 					const msg = "failed to read claims"
-					level.Warn(logger).Log("msg", msg, "err", err)
+					level.Warn(p.logger).Log("msg", msg, "err", err)
 					http.Error(w, msg, http.StatusInternalServerError)
 					return
 				}
-				rawGroup, ok := claims[config.GroupClaim]
+				rawGroup, ok := claims[p.config.GroupClaim]
 				if !ok {
 					const msg = "group cannot be empty"
-					level.Debug(logger).Log("msg", msg)
+					level.Debug(p.logger).Log("msg", msg)
 					http.Error(w, msg, http.StatusBadRequest)
 					return
 				}
@@ -227,20 +269,26 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
 
-	r := chi.NewRouter()
-	r.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		url := oauth2Config.AuthCodeURL(state)
+// LoginHandler returns a http.Handler, that starts the OIDC flow.
+func (p *OIDCProvider) LoginHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		url := p.oauth2Config.AuthCodeURL(state)
 		http.Redirect(w, r, url, http.StatusSeeOther)
 	})
+}
 
-	r.Get("/callback", func(w http.ResponseWriter, r *http.Request) {
-		ctx := oidc.ClientContext(r.Context(), client)
+// CallbackHandler returns a http.Handler, that is meant to be redirected to
+// after the provider has authenticated the user.
+func (p *OIDCProvider) CallbackHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := oidc.ClientContext(r.Context(), p.client)
 
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			desc := r.URL.Query().Get("error_description")
 			msg := fmt.Sprintf("%s: %s", errMsg, desc)
-			level.Debug(logger).Log("msg", msg)
+			level.Debug(p.logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
@@ -248,22 +296,22 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 		queryCode := r.URL.Query().Get("code")
 		if queryCode == "" {
 			const msg = "no code in request"
-			level.Debug(logger).Log("msg", msg)
+			level.Debug(p.logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 		queryState := r.URL.Query().Get("state")
 		if queryState != state {
 			const msg = "incorrect state in request"
-			level.Debug(logger).Log("msg", msg)
+			level.Debug(p.logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
 
-		token, err := oauth2Config.Exchange(ctx, queryCode)
+		token, err := p.oauth2Config.Exchange(ctx, queryCode)
 		if err != nil {
 			msg := fmt.Sprintf("failed to get token: %v", err)
-			level.Warn(logger).Log("msg", msg, "err", err)
+			level.Warn(p.logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
@@ -271,32 +319,26 @@ func NewProvider(logger log.Logger, cookieName, callbackRedirect string, config 
 		rawIDToken, ok := token.Extra("id_token").(string)
 		if !ok {
 			const msg = "no id_token in token response"
-			level.Warn(logger).Log("msg", msg)
+			level.Warn(p.logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
-		_, err = verifier.Verify(ctx, rawIDToken)
+		_, err = p.verifier.Verify(ctx, rawIDToken)
 		if err != nil {
 			msg := fmt.Sprintf("failed to verify ID token: %v", err)
-			level.Warn(logger).Log("msg", msg)
+			level.Warn(p.logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
 		http.SetCookie(w, &http.Cookie{
-			Name:    cookieName,
+			Name:    p.cookieName,
 			Value:   rawIDToken,
 			Path:    "/",
 			Expires: token.Expiry,
 		})
 
-		http.Redirect(w, r, callbackRedirect, http.StatusFound)
+		http.Redirect(w, r, p.redirectURL, http.StatusFound)
 	})
-
-	return r, m, nil
-}
-
-func getCookieForTenant(tenant string) string {
-	return fmt.Sprintf("observatorium_%s", tenant)
 }
