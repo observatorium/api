@@ -324,7 +324,7 @@ func main() {
 			r.Use(authentication.WithTenant)
 
 			tenantIDs := map[string]string{}
-			var oidcs []authentication.OIDCConfig
+			var oidcs []authentication.TenantOIDCConfig
 			var mTLSs []authentication.MTLSConfig
 			authorizers := map[string]rbac.Authorizer{}
 			for _, t := range tenantsCfg.Tenants {
@@ -335,15 +335,17 @@ func main() {
 				tenantIDs[t.Name] = t.ID
 				switch {
 				case t.OIDC != nil:
-					oidcs = append(oidcs, authentication.OIDCConfig{
-						Tenant:        t.Name,
-						ClientID:      t.OIDC.ClientID,
-						ClientSecret:  t.OIDC.ClientSecret,
-						GroupClaim:    t.OIDC.GroupClaim,
-						IssuerCA:      t.OIDC.issuerCA,
-						IssuerURL:     t.OIDC.IssuerURL,
-						RedirectURL:   t.OIDC.RedirectURL,
-						UsernameClaim: t.OIDC.UsernameClaim,
+					oidcs = append(oidcs, authentication.TenantOIDCConfig{
+						Tenant: t.Name,
+						OIDCConfig: authentication.OIDCConfig{
+							ClientID:      t.OIDC.ClientID,
+							ClientSecret:  t.OIDC.ClientSecret,
+							GroupClaim:    t.OIDC.GroupClaim,
+							IssuerCA:      t.OIDC.issuerCA,
+							IssuerURL:     t.OIDC.IssuerURL,
+							RedirectURL:   t.OIDC.RedirectURL,
+							UsernameClaim: t.OIDC.UsernameClaim,
+						},
 					})
 				case t.MTLS != nil:
 					mTLSs = append(mTLSs, authentication.MTLSConfig{
