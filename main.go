@@ -44,7 +44,6 @@ import (
 	"github.com/observatorium/observatorium/logger"
 	"github.com/observatorium/observatorium/opa"
 	"github.com/observatorium/observatorium/ratelimit"
-	"github.com/observatorium/observatorium/ratelimit/gubernator"
 	"github.com/observatorium/observatorium/rbac"
 	"github.com/observatorium/observatorium/server"
 	"github.com/observatorium/observatorium/tls"
@@ -279,13 +278,16 @@ func main() {
 
 	defer undo()
 
-	var gubernatorClient gubernator.V1Client
+	var ratelimitClient *ratelimit.Client
 
 	if cfg.rateLimiterAddress != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
 		defer cancel()
 
-		gubernatorClient = gubernator.NewClient(reg, ctx, cfg.rateLimiterAddress)
+		ratelimitClient = ratelimit.NewClient(reg)
+		if err := ratelimitClient.Dial(ctx, cfg.rateLimiterAddress); err != nil {
+			stdlog.Fatal(err)
+		}
 	}
 
 	level.Info(logger).Log("msg", "starting observatorium")
@@ -408,8 +410,8 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
-				if gubernatorClient != nil {
-					r.Use(ratelimit.WithSharedRateLimiter(gubernatorClient, rateLimits...))
+				if ratelimitClient != nil {
+					r.Use(ratelimit.WithSharedRateLimiter(ratelimitClient, rateLimits...))
 				} else {
 					r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
 				}

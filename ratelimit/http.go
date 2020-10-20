@@ -10,7 +10,6 @@ import (
 	"github.com/go-chi/httprate"
 
 	"github.com/observatorium/observatorium/authentication"
-	"github.com/observatorium/observatorium/ratelimit/gubernator"
 )
 
 const (
@@ -49,16 +48,14 @@ func WithLocalRateLimiter(configs ...Config) Middleware {
 }
 
 // WithSharedRateLimiter returns a middleware that controls amount of requests per tenant using external service.
-func WithSharedRateLimiter(client gubernator.V1Client, configs ...Config) Middleware {
+func WithSharedRateLimiter(client *Client, configs ...Config) Middleware {
 	middlewares := make(map[string][]middleware)
 	for _, c := range configs {
-		middlewares[c.Tenant] = append(middlewares[c.Tenant], middleware{c.Matcher, rateLimiter{client, &gubernator.RateLimitReq{
-			Name:      requestName,
-			UniqueKey: fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
-			Hits:      1,
-			Limit:     int64(c.Limit),
-			Duration:  c.Window.Microseconds(),
-			Algorithm: gubernator.Algorithm_LEAKY_BUCKET,
+		middlewares[c.Tenant] = append(middlewares[c.Tenant], middleware{c.Matcher, rateLimiter{client, &request{
+			name:     requestName,
+			key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
+			limit:    int64(c.Limit),
+			duration: c.Window.Microseconds(),
 		}}.Handler})
 	}
 
@@ -96,9 +93,9 @@ func combine(middlewares map[string][]middleware) func(next http.Handler) http.H
 }
 
 type rateLimiter struct {
-	client gubernator.V1Client
+	client *Client
 
-	req *gubernator.RateLimitReq
+	req *request
 }
 
 func (l rateLimiter) Handler(next http.Handler) http.Handler {
@@ -106,20 +103,18 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 		ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 		defer cancel()
 
-		resp, err := l.client.GetRateLimits(ctx, &gubernator.GetRateLimitsReq{
-			Requests: []*gubernator.RateLimitReq{l.req},
-		})
+		remaining, resetTime, err := l.client.GetRateLimits(ctx, l.req)
+		w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", l.req.limit))
+		w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+		w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime))
+
 		if err != nil {
+			if err == errOverLimit {
+				http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+				return
+			}
+
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", l.req.Limit))
-		w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", resp.Responses[0].Remaining))
-		w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", resp.Responses[0].ResetTime))
-
-		if resp.Responses[0].Status == gubernator.Status_OVER_LIMIT {
-			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
 

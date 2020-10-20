@@ -1,17 +1,34 @@
-package gubernator
+package ratelimit
 
 import (
 	"context"
-	stdlog "log"
+	"errors"
+	"fmt"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+
+	"github.com/observatorium/observatorium/ratelimit/gubernator"
 )
 
+var errOverLimit = errors.New("over limit")
+
+type request struct {
+	name     string
+	key      string
+	limit    int64
+	duration int64
+}
+
+type Client struct {
+	dialOpts []grpc.DialOption
+	client   gubernator.V1Client
+}
+
 // NewClient creates a new gubernator client with default configuration.
-func NewClient(ctx context.Context, reg prometheus.Registerer, address string) V1Client {
+func NewClient(reg prometheus.Registerer) *Client {
 	grpcMetrics := grpc_prometheus.NewClientMetrics()
 	grpcMetrics.EnableClientHandlingTimeHistogram()
 	dialOpts := []grpc.DialOption{
@@ -28,10 +45,38 @@ func NewClient(ctx context.Context, reg prometheus.Registerer, address string) V
 		reg.MustRegister(grpcMetrics)
 	}
 
-	conn, err := grpc.DialContext(ctx, address, dialOpts...)
+	return &Client{dialOpts: dialOpts}
+}
+
+func (c *Client) Dial(ctx context.Context, address string) error {
+	conn, err := grpc.DialContext(ctx, address, c.dialOpts...)
 	if err != nil {
-		stdlog.Fatalf("failed to dial gubernator with %q: %v", address, err)
+		return fmt.Errorf("failed to dial gubernator with %q: %v", address, err)
 	}
 
-	return NewV1Client(conn)
+	c.client = gubernator.NewV1Client(conn)
+
+	return nil
+}
+
+func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
+	resp, err := c.client.GetRateLimits(ctx, &gubernator.GetRateLimitsReq{
+		Requests: []*gubernator.RateLimitReq{{
+			Name:      req.name,
+			UniqueKey: req.key,
+			Hits:      1,
+			Limit:     req.limit,
+			Duration:  req.duration,
+			Algorithm: gubernator.Algorithm_LEAKY_BUCKET,
+		}},
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if resp.Responses[0].Status == gubernator.Status_OVER_LIMIT {
+		return 0, 0, errOverLimit
+	}
+
+	return resp.Responses[0].Remaining, resp.Responses[0].ResetTime, nil
 }
