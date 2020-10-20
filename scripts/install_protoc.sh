@@ -4,6 +4,7 @@ set -euo pipefail
 
 PROTOC_VERSION=${PROTOC_VERSION:-3.13.0}
 TMP_DIR=${TMP_DIR:-./tmp}
+BIN_DIR=${BIN_DIR:-./tmp/bin}
 PROTOC_DOWNLOAD_URL="https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}"
 
 OS=$(go env GOOS)
@@ -55,4 +56,4 @@ PACKAGE="protoc-${PROTOC_VERSION}-${OS}-${ARCH}.zip"
 PACKAGE_DOWNLOAD_URL="${PROTOC_DOWNLOAD_URL}/${PACKAGE}"
 curl -LSs "${PACKAGE_DOWNLOAD_URL}" -o "${TMP_DIR}/${PACKAGE}"
 unzip -qq "${TMP_DIR}/${PACKAGE}" -d "${TMP_DIR}/protoc/"
-mv -f "${TMP_DIR}/protoc/bin/protoc" "${TMP_DIR}/bin/"
+mv -f "${TMP_DIR}/protoc/bin/protoc" "${BIN_DIR}"

@@ -220,8 +220,8 @@ $(GENERATE_TLS_CERT): | deps $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
 	go build -tags tools -o $@ github.com/observatorium/observatorium/test/tls
 
-$(PROTOC):
-	@PROTOC_VERSION="$(PROTOC_VERSION)" TMP_DIR="$(TMP_DIR)" scripts/install_protoc.sh
+$(PROTOC): $(TMP_DIR) $(BIN_DIR)
+	@PROTOC_VERSION="$(PROTOC_VERSION)" TMP_DIR="$(TMP_DIR)" BIN_DIR="$(BIN_DIR)" scripts/install_protoc.sh
 
 # Jsonnet and Example manifests.
 
