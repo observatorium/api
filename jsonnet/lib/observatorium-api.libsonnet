@@ -356,4 +356,31 @@
       },
     },
   },
+
+  withRateLimiter:: {
+    local api = self,
+
+    config+:: {
+      rateLimiter:: {
+        grpcAddress: 'must provide metrics grpcAddress',
+      },
+    },
+
+    deployment+: {
+      spec+: {
+        template+: {
+          spec+: {
+            containers: [
+              if c.name == 'observatorium-api' then c {
+                args+: [
+                  '--middleware.rate-limiter.grpc-address=' + api.config.rateLimiter.grpcAddress,
+                ],
+              } else c
+              for c in super.containers
+            ],
+          },
+        },
+      },
+    },
+  },
 }
