@@ -29,7 +29,7 @@ type handlerConfiguration struct {
 	writeMiddlewares []func(http.Handler) http.Handler
 }
 
-// HandlerOption modifies the handler's configuration
+// HandlerOption modifies the handler's configuration.
 type HandlerOption func(h *handlerConfiguration)
 
 // Logger add a custom logger for the handler to use.

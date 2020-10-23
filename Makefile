@@ -43,6 +43,10 @@ PROMREMOTEBENCH_VERSION ?= 0.8.0
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 GENERATE_TLS_CERT ?= $(BIN_DIR)/generate-tls-cert
+
+PROTOC ?= $(TMP_DIR)/protoc
+PROTOC_VERSION ?= 3.13.0
+
 SERVER_CERT ?= $(CERT_DIR)/server.pem
 
 default: observatorium
@@ -88,7 +92,7 @@ validate: $(KUBEVAL)
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
-	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*" -not -path "${TMP_DIR}/*")
+	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*" -not -path "*tmp*")
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT) deps shellcheck jsonnet-fmt
@@ -113,7 +117,22 @@ test-load: build load-test-dependencies
 clean:
 	-rm tmp/help.txt
 	-rm -rf tmp/bin
+	-rm -rf tmp/src
 	-rm observatorium
+
+ratelimit/gubernator/proto/google:
+	mkdir -p $(TMP_DIR)/src/grpc-gateway
+	mkdir -p $(shell dirname $@)
+	curl -L "https://github.com/grpc-ecosystem/grpc-gateway/archive/master.tar.gz" | tar --strip-components=1 -xzf - -C $(TMP_DIR)/src/grpc-gateway
+	mv $(TMP_DIR)/src/grpc-gateway/third_party/googleapis/google $@
+
+ratelimit/gubernator/gubernator.proto:
+	curl -L -o ratelimit/gubernator/gubernator.proto "https://raw.githubusercontent.com/mailgun/gubernator/master/proto/gubernator.proto"
+
+.PHONY: proto
+proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $(PROTOC) $(PROTOC_GEN_GO) $(BIN_DIR)
+	@cp -f $(PROTOC_GEN_GO) $(BIN_DIR)/protoc-gen-go
+	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin scripts/generate_proto.sh
 
 .PHONY: container
 container: Dockerfile
@@ -139,7 +158,7 @@ container-release: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies
-integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT) $(OPA)
+integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT) $(OPA) $(GUBERNATOR)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -184,24 +203,27 @@ $(WEBSOCAT): | $(BIN_DIR)
 	mv $(WEBSOCAT_PKG) websocat && \
 	chmod u+x websocat
 
-$(PROMREMOTEBENCH): | $(BIN_DIR)
-	mkdir -p $(TMP_DIR)/promremotebench
-	curl -L https://github.com/m3dbx/promremotebench/archive/v$(PROMREMOTEBENCH_VERSION).tar.gz | tar --strip-components=1 -xzf - -C $(TMP_DIR)/promremotebench
-	cd $(TMP_DIR)/promremotebench/src && \
+$(PROMREMOTEBENCH): | deps $(BIN_DIR)
+	mkdir -p $(TMP_DIR)/src/promremotebench
+	curl -L https://github.com/m3dbx/promremotebench/archive/v$(PROMREMOTEBENCH_VERSION).tar.gz | tar --strip-components=1 -xzf - -C $(TMP_DIR)/src/promremotebench
+	cd $(TMP_DIR)/src/promremotebench && \
 		go build ./cmd/promremotebench
-	mv $(TMP_DIR)/promremotebench/src/promremotebench $@
+	mv $(TMP_DIR)/src/promremotebench/promremotebench $@
 
 $(SHELLCHECK): $(BIN_DIR)
 	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 $(MOCKPROVIDER): | deps $(BIN_DIR)
-	go build  -tags tools -o $@ github.com/observatorium/observatorium/test/mock
+	go build -tags tools -o $@ github.com/observatorium/observatorium/test/mock
 
 $(GENERATE_TLS_CERT): | deps $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
 	go build -tags tools -o $@ github.com/observatorium/observatorium/test/tls
 
-# Jsonnet and Example manifests
+$(PROTOC): $(TMP_DIR) $(BIN_DIR)
+	@PROTOC_VERSION="$(PROTOC_VERSION)" TMP_DIR="$(TMP_DIR)" BIN_DIR="$(BIN_DIR)" scripts/install_protoc.sh
+
+# Jsonnet and Example manifests.
 
 CONTAINER_CMD:=docker run --rm \
 		-u="$(shell id -u):$(shell id -g)" \

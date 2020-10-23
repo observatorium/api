@@ -27,7 +27,7 @@ type handlerConfiguration struct {
 	writeMiddlewares []func(http.Handler) http.Handler
 }
 
-// HandlerOption modifies the handler's configuration
+// HandlerOption modifies the handler's configuration.
 type HandlerOption func(h *handlerConfiguration)
 
 // Logger add a custom logger for the handler to use.
@@ -75,7 +75,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-// NewHandler creates the new metrics v1 handler
+// NewHandler creates the new metrics v1 handler.
 func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),

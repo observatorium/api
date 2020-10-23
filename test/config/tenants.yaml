@@ -11,11 +11,25 @@ tenants:
   opa:
     query: data.observatorium.allow
     paths:
-    - ./test/config/observatorium.rego
-    - ./test/config/rbac.yaml
+      - ./test/config/observatorium.rego
+      - ./test/config/rbac.yaml
+  rateLimits:
+    - endpoint: "/api/metrics/v1/.+/api/v1/receive"
+      limit: 100
+      window: 1s
+    - endpoint: "/api/logs/v1/.*"
+      limit: 100
+      window: 1s
 - name: test-mtls
   id: 845cdfd9-f936-443c-979c-2ee7dc91f646
   mTLS:
     caPath: ./tmp/certs/ca.pem
   opa:
     url: http://127.0.0.1:8181/v1/data/observatorium/allow
+  rateLimits:
+    - endpoint: "/api/metrics/v1/.+/api/v1/receive"
+      limit: 1
+      window: 1s
+    - endpoint: "/api/logs/v1/.*"
+      limit: 1
+      window: 1s

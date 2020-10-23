@@ -4,7 +4,9 @@ import (
 	"context"
 	stdtls "crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"regexp"
 	"runtime"
 	"strings"
 	"syscall"
@@ -40,17 +43,27 @@ import (
 	"github.com/observatorium/observatorium/authorization"
 	"github.com/observatorium/observatorium/logger"
 	"github.com/observatorium/observatorium/opa"
+	"github.com/observatorium/observatorium/ratelimit"
 	"github.com/observatorium/observatorium/rbac"
 	"github.com/observatorium/observatorium/server"
 	"github.com/observatorium/observatorium/tls"
+)
+
+const (
+	readTimeout  = 15 * time.Minute
+	writeTimeout = 2 * time.Minute
+	gracePeriod
+	middlewareTimeout
+	grpcDialTimeout = 1 * time.Second
 )
 
 type config struct {
 	logLevel  string
 	logFormat string
 
-	rbacConfigPath    string
-	tenantsConfigPath string
+	rbacConfigPath     string
+	tenantsConfigPath  string
+	rateLimiterAddress string
 
 	debug   debugConfig
 	server  serverConfig
@@ -98,13 +111,6 @@ type logsConfig struct {
 	enabled bool
 }
 
-const (
-	readTimeout  = 15 * time.Minute
-	writeTimeout = 2 * time.Minute
-	gracePeriod
-	middlewareTimeout
-)
-
 //nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
@@ -140,6 +146,11 @@ func main() {
 			URL        string   `json:"url"`
 			authorizer rbac.Authorizer
 		} `json:"opa"`
+		RateLimits []*struct {
+			Endpoint string   `json:"endpoint"`
+			Limit    int      `json:"limit"`
+			Window   duration `json:"window"`
+		} `json:"rateLimits"`
 	}
 
 	type tenantsConfig struct {
@@ -267,6 +278,18 @@ func main() {
 
 	defer undo()
 
+	var ratelimitClient *ratelimit.Client
+
+	if cfg.rateLimiterAddress != "" {
+		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
+		defer cancel()
+
+		ratelimitClient = ratelimit.NewClient(reg)
+		if err := ratelimitClient.Dial(ctx, cfg.rateLimiterAddress); err != nil {
+			stdlog.Fatal(err)
+		}
+	}
+
 	level.Info(logger).Log("msg", "starting observatorium")
 
 	var g run.Group
@@ -315,7 +338,7 @@ func main() {
 		r.Use(middleware.RealIP)
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
-		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler
+		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
 		r.Use(server.Logger(logger))
 
 		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
@@ -327,12 +350,27 @@ func main() {
 			var oidcs []authentication.TenantOIDCConfig
 			var mTLSs []authentication.MTLSConfig
 			authorizers := map[string]rbac.Authorizer{}
+			var rateLimits []ratelimit.Config
 			for _, t := range tenantsCfg.Tenants {
 				if t == nil {
 					continue
 				}
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
 				tenantIDs[t.Name] = t.ID
+				if t.RateLimits != nil {
+					for _, rl := range t.RateLimits {
+						matcher, err := regexp.Compile(rl.Endpoint)
+						if err != nil {
+							level.Warn(logger).Log("msg", "failed to compile matched for rate limiter", "err", err)
+						}
+						rateLimits = append(rateLimits, ratelimit.Config{
+							Tenant:  t.Name,
+							Matcher: matcher,
+							Limit:   rl.Limit,
+							Window:  time.Duration(rl.Window),
+						})
+					}
+				}
 				switch {
 				case t.OIDC != nil:
 					oidcs = append(oidcs, authentication.TenantOIDCConfig{
@@ -372,6 +410,11 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
+				if ratelimitClient != nil {
+					r.Use(ratelimit.WithSharedRateLimiter(ratelimitClient, rateLimits...))
+				} else {
+					r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
+				}
 
 				r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 					tenant, ok := authentication.GetTenant(r.Context())
@@ -467,8 +510,8 @@ func main() {
 			Addr:         cfg.server.listen,
 			Handler:      r,
 			TLSConfig:    tlsConfig,
-			ReadTimeout:  readTimeout,  // best set per handler
-			WriteTimeout: writeTimeout, // best set per handler
+			ReadTimeout:  readTimeout,  // best set per handler.
+			WriteTimeout: writeTimeout, // best set per handler.
 		}
 
 		g.Add(func() error {
@@ -517,6 +560,40 @@ func main() {
 	}
 }
 
+// Configuration helpers.
+
+type duration time.Duration
+
+func (d duration) MarshalJSON() ([]byte, error) {
+	return json.Marshal(time.Duration(d).String())
+}
+
+func (d *duration) UnmarshalJSON(b []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+
+	switch value := v.(type) {
+	case float64:
+		*d = duration(time.Duration(value))
+
+		return nil
+	case string:
+		tmp, err := time.ParseDuration(value)
+		if err != nil {
+			return err
+		}
+
+		*d = duration(tmp)
+
+		return nil
+	default:
+		return errors.New("invalid duration")
+	}
+}
+
+//nolint:funlen
 func parseFlags() (config, error) {
 	var (
 		rawTLSCipherSuites      string
@@ -582,6 +659,9 @@ func parseFlags() (config, error) {
 			" Note that TLS 1.3 ciphersuites are not configurable.")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
+	flag.StringVar(&cfg.rateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
+		"The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant."+
+			" If it is not specified local non-shared rate limiting will be used.")
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)

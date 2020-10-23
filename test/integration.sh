@@ -46,6 +46,20 @@ token=$(curl --request POST \
   --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 \
   --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
 
+(GUBER_MEMBERLIST_KNOWN_NODES=127.0.0.1:7946 gubernator-v0.8.4-0.20200617200142-07e238f8cd86) &
+
+
+echo "-------------------------------------------"
+echo "- Waiting for Gubernator to come up...  -"
+echo "-------------------------------------------"
+
+# NOTICE: There is bug in memberlist SD implementation of gubenator that restraints us to change the default port.
+# Memberlist SD won't be used for production.
+until curl --output /dev/null --silent --fail --insecure http://127.0.0.1:80/v1/HealthCheck; do
+  printf '.'
+  sleep 1
+done
+
 (
   $OBSERVATORIUM \
     --web.listen=0.0.0.0:8443 \
@@ -60,6 +74,7 @@ token=$(curl --request POST \
     --metrics.read.endpoint=http://127.0.0.1:9091 \
     --metrics.write.endpoint=http://127.0.0.1:19291 \
     --rbac.config=./test/config/rbac.yaml \
+    --middleware.rate-limiter.grpc-address=127.0.0.1:81 \
     --tenants.config=./test/config/tenants.yaml \
     --log.level=debug
 ) &
