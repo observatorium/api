@@ -239,7 +239,7 @@
                  },
                  name: tenant.name + '-mtls-secret',
                } else if std.objectHas(tenant.mTLS, 'configMapName') then {
-                 confiMap: {
+                 configMap: {
                    name: tenant.mTLS.configMapName,
                  },
                  name: tenant.name + '-mtls-configmap',
