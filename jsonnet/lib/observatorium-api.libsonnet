@@ -212,7 +212,15 @@
                        readOnly: true,
                      },
                    ] else []
-                 ) else []),
+                 ) else [])+
+                (if std.objectHas(api.config, 'serviceCA') then [
+                    {
+                      name: 'service-ca',
+                      mountPath: '/var/run/tls/service-ca.crt',
+                      subPath: 'service-ca.crt',
+                      readOnly: true,
+                    }
+                 ] else []),
             },
           ],
           volumes:
@@ -263,7 +271,16 @@
                    name: 'tls-configmap',
                  },
                ] else []
-             ) else []),
+             ) else []) +
+            (if std.objectHas(api.config, 'serviceCA') then [
+              {
+                configMap: {
+                  name: api.config.serviceCA,
+                },
+                name: 'service-ca',
+              },
+              ] else []
+            ),
         },
       },
     },
