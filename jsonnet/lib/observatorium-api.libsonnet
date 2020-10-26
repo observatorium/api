@@ -383,4 +383,21 @@
       },
     },
   },
+
+  withNodeSelector:: {
+    local api = self,
+    config+:: {
+      nodeSelector: error 'must provide nodeSelector',
+    },
+
+    deployment+: {
+      spec+: {
+        template+: {
+          spec+: {
+            nodeSelector: std.mapWithKey(function(k, v) v, api.config.nodeSelector),
+          },
+        },
+      },
+    },
+  },
 }
