@@ -411,7 +411,7 @@ func main() {
 				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 				if ratelimitClient != nil {
-					r.Use(ratelimit.WithSharedRateLimiter(ratelimitClient, rateLimits...))
+					r.Use(ratelimit.WithSharedRateLimiter(logger, ratelimitClient, rateLimits...))
 				} else {
 					r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
 				}
