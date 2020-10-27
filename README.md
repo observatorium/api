@@ -76,7 +76,7 @@ Usage of ./observatorium:
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -middleware.rate-limiter.grpc-address string
-    	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If it is not specified local non-shared rate limiting will be used.
+    	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
   -rbac.config string
     	Path to the RBAC configuration file. (default "rbac.yaml")
   -tenants.config string

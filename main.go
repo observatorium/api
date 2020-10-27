@@ -278,14 +278,14 @@ func main() {
 
 	defer undo()
 
-	var ratelimitClient *ratelimit.Client
+	var rateLimitClient *ratelimit.Client
 
 	if cfg.rateLimiterAddress != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
 		defer cancel()
 
-		ratelimitClient = ratelimit.NewClient(reg)
-		if err := ratelimitClient.Dial(ctx, cfg.rateLimiterAddress); err != nil {
+		rateLimitClient = ratelimit.NewClient(reg)
+		if err := rateLimitClient.Dial(ctx, cfg.rateLimiterAddress); err != nil {
 			stdlog.Fatal(err)
 		}
 	}
@@ -361,7 +361,7 @@ func main() {
 					for _, rl := range t.RateLimits {
 						matcher, err := regexp.Compile(rl.Endpoint)
 						if err != nil {
-							level.Warn(logger).Log("msg", "failed to compile matched for rate limiter", "err", err)
+							level.Warn(logger).Log("msg", "failed to compile matcher for rate limiter", "err", err)
 						}
 						rateLimits = append(rateLimits, ratelimit.Config{
 							Tenant:  t.Name,
@@ -410,8 +410,8 @@ func main() {
 			r.Group(func(r chi.Router) {
 				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
-				if ratelimitClient != nil {
-					r.Use(ratelimit.WithSharedRateLimiter(logger, ratelimitClient, rateLimits...))
+				if rateLimitClient != nil {
+					r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
 				} else {
 					r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
 				}
@@ -661,7 +661,7 @@ func parseFlags() (config, error) {
 		"The interval at which to watch for TLS certificate changes.")
 	flag.StringVar(&cfg.rateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
 		"The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant."+
-			" If it is not specified local non-shared rate limiting will be used.")
+			" If not specified, local, non-shared rate limiting will be used.")
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)

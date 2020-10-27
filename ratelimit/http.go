@@ -36,7 +36,7 @@ type middleware struct {
 	handler Middleware
 }
 
-// WithLocalRateLimiter returns a middleware that controls amount of requests per tenant using in-memory store.
+// WithLocalRateLimiter returns a middleware that controls the amount of requests per tenant using an in-memory store.
 func WithLocalRateLimiter(configs ...Config) Middleware {
 	middlewares := make(map[string][]middleware)
 	for _, c := range configs {
@@ -50,7 +50,7 @@ func WithLocalRateLimiter(configs ...Config) Middleware {
 	return combine(middlewares)
 }
 
-// WithSharedRateLimiter returns a middleware that controls amount of requests per tenant using external service.
+// WithSharedRateLimiter returns a middleware that controls the amount of requests per tenant using an external service.
 func WithSharedRateLimiter(logger log.Logger, client *Client, configs ...Config) Middleware {
 	logger = log.With(logger, "component", "rate limiter")
 
