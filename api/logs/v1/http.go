@@ -1,3 +1,4 @@
+//nolint:funlen
 package http
 
 import (
@@ -5,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"path"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	ReadTimeout        = 15 * time.Minute
-	WriteTimeout       = time.Minute
-	lokiUpstreamPrefix = "/loki"
+	ReadTimeout  = 15 * time.Minute
+	WriteTimeout = time.Minute
 )
 
 type handlerConfiguration struct {
@@ -93,7 +92,6 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 	if read != nil {
 		var proxyRead http.Handler
 		{
-			read.Path = path.Join(read.Path, lokiUpstreamPrefix)
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(read),
 				proxy.MiddlewareLogger(c.logger),
@@ -112,28 +110,52 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			r.Handle("/api/v1/query", c.instrument.NewHandler(
+			r.Handle("/loki/api/v1/query", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
 				proxyRead,
 			))
-			r.Handle("/api/v1/query_range", c.instrument.NewHandler(
+			r.Handle("/loki/api/v1/query_range", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query_range"},
 				proxyRead,
 			))
 
 			// Endpoints exposed by the querier and frontend
 			// See https://grafana.com/docs/loki/latest/api/#microservices-mode
-			addDatasourceLogAPIs(r, proxyRead, c)
+
+			// Undocumented but present in querier and query-frontend
+			// see https://github.com/grafana/loki/blob/v1.6.1/pkg/loki/modules.go#L333
+			r.Handle("/loki/api/v1/label", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "label"},
+				proxyRead,
+			))
+			r.Handle("/loki/api/v1/labels", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "labels"},
+				proxyRead,
+			))
+			r.Handle("/loki/api/v1/label/{name}/values", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
+				proxyRead,
+			))
 
 			// Legacy APIs for Grafana <= 6
-			addLegacyLogAPIS(r, proxyRead, c)
+			r.Handle("/api/prom/query", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "query"},
+				proxyRead,
+			))
+			r.Handle("/api/prom/label", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "label"},
+				proxyRead,
+			))
+			r.Handle("/api/prom/label/{name}/values", c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
+				proxyRead,
+			))
 		})
 	}
 
 	if tail != nil {
 		var tailRead http.Handler
 		{
-			tail.Path = path.Join(tail.Path, lokiUpstreamPrefix)
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(tail),
 				proxy.MiddlewareLogger(c.logger),
@@ -152,14 +174,14 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			r.Handle("/api/v1/tail", c.instrument.NewHandler(
+			r.Handle("/loki/api/v1/tail", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "tail"},
 				tailRead,
 			))
 
 			// Legacy APIs for Grafana <= 6
 			r.Handle("/api/prom/tail", c.instrument.NewHandler(
-				prometheus.Labels{"group": "logsv1", "handler": "tail"},
+				prometheus.Labels{"group": "logsv1", "handler": "prom_tail"},
 				tailRead,
 			))
 		})
@@ -168,7 +190,6 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 	if write != nil {
 		var proxyWrite http.Handler
 		{
-			write.Path = path.Join(write.Path, lokiUpstreamPrefix)
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(write),
 				proxy.MiddlewareLogger(c.logger),
@@ -187,7 +208,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			r.Handle("/api/v1/push", c.instrument.NewHandler(
+			r.Handle("/loki/api/v1/push", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "push"},
 				proxyWrite,
 			))
@@ -195,36 +216,4 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 	}
 
 	return r
-}
-
-func addDatasourceLogAPIs(r chi.Router, proxyRead http.Handler, c *handlerConfiguration) {
-	// Undocumented but present in querier and query-frontend
-	// see https://github.com/grafana/loki/blob/v1.6.1/pkg/loki/modules.go#L333
-	r.Handle("/api/v1/label", c.instrument.NewHandler(
-		prometheus.Labels{"group": "logsv1", "handler": "label"},
-		proxyRead,
-	))
-	r.Handle("/api/v1/labels", c.instrument.NewHandler(
-		prometheus.Labels{"group": "logsv1", "handler": "labels"},
-		proxyRead,
-	))
-	r.Handle("/api/v1/label/{name}/values", c.instrument.NewHandler(
-		prometheus.Labels{"group": "logsv1", "handler": "label/values"},
-		proxyRead,
-	))
-}
-
-func addLegacyLogAPIS(r chi.Router, proxyRead http.Handler, c *handlerConfiguration) {
-	r.Handle("/api/prom/query", c.instrument.NewHandler(
-		prometheus.Labels{"group": "logsv1", "handler": "query"},
-		proxyRead,
-	))
-	r.Handle("/api/prom/label", c.instrument.NewHandler(
-		prometheus.Labels{"group": "logsv1", "handler": "label"},
-		proxyRead,
-	))
-	r.Handle("/api/prom/label/{name}/values", c.instrument.NewHandler(
-		prometheus.Labels{"group": "logsv1", "handler": "label/values"},
-		proxyRead,
-	))
 }
