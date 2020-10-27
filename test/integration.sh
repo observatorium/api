@@ -53,8 +53,8 @@ echo "-------------------------------------------"
 echo "- Waiting for Gubernator to come up...  -"
 echo "-------------------------------------------"
 
-# NOTICE: There is bug in memberlist SD implementation of gubenator that restraints us to change the default port.
-# Memberlist SD won't be used for production.
+# NOTICE: There is bug in the memberlist SD implementation of gubenator that prevents us from changing the default port.
+# Memberlist SD won't be used in production.
 until curl --output /dev/null --silent --fail --insecure http://127.0.0.1:80/v1/HealthCheck; do
   printf '.'
   sleep 1

@@ -22,6 +22,7 @@ type request struct {
 	duration int64
 }
 
+// Client can connect to gubernator and get rate limits.
 type Client struct {
 	dialOpts []grpc.DialOption
 	client   gubernator.V1Client
@@ -48,6 +49,7 @@ func NewClient(reg prometheus.Registerer) *Client {
 	return &Client{dialOpts: dialOpts}
 }
 
+// Dial connects the client to gubernator.
 func (c *Client) Dial(ctx context.Context, address string) error {
 	conn, err := grpc.DialContext(ctx, address, c.dialOpts...)
 	if err != nil {
@@ -59,6 +61,8 @@ func (c *Client) Dial(ctx context.Context, address string) error {
 	return nil
 }
 
+// GetRateLimits gets the rate limits corresponding to a request.
+// Note: Dial must be called before calling this method, otherwise the client will panic.
 func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
 	resp, err := c.client.GetRateLimits(ctx, &gubernator.GetRateLimitsReq{
 		Requests: []*gubernator.RateLimitReq{{
