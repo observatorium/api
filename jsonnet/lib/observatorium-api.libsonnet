@@ -190,6 +190,17 @@
                    if std.objectHas(tenant, 'mTLS')
                    if std.objectHas(tenant.mTLS, 'caKey')
                  ] else []) +
+                (if std.objectHas(api.config.tenants, 'tenants') then [
+                   {
+                     name: tenant.name + '-tls-configmap',
+                     mountPath: tenant.oidc.issuerCAPath,
+                     subPath: tenant.oidc.caKey,
+                     readOnly: true,
+                   }
+                   for tenant in api.config.tenants.tenants
+                   if std.objectHas(tenant, 'oidc')
+                   if std.objectHasAll(tenant.oidc, 'caKey')
+                 ] else []) +
                 (if api.config.tls != {} then [
                    {
                      name: 'tls-secret',
@@ -246,6 +257,17 @@
                }
                for tenant in api.config.tenants.tenants
                if std.objectHas(tenant, 'mTLS')
+             ] else []) +
+            (if std.objectHas(api.config.tenants, 'tenants') then [
+               {
+                 configMap: {
+                   name: tenant.oidc.configMapName,
+                 },
+                 name: tenant.name + '-tls-configmap',
+               }
+               for tenant in api.config.tenants.tenants
+               if std.objectHas(tenant, 'oidc')
+               if std.objectHasAll(tenant.oidc, 'configMapName')
              ] else []) +
             (if api.config.tls != {} then [
                {
