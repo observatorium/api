@@ -669,7 +669,7 @@ func parseFlags() (config, error) {
 		"The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant."+
 			" If not specified, local, non-shared rate limiting will be used.")
 	flag.IntVar(&cfg.middleware.concurrentRequestLimit, "middleware.concurrent-request-limit", 10_000,
-		"The limit that controls number of currently processed requests at a time across all tenants.")
+		"The limit that controls the number of concurrently processed requests across all tenants.")
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
