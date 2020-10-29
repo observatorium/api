@@ -74,7 +74,7 @@ build: observatorium
 
 .PHONY: run
 run: build $(THANOS) $(DEX) $(LOKI) generate-cert
-	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/run-local.sh
+	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin DEX=$(DEX) ./test/run-local.sh
 
 .PHONY: deps
 deps: go.mod go.sum
