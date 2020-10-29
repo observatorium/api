@@ -61,15 +61,15 @@ type config struct {
 	logLevel  string
 	logFormat string
 
-	rbacConfigPath     string
-	tenantsConfigPath  string
-	rateLimiterAddress string
+	rbacConfigPath    string
+	tenantsConfigPath string
 
-	debug   debugConfig
-	server  serverConfig
-	tls     tlsConfig
-	metrics metricsConfig
-	logs    logsConfig
+	debug      debugConfig
+	server     serverConfig
+	tls        tlsConfig
+	metrics    metricsConfig
+	logs       logsConfig
+	middleware middlewareConfig
 }
 
 type debugConfig struct {
@@ -109,6 +109,11 @@ type logsConfig struct {
 	tenantHeader  string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
+}
+
+type middlewareConfig struct {
+	rateLimiterAddress     string
+	concurrentRequestLimit int
 }
 
 //nolint:funlen,gocyclo,gocognit
@@ -280,12 +285,12 @@ func main() {
 
 	var rateLimitClient *ratelimit.Client
 
-	if cfg.rateLimiterAddress != "" {
+	if cfg.middleware.rateLimiterAddress != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
 		defer cancel()
 
 		rateLimitClient = ratelimit.NewClient(reg)
-		if err := rateLimitClient.Dial(ctx, cfg.rateLimiterAddress); err != nil {
+		if err := rateLimitClient.Dial(ctx, cfg.middleware.rateLimiterAddress); err != nil {
 			stdlog.Fatal(err)
 		}
 	}
@@ -339,6 +344,7 @@ func main() {
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
 		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
+		r.Use(middleware.Throttle(cfg.middleware.concurrentRequestLimit))
 		r.Use(server.Logger(logger))
 
 		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
@@ -659,9 +665,11 @@ func parseFlags() (config, error) {
 			" Note that TLS 1.3 ciphersuites are not configurable.")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
-	flag.StringVar(&cfg.rateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
+	flag.StringVar(&cfg.middleware.rateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
 		"The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant."+
 			" If not specified, local, non-shared rate limiting will be used.")
+	flag.IntVar(&cfg.middleware.concurrentRequestLimit, "middleware.concurrent-request-limit", 10_000,
+		"The limit that controls the number of concurrently processed requests across all tenants.")
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)

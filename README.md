@@ -75,6 +75,8 @@ Usage of ./observatorium:
     	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
+  -middleware.concurrent-request-limit int
+    	The limit that controls the number of concurrently processed requests across all tenants. (default 10000)
   -middleware.rate-limiter.grpc-address string
     	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
   -rbac.config string
