@@ -167,8 +167,8 @@ if $UP \
   --tls-ca-file=./tmp/certs/ca.pem \
   --tls-client-cert-file=./tmp/certs/client.pem \
   --tls-client-private-key-file=./tmp/certs/client.key \
-  --endpoint-read=https://127.0.0.1:8443/api/logs/v1/test-mtls/api/v1/query \
-  --endpoint-write=https://127.0.0.1:8443/api/logs/v1/test-mtls/api/v1/push \
+  --endpoint-read=https://127.0.0.1:8443/api/logs/v1/test-mtls/loki/api/v1/query \
+  --endpoint-write=https://127.0.0.1:8443/api/logs/v1/test-mtls/loki/api/v1/push \
   --period=500ms \
   --initial-query-delay=250ms \
   --threshold=1 \
