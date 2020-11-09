@@ -66,6 +66,7 @@ spec:
             port: 8081
             scheme: HTTP
           periodSeconds: 5
+        resources: {}
         volumeMounts:
         - mountPath: /etc/observatorium/rbac.yaml
           name: rbac

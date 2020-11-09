@@ -1,41 +1,52 @@
-{
+// These are the defaults for this components configuration.
+// When calling the function to generate the component's manifest,
+// you can pass an object structured like the default to overwrite default values.
+local defaults = {
+  local defaults = self,
+  name: error 'must provide name',
+  namespace: error 'must provide namespace',
+  version: error 'must provide version',
+  image: error 'must provide image',
+  replicas: error 'must provide replicas',
+  metrics: {
+    readEnpoint: error 'must provide metrics readEnpoint',
+    writeEndpoint: error 'must provide metrics writeEndpoint',
+  },
+  ports: {
+    public: 8080,
+    internal: 8081,
+  },
+  resources: {},
+  serviceMonitor: false,
+  logs: {},
+  rbac: {},
+  tenants: {},
+  tls: {},
+  rateLimiter: {},
+
+  commonLabels:: {
+    'app.kubernetes.io/name': 'observatorium-api',
+    'app.kubernetes.io/instance': defaults.name,
+    'app.kubernetes.io/version': defaults.version,
+    'app.kubernetes.io/component': 'api',
+  },
+
+  podLabelSelector:: {
+    [labelName]: defaults.commonLabels[labelName]
+    for labelName in std.objectFields(defaults.commonLabels)
+    if !std.setMember(labelName, ['app.kubernetes.io/version'])
+  },
+};
+
+function(params) {
   local api = self,
 
-  config:: {
-    name: error 'must provide name',
-    namespace: error 'must provide namespace',
-    version: error 'must provide version',
-    image: error 'must provide image',
-    replicas: error 'must provide replicas',
-
-    metrics: {
-      readEnpoint: error 'must provide metrics readEnpoint',
-      writeEndpoint: error 'must provide metrics writeEndpoint',
-    },
-
-    ports: {
-      public: 8080,
-      internal: 8081,
-    },
-
-    logs: {},
-    rbac: {},
-    tenants: {},
-    tls: {},
-
-    commonLabels:: {
-      'app.kubernetes.io/name': 'observatorium-api',
-      'app.kubernetes.io/instance': api.config.name,
-      'app.kubernetes.io/version': api.config.version,
-      'app.kubernetes.io/component': 'api',
-    },
-
-    podLabelSelector:: {
-      [labelName]: api.config.commonLabels[labelName]
-      for labelName in std.objectFields(api.config.commonLabels)
-      if !std.setMember(labelName, ['app.kubernetes.io/version'])
-    },
-  },
+  // Combine the defaults and the passed params to make the component's config.
+  config:: defaults + params,
+  // Safety checks for combined config of defaults and params
+  assert std.isNumber(api.config.replicas) && api.config.replicas >= 0 : 'observatorium api replicas has to be number >= 0',
+  assert std.isObject(api.config.resources),
+  assert std.isBoolean(api.config.serviceMonitor),
 
   serviceAccount: {
     apiVersion: 'v1',
@@ -105,16 +116,11 @@
                     '--logs.read.endpoint=' + api.config.logs.readEndpoint,
                     '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
                     '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
-                  ]
-                else []
+                  ] else []
               ) + (
-                if api.config.rbac != {} then
-                  ['--rbac.config=/etc/observatorium/rbac.yaml']
-                else []
+                if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []
               ) + (
-                if api.config.tenants != {} then
-                  ['--tenants.config=/etc/observatorium/tenants.yaml']
-                else []
+                if api.config.tenants != {} then ['--tenants.config=/etc/observatorium/tenants.yaml'] else []
               ) + (
                 if api.config.tls != {} then
                   [
@@ -140,14 +146,16 @@
                     else []
                   )
                 else []
+              ) + (
+                if std.objectHas(api.config.rateLimiter, 'grpcAddress') then
+                  ['--middleware.rate-limiter.grpc-address=' + api.config.rateLimiter.grpcAddress]
+                else []
               ),
               ports: [
-                {
-                  name: name,
-                  containerPort: api.config.ports[name],
-                }
+                { name: name, containerPort: api.config.ports[name] }
                 for name in std.objectFields(api.config.ports)
               ],
+              resources: if api.config.resources != {} then api.config.resources else {},
               livenessProbe: {
                 failureThreshold: 10,
                 periodSeconds: 30,
@@ -335,74 +343,19 @@
     },
   } else null,
 
-  withServiceMonitor:: {
-    local api = self,
 
-    serviceMonitor: {
-      apiVersion: 'monitoring.coreos.com/v1',
-      kind: 'ServiceMonitor',
-      metadata+: {
-        name: api.config.name,
-        namespace: api.config.namespace,
-      },
-      spec: {
-        selector: {
-          matchLabels: api.config.commonLabels,
-        },
-        endpoints: [
-          { port: 'internal' },
-        ],
-      },
+  serviceMonitor: if api.config.serviceMonitor == true then {
+    apiVersion: 'monitoring.coreos.com/v1',
+    kind: 'ServiceMonitor',
+    metadata+: {
+      name: api.config.name,
+      namespace: api.config.namespace,
     },
-  },
-
-  withResources:: {
-    local api = self,
-
-    config+:: {
-      resources: error 'must provide resources',
-    },
-
-    deployment+: {
-      spec+: {
-        template+: {
-          spec+: {
-            containers: [
-              if c.name == 'observatorium-api' then c {
-                resources: api.config.resources,
-              } else c
-              for c in super.containers
-            ],
-          },
-        },
+    spec: {
+      selector: {
+        matchLabels: api.config.commonLabels,
       },
-    },
-  },
-
-  withRateLimiter:: {
-    local api = self,
-
-    config+:: {
-      rateLimiter:: {
-        grpcAddress: 'must provide metrics grpcAddress',
-      },
-    },
-
-    deployment+: {
-      spec+: {
-        template+: {
-          spec+: {
-            containers: [
-              if c.name == 'observatorium-api' then c {
-                args+: [
-                  '--middleware.rate-limiter.grpc-address=' + api.config.rateLimiter.grpcAddress,
-                ],
-              } else c
-              for c in super.containers
-            ],
-          },
-        },
-      },
+      endpoints: [{ port: 'internal' }],
     },
   },
 }
