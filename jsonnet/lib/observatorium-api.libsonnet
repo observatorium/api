@@ -99,7 +99,7 @@ function(params) {
       template: {
         metadata: { labels: api.config.commonLabels },
         spec: {
-          serviceAccount: api.serviceAccount.metadata.name,
+          serviceAccountName: api.serviceAccount.metadata.name,
           containers: [
             {
               name: 'observatorium-api',
