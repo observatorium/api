@@ -1,4 +1,4 @@
-local commonConfig = {
+local config = {
   local cfg = self,
   name: 'observatorium-api',
   namespace: 'observatorium',
@@ -61,9 +61,9 @@ local commonConfig = {
     ],
   },
 };
-local api = (import '../jsonnet/lib/observatorium-api.libsonnet')(commonConfig);
+local api = (import '../jsonnet/lib/observatorium-api.libsonnet')(config);
 
-local apiWithTLS = (import '../jsonnet/lib/observatorium-api.libsonnet')(commonConfig {
+local apiWithTLS = (import '../jsonnet/lib/observatorium-api.libsonnet')(config {
   tls: {
     certKey: 'cert',
     keyKey: 'key',
