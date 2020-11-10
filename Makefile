@@ -50,7 +50,7 @@ PROTOC_VERSION ?= 3.13.0
 SERVER_CERT ?= $(CERT_DIR)/server.pem
 
 default: observatorium
-all: clean lint test observatorium
+all: clean lint test observatorium generate validate
 
 tmp/help.txt: observatorium $(TMP_DIR)
 	./observatorium --help &> $(TMP_DIR)/help.txt || true
@@ -85,10 +85,6 @@ deps: go.mod go.sum
 .PHONY: format
 format: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run --fix --enable-all -c .golangci.yml
-
-.PHONY: validate
-validate: $(KUBEVAL)
-	$(KUBEVAL) examples/manifests/*.yaml
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
@@ -225,27 +221,20 @@ $(PROTOC): $(TMP_DIR) $(BIN_DIR)
 
 # Jsonnet and Example manifests.
 
-CONTAINER_CMD:=docker run --rm \
-		-u="$(shell id -u):$(shell id -g)" \
-		-v "$(shell go env GOCACHE):/.cache/go-build" \
-		-v "$(PWD):/go/src/github.com/observatorium/observatorium:Z" \
-		-w "/go/src/github.com/observatorium/observatorium" \
-		-e USER=deadbeef \
-		-e GO111MODULE=on \
-		quay.io/coreos/jsonnet-ci
+MANIFESTS := examples/manifests
 
 .PHONY: generate
-generate: examples/manifests README.md
+generate: ${MANIFESTS} README.md
 
-.PHONY: generate-in-docker
-generate-in-docker:
-	@echo ">> Compiling assets and generating Kubernetes manifests"
-	$(CONTAINER_CMD) make $(MFLAGS) generate
+.PHONY: ${MANIFESTS}
+${MANIFESTS}: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
+	@rm -rf ${MANIFESTS}
+	@mkdir -p ${MANIFESTS}
+	$(JSONNET) -m ${MANIFESTS} examples/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {
 
-examples/manifests: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
-	@rm -rf examples/manifests
-	@mkdir -p examples/manifests
-	$(JSONNET) -m examples/manifests examples/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {}
+.PHONY: validate
+validate: $(KUBEVAL)
+	$(KUBEVAL) ${MANIFESTS}/*.yaml
 
 JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'examples/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
 JSONNETFMT_CMD := $(JSONNETFMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s
