@@ -103,7 +103,7 @@ test-unit:
 
 .PHONY: test-integration
 test-integration: build integration-test-dependencies generate-cert
-	THANOS=$(THANOS) UP=$(UP) DEX=$(DEX) LOKI=$(LOKI) WOBSOCAT=$(WEBSOCAT) OPA=$(OPA) ./test/integration.sh
+	THANOS=$(THANOS) UP=$(UP) DEX=$(DEX) LOKI=$(LOKI) WOBSOCAT=$(WEBSOCAT) OPA=$(OPA) GUBERNATOR=$(GUBERNATOR) ./test/integration.sh
 
 .PHONY: test-load
 test-load: build load-test-dependencies

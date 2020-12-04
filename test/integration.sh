@@ -17,6 +17,7 @@ LOKI=${LOKI:-loki}
 OPA=${OPA:-opa}
 UP=${UP:-up}
 WEBSOCAT=${WEBSOCAT:=websocat}
+GUBERNATOR=${GUBERNATOR:-gubernator}
 
 ($DEX serve ./test/config/dex.yaml) &
 
@@ -46,8 +47,12 @@ token=$(curl --request POST \
   --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 \
   --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
 
-(GUBER_MEMBERLIST_KNOWN_NODES=127.0.0.1:7946 gubernator-v0.8.4-0.20200617200142-07e238f8cd86) &
-
+(
+  GUBER_HTTP_ADDRESS=localhost:8880 \
+  GUBER_GRPC_ADDRESS=localhost:8881 \
+  GUBER_MEMBERLIST_KNOWN_NODES=127.0.0.1:7946 \
+  $GUBERNATOR
+) &
 
 echo "-------------------------------------------"
 echo "- Waiting for Gubernator to come up...  -"
@@ -55,7 +60,7 @@ echo "-------------------------------------------"
 
 # NOTICE: There is bug in the memberlist SD implementation of gubenator that prevents us from changing the default port.
 # Memberlist SD won't be used in production.
-until curl --output /dev/null --silent --fail --insecure http://127.0.0.1:80/v1/HealthCheck; do
+until curl --output /dev/null --silent --fail --insecure http://127.0.0.1:8880/v1/HealthCheck; do
   printf '.'
   sleep 1
 done
@@ -74,7 +79,7 @@ done
     --metrics.read.endpoint=http://127.0.0.1:9091 \
     --metrics.write.endpoint=http://127.0.0.1:19291 \
     --rbac.config=./test/config/rbac.yaml \
-    --middleware.rate-limiter.grpc-address=127.0.0.1:81 \
+    --middleware.rate-limiter.grpc-address=127.0.0.1:8881 \
     --tenants.config=./test/config/tenants.yaml \
     --log.level=debug
 ) &
