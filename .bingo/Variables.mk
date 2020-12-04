@@ -82,11 +82,11 @@ $(UP): .bingo/up.mod
 	@echo "(re)installing $(GOBIN)/up-v0.0.0-20200928171403-120d85735d11"
 	@cd .bingo && $(GO) build -modfile=up.mod -o=$(GOBIN)/up-v0.0.0-20200928171403-120d85735d11 "github.com/observatorium/up/cmd/up"
 
-GUBERNATOR := $(GOBIN)/gubernator-v0.8.4-0.20200617200142-07e238f8cd86
+GUBERNATOR := $(GOBIN)/gubernator-v1.0.0-rc.3
 $(GUBERNATOR): .bingo/gubernator.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/gubernator-v0.8.4-0.20200617200142-07e238f8cd86"
-	@cd .bingo && $(GO) build -modfile=gubernator.mod -o=$(GOBIN)/gubernator-v0.8.4-0.20200617200142-07e238f8cd86 "github.com/mailgun/gubernator/cmd/gubernator"
+	@echo "(re)installing $(GOBIN)/gubernator-v1.0.0-rc.3"
+	@cd .bingo && $(GO) build -modfile=gubernator.mod -o=$(GOBIN)/gubernator-v1.0.0-rc.3 "github.com/mailgun/gubernator/cmd/gubernator"
 
 PROTOC_GEN_GO := $(GOBIN)/protoc-gen-go-v1.4.2
 $(PROTOC_GEN_GO): .bingo/protoc-gen-go.mod
