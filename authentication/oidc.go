@@ -195,7 +195,9 @@ func (p *OIDCProvider) Middleware() Middleware {
 					}
 					// Redirect users to the OIDC login
 					w.Header().Set("Location", path.Join("/oidc", tenant, "/login"))
-					http.Error(w, "failed to find token", http.StatusFound)
+					const msg = "failed to find token"
+					level.Debug(p.logger).Log("msg", msg)
+					http.Error(w, msg, http.StatusFound)
 					return
 				}
 				token = cookie.Value

@@ -14,7 +14,7 @@ require (
 	github.com/google/go-cmp v0.5.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/lib/pq v1.3.0 // indirect
+	github.com/lib/pq v1.3.0
 	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
 	github.com/oklog/run v1.1.0
@@ -36,5 +36,6 @@ require (
 	google.golang.org/protobuf v1.23.0
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	k8s.io/component-base v0.18.0
 )

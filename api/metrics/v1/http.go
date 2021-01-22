@@ -20,6 +20,7 @@ const (
 )
 
 type handlerConfiguration struct {
+	router           *chi.Mux
 	logger           log.Logger
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
@@ -78,6 +79,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // NewHandler creates the new metrics v1 handler.
 func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
+		router:     chi.NewRouter(),
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
@@ -86,8 +88,6 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 	for _, o := range opts {
 		o(c)
 	}
-
-	r := chi.NewRouter()
 
 	if read != nil {
 		var proxyRead http.Handler
@@ -108,7 +108,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				},
 			}
 		}
-		r.Group(func(r chi.Router) {
+		c.router.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
 			r.Handle("/api/v1/query", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query"},
@@ -157,7 +157,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				},
 			}
 		}
-		r.Group(func(r chi.Router) {
+		c.router.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			r.Handle("/api/v1/receive", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "receive"},
@@ -166,5 +166,5 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		})
 	}
 
-	return r
+	return c.router
 }
