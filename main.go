@@ -4,6 +4,7 @@ import (
 	"context"
 	stdtls "crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -28,6 +29,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	_ "github.com/lib/pq"
 	"github.com/metalmatze/signal/healthcheck"
 	"github.com/metalmatze/signal/internalserver"
 	"github.com/metalmatze/signal/server/signalhttp"
@@ -76,6 +78,7 @@ type config struct {
 	logs            logsConfig
 	middleware      middlewareConfig
 	internalTracing internalTracingConfig
+	database        databaseConfig
 }
 
 type debugConfig struct {
@@ -132,6 +135,11 @@ type internalTracingConfig struct {
 	samplingFraction float64
 }
 
+type databaseConfig struct {
+	enable bool
+	dsn    string
+}
+
 //nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
@@ -155,6 +163,18 @@ func main() {
 	defer closer()
 
 	otel.SetErrorHandler(otelErrorHandler{logger: logger})
+	var db *sql.DB
+	if cfg.database.enable {
+		db, err = sql.Open("postgres", cfg.database.dsn)
+		if err != nil {
+			stdlog.Fatalf("failed to open database: %v", err)
+		}
+		defer db.Close()
+
+		if err := db.Ping(); err != nil {
+			stdlog.Fatalf("unable to ping the database: %v", err)
+		}
+	}
 
 	type tenant struct {
 		Name string `json:"name"`
@@ -488,6 +508,22 @@ func main() {
 					),
 				)
 
+				metricsOptions := []metricsv1.HandlerOption{
+					metricsv1.Logger(logger),
+					metricsv1.Registry(reg),
+					metricsv1.HandlerInstrumenter(ins),
+					metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+					metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+				}
+
+				// This passes the API repositories and
+				// thus enables the more dynamic metrics API that depend on a database.
+				if cfg.database.enable {
+					metricsOptions = append(metricsOptions,
+						metricsv1.WithRulesAPI(metricsv1.NewRulesRepository(db)),
+					)
+				}
+
 				r.Mount("/api/metrics/v1/{tenant}",
 					stripTenantPrefix("/api/metrics/v1",
 						metricsv1.NewHandler(
@@ -501,6 +537,7 @@ func main() {
 							metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 							metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+							metricsOptions...,
 						),
 					),
 				)
@@ -736,6 +773,10 @@ func parseFlags() (config, error) {
 	flag.DurationVar(&cfg.middleware.backLogDurationConcurrentRequests, "middleware.backlog-duration-concurrent-requests", 1*time.Millisecond,
 		"The time duration to buffer up concurrent requests.")
 
+	flag.BoolVar(&cfg.database.enable, "database.enable", false,
+		"Enabling adds a dependency on a Postgres database but enables some more dynamic APIs too.")
+	flag.StringVar(&cfg.database.dsn, "database.dsn", "",
+		"This is the DataSourceName used to connect to the Postgres database with.")
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
