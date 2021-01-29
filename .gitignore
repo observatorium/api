@@ -15,3 +15,6 @@ observatorium
 tmp/
 examples/vendor
 vendor
+.envrc
+.bin
+.idea
