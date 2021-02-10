@@ -134,7 +134,9 @@ func main() {
 	if err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
 	}
+
 	defer closer()
+
 	otel.SetErrorHandler(otelErrorHandler{logger: logger})
 
 	type tenant struct {

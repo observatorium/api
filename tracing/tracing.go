@@ -21,11 +21,13 @@ func InitTracer(serviceName, collectorEndpoint string) (tp trace.TracerProvider,
 	if err != nil {
 		return
 	}
+
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propjaeger.Jaeger{},
 		propagation.Baggage{},
 	))
+
 	return
 }
