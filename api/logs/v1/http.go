@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/observatorium/proxy"
 )
@@ -101,11 +102,13 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			proxyRead = &httputil.ReverseProxy{
 				Director: middlewares,
 				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: ReadTimeout,
-					}).DialContext,
-				},
+				Transport: otelhttp.NewTransport(
+					&http.Transport{
+						DialContext: (&net.Dialer{
+							Timeout: ReadTimeout,
+						}).DialContext,
+					},
+				),
 			}
 		}
 		r.Group(func(r chi.Router) {
@@ -165,11 +168,13 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			tailRead = &httputil.ReverseProxy{
 				Director: middlewares,
 				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: ReadTimeout,
-					}).DialContext,
-				},
+				Transport: otelhttp.NewTransport(
+					&http.Transport{
+						DialContext: (&net.Dialer{
+							Timeout: ReadTimeout,
+						}).DialContext,
+					},
+				),
 			}
 		}
 		r.Group(func(r chi.Router) {
@@ -199,11 +204,13 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			proxyWrite = &httputil.ReverseProxy{
 				Director: middlewares,
 				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: WriteTimeout,
-					}).DialContext,
-				},
+				Transport: otelhttp.NewTransport(
+					&http.Transport{
+						DialContext: (&net.Dialer{
+							Timeout: ReadTimeout,
+						}).DialContext,
+					},
+				),
 			}
 		}
 		r.Group(func(r chi.Router) {

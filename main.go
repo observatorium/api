@@ -34,6 +34,8 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	logsv1 "github.com/observatorium/observatorium/api/logs/v1"
@@ -47,9 +49,11 @@ import (
 	"github.com/observatorium/observatorium/rbac"
 	"github.com/observatorium/observatorium/server"
 	"github.com/observatorium/observatorium/tls"
+	"github.com/observatorium/observatorium/tracing"
 )
 
 const (
+	serviceName  = "observatorium_api"
 	readTimeout  = 15 * time.Minute
 	writeTimeout = 2 * time.Minute
 	gracePeriod
@@ -125,6 +129,13 @@ func main() {
 
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
+
+	_, closer, err := tracing.InitTracer(serviceName, "http://127.0.0.1:14268/api/traces")
+	if err != nil {
+		stdlog.Fatalf("initialize tracer: %v", err)
+	}
+	defer closer()
+	otel.SetErrorHandler(otelErrorHandler{logger: logger})
 
 	type tenant struct {
 		Name string `json:"name"`
@@ -514,7 +525,7 @@ func main() {
 
 		s := http.Server{
 			Addr:         cfg.server.listen,
-			Handler:      r,
+			Handler:      otelhttp.NewHandler(r, serviceName),
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
@@ -735,4 +746,12 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 		}
 		http.StripPrefix(path.Join("/", prefix, tenant), next).ServeHTTP(w, r)
 	})
+}
+
+type otelErrorHandler struct {
+	logger log.Logger
+}
+
+func (oh otelErrorHandler) Handle(err error) {
+	level.Error(oh.logger).Log("msg", "opentelemetry", "err", err.Error())
 }

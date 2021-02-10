@@ -46,6 +46,7 @@ done
   $THANOS receive \
     --receive.hashrings-file=./test/config/hashrings.json \
     --receive.local-endpoint=127.0.0.1:10901 \
+    --label "receive_replica=\"0\"" \
     --receive.default-tenant-id="1610b0c3-c509-4592-a256-a1871353dbfa" \
     --grpc-address=127.0.0.1:10901 \
     --http-address=127.0.0.1:10902 \

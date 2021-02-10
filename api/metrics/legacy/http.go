@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/observatorium/proxy"
 )
@@ -86,11 +87,13 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 		legacyProxy = &httputil.ReverseProxy{
 			Director: middlewares,
 			ErrorLog: proxy.Logger(c.logger),
-			Transport: &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout: readTimeout,
-				}).DialContext,
-			},
+			Transport: otelhttp.NewTransport(
+				&http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout: readTimeout,
+					}).DialContext,
+				},
+			),
 		}
 	}
 
