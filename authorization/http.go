@@ -15,11 +15,13 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			tenant, ok := authentication.GetTenant(r.Context())
 			if !ok {
 				http.Error(w, "error finding tenant", http.StatusInternalServerError)
+
 				return
 			}
 			subject, ok := authentication.GetSubject(r.Context())
 			if !ok {
 				http.Error(w, "unknown subject", http.StatusUnauthorized)
+
 				return
 			}
 			groups, ok := authentication.GetGroups(r.Context())
@@ -29,11 +31,13 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			a, ok := authorizers[tenant]
 			if !ok {
 				http.Error(w, "error finding tenant", http.StatusUnauthorized)
+
 				return
 			}
 
-			if !a.Authorize(subject, groups, permission, resource, tenant) {
-				w.WriteHeader(http.StatusForbidden)
+			if statusCode, ok := a.Authorize(subject, groups, permission, resource, tenant); !ok {
+				w.WriteHeader(statusCode)
+
 				return
 			}
 			next.ServeHTTP(w, r)
