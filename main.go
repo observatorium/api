@@ -53,7 +53,6 @@ import (
 )
 
 const (
-	serviceName  = "observatorium_api"
 	readTimeout  = 15 * time.Minute
 	writeTimeout = 2 * time.Minute
 	gracePeriod
@@ -68,12 +67,13 @@ type config struct {
 	rbacConfigPath    string
 	tenantsConfigPath string
 
-	debug      debugConfig
-	server     serverConfig
-	tls        tlsConfig
-	metrics    metricsConfig
-	logs       logsConfig
-	middleware middlewareConfig
+	debug           debugConfig
+	server          serverConfig
+	tls             tlsConfig
+	metrics         metricsConfig
+	logs            logsConfig
+	middleware      middlewareConfig
+	internalTracing internalTracingConfig
 }
 
 type debugConfig struct {
@@ -120,6 +120,11 @@ type middlewareConfig struct {
 	concurrentRequestLimit int
 }
 
+type internalTracingConfig struct {
+	serviceName string
+	endpoint    string
+}
+
 //nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
@@ -130,7 +135,7 @@ func main() {
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
 
-	_, closer, err := tracing.InitTracer(serviceName, "http://127.0.0.1:14268/api/traces")
+	_, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint)
 	if err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
 	}
@@ -527,7 +532,7 @@ func main() {
 
 		s := http.Server{
 			Addr:         cfg.server.listen,
-			Handler:      otelhttp.NewHandler(r, serviceName),
+			Handler:      otelhttp.NewHandler(r, "api"),
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
@@ -639,6 +644,10 @@ func parseFlags() (config, error) {
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&cfg.logFormat, "log.format", logger.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
+	flag.StringVar(&cfg.internalTracing.serviceName, "internal.tracing.service-name", "observatorium_api",
+		"The service name to report to the tracing backend.")
+	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
+		"The full URL of the trace collector. If it's not set, tracing will be disabled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which the public server listens.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",

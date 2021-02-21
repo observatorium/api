@@ -11,12 +11,15 @@ import (
 
 // InitTracer creates an OTel TracerProvider that exports the traces to a Jaeger collector.
 func InitTracer(serviceName, collectorEndpoint string) (tp trace.TracerProvider, closer func(), err error) {
+	disabled := collectorEndpoint == ""
+
 	tp, closer, err = jaeger.NewExportPipeline(
 		jaeger.WithCollectorEndpoint(collectorEndpoint),
 		jaeger.WithProcess(jaeger.Process{
 			ServiceName: serviceName,
 		}),
 		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+		jaeger.WithDisabled(disabled),
 	)
 	if err != nil {
 		return
