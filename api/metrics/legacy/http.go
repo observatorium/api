@@ -23,6 +23,7 @@ type handlerConfiguration struct {
 	logger          log.Logger
 	registry        *prometheus.Registry
 	instrument      handlerInstrumenter
+	spanRoutePrefix string
 	readMiddlewares []func(http.Handler) http.Handler
 }
 
@@ -43,6 +44,13 @@ func Registry(r *prometheus.Registry) HandlerOption {
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
+	}
+}
+
+// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -100,11 +108,11 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 	r.Use(c.readMiddlewares...)
 	r.Handle("/api/v1/query", c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-		legacyProxy,
+		otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/query", legacyProxy),
 	))
 	r.Handle("/api/v1/query_range", c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-		legacyProxy,
+		otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/query_range", legacyProxy),
 	))
 
 	r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {

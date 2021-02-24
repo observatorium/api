@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 )
 
@@ -46,7 +47,7 @@ type Middleware func(http.Handler) http.Handler
 // NewOIDC creates a single http.Handler and a set of Middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(logger log.Logger, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
+func NewOIDC(logger log.Logger, prefix string, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
 	handlers := map[string]http.Handler{}
 	middlewares := map[string]Middleware{}
 	warnings := make([]error, 0, len(configs))
@@ -59,8 +60,8 @@ func NewOIDC(logger log.Logger, configs []TenantOIDCConfig) (http.Handler, map[s
 		}
 
 		r := chi.NewRouter()
-		r.Handle("/login", p.LoginHandler())
-		r.Handle("/callback", p.CallbackHandler())
+		r.Handle("/login", otelhttp.WithRouteTag(prefix+"/login", p.LoginHandler()))
+		r.Handle("/callback", otelhttp.WithRouteTag(prefix+"/callback", p.CallbackHandler()))
 
 		handlers[c.Tenant] = r
 		middlewares[c.Tenant] = p.Middleware()

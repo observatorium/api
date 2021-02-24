@@ -135,7 +135,7 @@ func main() {
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
 
-	_, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint)
+	tp, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint)
 	if err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
 	}
@@ -424,7 +424,7 @@ func main() {
 				}
 			}
 
-			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, oidcs)
+			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, "/oidc/{tenant}", oidcs)
 			for _, w := range warnings {
 				level.Warn(logger).Log("msg", w.Error())
 			}
@@ -456,6 +456,7 @@ func main() {
 						metricslegacy.Logger(logger),
 						metricslegacy.Registry(reg),
 						metricslegacy.HandlerInstrumenter(ins),
+						metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					),
 				)
@@ -468,6 +469,7 @@ func main() {
 							metricsv1.Logger(logger),
 							metricsv1.Registry(reg),
 							metricsv1.HandlerInstrumenter(ins),
+							metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 							metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						),
@@ -490,6 +492,7 @@ func main() {
 								logsv1.Logger(logger),
 								logsv1.Registry(reg),
 								logsv1.HandlerInstrumenter(ins),
+								logsv1.SpanRoutePrefix("/api/logs/v1/{tenant}"),
 								logsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
 							),
@@ -532,7 +535,7 @@ func main() {
 
 		s := http.Server{
 			Addr:         cfg.server.listen,
-			Handler:      otelhttp.NewHandler(r, "api"),
+			Handler:      otelhttp.NewHandler(r, "api", otelhttp.WithTracerProvider(tp)),
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.

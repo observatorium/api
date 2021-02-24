@@ -25,6 +25,7 @@ type handlerConfiguration struct {
 	logger           log.Logger
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
+	spanRoutePrefix  string
 	readMiddlewares  []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
 }
@@ -50,6 +51,13 @@ func Registry(r *prometheus.Registry) HandlerOption {
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
+	}
+}
+
+// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -115,11 +123,11 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			r.Use(c.readMiddlewares...)
 			r.Handle("/loki/api/v1/query", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/query", proxyRead),
 			))
 			r.Handle("/loki/api/v1/query_range", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query_range"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/query_range", proxyRead),
 			))
 
 			// Endpoints exposed by the querier and frontend
@@ -129,29 +137,29 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			// see https://github.com/grafana/loki/blob/v1.6.1/pkg/loki/modules.go#L333
 			r.Handle("/loki/api/v1/label", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/label", proxyRead),
 			))
 			r.Handle("/loki/api/v1/labels", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "labels"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/labels", proxyRead),
 			))
 			r.Handle("/loki/api/v1/label/{name}/values", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/label/{name}/values", proxyRead),
 			))
 
 			// Legacy APIs for Grafana <= 6
 			r.Handle("/api/prom/query", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/query", proxyRead),
 			))
 			r.Handle("/api/prom/label", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/label", proxyRead),
 			))
 			r.Handle("/api/prom/label/{name}/values", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/label/{name}/values", proxyRead),
 			))
 		})
 	}
@@ -181,13 +189,13 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			r.Use(c.readMiddlewares...)
 			r.Handle("/loki/api/v1/tail", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "tail"},
-				tailRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/tail", tailRead),
 			))
 
 			// Legacy APIs for Grafana <= 6
 			r.Handle("/api/prom/tail", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "prom_tail"},
-				tailRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/tail", tailRead),
 			))
 		})
 	}
@@ -217,7 +225,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			r.Use(c.writeMiddlewares...)
 			r.Handle("/loki/api/v1/push", c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "push"},
-				proxyWrite,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/push", proxyWrite),
 			))
 		})
 	}

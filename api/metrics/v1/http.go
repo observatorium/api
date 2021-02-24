@@ -24,6 +24,7 @@ type handlerConfiguration struct {
 	logger           log.Logger
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
+	spanRoutePrefix  string
 	readMiddlewares  []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
 }
@@ -49,6 +50,13 @@ func Registry(r *prometheus.Registry) HandlerOption {
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
+	}
+}
+
+// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -115,11 +123,11 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			r.Use(c.readMiddlewares...)
 			r.Handle("/api/v1/query", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/query", proxyRead),
 			))
 			r.Handle("/api/v1/query_range", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/query_range", proxyRead),
 			))
 
 			var uiProxy http.Handler
@@ -137,7 +145,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			}
 			r.Mount("/", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "ui"},
-				uiProxy,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/", uiProxy),
 			))
 		})
 	}
@@ -167,7 +175,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			r.Use(c.writeMiddlewares...)
 			r.Handle("/api/v1/receive", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "receive"},
-				proxyWrite,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/receive", proxyWrite),
 			))
 		})
 	}
