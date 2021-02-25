@@ -106,13 +106,15 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 	}
 
 	r.Use(c.readMiddlewares...)
-	r.Handle("/api/v1/query", c.instrument.NewHandler(
+	const queryRoute = "/api/v1/query"
+	r.Handle(queryRoute, c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-		otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/query", legacyProxy),
+		otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, legacyProxy),
 	))
-	r.Handle("/api/v1/query_range", c.instrument.NewHandler(
+	const queryRangeRoute = "/api/v1/query_range"
+	r.Handle(queryRangeRoute, c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-		otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/v1/query_range", legacyProxy),
+		otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, legacyProxy),
 	))
 
 	r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {

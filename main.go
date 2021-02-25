@@ -121,8 +121,9 @@ type middlewareConfig struct {
 }
 
 type internalTracingConfig struct {
-	serviceName string
-	endpoint    string
+	serviceName      string
+	endpoint         string
+	samplingFraction float64
 }
 
 //nolint:funlen,gocyclo,gocognit
@@ -135,7 +136,7 @@ func main() {
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
 
-	tp, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint)
+	tp, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint, cfg.internalTracing.samplingFraction)
 	if err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
 	}
@@ -651,6 +652,8 @@ func parseFlags() (config, error) {
 		"The service name to report to the tracing backend.")
 	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
 		"The full URL of the trace collector. If it's not set, tracing will be disabled.")
+	flag.Float64Var(&cfg.internalTracing.samplingFraction, "internal.tracing.sampling-fraction", 0.1,
+		"The fraction of traces to sample. Setting this to <=0 means no traces will be sampled, similarly >=1 means all of the traces will be sampled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which the public server listens.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",

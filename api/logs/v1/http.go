@@ -121,13 +121,15 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			r.Handle("/loki/api/v1/query", c.instrument.NewHandler(
+			const queryRoute = "/loki/api/v1/query"
+			r.Handle(queryRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/query", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, proxyRead),
 			))
-			r.Handle("/loki/api/v1/query_range", c.instrument.NewHandler(
+			const queryRangeRoute = "/loki/api/v1/query_range"
+			r.Handle(queryRangeRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query_range"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/query_range", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, proxyRead),
 			))
 
 			// Endpoints exposed by the querier and frontend
@@ -135,31 +137,37 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 
 			// Undocumented but present in querier and query-frontend
 			// see https://github.com/grafana/loki/blob/v1.6.1/pkg/loki/modules.go#L333
-			r.Handle("/loki/api/v1/label", c.instrument.NewHandler(
+			const labelRoute = "/loki/api/v1/label"
+			r.Handle(labelRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/label", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+labelRoute, proxyRead),
 			))
-			r.Handle("/loki/api/v1/labels", c.instrument.NewHandler(
+			const labelsRoute = "/loki/api/v1/labels"
+			r.Handle(labelsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "labels"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/labels", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+labelsRoute, proxyRead),
 			))
-			r.Handle("/loki/api/v1/label/{name}/values", c.instrument.NewHandler(
+			const labelValuesRoute = "/loki/api/v1/label/{name}/values"
+			r.Handle(labelValuesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/label/{name}/values", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+labelValuesRoute, proxyRead),
 			))
 
 			// Legacy APIs for Grafana <= 6
-			r.Handle("/api/prom/query", c.instrument.NewHandler(
+			const promQueryRoute = "/api/prom/query"
+			r.Handle(promQueryRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/query", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promQueryRoute, proxyRead),
 			))
-			r.Handle("/api/prom/label", c.instrument.NewHandler(
+			const promLabelRoute = "/api/prom/label"
+			r.Handle(promLabelRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/label", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promLabelRoute, proxyRead),
 			))
-			r.Handle("/api/prom/label/{name}/values", c.instrument.NewHandler(
+			const promLabelValuesRoute = "/api/prom/label/{name}/values"
+			r.Handle(promLabelValuesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/label/{name}/values", proxyRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promLabelValuesRoute, proxyRead),
 			))
 		})
 	}
@@ -187,15 +195,17 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			r.Handle("/loki/api/v1/tail", c.instrument.NewHandler(
+			const tailRoute = "/loki/api/v1/tail"
+			r.Handle(tailRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "tail"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/tail", tailRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+tailRoute, tailRead),
 			))
 
 			// Legacy APIs for Grafana <= 6
-			r.Handle("/api/prom/tail", c.instrument.NewHandler(
+			const promTailRoute = "/api/prom/tail"
+			r.Handle(promTailRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "prom_tail"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/api/prom/tail", tailRead),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promTailRoute, tailRead),
 			))
 		})
 	}
@@ -223,9 +233,10 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			r.Handle("/loki/api/v1/push", c.instrument.NewHandler(
+			const pushRoute = "/loki/api/v1/push"
+			r.Handle(pushRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "push"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+"/loki/api/v1/push", proxyWrite),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+pushRoute, proxyWrite),
 			))
 		})
 	}
