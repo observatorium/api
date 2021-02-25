@@ -60,7 +60,7 @@ Usage of ./observatorium:
   -internal.tracing.endpoint string
     	The full URL of the trace collector. If it's not set, tracing will be disabled.
   -internal.tracing.sampling-fraction float
-    	The fraction of traces to sample. Setting this to <=0 means no traces will be sampled, similarly >=1 means all of the traces will be sampled. (default 0.1)
+    	The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled. (default 0.1)
   -internal.tracing.service-name string
     	The service name to report to the tracing backend. (default "observatorium_api")
   -log.format string

@@ -653,7 +653,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
 		"The full URL of the trace collector. If it's not set, tracing will be disabled.")
 	flag.Float64Var(&cfg.internalTracing.samplingFraction, "internal.tracing.sampling-fraction", 0.1,
-		"The fraction of traces to sample. Setting this to <=0 means no traces will be sampled, similarly >=1 means all of the traces will be sampled.")
+		"The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which the public server listens.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
