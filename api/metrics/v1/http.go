@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/observatorium/proxy"
 )
@@ -23,6 +24,7 @@ type handlerConfiguration struct {
 	logger           log.Logger
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
+	spanRoutePrefix  string
 	readMiddlewares  []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
 }
@@ -48,6 +50,13 @@ func Registry(r *prometheus.Registry) HandlerOption {
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
+	}
+}
+
+// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -101,22 +110,30 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			proxyRead = &httputil.ReverseProxy{
 				Director: middlewares,
 				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: readTimeout,
-					}).DialContext,
-				},
+				Transport: otelhttp.NewTransport(
+					&http.Transport{
+						DialContext: (&net.Dialer{
+							Timeout: readTimeout,
+						}).DialContext,
+					},
+				),
 			}
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			r.Handle("/api/v1/query", c.instrument.NewHandler(
+			const (
+				queryRoute      = "/api/v1/query"
+				queryRangeRoute = "/api/v1/query_range"
+				uiRoute         = "/"
+			)
+
+			r.Handle(queryRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, proxyRead),
 			))
-			r.Handle("/api/v1/query_range", c.instrument.NewHandler(
+			r.Handle(queryRangeRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
-				proxyRead,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, proxyRead),
 			))
 
 			var uiProxy http.Handler
@@ -128,12 +145,13 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				)
 
 				uiProxy = &httputil.ReverseProxy{
-					Director: middlewares,
+					Director:  middlewares,
+					Transport: otelhttp.NewTransport(http.DefaultTransport),
 				}
 			}
-			r.Mount("/", c.instrument.NewHandler(
+			r.Mount(uiRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "ui"},
-				uiProxy,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+uiRoute, uiProxy),
 			))
 		})
 	}
@@ -150,18 +168,21 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			proxyWrite = &httputil.ReverseProxy{
 				Director: middlewares,
 				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: writeTimeout,
-					}).DialContext,
-				},
+				Transport: otelhttp.NewTransport(
+					&http.Transport{
+						DialContext: (&net.Dialer{
+							Timeout: writeTimeout,
+						}).DialContext,
+					},
+				),
 			}
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			r.Handle("/api/v1/receive", c.instrument.NewHandler(
+			const receiveRoute = "/api/v1/receive"
+			r.Handle(receiveRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "receive"},
-				proxyWrite,
+				otelhttp.WithRouteTag(c.spanRoutePrefix+receiveRoute, proxyWrite),
 			))
 		})
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/observatorium/proxy"
 )
@@ -22,6 +23,7 @@ type handlerConfiguration struct {
 	logger          log.Logger
 	registry        *prometheus.Registry
 	instrument      handlerInstrumenter
+	spanRoutePrefix string
 	readMiddlewares []func(http.Handler) http.Handler
 }
 
@@ -42,6 +44,13 @@ func Registry(r *prometheus.Registry) HandlerOption {
 func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
+	}
+}
+
+// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -86,22 +95,30 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 		legacyProxy = &httputil.ReverseProxy{
 			Director: middlewares,
 			ErrorLog: proxy.Logger(c.logger),
-			Transport: &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout: readTimeout,
-				}).DialContext,
-			},
+			Transport: otelhttp.NewTransport(
+				&http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout: readTimeout,
+					}).DialContext,
+				},
+			),
 		}
 	}
 
 	r.Use(c.readMiddlewares...)
-	r.Handle("/api/v1/query", c.instrument.NewHandler(
+
+	const (
+		queryRoute      = "/api/v1/query"
+		queryRangeRoute = "/api/v1/query_range"
+	)
+
+	r.Handle(queryRoute, c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-		legacyProxy,
+		otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, legacyProxy),
 	))
-	r.Handle("/api/v1/query_range", c.instrument.NewHandler(
+	r.Handle(queryRangeRoute, c.instrument.NewHandler(
 		prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-		legacyProxy,
+		otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, legacyProxy),
 	))
 
 	r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {

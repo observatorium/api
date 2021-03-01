@@ -34,6 +34,8 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/automaxprocs/maxprocs"
 
 	logsv1 "github.com/observatorium/observatorium/api/logs/v1"
@@ -47,6 +49,7 @@ import (
 	"github.com/observatorium/observatorium/rbac"
 	"github.com/observatorium/observatorium/server"
 	"github.com/observatorium/observatorium/tls"
+	"github.com/observatorium/observatorium/tracing"
 )
 
 const (
@@ -64,12 +67,13 @@ type config struct {
 	rbacConfigPath    string
 	tenantsConfigPath string
 
-	debug      debugConfig
-	server     serverConfig
-	tls        tlsConfig
-	metrics    metricsConfig
-	logs       logsConfig
-	middleware middlewareConfig
+	debug           debugConfig
+	server          serverConfig
+	tls             tlsConfig
+	metrics         metricsConfig
+	logs            logsConfig
+	middleware      middlewareConfig
+	internalTracing internalTracingConfig
 }
 
 type debugConfig struct {
@@ -116,6 +120,12 @@ type middlewareConfig struct {
 	concurrentRequestLimit int
 }
 
+type internalTracingConfig struct {
+	serviceName      string
+	endpoint         string
+	samplingFraction float64
+}
+
 //nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
@@ -125,6 +135,15 @@ func main() {
 
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
+
+	tp, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint, cfg.internalTracing.samplingFraction)
+	if err != nil {
+		stdlog.Fatalf("initialize tracer: %v", err)
+	}
+
+	defer closer()
+
+	otel.SetErrorHandler(otelErrorHandler{logger: logger})
 
 	type tenant struct {
 		Name string `json:"name"`
@@ -406,7 +425,7 @@ func main() {
 				}
 			}
 
-			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, oidcs)
+			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, "/oidc/{tenant}", oidcs)
 			for _, w := range warnings {
 				level.Warn(logger).Log("msg", w.Error())
 			}
@@ -438,6 +457,7 @@ func main() {
 						metricslegacy.Logger(logger),
 						metricslegacy.Registry(reg),
 						metricslegacy.HandlerInstrumenter(ins),
+						metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					),
 				)
@@ -450,6 +470,7 @@ func main() {
 							metricsv1.Logger(logger),
 							metricsv1.Registry(reg),
 							metricsv1.HandlerInstrumenter(ins),
+							metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 							metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						),
@@ -472,6 +493,7 @@ func main() {
 								logsv1.Logger(logger),
 								logsv1.Registry(reg),
 								logsv1.HandlerInstrumenter(ins),
+								logsv1.SpanRoutePrefix("/api/logs/v1/{tenant}"),
 								logsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
 							),
@@ -514,7 +536,7 @@ func main() {
 
 		s := http.Server{
 			Addr:         cfg.server.listen,
-			Handler:      r,
+			Handler:      otelhttp.NewHandler(r, "api", otelhttp.WithTracerProvider(tp)),
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
@@ -626,6 +648,12 @@ func parseFlags() (config, error) {
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&cfg.logFormat, "log.format", logger.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
+	flag.StringVar(&cfg.internalTracing.serviceName, "internal.tracing.service-name", "observatorium_api",
+		"The service name to report to the tracing backend.")
+	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
+		"The full URL of the trace collector. If it's not set, tracing will be disabled.")
+	flag.Float64Var(&cfg.internalTracing.samplingFraction, "internal.tracing.sampling-fraction", 0.1,
+		"The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which the public server listens.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
@@ -735,4 +763,12 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 		}
 		http.StripPrefix(path.Join("/", prefix, tenant), next).ServeHTTP(w, r)
 	})
+}
+
+type otelErrorHandler struct {
+	logger log.Logger
+}
+
+func (oh otelErrorHandler) Handle(err error) {
+	level.Error(oh.logger).Log("msg", "opentelemetry", "err", err.Error())
 }

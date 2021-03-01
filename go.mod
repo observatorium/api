@@ -10,8 +10,7 @@ require (
 	github.com/go-chi/chi v4.0.2+incompatible
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/kit v0.10.0
-	github.com/golang/protobuf v1.4.2
-	github.com/google/go-cmp v0.5.1 // indirect
+	github.com/golang/protobuf v1.4.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/lib/pq v1.3.0 // indirect
@@ -25,15 +24,17 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/prometheus/prometheus v1.8.2-0.20200305080338-7164b58945bb
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/stretchr/testify v1.6.1 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.16.0
+	go.opentelemetry.io/contrib/propagators v0.16.0
+	go.opentelemetry.io/otel v0.16.0
+	go.opentelemetry.io/otel/exporters/trace/jaeger v0.16.0
+	go.opentelemetry.io/otel/sdk v0.16.0
 	go.uber.org/automaxprocs v1.2.0
-	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7 // indirect
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 // indirect
-	google.golang.org/appengine v1.6.1 // indirect
-	google.golang.org/genproto v0.0.0-20200413115906-b5235f65be36
-	google.golang.org/grpc v1.27.1
-	google.golang.org/protobuf v1.23.0
+	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
+	google.golang.org/api v0.39.0 // indirect
+	google.golang.org/genproto v0.0.0-20201214200347-8c77b98c765d
+	google.golang.org/grpc v1.34.0
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	k8s.io/component-base v0.18.0

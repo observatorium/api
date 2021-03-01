@@ -57,6 +57,12 @@ Usage of ./observatorium:
     	The percentage of mutex contention events that are reported in the mutex profile. (default 10)
   -debug.name string
     	A name to add as a prefix to log lines. (default "observatorium")
+  -internal.tracing.endpoint string
+    	The full URL of the trace collector. If it's not set, tracing will be disabled.
+  -internal.tracing.sampling-fraction float
+    	The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled. (default 0.1)
+  -internal.tracing.service-name string
+    	The service name to report to the tracing backend. (default "observatorium_api")
   -log.format string
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
