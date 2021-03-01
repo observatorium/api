@@ -121,12 +121,16 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			const queryRoute = "/api/v1/query"
+			const (
+				queryRoute      = "/api/v1/query"
+				queryRangeRoute = "/api/v1/query_range"
+				uiRoute         = "/"
+			)
+
 			r.Handle(queryRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, proxyRead),
 			))
-			const queryRangeRoute = "/api/v1/query_range"
 			r.Handle(queryRangeRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, proxyRead),
@@ -145,7 +149,6 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 					Transport: otelhttp.NewTransport(http.DefaultTransport),
 				}
 			}
-			const uiRoute = "/"
 			r.Mount(uiRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "ui"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+uiRoute, uiProxy),

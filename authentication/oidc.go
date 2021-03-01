@@ -61,12 +61,12 @@ func NewOIDC(logger log.Logger, prefix string, configs []TenantOIDCConfig) (http
 
 		r := chi.NewRouter()
 
-		const loginRoute = "/login"
+		const (
+			loginRoute    = "/login"
+			callbackRoute = "/callback"
+		)
 
 		r.Handle(loginRoute, otelhttp.WithRouteTag(prefix+loginRoute, p.LoginHandler()))
-
-		const callbackRoute = "/callback"
-
 		r.Handle(callbackRoute, otelhttp.WithRouteTag(prefix+callbackRoute, p.CallbackHandler()))
 
 		handlers[c.Tenant] = r

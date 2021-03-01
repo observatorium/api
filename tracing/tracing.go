@@ -1,6 +1,8 @@
 package tracing
 
 import (
+	"fmt"
+
 	propjaeger "go.opentelemetry.io/contrib/propagators/jaeger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/trace/jaeger"
@@ -22,7 +24,7 @@ func InitTracer(serviceName, collectorEndpoint string, samplingFraction float64)
 		jaeger.WithDisabled(disabled),
 	)
 	if err != nil {
-		return
+		return tp, closer, fmt.Errorf("create jaeger export pipeline: %w", err)
 	}
 
 	otel.SetTracerProvider(tp)
@@ -32,5 +34,5 @@ func InitTracer(serviceName, collectorEndpoint string, samplingFraction float64)
 		propagation.Baggage{},
 	))
 
-	return
+	return tp, closer, nil
 }
