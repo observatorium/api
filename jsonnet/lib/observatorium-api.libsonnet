@@ -23,6 +23,7 @@ local defaults = {
   tenants: {},
   tls: {},
   rateLimiter: {},
+  internal: {},
 
   commonLabels:: {
     'app.kubernetes.io/name': 'observatorium-api',
@@ -149,6 +150,28 @@ function(params) {
               ) + (
                 if std.objectHas(api.config.rateLimiter, 'grpcAddress') then
                   ['--middleware.rate-limiter.grpc-address=' + api.config.rateLimiter.grpcAddress]
+                else []
+              ) + (
+                if std.objectHas(api.config.internal, 'tracing') then
+                  [] + (
+                    if std.objectHas(api.config.internal.tracing, 'endpoint') then
+                      [
+                        '--internal.tracing.endpoint=' + api.config.internal.tracing.endpoint,
+                      ]
+                    else []
+                  ) + (
+                    if std.objectHas(api.config.internal.tracing, 'samplingFraction') then
+                      [
+                        '--internal.tracing.sampling-fraction=' + api.config.internal.tracing.samplingFraction,
+                      ]
+                    else []
+                  ) + (
+                    if std.objectHas(api.config.internal.tracing, 'serviceName') then
+                      [
+                        '--internal.tracing.service-name=' + api.config.internal.tracing.serviceName,
+                      ]
+                    else []
+                  )
                 else []
               ),
               ports: [
