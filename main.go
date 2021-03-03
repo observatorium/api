@@ -123,6 +123,7 @@ type middlewareConfig struct {
 type internalTracingConfig struct {
 	serviceName      string
 	endpoint         string
+	endpointType     string
 	samplingFraction float64
 }
 
@@ -136,7 +137,12 @@ func main() {
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
 
-	tp, closer, err := tracing.InitTracer(cfg.internalTracing.serviceName, cfg.internalTracing.endpoint, cfg.internalTracing.samplingFraction)
+	tp, closer, err := tracing.InitTracer(
+		cfg.internalTracing.serviceName,
+		cfg.internalTracing.endpoint,
+		cfg.internalTracing.endpointType,
+		cfg.internalTracing.samplingFraction,
+	)
 	if err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
 	}
@@ -651,7 +657,9 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.internalTracing.serviceName, "internal.tracing.service-name", "observatorium_api",
 		"The service name to report to the tracing backend.")
 	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
-		"The full URL of the trace collector. If it's not set, tracing will be disabled.")
+		"The full URL of the trace agent or collector. If it's not set, tracing will be disabled.")
+	flag.StringVar(&cfg.internalTracing.endpointType, "internal.tracing.endpoint-type", tracing.EndpointTypeAgent,
+		"The tracing endpoint type. Options: 'agent', 'collector'.")
 	flag.Float64Var(&cfg.internalTracing.samplingFraction, "internal.tracing.sampling-fraction", 0.1,
 		"The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",

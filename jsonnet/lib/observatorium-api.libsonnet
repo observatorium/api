@@ -160,6 +160,12 @@ function(params) {
                       ]
                     else []
                   ) + (
+                    if std.objectHas(api.config.internal.tracing, 'endpointType') then
+                      [
+                        '--internal.tracing.endpoint-type=' + api.config.internal.tracing.endpointType,
+                      ]
+                    else []
+                  ) + (
                     if std.objectHas(api.config.internal.tracing, 'samplingFraction') then
                       [
                         '--internal.tracing.sampling-fraction=' + api.config.internal.tracing.samplingFraction,

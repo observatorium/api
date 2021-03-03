@@ -11,17 +11,30 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	EndpointTypeCollector = "collector"
+	EndpointTypeAgent     = "agent"
+)
+
 // InitTracer creates an OTel TracerProvider that exports the traces to a Jaeger collector.
-func InitTracer(serviceName, collectorEndpoint string, samplingFraction float64) (tp trace.TracerProvider, closer func(), err error) {
-	disabled := collectorEndpoint == ""
+func InitTracer(
+	serviceName string,
+	endpoint string,
+	endpointType string,
+	samplingFraction float64,
+) (tp trace.TracerProvider, closer func(), err error) {
+	endpointOption := jaeger.WithAgentEndpoint(endpoint)
+	if endpointType == EndpointTypeCollector {
+		endpointOption = jaeger.WithCollectorEndpoint(endpoint)
+	}
 
 	tp, closer, err = jaeger.NewExportPipeline(
-		jaeger.WithCollectorEndpoint(collectorEndpoint),
+		endpointOption,
 		jaeger.WithProcess(jaeger.Process{
 			ServiceName: serviceName,
 		}),
-		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.TraceIDRatioBased(samplingFraction)}),
-		jaeger.WithDisabled(disabled),
+		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.ParentBased(sdktrace.TraceIDRatioBased(samplingFraction))}),
+		jaeger.WithDisabled(endpoint == ""),
 	)
 	if err != nil {
 		return tp, closer, fmt.Errorf("create jaeger export pipeline: %w", err)
