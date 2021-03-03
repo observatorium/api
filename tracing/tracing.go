@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// EndpointType represents the type of the tracing endpoint.
 const (
 	EndpointTypeCollector = "collector"
 	EndpointTypeAgent     = "agent"
