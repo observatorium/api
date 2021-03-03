@@ -16,7 +16,7 @@ const (
 	EndpointTypeAgent     = "agent"
 )
 
-// InitTracer creates an OTel TracerProvider that exports the traces to a Jaeger collector.
+// InitTracer creates an OTel TracerProvider that exports the traces to a Jaeger agent/collector.
 func InitTracer(
 	serviceName string,
 	endpoint string,
