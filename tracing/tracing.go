@@ -12,16 +12,18 @@ import (
 )
 
 // EndpointType represents the type of the tracing endpoint.
+type EndpointType string
+
 const (
-	EndpointTypeCollector = "collector"
-	EndpointTypeAgent     = "agent"
+	EndpointTypeCollector EndpointType = "collector"
+	EndpointTypeAgent     EndpointType = "agent"
 )
 
 // InitTracer creates an OTel TracerProvider that exports the traces to a Jaeger agent/collector.
 func InitTracer(
 	serviceName string,
 	endpoint string,
-	endpointType string,
+	endpointType EndpointType,
 	samplingFraction float64,
 ) (tp trace.TracerProvider, closer func(), err error) {
 	endpointOption := jaeger.WithAgentEndpoint(endpoint)

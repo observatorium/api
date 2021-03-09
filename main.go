@@ -123,7 +123,7 @@ type middlewareConfig struct {
 type internalTracingConfig struct {
 	serviceName      string
 	endpoint         string
-	endpointType     string
+	endpointType     tracing.EndpointType
 	samplingFraction float64
 }
 
@@ -636,6 +636,7 @@ func parseFlags() (config, error) {
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
+		rawTracingEndpointType  string
 	)
 
 	cfg := config{}
@@ -658,7 +659,7 @@ func parseFlags() (config, error) {
 		"The service name to report to the tracing backend.")
 	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
 		"The full URL of the trace agent or collector. If it's not set, tracing will be disabled.")
-	flag.StringVar(&cfg.internalTracing.endpointType, "internal.tracing.endpoint-type", tracing.EndpointTypeAgent,
+	flag.StringVar(&rawTracingEndpointType, "internal.tracing.endpoint-type", string(tracing.EndpointTypeAgent),
 		fmt.Sprintf("The tracing endpoint type. Options: '%s', '%s'.", tracing.EndpointTypeAgent, tracing.EndpointTypeCollector))
 	flag.Float64Var(&cfg.internalTracing.samplingFraction, "internal.tracing.sampling-fraction", 0.1,
 		"The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled.")
@@ -758,6 +759,8 @@ func parseFlags() (config, error) {
 	if rawTLSCipherSuites != "" {
 		cfg.tls.cipherSuites = strings.Split(rawTLSCipherSuites, ",")
 	}
+
+	cfg.internalTracing.endpointType = tracing.EndpointType(rawTracingEndpointType)
 
 	return cfg, nil
 }
