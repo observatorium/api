@@ -369,8 +369,8 @@ func main() {
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
 		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
-		// With zero backlog and backlog getting timing out immediately with 1ms, all concurrent requests beyond cfg.middleware.concurrentRequestLimit result in immediate non-200 HTTP response.
-		backlogDuration, _ := time.ParseDuration("1ms")
+		// With zero backlog concurrent requests crossing a rate-limit result in non-200 HTTP response.
+		backlogDuration := 1 * time.Millisecond
 		r.Use(middleware.ThrottleBacklog(cfg.middleware.concurrentRequestLimit, 0, backlogDuration))
 		r.Use(server.Logger(logger))
 
