@@ -7,6 +7,7 @@ CERT_DIR ?= $(TMP_DIR)/certs
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
+GOARCH ?= $(shell go env GOARCH)
 
 VERSION := $(strip $(shell [ -d .git ] && git describe --always --tags --dirty))
 BUILD_DATE := $(shell date -u +"%Y-%m-%d")
@@ -67,7 +68,7 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	$(EMBEDMD) -w docs/benchmark.md
 
 observatorium: deps main.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=amd64 GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $@ .
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $@ .
 
 .PHONY: build
 build: observatorium
