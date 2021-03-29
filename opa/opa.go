@@ -58,7 +58,7 @@ type restAuthorizer struct {
 }
 
 // Authorize implements the rbac.Authorizer interface.
-func (a *restAuthorizer) Authorize(subject string, groups []string, permission rbac.Permission, resource, tenant string) bool {
+func (a *restAuthorizer) Authorize(subject string, groups []string, permission rbac.Permission, resource, tenant string) (int, bool) {
 	var i interface{} = Input{
 		Groups:     groups,
 		Permission: permission,
@@ -74,13 +74,15 @@ func (a *restAuthorizer) Authorize(subject string, groups []string, permission r
 	j, err := json.Marshal(dreq)
 	if err != nil {
 		level.Error(a.logger).Log("msg", "failed to marshal OPA input to JSON", "err", err.Error())
-		return false
+
+		return http.StatusForbidden, false
 	}
 
 	res, err := a.client.Post(a.url.String(), "application/json", bytes.NewBuffer(j))
 	if err != nil {
 		level.Error(a.logger).Log("msg", "make request to OPA endpoint", "URL", a.url.String(), "err", err.Error())
-		return false
+
+		return res.StatusCode, false
 	}
 
 	if res.StatusCode/100 != 2 {
@@ -93,30 +95,34 @@ func (a *restAuthorizer) Authorize(subject string, groups []string, permission r
 			"status", res.Status,
 		)
 
-		return false
+		return res.StatusCode, false
 	}
 
 	dres := types.DataResponseV1{}
 	if err := json.NewDecoder(res.Body).Decode(&dres); err != nil {
 		level.Error(a.logger).Log("msg", "failed to unmarshal OPA response", "err", err.Error())
 
-		return false
+		return http.StatusForbidden, false
 	}
 
 	if dres.Result == nil {
 		level.Error(a.logger).Log("msg", "received an empty OPA response")
 
-		return false
+		return http.StatusForbidden, false
 	}
 
 	result, ok := (*dres.Result).(bool)
 	if !ok {
 		level.Error(a.logger).Log("msg", "received a malformed OPA response")
 
-		return false
+		return http.StatusForbidden, false
 	}
 
-	return result
+	if !result {
+		return http.StatusForbidden, result
+	}
+
+	return http.StatusOK, result
 }
 
 // NewRESTAuthorizer creates a new rbac.Authorizer that works against an OPA endpoint.
@@ -146,7 +152,7 @@ type inProcessAuthorizer struct {
 }
 
 // Authorize implements the rbac.Authorizer interface.
-func (a *inProcessAuthorizer) Authorize(subject string, groups []string, permission rbac.Permission, resource, tenant string) bool {
+func (a *inProcessAuthorizer) Authorize(subject string, groups []string, permission rbac.Permission, resource, tenant string) (int, bool) {
 	var i interface{} = Input{
 		Groups:     groups,
 		Permission: permission,
@@ -158,21 +164,28 @@ func (a *inProcessAuthorizer) Authorize(subject string, groups []string, permiss
 	res, err := a.query.Eval(context.Background(), rego.EvalInput(i))
 	if err != nil {
 		level.Error(a.logger).Log("msg", "failed to evaluate OPA query", "err", err.Error())
-		return false
+
+		return http.StatusForbidden, false
 	}
 
 	if len(res) == 0 || len(res[0].Expressions) == 0 || res[0].Expressions[0] == nil {
 		level.Error(a.logger).Log("msg", "received a empty OPA response")
-		return false
+
+		return http.StatusForbidden, false
 	}
 
 	result, ok := (res[0].Expressions[0].Value).(bool)
 	if !ok {
 		level.Error(a.logger).Log("msg", "received a malformed OPA response")
-		return false
+
+		return http.StatusForbidden, false
 	}
 
-	return result
+	if !result {
+		return http.StatusForbidden, result
+	}
+
+	return http.StatusOK, result
 }
 
 // NewInProcessAuthorizer creates a new rbac.Authorizer that works in-process.

@@ -1,8 +1,11 @@
 package rbac
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+)
 
-// nolint:funlen,scopelint
+// nolint:dupl,funlen,scopelint
 func TestNewAuthorizer(t *testing.T) {
 	type io struct {
 		subject    string
@@ -11,6 +14,7 @@ func TestNewAuthorizer(t *testing.T) {
 		resource   string
 		tenant     string
 		output     bool
+		statusCode int
 	}
 
 	for _, tc := range []struct {
@@ -28,6 +32,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -35,6 +40,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -42,6 +48,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -68,6 +75,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -75,6 +83,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -82,6 +91,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -102,6 +112,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -109,6 +120,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -116,6 +128,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -140,6 +153,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -147,6 +161,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -154,6 +169,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -173,6 +189,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -180,6 +197,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -187,6 +205,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -220,6 +239,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -227,6 +247,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -234,6 +255,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -241,6 +263,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -248,6 +271,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -281,6 +305,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -288,6 +313,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -295,6 +321,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -302,6 +329,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -309,6 +337,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -342,6 +371,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -349,6 +379,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -356,6 +387,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -363,6 +395,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -370,6 +403,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -377,6 +411,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -410,6 +445,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -417,6 +453,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -424,6 +461,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -431,6 +469,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -438,6 +477,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -471,6 +511,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -478,6 +519,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -485,6 +527,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -492,6 +535,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -499,6 +543,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -506,6 +551,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 			},
 		},
@@ -539,6 +585,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -546,6 +593,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -553,6 +601,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -560,6 +609,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -567,6 +617,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -574,6 +625,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -581,6 +633,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -588,6 +641,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -621,6 +675,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -628,6 +683,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -635,6 +691,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -642,6 +699,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -649,6 +707,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -656,6 +715,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -663,6 +723,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -690,6 +751,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -697,6 +759,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -704,6 +767,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -711,6 +775,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -718,6 +783,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -725,6 +791,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -732,6 +799,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -760,6 +828,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -768,6 +837,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -776,6 +846,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -784,6 +855,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "max",
@@ -792,6 +864,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -800,6 +873,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -808,6 +882,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -836,6 +911,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     true,
+					statusCode: http.StatusOK,
 				},
 				{
 					subject:    "erika",
@@ -844,6 +920,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "erika",
@@ -852,6 +929,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -860,6 +938,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -868,6 +947,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "a",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -876,6 +956,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "foo",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 				{
 					subject:    "max",
@@ -884,6 +965,7 @@ func TestNewAuthorizer(t *testing.T) {
 					resource:   "bar",
 					tenant:     "b",
 					output:     false,
+					statusCode: http.StatusForbidden,
 				},
 			},
 		},
@@ -891,8 +973,12 @@ func TestNewAuthorizer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			a := NewAuthorizer(tc.roles, tc.roleBindings)
 			for i := range tc.ios {
-				if a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant) != tc.ios[i].output {
-					t.Errorf("test case %d: expected %t; got %t", i, tc.ios[i].output, !tc.ios[i].output)
+				sc, out := a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant)
+				if sc != tc.ios[i].statusCode {
+					t.Errorf("test case %d: expected status code %d; got %d", i, tc.ios[i].statusCode, sc)
+				}
+				if out != tc.ios[i].output {
+					t.Errorf("test case %d: expected return %t; got %t", i, tc.ios[i].output, out)
 				}
 			}
 		})
