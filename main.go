@@ -119,7 +119,7 @@ type middlewareConfig struct {
 	rateLimiterAddress                string
 	concurrentRequestLimit            int
 	backLogLimitConcurrentRequests    int
-	backLogDurationConcurrentRequests int
+	backLogDurationConcurrentRequests time.Duration
 }
 
 type internalTracingConfig struct {
@@ -372,8 +372,8 @@ func main() {
 		r.Use(middleware.StripSlashes)
 		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
 		// With default value of zero backlog concurrent requests crossing a rate-limit result in non-200 HTTP response.
-		backlogDuration := time.Duration(cfg.middleware.backLogDurationConcurrentRequests) * time.Millisecond
-		r.Use(middleware.ThrottleBacklog(cfg.middleware.concurrentRequestLimit, cfg.middleware.backLogLimitConcurrentRequests, backlogDuration))
+		r.Use(middleware.ThrottleBacklog(cfg.middleware.concurrentRequestLimit,
+			cfg.middleware.backLogLimitConcurrentRequests, cfg.middleware.backLogDurationConcurrentRequests))
 		r.Use(server.Logger(logger))
 
 		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
@@ -713,8 +713,8 @@ func parseFlags() (config, error) {
 		"The limit that controls the number of concurrently processed requests across all tenants.")
 	flag.IntVar(&cfg.middleware.backLogLimitConcurrentRequests, "middleware.backlog-limit-concurrent-requests", 0,
 		"The number of concurrent requests that can buffered.")
-	flag.IntVar(&cfg.middleware.backLogDurationConcurrentRequests, "middleware.backlog-duration-concurrent-requests", 1,
-		"The time in millseconds to buffer up concurrent requests.")
+	flag.DurationVar(&cfg.middleware.backLogDurationConcurrentRequests, "middleware.backlog-duration-concurrent-requests", 1*time.Millisecond,
+		"The time duration to buffer up concurrent requests.")
 
 	flag.Parse()
 
