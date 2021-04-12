@@ -7,7 +7,7 @@ WORKDIR /opt
 
 RUN git update-index --refresh; make observatorium
 
-FROM alpine:3.10 as runner
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as runner
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /opt/observatorium /bin/observatorium
