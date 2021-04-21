@@ -17,6 +17,8 @@ ARG VERSION
 ARG VCS_REF
 ARG DOCKERFILE_PATH
 
+RUN microdnf update -y && microdnf clean all
+
 LABEL vendor="Observatorium" \
     name="observatorium/observatorium" \
     description="Observatorium API" \
