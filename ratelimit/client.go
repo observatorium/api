@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 
-	"github.com/observatorium/observatorium/ratelimit/gubernator"
+	"github.com/observatorium/api/ratelimit/gubernator"
 )
 
 var errOverLimit = errors.New("over limit")

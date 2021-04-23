@@ -3,8 +3,8 @@ package authorization
 import (
 	"net/http"
 
-	"github.com/observatorium/observatorium/authentication"
-	"github.com/observatorium/observatorium/rbac"
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/rbac"
 )
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context

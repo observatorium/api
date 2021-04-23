@@ -1,8 +1,8 @@
 # Observatorium
 
-[![CircleCI](https://circleci.com/gh/observatorium/observatorium.svg?style=svg)](https://circleci.com/gh/observatorium/observatorium)
-[![Go Doc](https://godoc.org/github.com/observatorium/observatorium?status.svg)](http://godoc.org/github.com/observatorium/observatorium)
-[![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/observatorium)](https://goreportcard.com/report/github.com/observatorium/observatorium)
+[![CircleCI](https://circleci.com/gh/observatorium/api.svg?style=svg)](https://circleci.com/gh/observatorium/api)
+[![Go Doc](https://godoc.org/github.com/observatorium/api?status.svg)](http://godoc.org/github.com/observatorium/api)
+[![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/api)](https://goreportcard.com/report/github.com/observatorium/api)
 
 This project is an API server for Observatorium.
 The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.

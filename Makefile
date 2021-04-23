@@ -8,19 +8,20 @@ FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
 GOARCH ?= $(shell go env GOARCH)
+BIN_NAME ?= observatorium-api
 
 VERSION := $(strip $(shell [ -d .git ] && git describe --always --tags --dirty))
 BUILD_DATE := $(shell date -u +"%Y-%m-%d")
 BUILD_TIMESTAMP := $(shell date -u +"%Y-%m-%dT%H:%M:%S%Z")
 VCS_BRANCH := $(strip $(shell git rev-parse --abbrev-ref HEAD))
 VCS_REF := $(strip $(shell [ -d .git ] && git rev-parse --short HEAD))
-DOCKER_REPO ?= quay.io/observatorium/observatorium
+DOCKER_REPO ?= quay.io/observatorium/api
 
 CONTAINER_CMD := docker run --rm \
 		-u="$(shell id -u):$(shell id -g)" \
 		-v "$(shell go env GOCACHE):/.cache/go-build" \
-		-v "$(PWD):/go/src/github.com/observatorium/observatorium:Z" \
-		-w "/go/src/github.com/observatorium/observatorium" \
+		-v "$(PWD):/go/src/github.com/observatorium/api:Z" \
+		-w "/go/src/github.com/observatorium/api" \
 		-e USER=deadbeef \
 		-e GO111MODULE=on \
 		quay.io/coreos/jsonnet-ci
@@ -50,11 +51,11 @@ PROTOC_VERSION ?= 3.13.0
 
 SERVER_CERT ?= $(CERT_DIR)/server.pem
 
-default: observatorium
-all: clean lint test observatorium generate validate
+default: $(BIN_NAME)
+all: clean lint test $(BIN_NAME) generate validate
 
-tmp/help.txt: observatorium $(TMP_DIR)
-	./observatorium --help &> $(TMP_DIR)/help.txt || true
+tmp/help.txt: $(BIN_NAME) $(TMP_DIR)
+	./$(BIN_NAME) --help &> $(TMP_DIR)/help.txt || true
 
 tmp/load_help.txt: $(TMP_DIR)
 	-./test/load.sh -h > $(TMP_DIR)/load_help.txt 2&>1
@@ -67,11 +68,11 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 	$(EMBEDMD) -w docs/benchmark.md
 
-observatorium: deps main.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $@ .
+$(BIN_NAME): deps main.go $(wildcard *.go) $(wildcard */*.go)
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
 
 .PHONY: build
-build: observatorium
+build: $(BIN_NAME)
 
 .PHONY: run
 run: build $(THANOS) $(DEX) $(LOKI) generate-cert
@@ -115,7 +116,7 @@ clean:
 	-rm tmp/help.txt
 	-rm -rf tmp/bin
 	-rm -rf tmp/src
-	-rm observatorium
+	-rm $(BIN_NAME)
 
 ratelimit/gubernator/proto/google:
 	mkdir -p $(TMP_DIR)/src/grpc-gateway
@@ -211,11 +212,11 @@ $(SHELLCHECK): $(BIN_DIR)
 	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 $(MOCKPROVIDER): | deps $(BIN_DIR)
-	go build -tags tools -o $@ github.com/observatorium/observatorium/test/mock
+	go build -tags tools -o $@ github.com/observatorium/api/test/mock
 
 $(GENERATE_TLS_CERT): | deps $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
-	go build -tags tools -o $@ github.com/observatorium/observatorium/test/tls
+	go build -tags tools -o $@ github.com/observatorium/api/test/tls
 
 $(PROTOC): $(TMP_DIR) $(BIN_DIR)
 	@PROTOC_VERSION="$(PROTOC_VERSION)" TMP_DIR="$(TMP_DIR)" BIN_DIR="$(BIN_DIR)" scripts/install_protoc.sh

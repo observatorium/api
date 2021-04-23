@@ -74,7 +74,7 @@ plot() {
     platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
     case $platform in
     linux)
-        ./observatorium \
+        ./observatorium-api \
             --web.listen=0.0.0.0:8080 \
             --metrics.read.endpoint=http://127.0.0.1:9091/api/v1 \
             --metrics.write.endpoint=http://127.0.0.1:19291/
@@ -82,7 +82,7 @@ plot() {
 
     darwin)
         docker run --rm -u="$(id -u):$(id -g)" -e USER=deadbeef -p 8080:8080 \
-            quay.io/observatorium/observatorium \
+            quay.io/observatorium/api \
             --web.listen=0.0.0.0:8080 \
             --metrics.read.endpoint=http://host.docker.internal:8888/ \
             --metrics.write.endpoint=http://host.docker.internal:8888/

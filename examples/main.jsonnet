@@ -3,7 +3,7 @@ local config = {
   name: 'observatorium-api',
   namespace: 'observatorium',
   version: 'master-2020-09-04-v0.1.1-131-ga4c5a9c',
-  image: 'quay.io/observatorium/observatorium:' + cfg.version,
+  image: 'quay.io/observatorium/api:' + cfg.version,
   replicas: 3,
   metrics: {
     readEndpoint: 'http://127.0.0.1:9091',

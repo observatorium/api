@@ -8,7 +8,7 @@ set -euo pipefail
 result=1
 trap 'kill $(jobs -p); exit $result' EXIT
 
-OBSERVATORIUM=${OBSERVATORIUM:=./observatorium}
+OBSERVATORIUM=${OBSERVATORIUM:=./observatorium-api}
 DEX=${DEX:-dex}
 THANOS=${THANOS:-thanos}
 LOKI=${LOKI:-loki}
