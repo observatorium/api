@@ -12,7 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"github.com/observatorium/observatorium/proxy"
+	"github.com/observatorium/api/proxy"
 )
 
 const (

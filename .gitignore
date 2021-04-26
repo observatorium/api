@@ -12,6 +12,7 @@
 *.out
 
 observatorium
+observatorium-api
 tmp/
 examples/vendor
 vendor

@@ -15,7 +15,7 @@ import (
 	"github.com/open-policy-agent/opa/server/types"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/observatorium/observatorium/rbac"
+	"github.com/observatorium/api/rbac"
 )
 
 // Input models the data that is used for OPA input documents.
