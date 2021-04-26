@@ -39,8 +39,7 @@ spec:
         - --logs.write.endpoint=http://127.0.0.1:3100
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
-        # TODO(onprem): Update to observatorium/api when a image is published.
-        image: quay.io/observatorium/observatorium:master-2020-09-04-v0.1.1-131-ga4c5a9c
+        image: quay.io/observatorium/api:master-2020-09-04-v0.1.1-131-ga4c5a9c
         livenessProbe:
           failureThreshold: 10
           httpGet:
