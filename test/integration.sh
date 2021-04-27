@@ -82,7 +82,7 @@ done
     --middleware.rate-limiter.grpc-address=127.0.0.1:8881 \
     --tenants.config=./test/config/tenants.yaml \
     --database.enable=true \
-    --database.dsn=postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable \
+    --database.dsn=postgres://postgres:password@localhost:5432/postgres?sslmode=disable \
     --log.level=debug
 ) &
 
@@ -132,6 +132,11 @@ until curl --output /dev/null --silent --fail http://127.0.0.1:8448/ready; do
   printf '.'
   sleep 1
 done
+
+sleep 1000
+
+# CURL_OUTPUT=$(curl https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules)
+# echo $CURL_OUTPUT
 
 echo "-------------------------------------------"
 echo "- Metrics tests                           -"

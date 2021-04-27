@@ -520,7 +520,7 @@ func main() {
 				// thus enables the more dynamic metrics API that depend on a database.
 				if cfg.database.enable {
 					metricsOptions = append(metricsOptions,
-						metricsv1.WithRulesAPI(metricsv1.NewRulesRepository(db)),
+						metricsv1.WithRulesAPI(&metricsv1.RulesRepositoryNop{}),
 					)
 				}
 
