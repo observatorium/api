@@ -45,8 +45,7 @@ spec:
         - --tls.healthchecks.server-ca-file=/var/run/tls/ca
         - --tls.reload-interval=1m
         - --tls.healthchecks.server-name=example.com
-        # TODO(onprem): Update to observatorium/api when a image is published.
-        image: quay.io/observatorium/observatorium:master-2020-09-04-v0.1.1-131-ga4c5a9c
+        image: quay.io/observatorium/api:master-2020-09-04-v0.1.1-131-ga4c5a9c
         livenessProbe:
           failureThreshold: 10
           httpGet:

@@ -6,7 +6,7 @@ jobs:
     steps:
       - checkout
       - run: |
-          make observatorium
+          make build
           git diff --exit-code
 
   lint:

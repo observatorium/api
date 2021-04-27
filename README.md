@@ -50,7 +50,7 @@ Compatible backends must implement the Loki write API, e.g. Loki.
 
 [embedmd]:# (tmp/help.txt)
 ```txt
-Usage of ./observatorium:
+Usage of ./observatorium-api:
   -debug.block-profile-rate int
     	The percentage of goroutine blocking events that are reported in the blocking profile. (default 10)
   -debug.mutex-profile-fraction int
