@@ -126,7 +126,7 @@ func main() {
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
-			ca     *x509.Certificate
+			ca     []*x509.Certificate
 		} `json:"mTLS"`
 	}
 
@@ -173,15 +173,25 @@ func main() {
 						stdlog.Fatalf("cannot read CA certificate file from path %q for tenant %q: %v", t.MTLS.CAPath, t.Name, err)
 					}
 				}
-				block, _ := pem.Decode(t.MTLS.RawCA)
-				if block == nil {
-					stdlog.Fatalf("failed to parse CA certificate PEM for tenant %q", t.Name)
+				var (
+					block *pem.Block
+					rest  []byte = t.MTLS.RawCA
+					cert  *x509.Certificate
+				)
+				for {
+					block, rest = pem.Decode(rest)
+					if block == nil {
+						stdlog.Fatalf("failed to parse CA certificate PEM for tenant %q", t.Name)
+					}
+					cert, err = x509.ParseCertificate(block.Bytes)
+					if err != nil {
+						stdlog.Fatalf("failed to parse certificate: %v", err)
+					}
+					t.MTLS.ca = append(t.MTLS.ca, cert)
+					if len(rest) == 0 {
+						break
+					}
 				}
-				cert, err := x509.ParseCertificate(block.Bytes)
-				if err != nil {
-					stdlog.Fatalf("failed to parse certificate: %v", err)
-				}
-				t.MTLS.ca = cert
 			}
 		}
 	}
