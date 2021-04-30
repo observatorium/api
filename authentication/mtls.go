@@ -24,6 +24,7 @@ func NewMTLS(configs []MTLSConfig) map[string]Middleware {
 			for _, ca := range c.CA {
 				caPool.AddCert(ca)
 			}
+
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if len(r.TLS.PeerCertificates) == 0 {
 					http.Error(w, "no client certificate presented", http.StatusUnauthorized)
