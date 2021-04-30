@@ -254,7 +254,7 @@ func main() {
 						tenantsCfg.Tenants[i] = nil
 						break
 					}
-					t.MTLS.cas = append(t.MTLS.ca, cert)
+					t.MTLS.cas = append(t.MTLS.cas, cert)
 					if len(rest) == 0 {
 						break
 					}
