@@ -10,7 +10,7 @@ import (
 // MTLSConfig represents the mTLS configuration for a single tenant.
 type MTLSConfig struct {
 	Tenant string
-	CA     *x509.Certificate
+	CAs    []*x509.Certificate
 }
 
 // NewMTLS creates a set of Middlewares for all specified tenants.
@@ -21,7 +21,10 @@ func NewMTLS(configs []MTLSConfig) map[string]Middleware {
 		c := c
 		middlewares[c.Tenant] = func(next http.Handler) http.Handler {
 			caPool := x509.NewCertPool()
-			caPool.AddCert(c.CA)
+
+			for _, ca := range c.CAs {
+				caPool.AddCert(ca)
+			}
 
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if len(r.TLS.PeerCertificates) == 0 {
