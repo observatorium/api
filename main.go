@@ -170,7 +170,7 @@ func main() {
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
-			ca     *x509.Certificate
+			ca     []*x509.Certificate
 		} `json:"mTLS"`
 		OPA *struct {
 			Query      string   `json:"query"`
@@ -236,19 +236,29 @@ func main() {
 						continue
 					}
 				}
-				block, _ := pem.Decode(t.MTLS.RawCA)
-				if block == nil {
-					skip.Log("tenant", t.Name, "err", "failed to parse CA certificate PEM")
-					tenantsCfg.Tenants[i] = nil
-					continue
+				var (
+					block *pem.Block
+					rest  []byte = t.MTLS.RawCA
+					cert  *x509.Certificate
+				)
+				for {
+					block, rest = pem.Decode(rest)
+					if block == nil {
+						skip.Log("tenant", t.Name, "err", "failed to parse CA certificate PEM")
+						tenantsCfg.Tenants[i] = nil
+						break
+					}
+					cert, err = x509.ParseCertificate(block.Bytes)
+					if err != nil {
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse CA certificate: %v", err))
+						tenantsCfg.Tenants[i] = nil
+						break
+					}
+					t.MTLS.ca = append(t.MTLS.ca, cert)
+					if len(rest) == 0 {
+						break
+					}
 				}
-				cert, err := x509.ParseCertificate(block.Bytes)
-				if err != nil {
-					skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse CA certificate: %v", err))
-					tenantsCfg.Tenants[i] = nil
-					continue
-				}
-				t.MTLS.ca = cert
 			}
 			if t.OPA != nil {
 				if t.OPA.URL != "" {
