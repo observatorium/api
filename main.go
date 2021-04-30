@@ -170,7 +170,7 @@ func main() {
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
-			ca     []*x509.Certificate
+			cas    []*x509.Certificate
 		} `json:"mTLS"`
 		OPA *struct {
 			Query      string   `json:"query"`
@@ -254,7 +254,7 @@ func main() {
 						tenantsCfg.Tenants[i] = nil
 						break
 					}
-					t.MTLS.ca = append(t.MTLS.ca, cert)
+					t.MTLS.cas = append(t.MTLS.ca, cert)
 					if len(rest) == 0 {
 						break
 					}
@@ -433,7 +433,7 @@ func main() {
 				case t.MTLS != nil:
 					mTLSs = append(mTLSs, authentication.MTLSConfig{
 						Tenant: t.Name,
-						CA:     t.MTLS.ca,
+						CAs:    t.MTLS.cas,
 					})
 				default:
 					stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
