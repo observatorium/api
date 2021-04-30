@@ -21,6 +21,7 @@ func NewMTLS(configs []MTLSConfig) map[string]Middleware {
 		c := c
 		middlewares[c.Tenant] = func(next http.Handler) http.Handler {
 			caPool := x509.NewCertPool()
+
 			for _, ca := range c.CA {
 				caPool.AddCert(ca)
 			}
