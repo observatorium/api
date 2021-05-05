@@ -20,6 +20,7 @@ tenants:
     - endpoint: "/api/logs/v1/.*"
       limit: 100
       window: 1s
+  ruleFilePath: ./test/metrics_test/test-oidc-rulefile.yaml
 - name: test-attacker
   id: 066df98b-04e1-46c5-86f7-dc3250bfe869
   oidc:

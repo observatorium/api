@@ -1,0 +1,12 @@
+groups:
+  - name: nodes.rules
+    interval: 0s
+    rules:
+    - record: test:metrics_test_rule:test_rule
+      expr: vector(1)
+    - record: test:metrics_test_rule:test_rule2
+      expr: vector(1)
+      
+  - name: nodes.rules2
+    interval: 0s
+    rules: []

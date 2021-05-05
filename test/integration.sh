@@ -18,6 +18,7 @@ OPA=${OPA:-opa}
 UP=${UP:-up}
 WEBSOCAT=${WEBSOCAT:=websocat}
 GUBERNATOR=${GUBERNATOR:-gubernator}
+CLI=${CLI:-cli}
 
 ($DEX serve ./test/config/dex.yaml) &
 
@@ -81,7 +82,7 @@ done
     --rbac.config=./test/config/rbac.yaml \
     --middleware.rate-limiter.grpc-address=127.0.0.1:8881 \
     --tenants.config=./test/config/tenants.yaml \
-    --database.enable=true \
+    --database.enable=false \
     --database.dsn=postgres://postgres:password@localhost:5432/postgres?sslmode=disable \
     --log.level=debug
 ) &
@@ -133,10 +134,41 @@ until curl --output /dev/null --silent --fail http://127.0.0.1:8448/ready; do
   sleep 1
 done
 
+echo "-------------------------------------------"
+echo "- Metrics API tests                           -"
+echo "-------------------------------------------"
+
+metrics_read=$(curl \
+  --silent \
+  -H "Authorization: Bearer $token" \
+  --cacert ./tmp/certs/ca.pem \
+  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules 1> /dev/null && echo $?)
+
+
+metrics_update=$(curl -X POST \
+  --silent \
+  -H "Authorization: Bearer $token" \
+  --cacert ./tmp/certs/ca.pem \
+  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules/nodes.rules \
+  --data-binary @test/metrics_test/metrics_test.yaml 1> /dev/null && echo $?)
+
+# Note I'm not sure if this is the best way of testing if the read/update is correct
+# As the correctness is not always reflected in the database in the case of update, for example
+# Additionally, the update won't work if it's not a database
+
+if [ "$metrics_read" = "0" ] && [ "$metrics_update" = "0" ]; then
+  echo "-------------------------------------------"
+  echo "- Metrics API Read/Update: OK               -"
+  echo "-------------------------------------------"
+else
+  echo "-------------------------------------------"
+  echo "-  Metrics API Read/Update: FAILED           -"
+  echo "-------------------------------------------"
+fi
+
+
 sleep 1000
 
-# CURL_OUTPUT=$(curl https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules)
-# echo $CURL_OUTPUT
 
 echo "-------------------------------------------"
 echo "- Metrics tests                           -"

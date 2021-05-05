@@ -177,9 +177,10 @@ func main() {
 	}
 
 	type tenant struct {
-		Name string `json:"name"`
-		ID   string `json:"id"`
-		OIDC *struct {
+		Name         string `json:"name"`
+		ID           string `json:"id"`
+		RuleFilePath string `json:"ruleFilePath"`
+		OIDC         *struct {
 			ClientID      string `json:"clientID"`
 			ClientSecret  string `json:"clientSecret"`
 			GroupClaim    string `json:"groupClaim"`
@@ -413,6 +414,7 @@ func main() {
 
 		r.Group(func(r chi.Router) {
 			tenantIDs := map[string]string{}
+			tenantRuleFilePaths := map[string]string{}
 			var oidcs []authentication.TenantOIDCConfig
 			var mTLSs []authentication.MTLSConfig
 			authorizers := map[string]rbac.Authorizer{}
@@ -423,6 +425,7 @@ func main() {
 				}
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
 				tenantIDs[t.Name] = t.ID
+				tenantRuleFilePaths[t.Name] = t.RuleFilePath
 				if t.RateLimits != nil {
 					for _, rl := range t.RateLimits {
 						matcher, err := regexp.Compile(rl.Endpoint)
@@ -516,12 +519,18 @@ func main() {
 					metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 				}
 
-				// This passes the API repositories and
-				// thus enables the more dynamic metrics API that depend on a database.
 				if cfg.database.enable {
 					metricsOptions = append(metricsOptions,
-						metricsv1.WithRulesAPI(&metricsv1.RulesRepositoryNop{}),
+						metricsv1.WithRulesAPI(metricsv1.NewRulesRepository(db)),
 					)
+				} else {
+					if len(tenantRuleFilePaths) > 0 {
+						metricsOptions = append(metricsOptions,
+							metricsv1.WithRulesAPI(metricsv1.NewRulesRepositoryFile(tenantRuleFilePaths)))
+					} else {
+						metricsOptions = append(metricsOptions,
+							metricsv1.WithRulesAPI(&metricsv1.RulesRepositoryNop{}))
+					}
 				}
 
 				r.Mount("/api/metrics/v1/{tenant}",
@@ -772,7 +781,6 @@ func parseFlags() (config, error) {
 		"The number of concurrent requests that can buffered.")
 	flag.DurationVar(&cfg.middleware.backLogDurationConcurrentRequests, "middleware.backlog-duration-concurrent-requests", 1*time.Millisecond,
 		"The time duration to buffer up concurrent requests.")
-
 	flag.BoolVar(&cfg.database.enable, "database.enable", false,
 		"Enabling adds a dependency on a Postgres database but enables some more dynamic APIs too.")
 	flag.StringVar(&cfg.database.dsn, "database.dsn", "",

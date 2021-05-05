@@ -80,7 +80,7 @@ func (r *RulesRepositoryPostgres) GetRules(ctx context.Context, tenant, name str
 }
 
 func (r *RulesRepositoryPostgres) UpdateRule(ctx context.Context, tenant string, name string, content []byte) error {
-	query := `UPDATE metrics_rules SET rules = $3 WHERE tenant = $1 AND name = $2`
+	query := `UPDATE metrics_rules SET rules = $3 WHERE tenant = $1 AND name = $2;`
 
 	result, err := r.db.ExecContext(ctx, query, tenant, name, content)
 	if err != nil {
