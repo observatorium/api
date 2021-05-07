@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/ioutil"
 
 	"gopkg.in/yaml.v3"
@@ -15,7 +14,6 @@ var RuleRepositoryNotImplementedErr = errors.New("Not implemented for rule repos
 
 // NewRulesRepositoryFile implements RulesRepository interface with a file type, which is stateless and immutable
 func NewRulesRepositoryFile(filepaths map[string]string) *RulesRepositoryFile {
-	fmt.Println("using file rules repository!")
 	return &RulesRepositoryFile{Filepaths: filepaths}
 }
 
