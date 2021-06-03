@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	stdlog "log"
 	"net/http"
 	"net/url"
@@ -10,6 +11,14 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+type contextKey string
+
+const (
+	prefixKey contextKey = "prefix"
+
+	prefixHeader string = "X-Forwarded-Prefix"
 )
 
 type Middleware func(r *http.Request)
@@ -27,6 +36,17 @@ func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
 		r.URL.Path = path.Join(upstream.Path, r.URL.Path)
+	}
+}
+
+func MiddlewareSetPrefixHeader() Middleware {
+	return func(r *http.Request) {
+		prefix, ok := getPrefix(r.Context())
+		if !ok {
+			return
+		}
+
+		r.Header.Set(prefixHeader, prefix)
 	}
 }
 
@@ -53,4 +73,20 @@ func MiddlewareMetrics(registry *prometheus.Registry, constLabels prometheus.Lab
 
 func Logger(logger log.Logger) *stdlog.Logger {
 	return stdlog.New(log.NewStdlibAdapter(level.Warn(logger)), "", stdlog.Lshortfile)
+}
+
+func getPrefix(ctx context.Context) (string, bool) {
+	value := ctx.Value(prefixKey)
+	prefix, ok := value.(string)
+
+	return prefix, ok
+}
+
+// WithPrefix adds the provided prefix to the request context.
+func WithPrefix(prefix string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(
+			context.WithValue(r.Context(), prefixKey, prefix),
+		))
+	})
 }

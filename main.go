@@ -45,6 +45,7 @@ import (
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
+	"github.com/observatorium/api/proxy"
 	"github.com/observatorium/api/ratelimit"
 	"github.com/observatorium/api/rbac"
 	"github.com/observatorium/api/server"
@@ -791,7 +792,9 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 			http.Error(w, "tenant not found", http.StatusInternalServerError)
 			return
 		}
-		http.StripPrefix(path.Join("/", prefix, tenant), next).ServeHTTP(w, r)
+
+		tenantPrefix := path.Join("/", prefix, tenant)
+		http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
 	})
 }
 

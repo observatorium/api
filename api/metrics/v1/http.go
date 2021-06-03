@@ -103,6 +103,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		{
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-read"}),
 			)
@@ -140,6 +141,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			{
 				middlewares := proxy.Middlewares(
 					proxy.MiddlewareSetUpstream(read),
+					proxy.MiddlewareSetPrefixHeader(),
 					proxy.MiddlewareLogger(c.logger),
 					proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
 				)
@@ -161,6 +163,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		{
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(write),
+				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
 			)
