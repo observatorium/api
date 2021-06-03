@@ -152,12 +152,30 @@ if $UP \
   --token="$token"; then
   result=0
   echo "-------------------------------------------"
-  echo "- Metrics tests: OK                        -"
+  echo "- Metrics tests: OK                       -"
   echo "-------------------------------------------"
 else
   result=1
   echo "-------------------------------------------"
   echo "- Metrics tests: FAILED                   -"
+  echo "-------------------------------------------"
+  exit 1
+fi
+
+# Test that tenants cannot query each other's data.
+echo "-------------------------------------------"
+echo "- Metrics Tenancy Isolation               -"
+echo "-------------------------------------------"
+
+if curl -k 'https://127.0.0.1:8443/api/metrics/v1/test-attacker/api/v1/query?query=observatorium_write' -H "Authorization: bearer $token" | grep -q "No StoreAPIs matched for this query"; then
+  result=0
+  echo "-------------------------------------------"
+  echo "- Metrics Tenancy Isolation: OK           -"
+  echo "-------------------------------------------"
+else
+  result=0
+  echo "-------------------------------------------"
+  echo "- Metrics Tenancy Isolation: FAILED       -"
   echo "-------------------------------------------"
   exit 1
 fi

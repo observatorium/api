@@ -14,15 +14,14 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/lib/pq v1.3.0 // indirect
-	github.com/mattn/go-sqlite3 v1.11.0 // indirect
 	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
+	github.com/prometheus-community/prom-label-proxy v0.3.0
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
-	github.com/prometheus/procfs v0.0.11 // indirect
-	github.com/prometheus/prometheus v1.8.2-0.20200305080338-7164b58945bb
+	github.com/prometheus/prometheus v1.8.2-0.20200507164740-ecee9c8abfd1
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.16.0
 	go.opentelemetry.io/contrib/propagators v0.16.0

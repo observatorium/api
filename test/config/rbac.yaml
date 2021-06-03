@@ -8,6 +8,13 @@ roles:
   permissions:
   - read
   - write
+- name: read-attacker
+  resources:
+  - metrics
+  tenants:
+  - test-attacker
+  permissions:
+  - read
 - name: read-write-mtls
   resources:
   - metrics
@@ -21,6 +28,7 @@ roleBindings:
 - name: test-oidc
   roles:
   - read-write-oidc
+  - read-attacker
   subjects:
   - name: admin@example.com
     kind: user
