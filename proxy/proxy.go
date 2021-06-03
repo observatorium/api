@@ -85,7 +85,7 @@ func getPrefix(ctx context.Context) (string, bool) {
 // WithPrefix adds the provided prefix to the request context.
 func WithPrefix(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.Clone(
+		next.ServeHTTP(w, r.WithContext(
 			context.WithValue(r.Context(), prefixKey, prefix),
 		))
 	})
