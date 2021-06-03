@@ -87,7 +87,6 @@ type serverConfig struct {
 	listen         string
 	listenInternal string
 	healthcheckURL string
-	prefixHeader   string
 }
 
 type tlsConfig struct {
@@ -489,7 +488,6 @@ func main() {
 						metricsv1.NewHandler(
 							cfg.metrics.readEndpoint,
 							cfg.metrics.writeEndpoint,
-							cfg.server.prefixHeader,
 							metricsv1.Logger(logger),
 							metricsv1.Registry(reg),
 							metricsv1.HandlerInstrumenter(ins),
@@ -513,7 +511,6 @@ func main() {
 								cfg.logs.readEndpoint,
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
-								cfg.server.prefixHeader,
 								logsv1.Logger(logger),
 								logsv1.Registry(reg),
 								logsv1.HandlerInstrumenter(ins),
@@ -687,8 +684,6 @@ func parseFlags() (config, error) {
 		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL against which to run healthchecks.")
-	flag.StringVar(&cfg.server.prefixHeader, "web.prefix-header", "X-Forwarded-Prefix",
-		"The name of the HTTP header used for forwarding the prefix stripped from an incoming request to upstream.")
 	flag.StringVar(&rawLogsTailEndpoint, "logs.tail.endpoint", "",
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
@@ -799,7 +794,7 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 		}
 
 		tenantPrefix := path.Join("/", prefix, tenant)
-		http.StripPrefix(tenantPrefix, next).ServeHTTP(w, r.Clone(context.WithValue(r.Context(), proxy.TenantPrefixKey, tenantPrefix)))
+		http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
 	})
 }
 
