@@ -85,7 +85,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 }
 
 // NewHandler creates the new metrics v1 handler.
-func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
+func NewHandler(read, write *url.URL, prefixHeader string, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -103,6 +103,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		{
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareSetPrefixHeader(prefixHeader),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-read"}),
 			)
@@ -140,6 +141,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			{
 				middlewares := proxy.Middlewares(
 					proxy.MiddlewareSetUpstream(read),
+					proxy.MiddlewareSetPrefixHeader(prefixHeader),
 					proxy.MiddlewareLogger(c.logger),
 					proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
 				)
@@ -161,6 +163,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		{
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(write),
+				proxy.MiddlewareSetPrefixHeader(prefixHeader),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
 			)

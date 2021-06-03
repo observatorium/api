@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	stdlog "log"
 	"net/http"
 	"net/url"
@@ -10,6 +11,10 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	TenantPrefixKey = "tenant-prefix"
 )
 
 type Middleware func(r *http.Request)
@@ -27,6 +32,17 @@ func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
 		r.URL.Path = path.Join(upstream.Path, r.URL.Path)
+	}
+}
+
+func MiddlewareSetPrefixHeader(headerKey string) Middleware {
+	return func(r *http.Request) {
+		prefix, ok := GetTenantPrefix(r.Context())
+		if !ok {
+			return
+		}
+
+		r.Header.Set(headerKey, prefix)
 	}
 }
 
@@ -53,4 +69,11 @@ func MiddlewareMetrics(registry *prometheus.Registry, constLabels prometheus.Lab
 
 func Logger(logger log.Logger) *stdlog.Logger {
 	return stdlog.New(log.NewStdlibAdapter(level.Warn(logger)), "", stdlog.Lshortfile)
+}
+
+func GetTenantPrefix(ctx context.Context) (string, bool) {
+	value := ctx.Value(TenantPrefixKey)
+	prefix, ok := value.(string)
+
+	return prefix, ok
 }
