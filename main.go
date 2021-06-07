@@ -105,6 +105,7 @@ type metricsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
 	tenantHeader  string
+	tenantLabel   string
 }
 
 type logsConfig struct {
@@ -390,8 +391,6 @@ func main() {
 		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
 
 		r.Group(func(r chi.Router) {
-			r.Use(authentication.WithTenant)
-
 			tenantIDs := map[string]string{}
 			var oidcs []authentication.TenantOIDCConfig
 			var mTLSs []authentication.MTLSConfig
@@ -446,6 +445,9 @@ func main() {
 				}
 			}
 
+			r.Use(authentication.WithTenant)
+			r.Use(authentication.WithTenantID(tenantIDs))
+
 			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, "/oidc/{tenant}", oidcs)
 			for _, w := range warnings {
 				level.Warn(logger).Log("msg", w.Error())
@@ -493,6 +495,7 @@ func main() {
 							metricsv1.HandlerInstrumenter(ins),
 							metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 							metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						),
 					),
@@ -698,6 +701,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
+	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
+		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",

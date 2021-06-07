@@ -20,6 +20,20 @@ tenants:
     - endpoint: "/api/logs/v1/.*"
       limit: 100
       window: 1s
+- name: test-attacker
+  id: 066df98b-04e1-46c5-86f7-dc3250bfe869
+  oidc:
+    clientID: test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerCAPath: ./tmp/certs/ca.pem
+    issuerURL: https://127.0.0.1:5556/dex
+    redirectURL: https://localhost:8443/oidc/test-attacker/callback
+    usernameClaim: email
+  opa:
+    query: data.observatorium.allow
+    paths:
+      - ./test/config/observatorium.rego
+      - ./test/config/rbac.yaml
 - name: test-mtls
   id: 845cdfd9-f936-443c-979c-2ee7dc91f646
   mTLS:

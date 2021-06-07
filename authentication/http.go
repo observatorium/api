@@ -23,6 +23,8 @@ const (
 	subjectKey contextKey = "subject"
 	// tenantKey is the key that holds the tenant in a request context.
 	tenantKey contextKey = "tenant"
+	// tenantIDKey is the key that holds the tenant ID in a request context.
+	tenantIDKey contextKey = "tenantID"
 )
 
 // WithTenant finds the tenant from the URL parameters and adds it to the request context.
@@ -33,6 +35,19 @@ func WithTenant(next http.Handler) http.Handler {
 			context.WithValue(r.Context(), tenantKey, tenant),
 		))
 	})
+}
+
+// WithTenantID returns a middleware that finds the tenantID using the tenant
+// from the URL parameters and adds it to the request context.
+func WithTenantID(tenantIDs map[string]string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant := chi.URLParam(r, "tenant")
+			next.ServeHTTP(w, r.WithContext(
+				context.WithValue(r.Context(), tenantIDKey, tenantIDs[tenant]),
+			))
+		})
+	}
 }
 
 // WithTenantHeader returns a new middleware that adds the ID of the tenant to the specified header.
@@ -52,6 +67,14 @@ func GetTenant(ctx context.Context) (string, bool) {
 	tenant, ok := value.(string)
 
 	return tenant, ok
+}
+
+// GetTenantID extracts the tenant ID from provided context.
+func GetTenantID(ctx context.Context) (string, bool) {
+	value := ctx.Value(tenantIDKey)
+	id, ok := value.(string)
+
+	return id, ok
 }
 
 // GetSubject extracts the subject from provided context.
