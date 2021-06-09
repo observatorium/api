@@ -83,7 +83,6 @@ build: observatorium
 
 .PHONY: vendor
 vendor: go.mod go.sum
-	go mod tidy
 	go mod vendor
 
 .PHONY: format
