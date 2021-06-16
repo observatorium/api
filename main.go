@@ -482,6 +482,8 @@ func main() {
 						metricslegacy.HandlerInstrumenter(ins),
 						metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						metricslegacy.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+						metricslegacy.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					),
 				)
 

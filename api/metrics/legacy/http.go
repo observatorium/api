@@ -25,6 +25,7 @@ type handlerConfiguration struct {
 	instrument      handlerInstrumenter
 	spanRoutePrefix string
 	readMiddlewares []func(http.Handler) http.Handler
+	uiMiddlewares   []func(http.Handler) http.Handler
 }
 
 type HandlerOption func(h *handlerConfiguration)
@@ -58,6 +59,13 @@ func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.readMiddlewares = append(h.readMiddlewares, m)
+	}
+}
+
+// ReadMiddleware adds a middleware for all read operations.
+func UIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.uiMiddlewares = append(h.uiMiddlewares, m)
 	}
 }
 
@@ -105,25 +113,30 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 		}
 	}
 
-	r.Use(c.readMiddlewares...)
+	r.Group(func(r chi.Router) {
+		r.Use(c.readMiddlewares...)
+		const (
+			queryRoute      = "/api/v1/query"
+			queryRangeRoute = "/api/v1/query_range"
+		)
 
-	const (
-		queryRoute      = "/api/v1/query"
-		queryRangeRoute = "/api/v1/query_range"
-	)
+		r.Handle(queryRoute, c.instrument.NewHandler(
+			prometheus.Labels{"group": "metricslegacy", "handler": "query"},
+			otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, legacyProxy),
+		))
+		r.Handle(queryRangeRoute, c.instrument.NewHandler(
+			prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
+			otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, legacyProxy),
+		))
+	})
 
-	r.Handle(queryRoute, c.instrument.NewHandler(
-		prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-		otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, legacyProxy),
-	))
-	r.Handle(queryRangeRoute, c.instrument.NewHandler(
-		prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-		otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, legacyProxy),
-	))
+	r.Group(func(r chi.Router) {
+		r.Use(c.uiMiddlewares...)
 
-	r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/api/metrics/v1/graph"
-		http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+		r.HandleFunc("/graph", func(w http.ResponseWriter, r *http.Request) {
+			r.URL.Path = "/api/metrics/v1/graph"
+			http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+		})
 	})
 
 	return r
