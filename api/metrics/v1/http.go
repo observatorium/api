@@ -26,6 +26,7 @@ type handlerConfiguration struct {
 	instrument       handlerInstrumenter
 	spanRoutePrefix  string
 	readMiddlewares  []func(http.Handler) http.Handler
+	uiMiddlewares    []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
 }
 
@@ -64,6 +65,13 @@ func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.readMiddlewares = append(h.readMiddlewares, m)
+	}
+}
+
+// UIMiddleware adds a middleware for all ui operations.
+func UIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.uiMiddlewares = append(h.uiMiddlewares, m)
 	}
 }
 
@@ -125,7 +133,6 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			const (
 				queryRoute      = "/api/v1/query"
 				queryRangeRoute = "/api/v1/query_range"
-				uiRoute         = "/"
 			)
 
 			r.Handle(queryRoute, c.instrument.NewHandler(
@@ -136,21 +143,26 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, proxyRead),
 			))
+		})
 
-			var uiProxy http.Handler
-			{
-				middlewares := proxy.Middlewares(
-					proxy.MiddlewareSetUpstream(read),
-					proxy.MiddlewareSetPrefixHeader(),
-					proxy.MiddlewareLogger(c.logger),
-					proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
-				)
+		var uiProxy http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareSetPrefixHeader(),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
+			)
 
-				uiProxy = &httputil.ReverseProxy{
-					Director:  middlewares,
-					Transport: otelhttp.NewTransport(http.DefaultTransport),
-				}
+			uiProxy = &httputil.ReverseProxy{
+				Director:  middlewares,
+				Transport: otelhttp.NewTransport(http.DefaultTransport),
 			}
+		}
+		r.Group(func(r chi.Router) {
+			r.Use(c.uiMiddlewares...)
+			const uiRoute = "/"
+
 			r.Mount(uiRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "ui"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+uiRoute, uiProxy),

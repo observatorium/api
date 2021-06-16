@@ -496,6 +496,7 @@ func main() {
 							metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 							metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+							metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						),
 					),
