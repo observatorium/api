@@ -46,6 +46,11 @@ func MiddlewareSetPrefixHeader() Middleware {
 			return
 		}
 
+		// Do not override the prefix header if it is already set.
+		if r.Header.Get(prefixHeader) != "" {
+			return
+		}
+
 		r.Header.Set(prefixHeader, prefix)
 	}
 }
