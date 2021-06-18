@@ -52,9 +52,7 @@ Compatible backends must implement the Loki write API, e.g. Loki.
 ```txt
 Usage of ./observatorium-api:
   -database.dsn string
-    	This is the DataSourceName used to connect to the Postgres database with.
-  -database.enable
-    	Enabling adds a dependency on a Postgres database but enables some more dynamic APIs too.
+    	This is the DataSourceName used to connect to a Postgres database.
   -debug.block-profile-rate int
     	The percentage of goroutine blocking events that are reported in the blocking profile. (default 10)
   -debug.mutex-profile-fraction int

@@ -136,8 +136,7 @@ type internalTracingConfig struct {
 }
 
 type databaseConfig struct {
-	enable bool
-	dsn    string
+	dsn string
 }
 
 //nolint:funlen,gocyclo,gocognit
@@ -166,7 +165,7 @@ func main() {
 
 	var db *sql.DB
 
-	if cfg.database.enable {
+	if cfg.database.dsn != "" {
 		db, err = sql.Open("postgres", cfg.database.dsn)
 		if err != nil {
 			stdlog.Fatalf("failed to open database: %v", err)
@@ -513,26 +512,12 @@ func main() {
 					),
 				)
 
-				metricsOptions := []metricsv1.HandlerOption{
-					metricsv1.Logger(logger),
-					metricsv1.Registry(reg),
-					metricsv1.HandlerInstrumenter(ins),
-					metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-					metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
-				}
+				ruleAPIOption := metricsv1.WithRulesAPI(&metricsv1.RulesRepositoryNop{})
 
-				if cfg.database.enable {
-					metricsOptions = append(metricsOptions,
-						metricsv1.WithRulesAPI(metricsv1.NewRulesRepository(db)),
-					)
-				} else {
-					if len(tenantRuleFilePaths) > 0 {
-						metricsOptions = append(metricsOptions,
-							metricsv1.WithRulesAPI(metricsv1.NewRulesRepositoryFile(tenantRuleFilePaths)))
-					} else {
-						metricsOptions = append(metricsOptions,
-							metricsv1.WithRulesAPI(&metricsv1.RulesRepositoryNop{}))
-					}
+				if db != nil {
+					ruleAPIOption = metricsv1.WithRulesAPI(metricsv1.NewRulesRepository(db))
+				} else if len(tenantRuleFilePaths) > 0 {
+					ruleAPIOption = metricsv1.WithRulesAPI(metricsv1.NewRulesRepositoryFile(tenantRuleFilePaths))
 				}
 
 				r.Mount("/api/metrics/v1/{tenant}",
@@ -548,7 +533,7 @@ func main() {
 							metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 							metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
-							metricsOptions...,
+							ruleAPIOption,
 						),
 					),
 				)
@@ -783,10 +768,8 @@ func parseFlags() (config, error) {
 		"The number of concurrent requests that can buffered.")
 	flag.DurationVar(&cfg.middleware.backLogDurationConcurrentRequests, "middleware.backlog-duration-concurrent-requests", 1*time.Millisecond,
 		"The time duration to buffer up concurrent requests.")
-	flag.BoolVar(&cfg.database.enable, "database.enable", false,
-		"Enabling adds a dependency on a Postgres database but enables some more dynamic APIs too.")
 	flag.StringVar(&cfg.database.dsn, "database.dsn", "",
-		"This is the DataSourceName used to connect to the Postgres database with.")
+		"This is the DataSourceName used to connect to a Postgres database.")
 	flag.Parse()
 
 	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)

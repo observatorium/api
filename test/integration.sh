@@ -82,8 +82,6 @@ done
     --rbac.config=./test/config/rbac.yaml \
     --middleware.rate-limiter.grpc-address=127.0.0.1:8881 \
     --tenants.config=./test/config/tenants.yaml \
-    --database.enable=false \
-    --database.dsn=postgres://postgres:password@localhost:5432/postgres?sslmode=disable \
     --log.level=debug
 ) &
 
