@@ -50,7 +50,7 @@ Compatible backends must implement the Loki write API, e.g. Loki.
 
 [embedmd]:# (tmp/help.txt)
 ```txt
-Usage of ./observatorium:
+Usage of ./observatorium-api:
   -database.dsn string
     	This is the DataSourceName used to connect to the Postgres database with.
   -database.enable
