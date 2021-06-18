@@ -163,7 +163,9 @@ func main() {
 	defer closer()
 
 	otel.SetErrorHandler(otelErrorHandler{logger: logger})
+
 	var db *sql.DB
+
 	if cfg.database.enable {
 		db, err = sql.Open("postgres", cfg.database.dsn)
 		if err != nil {

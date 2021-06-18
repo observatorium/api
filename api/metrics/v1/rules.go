@@ -20,8 +20,8 @@ import (
 	"github.com/observatorium/api/authentication"
 )
 
-// RuleNotFoundErr is returned when a particular rule wasn't found by its name.
-var RuleNotFoundErr = errors.New("rule not found")
+// ErrRuleNotFound is returned when a particular rule wasn't found by its name.
+var ErrRuleNotFound = errors.New("rule not found")
 
 type RuleGroups struct {
 	Groups []RuleGroup `yaml:"groups"`
@@ -77,13 +77,17 @@ func listRulesHandler(logger log.Logger, lister RulesLister) http.HandlerFunc {
 
 		rules, err := lister.ListRuleGroups(r.Context(), tenant)
 		if err != nil {
-			http.Error(w, "failed to list rules", http.StatusInternalServerError)
+			msg := "failed to list rules"
+			level.Debug(logger).Log("msg", msg, "err", err)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
 		bytes, err := yaml.Marshal(rules)
 		if err != nil {
-			http.Error(w, "failed to marshal rules", http.StatusInternalServerError)
+			msg := "failed to marshal rules"
+			level.Debug(logger).Log("msg", msg, "err", err)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -105,14 +109,14 @@ func getRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc 
 		name := chi.URLParam(r, "name")
 
 		rules, err := repository.GetRules(r.Context(), tenant, name)
-		if err == RuleNotFoundErr {
-			const msg = "rule not found"
+		if err == ErrRuleNotFound {
+			msg := "rule not found"
 			level.Debug(logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusNotFound)
 			return
 		}
 		if err != nil {
-			const msg = "failed to get rules"
+			msg := "failed to get rules"
 			level.Warn(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
@@ -120,7 +124,7 @@ func getRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc 
 
 		bytes, err := yaml.Marshal(rules)
 		if err != nil {
-			const msg = "failed to marshal rules"
+			msg := "failed to marshal rules"
 			level.Warn(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
@@ -161,7 +165,7 @@ func editRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc
 		name := chi.URLParam(r, "name")
 
 		rules, err := repository.GetRules(r.Context(), tenant, name)
-		if err == RuleNotFoundErr {
+		if err == ErrRuleNotFound {
 			const msg = "rule not found"
 			level.Debug(logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusNotFound)
@@ -236,8 +240,6 @@ func updateRuleHandler(logger log.Logger, repository RulesUpdater) http.HandlerF
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
-
-		// TODO: VALIDATE input
 
 		rules, err := yaml.Marshal(group.Rules)
 		if err != nil {

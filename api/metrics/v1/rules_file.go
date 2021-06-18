@@ -8,11 +8,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// assumes the rules file is a prometheus rules file starting with "groups"
+// ErrRuleRepositoryNotImplemented is returned by the rule repository
+// for methods that are not implemented.
+var ErrRuleRepositoryNotImplemented = errors.New("not implemented for rule repository")
 
-var RuleRepositoryNotImplementedErr = errors.New("Not implemented for rule repository.")
-
-// NewRulesRepositoryFile implements RulesRepository interface with a file type, which is stateless and immutable
+// NewRulesRepositoryFile implements the RulesRepository interface with a file type, which is stateless and immutable.
+// This rules file is assumed to be a Prometheus rules file starting with "groups".
 func NewRulesRepositoryFile(filepaths map[string]string) *RulesRepositoryFile {
 	return &RulesRepositoryFile{Filepaths: filepaths}
 }
@@ -43,8 +44,10 @@ func (r *RulesRepositoryFile) ListRuleGroups(ctx context.Context, tenant string)
 }
 
 func (r *RulesRepositoryFile) GetRules(ctx context.Context, tenant, name string) (RuleGroup, error) {
-	var groups RuleGroups
-	var group RuleGroup
+	var (
+		groups RuleGroups
+		group  RuleGroup
+	)
 
 	filepath, ok := r.Filepaths[tenant]
 	if !ok {
@@ -66,10 +69,11 @@ func (r *RulesRepositoryFile) GetRules(ctx context.Context, tenant, name string)
 			return g, nil
 		}
 	}
+
 	return group, nil
 }
 
 // immutable therefore nothing should happen
 func (r *RulesRepositoryFile) UpdateRule(ctx context.Context, tenant string, name string, content []byte) error {
-	return RuleRepositoryNotImplementedErr
+	return ErrRuleRepositoryNotImplemented
 }

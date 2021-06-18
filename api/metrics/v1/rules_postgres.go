@@ -23,6 +23,7 @@ func (r *RulesRepositoryPostgres) ListRuleGroups(ctx context.Context, tenant str
 	var groups RuleGroups
 
 	query := `SELECT name, rules FROM metrics_rules WHERE tenant = $1 ORDER BY name ASC`
+
 	rows, err := r.db.QueryContext(ctx, query, tenant)
 	if err != nil {
 		return groups, err
@@ -46,9 +47,11 @@ func (r *RulesRepositoryPostgres) ListRuleGroups(ctx context.Context, tenant str
 			Rules:    rules,
 		})
 	}
+
 	if err := rows.Close(); err != nil {
 		return groups, err
 	}
+
 	if err := rows.Err(); err != nil {
 		return groups, err
 	}
@@ -60,10 +63,12 @@ func (r *RulesRepositoryPostgres) GetRules(ctx context.Context, tenant, name str
 	query := `SELECT rules FROM metrics_rules WHERE tenant = $1 AND name = $2 LIMIT 1;`
 
 	var rulesYAML string
+
 	err := r.db.QueryRowContext(ctx, query, tenant, name).Scan(&rulesYAML)
 	if err == sql.ErrNoRows {
-		return RuleGroup{}, RuleNotFoundErr
+		return RuleGroup{}, ErrRuleNotFound
 	}
+
 	if err != nil {
 		return RuleGroup{}, err
 	}
@@ -86,12 +91,14 @@ func (r *RulesRepositoryPostgres) UpdateRule(ctx context.Context, tenant string,
 	if err != nil {
 		return err
 	}
+
 	affectedRows, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
+
 	if affectedRows != 1 {
-		return RuleNotFoundErr
+		return ErrRuleNotFound
 	}
 
 	return nil

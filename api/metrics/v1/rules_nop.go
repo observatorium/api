@@ -18,5 +18,5 @@ func (r *RulesRepositoryNop) GetRules(ctx context.Context, tenant, name string) 
 }
 
 func (r *RulesRepositoryNop) UpdateRule(ctx context.Context, tenant string, name string, content []byte) error {
-	return RuleRepositoryNotImplementedErr
+	return ErrRuleRepositoryNotImplemented
 }
