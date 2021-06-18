@@ -21,10 +21,10 @@ const (
 )
 
 type handlerConfiguration struct {
-	router           *chi.Mux
 	logger           log.Logger
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
+	rulesRepository  RulesRepository
 	spanRoutePrefix  string
 	readMiddlewares  []func(http.Handler) http.Handler
 	uiMiddlewares    []func(http.Handler) http.Handler
@@ -83,6 +83,13 @@ func WriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+// WithRulesRepository adds a rules repository for all rules operations.
+func WithRulesRepository(r RulesRepository) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesRepository = r
+	}
+}
+
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
@@ -93,10 +100,10 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
+//nolint:funlen
 // NewHandler creates the new metrics v1 handler.
 func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
-		router:     chi.NewRouter(),
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
@@ -105,6 +112,8 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 	for _, o := range opts {
 		o(c)
 	}
+
+	r := chi.NewRouter()
 
 	if read != nil {
 		var proxyRead http.Handler
@@ -128,7 +137,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				),
 			}
 		}
-		c.router.Group(func(r chi.Router) {
+		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
 			const (
 				queryRoute      = "/api/v1/query"
@@ -192,7 +201,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				),
 			}
 		}
-		c.router.Group(func(r chi.Router) {
+		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			const receiveRoute = "/api/v1/receive"
 			r.Handle(receiveRoute, c.instrument.NewHandler(
@@ -202,5 +211,30 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		})
 	}
 
-	return c.router
+	if c.rulesRepository != nil {
+		r.Group(func(r chi.Router) {
+			r.Use(c.readMiddlewares...)
+			r.Get("/rules", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+				listRulesHandler(c.logger, c.rulesRepository),
+			))
+			r.Get("/rules/{name}", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rulesGet"},
+				getRuleHandler(c.logger, c.rulesRepository),
+			))
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(c.writeMiddlewares...)
+			r.Get("/rules/{name}/edit", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rulesEdit"},
+				editRuleHandler(c.logger, c.rulesRepository),
+			))
+			r.Post("/rules/{name}", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
+				updateRuleHandler(c.logger, c.rulesRepository),
+			))
+		})
+	}
+
+	return r
 }

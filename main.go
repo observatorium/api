@@ -512,12 +512,12 @@ func main() {
 					),
 				)
 
-				ruleAPIOption := metricsv1.WithRulesAPI(&metricsv1.RulesRepositoryNop{})
+				var rulesRepository metricsv1.RulesRepository = &metricsv1.RulesRepositoryNop{}
 
 				if db != nil {
-					ruleAPIOption = metricsv1.WithRulesAPI(metricsv1.NewRulesRepository(db))
+					rulesRepository = metricsv1.NewRulesRepository(db)
 				} else if len(tenantRuleFilePaths) > 0 {
-					ruleAPIOption = metricsv1.WithRulesAPI(metricsv1.NewRulesRepositoryFile(tenantRuleFilePaths))
+					rulesRepository = metricsv1.NewRulesRepositoryFile(tenantRuleFilePaths)
 				}
 
 				r.Mount("/api/metrics/v1/{tenant}",
@@ -533,7 +533,7 @@ func main() {
 							metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 							metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
-							ruleAPIOption,
+							metricsv1.WithRulesRepository(rulesRepository),
 						),
 					),
 				)

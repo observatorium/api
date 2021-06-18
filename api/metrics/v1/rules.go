@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 	"gopkg.in/yaml.v3"
@@ -33,34 +32,11 @@ type RuleGroup struct {
 	Rules    []rulefmt.Rule `yaml:"rules"`
 }
 
+// RulesRepository describes all of the operations that a conformant repository should implement.
 type RulesRepository interface {
 	RulesLister
 	RulesGetter
-	//CreateRules()
 	RulesUpdater
-	//DeleteRules()
-}
-
-// WithRulesAPI adds the rules APIs to the API router.
-func WithRulesAPI(repository RulesRepository) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.router.Get("/rules", h.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "rules"},
-			listRulesHandler(h.logger, repository),
-		))
-		h.router.Get("/rules/{name}", h.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "rulesGet"},
-			getRuleHandler(h.logger, repository),
-		))
-		h.router.Get("/rules/{name}/edit", h.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "rulesEdit"},
-			editRuleHandler(h.logger, repository),
-		))
-		h.router.Post("/rules/{name}", h.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
-			updateRuleHandler(h.logger, repository),
-		))
-	}
 }
 
 type RulesLister interface {

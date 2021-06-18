@@ -133,17 +133,17 @@ until curl --output /dev/null --silent --fail http://127.0.0.1:8448/ready; do
 done
 
 echo "-------------------------------------------"
-echo "- Metrics API tests                           -"
+echo "- Rules API tests                         -"
 echo "-------------------------------------------"
 
-metrics_read=$(curl \
+rules_read=$(curl \
   --silent \
   -H "Authorization: Bearer $token" \
   --cacert ./tmp/certs/ca.pem \
   https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules 1> /dev/null && echo $?)
 
 
-metrics_update=$(curl -X POST \
+rules_update=$(curl -X POST \
   --silent \
   -H "Authorization: Bearer $token" \
   --cacert ./tmp/certs/ca.pem \
@@ -154,19 +154,15 @@ metrics_update=$(curl -X POST \
 # As the correctness is not always reflected in the database in the case of update, for example
 # Additionally, the update won't work if it's not a database
 
-if [ "$metrics_read" = "0" ] && [ "$metrics_update" = "0" ]; then
+if [ "$rules_read" = "0" ] && [ "$rules_update" = "0" ]; then
   echo "-------------------------------------------"
-  echo "- Metrics API Read/Update: OK               -"
+  echo "- Rules API Read/Update: OK               -"
   echo "-------------------------------------------"
 else
   echo "-------------------------------------------"
-  echo "-  Metrics API Read/Update: FAILED           -"
+  echo "-  Rules API Read/Update: FAILED          -"
   echo "-------------------------------------------"
 fi
-
-
-sleep 1000
-
 
 echo "-------------------------------------------"
 echo "- Metrics tests                           -"
