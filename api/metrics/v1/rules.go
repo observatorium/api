@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"errors"
-	"fmt"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -36,7 +35,7 @@ type RuleGroup struct {
 type RulesRepository interface {
 	RulesLister
 	RulesGetter
-	RulesUpdater
+	RulesWriter
 }
 
 type RulesLister interface {
@@ -72,7 +71,7 @@ func listRulesHandler(logger log.Logger, lister RulesLister) http.HandlerFunc {
 }
 
 type RulesGetter interface {
-	GetRules(ctx context.Context, tenant string, name string) (RuleGroup, error)
+	GetRules(ctx context.Context, tenant, name string) (RuleGroup, error)
 }
 
 func getRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc {
@@ -174,11 +173,12 @@ func editRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc
 	}
 }
 
-type RulesUpdater interface {
-	UpdateRule(ctx context.Context, tenant string, name string, content []byte) error
+type RulesWriter interface {
+	CreateRule(ctx context.Context, tenant, name string, interval int64, rules []byte) error
+	UpdateRule(ctx context.Context, tenant, name string, interval int64, rules []byte) error
 }
 
-func updateRuleHandler(logger log.Logger, repository RulesUpdater) http.HandlerFunc {
+func writeRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
@@ -191,14 +191,6 @@ func updateRuleHandler(logger log.Logger, repository RulesUpdater) http.HandlerF
 
 		defer r.Body.Close()
 
-		//mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-		//if err != nil {
-		//	const msg = "failed to parse media type"
-		//	level.Warn(logger).Log("msg", msg, "err", err)
-		//	http.Error(w, msg, http.StatusBadRequest)
-		//	return
-		//}
-
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			const msg = "failed to read rules from request body"
@@ -207,11 +199,9 @@ func updateRuleHandler(logger log.Logger, repository RulesUpdater) http.HandlerF
 			return
 		}
 
-		fmt.Println(string(body))
-
 		var group RuleGroup
 		if err := yaml.Unmarshal(body, &group); err != nil {
-			const msg = "failed to unmarshal YAMl to rule group"
+			const msg = "failed to unmarshal YAML to rule group"
 			level.Warn(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
@@ -219,17 +209,27 @@ func updateRuleHandler(logger log.Logger, repository RulesUpdater) http.HandlerF
 
 		rules, err := yaml.Marshal(group.Rules)
 		if err != nil {
-			const msg = "failed to unmarshal YAMl to rule group"
+			const msg = "failed to unmarshal YAML to rule group"
 			level.Warn(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
-		if err := repository.UpdateRule(r.Context(), tenant, name, rules); err != nil {
-			const msg = "failed to save rules"
-			level.Warn(logger).Log("msg", msg, "err", err)
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
+		switch r.Method {
+		case http.MethodPost:
+			if err := repository.CreateRule(r.Context(), tenant, name, int64(group.Interval), rules); err != nil {
+				const msg = "failed to create rules"
+				level.Warn(logger).Log("msg", msg, "err", err)
+				http.Error(w, msg, http.StatusInternalServerError)
+				return
+			}
+		case http.MethodPut:
+			if err := repository.UpdateRule(r.Context(), tenant, name, int64(group.Interval), rules); err != nil {
+				const msg = "failed to update rules"
+				level.Warn(logger).Log("msg", msg, "err", err)
+				http.Error(w, msg, http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 }

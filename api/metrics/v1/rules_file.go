@@ -12,6 +12,9 @@ import (
 // for methods that are not implemented.
 var ErrRuleRepositoryNotImplemented = errors.New("not implemented for rule repository")
 
+// Statically check that the file rules repository implements the RulesRepository interface.
+var _ RulesRepository = (*RulesRepositoryFile)(nil)
+
 // NewRulesRepositoryFile implements the RulesRepository interface with a file type, which is stateless and immutable.
 // This rules file is assumed to be a Prometheus rules file starting with "groups".
 func NewRulesRepositoryFile(filepaths map[string]string) *RulesRepositoryFile {
@@ -74,6 +77,11 @@ func (r *RulesRepositoryFile) GetRules(ctx context.Context, tenant, name string)
 }
 
 // immutable therefore nothing should happen
-func (r *RulesRepositoryFile) UpdateRule(ctx context.Context, tenant string, name string, content []byte) error {
+func (r *RulesRepositoryFile) CreateRule(_ context.Context, _, _ string, _ int64, _ []byte) error {
+	return ErrRuleRepositoryNotImplemented
+}
+
+// immutable therefore nothing should happen
+func (r *RulesRepositoryFile) UpdateRule(_ context.Context, _, _ string, _ int64, _ []byte) error {
 	return ErrRuleRepositoryNotImplemented
 }

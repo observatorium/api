@@ -12,18 +12,22 @@ type RulesRepositoryNop struct {
 var _ RulesRepository = (*RulesRepositoryNop)(nil)
 
 // ListRuleGroups always returns an empty list.
-func (r *RulesRepositoryNop) ListRuleGroups(ctx context.Context, tenant string) (RuleGroups, error) {
-	var groups RuleGroups
-	return groups, nil
+func (r *RulesRepositoryNop) ListRuleGroups(_ context.Context, _ string) (RuleGroups, error) {
+	return RuleGroups{}, nil
 }
 
 // GetRules always returns an empty list.
-func (r *RulesRepositoryNop) GetRules(ctx context.Context, tenant, name string) (RuleGroup, error) {
+func (r *RulesRepositoryNop) GetRules(_ context.Context, _, _ string) (RuleGroup, error) {
 	var group RuleGroup
 	return group, nil
 }
 
+// CreateRule always returns a not-implemented error.
+func (r *RulesRepositoryNop) CreateRule(_ context.Context, _, _ string, _ int64, _ []byte) error {
+	return ErrRuleRepositoryNotImplemented
+}
+
 // UpdateRule always returns a not-implemented error.
-func (r *RulesRepositoryNop) UpdateRule(ctx context.Context, tenant string, name string, content []byte) error {
+func (r *RulesRepositoryNop) UpdateRule(_ context.Context, _, _ string, _ int64, _ []byte) error {
 	return ErrRuleRepositoryNotImplemented
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/proxy"
 )
 
@@ -26,8 +27,8 @@ type handlerConfiguration struct {
 	instrument       handlerInstrumenter
 	rulesRepository  RulesRepository
 	spanRoutePrefix  string
+	tenantLabel      string
 	readMiddlewares  []func(http.Handler) http.Handler
-	uiMiddlewares    []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
 }
 
@@ -69,10 +70,10 @@ func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-// UIMiddleware adds a middleware for all ui operations.
-func UIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+// EnforceTenantLabel adds a tenant label-enforcing middleware using the given label when reading metrics.
+func EnforceTenantLabel(label string) HandlerOption {
 	return func(h *handlerConfiguration) {
-		h.uiMiddlewares = append(h.uiMiddlewares, m)
+		h.tenantLabel = label
 	}
 }
 
@@ -139,6 +140,9 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
+			if c.tenantLabel != "" {
+				r.Use(authorization.WithEnforceTenantLabel(c.tenantLabel))
+			}
 			const (
 				queryRoute      = "/api/v1/query"
 				queryRangeRoute = "/api/v1/query_range"
@@ -169,7 +173,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			}
 		}
 		r.Group(func(r chi.Router) {
-			r.Use(c.uiMiddlewares...)
+			r.Use(c.readMiddlewares...)
 			const uiRoute = "/"
 
 			r.Mount(uiRoute, c.instrument.NewHandler(
@@ -231,7 +235,11 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			))
 			r.Post("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
-				updateRuleHandler(c.logger, c.rulesRepository),
+				writeRuleHandler(c.logger, c.rulesRepository),
+			))
+			r.Put("/rules/{name}", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
+				writeRuleHandler(c.logger, c.rulesRepository),
 			))
 		})
 	}
