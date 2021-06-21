@@ -220,11 +220,11 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			r.Use(c.readMiddlewares...)
 			r.Get("/rules", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rules"},
-				listRulesHandler(c.logger, c.rulesRepository),
+				listRulesHandler(c.logger, c.rulesRepository, c.tenantLabel),
 			))
 			r.Get("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesGet"},
-				getRuleHandler(c.logger, c.rulesRepository),
+				getRuleHandler(c.logger, c.rulesRepository, c.tenantLabel),
 			))
 		})
 		r.Group(func(r chi.Router) {
@@ -235,11 +235,11 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 			))
 			r.Post("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesCreate"},
-				writeRuleHandler(c.logger, c.rulesRepository),
+				writeRuleHandler(c.logger, c.rulesRepository, c.tenantLabel),
 			))
 			r.Put("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
-				writeRuleHandler(c.logger, c.rulesRepository),
+				writeRuleHandler(c.logger, c.rulesRepository, c.tenantLabel),
 			))
 			r.Delete("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesDelete"},

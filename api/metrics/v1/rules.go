@@ -42,11 +42,19 @@ type RulesLister interface {
 	ListRuleGroups(ctx context.Context, tenant string) (RuleGroups, error)
 }
 
-func listRulesHandler(logger log.Logger, lister RulesLister) http.HandlerFunc {
+func listRulesHandler(logger log.Logger, lister RulesLister, label string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
 			http.Error(w, "failed to get tenant", http.StatusInternalServerError)
+			return
+		}
+
+		id, ok := authentication.GetTenantID(r.Context())
+		if !ok {
+			const msg = "error finding tenant ID"
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -56,6 +64,15 @@ func listRulesHandler(logger log.Logger, lister RulesLister) http.HandlerFunc {
 			level.Debug(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
+		}
+
+		for i := range rules.Groups {
+			for j := range rules.Groups[i].Rules {
+				if rules.Groups[i].Rules[j].Labels == nil {
+					rules.Groups[i].Rules[j].Labels = make(map[string]string)
+				}
+				rules.Groups[i].Rules[j].Labels[label] = id
+			}
 		}
 
 		bytes, err := yaml.Marshal(rules)
@@ -74,13 +91,22 @@ type RulesGetter interface {
 	GetRules(ctx context.Context, tenant, name string) (RuleGroup, error)
 }
 
-func getRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc {
+func getRuleHandler(logger log.Logger, repository RulesGetter, label string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
 			http.Error(w, "failed to get tenant", http.StatusInternalServerError)
 			return
 		}
+
+		id, ok := authentication.GetTenantID(r.Context())
+		if !ok {
+			const msg = "error finding tenant ID"
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+
 		name := chi.URLParam(r, "name")
 
 		rules, err := repository.GetRules(r.Context(), tenant, name)
@@ -95,6 +121,13 @@ func getRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc 
 			level.Warn(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
+		}
+
+		for i := range rules.Rules {
+			if rules.Rules[i].Labels == nil {
+				rules.Rules[i].Labels = make(map[string]string)
+			}
+			rules.Rules[i].Labels[label] = id
 		}
 
 		bytes, err := yaml.Marshal(rules)
@@ -179,7 +212,7 @@ type RulesWriter interface {
 	DeleteRule(ctx context.Context, tenant, name string) error
 }
 
-func writeRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFunc {
+func writeRuleHandler(logger log.Logger, repository RulesWriter, label string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
@@ -188,6 +221,15 @@ func writeRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFun
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
+
+		id, ok := authentication.GetTenantID(r.Context())
+		if !ok {
+			const msg = "error finding tenant ID"
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+
 		name := chi.URLParam(r, "name")
 
 		defer r.Body.Close()
@@ -206,6 +248,13 @@ func writeRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFun
 			level.Warn(logger).Log("msg", msg, "err", err)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
+		}
+
+		for i := range group.Rules {
+			if group.Rules[i].Labels == nil {
+				group.Rules[i].Labels = make(map[string]string)
+			}
+			group.Rules[i].Labels[label] = id
 		}
 
 		rules, err := yaml.Marshal(group.Rules)
