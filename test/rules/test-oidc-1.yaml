@@ -1,0 +1,7 @@
+name: nodes.rules1
+interval: 10s
+rules:
+- record: test:metrics_test_rule:test_rule
+  expr: vector(1)
+- record: test:metrics_test_rule:test_rule2
+  expr: vector(1)

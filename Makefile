@@ -44,6 +44,8 @@ PROMREMOTEBENCH ?= $(BIN_DIR)/promremotebench
 PROMREMOTEBENCH_VERSION ?= 0.8.0
 SHELLCHECK ?= $(BIN_DIR)/shellcheck
 MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
+COCKROACH ?= $(BIN_DIR)/cockroach
+MIGRATE ?= $(BIN_DIR)/migrate
 GENERATE_TLS_CERT ?= $(BIN_DIR)/generate-tls-cert
 
 PROTOC ?= $(TMP_DIR)/protoc
@@ -105,7 +107,7 @@ test-unit:
 
 .PHONY: test-integration
 test-integration: build integration-test-dependencies generate-cert
-	THANOS=$(THANOS) UP=$(UP) DEX=$(DEX) LOKI=$(LOKI) WEBSOCAT=$(WEBSOCAT) OPA=$(OPA) GUBERNATOR=$(GUBERNATOR) ./test/integration.sh
+	THANOS=$(THANOS) UP=$(UP) DEX=$(DEX) LOKI=$(LOKI) WEBSOCAT=$(WEBSOCAT) OPA=$(OPA) GUBERNATOR=$(GUBERNATOR) MIGRATE=$(MIGRATE) COCKROACH=$(COCKROACH) ./test/integration.sh
 
 .PHONY: test-load
 test-load: build load-test-dependencies
@@ -156,7 +158,7 @@ container-release: container
 	docker push $(DOCKER_REPO):latest
 
 .PHONY: integration-test-dependencies
-integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT) $(OPA) $(GUBERNATOR)
+integration-test-dependencies: $(THANOS) $(UP) $(DEX) $(LOKI) $(WEBSOCAT) $(OPA) $(GUBERNATOR) $(COCKROACH) $(MIGRATE)
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -208,7 +210,7 @@ $(PROMREMOTEBENCH): | deps $(BIN_DIR)
 		go build ./cmd/promremotebench
 	mv $(TMP_DIR)/src/promremotebench/promremotebench $@
 
-$(SHELLCHECK): $(BIN_DIR)
+$(SHELLCHECK): | $(BIN_DIR)
 	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 $(MOCKPROVIDER): | deps $(BIN_DIR)
@@ -218,8 +220,15 @@ $(GENERATE_TLS_CERT): | deps $(BIN_DIR)
 	# A thin wrapper around github.com/cloudflare/cfssl
 	go build -tags tools -o $@ github.com/observatorium/api/test/tls
 
-$(PROTOC): $(TMP_DIR) $(BIN_DIR)
+$(PROTOC): | $(TMP_DIR) $(BIN_DIR)
 	@PROTOC_VERSION="$(PROTOC_VERSION)" TMP_DIR="$(TMP_DIR)" BIN_DIR="$(BIN_DIR)" scripts/install_protoc.sh
+
+$(COCKROACH): | $(BIN_DIR)
+	curl https://binaries.cockroachdb.com/cockroach-v21.1.2.linux-amd64.tgz | tar --strip-components=1 -xz -C $(BIN_DIR)
+
+$(MIGRATE): | $(BIN_DIR)
+	curl -L https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz | tar --strip-components=1 -xz -C $(BIN_DIR)
+	mv $(BIN_DIR)/migrate.linux-amd64 $@
 
 # Jsonnet and Example manifests.
 

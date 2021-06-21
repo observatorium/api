@@ -18,7 +18,8 @@ OPA=${OPA:-opa}
 UP=${UP:-up}
 WEBSOCAT=${WEBSOCAT:=websocat}
 GUBERNATOR=${GUBERNATOR:-gubernator}
-CLI=${CLI:-cli}
+COCKROACH=${COCKROACH:-cockroach}
+MIGRATE=${MIGRATE:-migrate}
 
 ($DEX serve ./test/config/dex.yaml) &
 
@@ -61,10 +62,33 @@ echo "-------------------------------------------"
 
 # NOTICE: There is bug in the memberlist SD implementation of gubenator that prevents us from changing the default port.
 # Memberlist SD won't be used in production.
-until curl --output /dev/null --silent --fail --insecure http://127.0.0.1:8880/v1/HealthCheck; do
+until curl --output /dev/null --silent --fail http://127.0.0.1:8880/v1/HealthCheck; do
   printf '.'
   sleep 1
 done
+
+(
+  $COCKROACH \
+    start-single-node \
+    --store=path="$(mktemp -d)" \
+    --insecure \
+    --http-addr=0.0.0.0:8081
+) &
+
+echo "-------------------------------------------"
+echo "- Waiting for Cockroach to come up...  -"
+echo "-------------------------------------------"
+
+until curl --output /dev/null --silent --fail http://127.0.0.1:8081/_admin/v1/health; do
+  printf '.'
+  sleep 1
+done
+
+# Apply the migrations to the CockroachDB instance.
+$MIGRATE \
+    --path=database/migrations \
+    --database=cockroachdb://root@127.0.0.1:26257?sslmode=disable \
+    up
 
 (
   $OBSERVATORIUM \
@@ -82,6 +106,7 @@ done
     --rbac.config=./test/config/rbac.yaml \
     --middleware.rate-limiter.grpc-address=127.0.0.1:8881 \
     --tenants.config=./test/config/tenants.yaml \
+    --database.dsn=postgresql://root@127.0.0.1:26257?sslmode=disable \
     --log.level=debug
 ) &
 
@@ -136,32 +161,51 @@ echo "-------------------------------------------"
 echo "- Rules API tests                         -"
 echo "-------------------------------------------"
 
+# Create first rules for the tenant in the nodes.rules1 group.
+curl -X POST \
+  --silent \
+  --fail \
+  -H "Authorization: Bearer $token" \
+  --cacert ./tmp/certs/ca.pem \
+  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules/nodes.rules1 \
+  --data-binary @test/rules/test-oidc-1.yaml
+
+# Apply a new group of rules to the tenant.
+curl -X POST \
+  --silent \
+  --fail \
+  -H "Authorization: Bearer $token" \
+  --cacert ./tmp/certs/ca.pem \
+  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules/nodes.rules2 \
+  --data-binary @test/rules/test-oidc-2.yaml
+
+# Edit the nodes.rules1 group of the tenant.
+curl -X PUT \
+  --silent \
+  --fail \
+  -H "Authorization: Bearer $token" \
+  --cacert ./tmp/certs/ca.pem \
+  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules/nodes.rules1 \
+  --data-binary @test/rules/test-oidc-3.yaml
+
 rules_read=$(curl \
   --silent \
+  --fail \
   -H "Authorization: Bearer $token" \
   --cacert ./tmp/certs/ca.pem \
-  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules 1> /dev/null && echo $?)
+  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules)
 
-
-rules_update=$(curl -X POST \
-  --silent \
-  -H "Authorization: Bearer $token" \
-  --cacert ./tmp/certs/ca.pem \
-  https://127.0.0.1:8443/api/metrics/v1/test-oidc/rules/nodes.rules \
-  --data-binary @test/metrics_test/metrics_test.yaml 1> /dev/null && echo $?)
-
-# Note I'm not sure if this is the best way of testing if the read/update is correct
-# As the correctness is not always reflected in the database in the case of update, for example
-# Additionally, the update won't work if it's not a database
-
-if [ "$rules_read" = "0" ] && [ "$rules_update" = "0" ]; then
+if [ "$rules_read" = "$(cat ./test/rules/test-oidc-out.yaml)" ]; then
   echo "-------------------------------------------"
   echo "- Rules API Read/Update: OK               -"
   echo "-------------------------------------------"
 else
+  result=1
   echo "-------------------------------------------"
   echo "-  Rules API Read/Update: FAILED          -"
   echo "-------------------------------------------"
+  printf "expected:\n%s\ngot:\n%s\n" "$(cat ./test/rules/test-oidc-out.yaml)" "$rules_read"
+  exit 1
 fi
 
 echo "-------------------------------------------"

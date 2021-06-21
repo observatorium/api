@@ -1,0 +1,11 @@
+groups:
+    - name: nodes.rules1
+      interval: 15s
+      rules:
+        - record: test:metrics_test_rule:test_rule1
+          expr: vector(1)
+          labels:
+            tenant_id: 1610b0c3-c509-4592-a256-a1871353dbfa
+    - name: nodes.rules2
+      interval: 0s
+      rules: []
