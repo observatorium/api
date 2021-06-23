@@ -33,6 +33,7 @@ import (
 	"github.com/metalmatze/signal/server/signalhttp"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/version"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -299,8 +300,8 @@ func main() {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
 		version.NewCollector("observatorium"),
-		prometheus.NewGoCollector(),
-		prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 
 	healthchecks := healthcheck.NewMetricsHandler(healthcheck.NewHandler(), reg)
