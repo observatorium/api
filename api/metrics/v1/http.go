@@ -229,10 +229,6 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			r.Get("/rules/{name}/edit", c.instrument.NewHandler(
-				prometheus.Labels{"group": "metricsv1", "handler": "rulesEdit"},
-				editRuleHandler(c.logger, c.rulesRepository),
-			))
 			r.Post("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesCreate"},
 				writeRuleHandler(c.logger, c.rulesRepository, c.tenantLabel),
