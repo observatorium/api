@@ -31,3 +31,8 @@ func (r *RulesRepositoryNop) CreateRule(_ context.Context, _, _ string, _ int64,
 func (r *RulesRepositoryNop) UpdateRule(_ context.Context, _, _ string, _ int64, _ []byte) error {
 	return ErrRuleRepositoryNotImplemented
 }
+
+// DeleteRule always returns a not-implemented error.
+func (r *RulesRepositoryNop) DeleteRule(_ context.Context, _, _ string) error {
+	return ErrRuleRepositoryNotImplemented
+}

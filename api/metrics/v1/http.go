@@ -234,12 +234,16 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				editRuleHandler(c.logger, c.rulesRepository),
 			))
 			r.Post("/rules/{name}", c.instrument.NewHandler(
-				prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
+				prometheus.Labels{"group": "metricsv1", "handler": "rulesCreate"},
 				writeRuleHandler(c.logger, c.rulesRepository),
 			))
 			r.Put("/rules/{name}", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "rulesUpdate"},
 				writeRuleHandler(c.logger, c.rulesRepository),
+			))
+			r.Delete("/rules/{name}", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rulesDelete"},
+				deleteRuleHandler(c.logger, c.rulesRepository),
 			))
 		})
 	}

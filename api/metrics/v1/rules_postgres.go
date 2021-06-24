@@ -135,3 +135,23 @@ func (r *RulesRepositoryPostgres) UpdateRule(ctx context.Context, tenant, name s
 
 	return nil
 }
+
+func (r *RulesRepositoryPostgres) DeleteRule(ctx context.Context, tenant, name string) error {
+	query := `DELETE FROM metrics_rules WHERE tenant = $1 AND name = $2;`
+
+	result, err := r.db.ExecContext(ctx, query, tenant, name)
+	if err != nil {
+		return err
+	}
+
+	affectedRows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if affectedRows != 1 {
+		return ErrRuleNotFound
+	}
+
+	return nil
+}

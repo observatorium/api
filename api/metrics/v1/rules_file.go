@@ -85,3 +85,8 @@ func (r *RulesRepositoryFile) CreateRule(_ context.Context, _, _ string, _ int64
 func (r *RulesRepositoryFile) UpdateRule(_ context.Context, _, _ string, _ int64, _ []byte) error {
 	return ErrRuleRepositoryNotImplemented
 }
+
+// immutable therefore nothing should happen
+func (r *RulesRepositoryFile) DeleteRule(_ context.Context, _, _ string) error {
+	return ErrRuleRepositoryNotImplemented
+}

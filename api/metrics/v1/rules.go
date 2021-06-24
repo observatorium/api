@@ -176,6 +176,7 @@ func editRuleHandler(logger log.Logger, repository RulesGetter) http.HandlerFunc
 type RulesWriter interface {
 	CreateRule(ctx context.Context, tenant, name string, interval int64, rules []byte) error
 	UpdateRule(ctx context.Context, tenant, name string, interval int64, rules []byte) error
+	DeleteRule(ctx context.Context, tenant, name string) error
 }
 
 func writeRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFunc {
@@ -230,6 +231,26 @@ func writeRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFun
 				http.Error(w, msg, http.StatusInternalServerError)
 				return
 			}
+		}
+	}
+}
+
+func deleteRuleHandler(logger log.Logger, repository RulesWriter) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tenant, ok := authentication.GetTenant(r.Context())
+		if !ok {
+			const msg = "failed to get tenant"
+			level.Warn(logger).Log("msg", msg)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+
+		name := chi.URLParam(r, "name")
+		if err := repository.DeleteRule(r.Context(), tenant, name); err != nil {
+			const msg = "failed to delete rules"
+			level.Warn(logger).Log("msg", msg, "err", err)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
 		}
 	}
 }
