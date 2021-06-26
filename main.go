@@ -591,10 +591,9 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 
 	level.Info(tCfg.logger).Log("msg", "adding a tenant: ", "tenant", t.Name)
 	oidcHandler, oidcTenantMiddleware, err := createOIDCMiddlware(cfg, tCfg, t.Name, oidcConf)
+
 	if err != nil {
 		level.Error(tCfg.logger).Log("msg", "tenant  registration is marked as failure:", t.Name, err)
-
-		//	return
 	}
 
 	level.Info(tCfg.logger).Log("msg", "tenant registration is successful :", t.Name)
@@ -604,6 +603,7 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 	}
 
 	mTLSMiddleware := authentication.NewMTLS(mTLSConf)
+
 	if len(mTLSConf.CAs) > 0 {
 		authN = mTLSMiddleware
 	}
