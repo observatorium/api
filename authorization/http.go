@@ -17,7 +17,7 @@ import (
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
-func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
+func WithAuthorizers(authorizer rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := authentication.GetTenant(r.Context())
@@ -36,14 +36,13 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			if !ok {
 				groups = []string{}
 			}
-			a, ok := authorizers[tenant]
-			if !ok {
+			if authorizer == nil {
 				http.Error(w, "error finding tenant", http.StatusUnauthorized)
 
 				return
 			}
 
-			if statusCode, ok := a.Authorize(subject, groups, permission, resource, tenant); !ok {
+			if statusCode, ok := authorizer.Authorize(subject, groups, permission, resource, tenant); !ok {
 				w.WriteHeader(statusCode)
 
 				return

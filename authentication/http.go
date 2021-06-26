@@ -3,8 +3,6 @@ package authentication
 import (
 	"context"
 	"net/http"
-
-	"github.com/go-chi/chi"
 )
 
 // contextKey to use when setting context values in the HTTP package.
@@ -30,7 +28,7 @@ const (
 // WithTenant finds the tenant from the URL parameters and adds it to the request context.
 func WithTenant(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenant := chi.URLParam(r, "tenant")
+		tenant := r.URL.Query().Get(tenantKey.String())
 		next.ServeHTTP(w, r.WithContext(
 			context.WithValue(r.Context(), tenantKey, tenant),
 		))
@@ -39,23 +37,25 @@ func WithTenant(next http.Handler) http.Handler {
 
 // WithTenantID returns a middleware that finds the tenantID using the tenant
 // from the URL parameters and adds it to the request context.
-func WithTenantID(tenantIDs map[string]string) Middleware {
+func WithTenantID(tenantName, tenantID string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant := chi.URLParam(r, "tenant")
+			queryValues := r.URL.Query()
+			queryValues.Add(tenantKey.String(), tenantName)
+			r.URL.RawQuery = queryValues.Encode()
+
 			next.ServeHTTP(w, r.WithContext(
-				context.WithValue(r.Context(), tenantIDKey, tenantIDs[tenant]),
+				context.WithValue(r.Context(), tenantIDKey, tenantID),
 			))
 		})
 	}
 }
 
 // WithTenantHeader returns a new middleware that adds the ID of the tenant to the specified header.
-func WithTenantHeader(header string, tenantIDs map[string]string) Middleware {
+func WithTenantHeader(header string, tenantID string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant := chi.URLParam(r, "tenant")
-			r.Header.Add(header, tenantIDs[tenant])
+			r.Header.Add(header, tenantID)
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -93,31 +93,20 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 	return groups, ok
 }
 
-// WithTenantMiddlewares creates a single Middleware for all
-// provided tenant-middleware sets.
-func WithTenantMiddlewares(middlewareSets ...map[string]Middleware) Middleware {
-	middlewares := map[string]Middleware{}
-
-	for _, ms := range middlewareSets {
-		for t, m := range ms {
-			middlewares[t] = m
-		}
-	}
-
+// Creates a single Middleware.
+func WithTenantMiddleware(middleware Middleware) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant, ok := GetTenant(r.Context())
+			_, ok := GetTenant(r.Context())
 			if !ok {
 				http.Error(w, "error finding tenant", http.StatusBadRequest)
 				return
 			}
-			m, ok := middlewares[tenant]
-			if !ok {
+			if middleware == nil {
 				http.Error(w, "error finding tenant", http.StatusUnauthorized)
 				return
 			}
-
-			m(next).ServeHTTP(w, r)
+			next.ServeHTTP(w, r)
 		})
 	}
 }

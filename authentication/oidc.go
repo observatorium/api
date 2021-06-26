@@ -44,46 +44,37 @@ type OIDCConfig struct {
 // Middleware is a convenience type for functions that wrap http.Handlers.
 type Middleware func(http.Handler) http.Handler
 
-// NewOIDC creates a single http.Handler and a set of Middlewares for all
-// tenants that is able to authenticate requests and provide the
+// NewOIDC creates a http.Handler and a Middlewares for a
+// tenant that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(logger log.Logger, prefix string, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
-	handlers := map[string]http.Handler{}
-	middlewares := map[string]Middleware{}
-	warnings := make([]error, 0, len(configs))
-
-	for _, c := range configs {
-		p, err := NewProvider(context.TODO(), logger, getCookieForTenant(c.Tenant), "/"+c.Tenant, c.OIDCConfig)
-		if err != nil {
-			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
-			continue
-		}
-
-		r := chi.NewRouter()
-
-		const (
-			loginRoute    = "/login"
-			callbackRoute = "/callback"
-		)
-
-		r.Handle(loginRoute, otelhttp.WithRouteTag(prefix+loginRoute, p.LoginHandler()))
-		r.Handle(callbackRoute, otelhttp.WithRouteTag(prefix+callbackRoute, p.CallbackHandler()))
-
-		handlers[c.Tenant] = r
-		middlewares[c.Tenant] = p.Middleware()
+func NewOIDC(logger log.Logger, prefix string, config TenantOIDCConfig) (http.Handler, Middleware, error) {
+	p, err := NewProvider(context.TODO(), logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
+	if err != nil {
+		return nil, nil, err
 	}
+
+	h := chi.NewRouter()
+
+	const (
+		loginRoute    = "/login"
+		callbackRoute = "/callback"
+	)
+
+	h.Handle(loginRoute, otelhttp.WithRouteTag(prefix+loginRoute, p.LoginHandler()))
+	h.Handle(callbackRoute, otelhttp.WithRouteTag(prefix+callbackRoute, p.CallbackHandler()))
+
+	middleware := p.Middleware()
 
 	r := chi.NewRouter()
 	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenant, ok := GetTenant(r.Context())
-		const msg = "error finding tenant"
+		_, ok := GetTenant(r.Context())
+		const msg = "P error finding tenant"
 		if !ok {
 			level.Warn(logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
 		}
-		h, ok := handlers[tenant]
-		if !ok {
+		if r == nil {
 			level.Debug(logger).Log("msg", msg)
 			http.Error(w, msg, http.StatusUnauthorized)
 			return
@@ -91,7 +82,7 @@ func NewOIDC(logger log.Logger, prefix string, configs []TenantOIDCConfig) (http
 		h.ServeHTTP(w, r)
 	}))
 
-	return r, middlewares, warnings
+	return h, middleware, nil
 }
 
 func getCookieForTenant(tenant string) string {
@@ -178,7 +169,6 @@ func (p *OIDCProvider) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var token string
-
 			authorizationHeader := r.Header.Get("Authorization")
 			if authorizationHeader != "" {
 				authorization := strings.Split(authorizationHeader, " ")
@@ -272,7 +262,6 @@ func (p *OIDCProvider) Middleware() Middleware {
 				}
 				ctx = context.WithValue(ctx, groupsKey, groups)
 			}
-
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

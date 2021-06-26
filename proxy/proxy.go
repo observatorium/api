@@ -69,7 +69,7 @@ func MiddlewareMetrics(registry *prometheus.Registry, constLabels prometheus.Lab
 		ConstLabels: constLabels,
 	}, []string{"method"})
 
-	registry.MustRegister(requests)
+	registry.Register(requests)
 
 	return func(r *http.Request) {
 		requests.With(prometheus.Labels{"method": r.Method}).Inc()

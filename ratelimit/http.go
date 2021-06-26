@@ -38,58 +38,54 @@ type middleware struct {
 
 // WithLocalRateLimiter returns a middleware that controls the amount of requests per tenant using an in-memory store.
 func WithLocalRateLimiter(configs ...Config) Middleware {
-	middlewares := make(map[string][]middleware)
+	var mWare middleware
 	for _, c := range configs {
-		middlewares[c.Tenant] = append(middlewares[c.Tenant], middleware{c.Matcher, httprate.NewRateLimiter(
+		mWare = middleware{c.Matcher, httprate.NewRateLimiter(
 			c.Limit,
 			c.Window,
 			nil,
-		).Handler})
+		).Handler}
 	}
 
-	return combine(middlewares)
+	return combine(mWare)
 }
 
 // WithSharedRateLimiter returns a middleware that controls the amount of requests per tenant using an external service.
 func WithSharedRateLimiter(logger log.Logger, client *Client, configs ...Config) Middleware {
 	logger = log.With(logger, "component", "rate limiter")
 
-	middlewares := make(map[string][]middleware)
+	var mWare middleware
 	for _, c := range configs {
-		middlewares[c.Tenant] = append(middlewares[c.Tenant],
-			middleware{c.Matcher, rateLimiter{logger, client, &request{
-				name:     requestName,
-				key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
-				limit:    int64(c.Limit),
-				duration: c.Window.Microseconds(),
-			}}.Handler})
+		mWare = middleware{c.Matcher, rateLimiter{logger, client, &request{
+			name:     requestName,
+			key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
+			limit:    int64(c.Limit),
+			duration: c.Window.Microseconds(),
+		}}.Handler}
 	}
 
-	return combine(middlewares)
+	return combine(mWare)
 }
 
-func combine(middlewares map[string][]middleware) func(next http.Handler) http.Handler {
+func combine(mWare middleware) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant, ok := authentication.GetTenant(r.Context())
+			_, ok := authentication.GetTenant(r.Context())
 			if !ok {
 				// This shouldn't have happened.
 				http.Error(w, "error finding tenant", http.StatusUnauthorized)
 				return
 			}
 
-			tms, ok := middlewares[tenant]
-			if !ok {
+			if mWare.matcher == nil {
 				// No rate limits configured for this tenant.
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			for _, m := range tms {
-				if m.matcher.MatchString(r.URL.Path) {
-					m.handler(next).ServeHTTP(w, r)
-					return
-				}
+			if mWare.matcher.MatchString(r.URL.Path) {
+				mWare.handler(next).ServeHTTP(w, r)
+				return
 			}
 
 			// No rate limits configured for this endpoint.
