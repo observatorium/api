@@ -97,8 +97,6 @@ Usage of ./observatorium-api:
     	Path to the RBAC configuration file. (default "rbac.yaml")
   -tenants.config string
     	Path to the tenants file. (default "tenants.yaml")
-  -tenants.registration-retry-count int
-    	The number of retries for tenant auth registration. (default 3)
   -tls.cipher-suites string
     	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
   -tls.healthchecks.server-ca-file string
