@@ -597,23 +597,24 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 		}
 
 		var (
-			authN authentication.Middleware
-			authZ rbac.Authorizer
+			authN       authentication.Middleware
+			authZ       rbac.Authorizer
+			oidcHandler http.Handler
 		)
 
-		// Create OIDC middleware for a tenant.
-		oidcHandler, oidcTenantMiddleware, err := authentication.NewOIDC(tCfg.logger, "/oidc/"+t.Name, oidcConf)
-		if err != nil {
-			level.Error(tCfg.logger).Log("msg", "tenant failed to register. retrying ..", t.Name, err)
-			retryCount++
+		if (authentication.TenantOIDCConfig{}) != oidcConf {
+			// Create OIDC middleware for a tenant.
+			oidcHandler, authN, err = authentication.NewOIDC(tCfg.logger, "/oidc/"+t.Name, oidcConf)
+			if err != nil {
+				level.Error(tCfg.logger).Log("msg", "tenant failed to register. retrying ..", t.Name, err)
+				retryCount++
 
-			continue
+				continue
+			}
 		}
 
-		if oidcTenantMiddleware != nil {
+		if oidcHandler != nil {
 			r.Mount("/oidc/"+t.Name, oidcHandler)
-
-			authN = oidcTenantMiddleware
 		}
 
 		mTLSMiddleware := authentication.NewMTLS(mTLSConf)
