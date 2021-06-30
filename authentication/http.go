@@ -25,28 +25,16 @@ const (
 	tenantIDKey contextKey = "tenantID"
 )
 
-// WithTenant finds the tenant from the URL parameters and adds it to the request context.
-func WithTenant(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenant := r.URL.Query().Get(tenantKey.String())
-		next.ServeHTTP(w, r.WithContext(
-			context.WithValue(r.Context(), tenantKey, tenant),
-		))
-	})
-}
-
-// WithTenantID returns a middleware that finds the tenantID using the tenant
-// from the URL parameters and adds it to the request context.
-func WithTenantID(tenantName, tenantID string) Middleware {
+// WithTenant returns a middleware with request context
+// containing both ID and name of a tenant.
+func WithTenant(tenantName, tenantID string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			queryValues := r.URL.Query()
-			queryValues.Add(tenantKey.String(), tenantName)
-			r.URL.RawQuery = queryValues.Encode()
-
-			next.ServeHTTP(w, r.WithContext(
-				context.WithValue(r.Context(), tenantIDKey, tenantID),
-			))
+			// Add tenant ID to the request context.
+			ctx := context.WithValue(r.Context(), tenantIDKey, tenantID)
+			// Add tenant name to the request context.
+			ctx = context.WithValue(ctx, tenantKey, tenantName)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
