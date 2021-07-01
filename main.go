@@ -213,16 +213,12 @@ func onboardTenants(cfg config, tCfg tenantsConfig) {
 		runtime.SetBlockProfileRate(cfg.debug.blockProfileRate)
 	}
 	// maxprocs will automate adjustment by using cgroups info about cpu limit if it set as value for runtime.GOMAXPROCS.
-	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {
-		level.Debug(tCfg.logger).Log("msg", fmt.Sprintf(template, args))
-	}))
+	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {}))
 	if err != nil {
 		level.Error(tCfg.logger).Log("msg", "failed to set GOMAXPROCS:", "err", err)
 	}
 
 	defer undo()
-
-	level.Info(tCfg.logger).Log("msg", "starting observatorium")
 
 	var g run.Group
 	{
@@ -577,11 +573,7 @@ func loadOIDCConf(tCfg *tenantsConfig, t *tenant) error {
 func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 	retryCount := 0
 
-	retryCounterMetric, err := registerTenantRetryMetric(tCfg)
-	if err != nil {
-		//  Move current per-tenant registration logic to one time registration across all the tenants.
-		level.Info(tCfg.logger).Log("msg", "duplicate registration of metric", "tenant", t.Name, "error", err)
-	}
+	retryCounterMetric, _ := registerTenantRetryMetric(tCfg)
 
 	for {
 		// Calculate wait time before rerying a failed tenant registration.

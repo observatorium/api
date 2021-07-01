@@ -17,8 +17,6 @@ func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion string, ci
 		return nil, nil
 	}
 
-	level.Info(logger).Log("msg", "enabling server side TLS")
-
 	tlsCert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("server credentials: %w", err)
