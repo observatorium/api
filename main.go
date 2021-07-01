@@ -465,8 +465,6 @@ func newAuthorizer(tCfg *tenantsConfig, t *tenant) error {
 			if err != nil {
 				skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse OPA URL: %v", err))
 
-				t = nil
-
 				return err
 			}
 
@@ -475,8 +473,6 @@ func newAuthorizer(tCfg *tenantsConfig, t *tenant) error {
 			a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths, opa.LoggerOption(log.With(tCfg.logger, "tenant", t.Name)))
 			if err != nil {
 				skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
-
-				t = nil
 
 				return err
 			}
@@ -498,9 +494,7 @@ func loadMTLSConf(tCfg *tenantsConfig, t *tenant) error {
 			t.MTLS.RawCA, err = ioutil.ReadFile(t.MTLS.CAPath)
 
 			if err != nil {
-				skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read CA certificate file from path %q: %v", t.OIDC.IssuerCAPath, err))
-
-				t = nil
+				skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read CA certificate file for tenant %q: %v", t.Name, err))
 
 				return err
 			}
@@ -518,8 +512,6 @@ func loadMTLSConf(tCfg *tenantsConfig, t *tenant) error {
 			if block == nil {
 				skip.Log("tenant", t.Name, "err", "failed to parse CA certificate PEM")
 
-				t = nil
-
 				break
 			}
 
@@ -527,8 +519,6 @@ func loadMTLSConf(tCfg *tenantsConfig, t *tenant) error {
 
 			if err != nil {
 				skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse CA certificate: %v", err))
-
-				t = nil
 
 				break
 			}
@@ -554,8 +544,7 @@ func loadOIDCConf(tCfg *tenantsConfig, t *tenant) error {
 		if t.OIDC.IssuerCAPath != "" {
 			t.OIDC.IssuerRawCA, err = ioutil.ReadFile(t.OIDC.IssuerCAPath)
 			if err != nil {
-				skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read issuer CA certificate file from path %q: %v", t.OIDC.IssuerCAPath, err))
-				t = nil
+				skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read issuer CA certificate file for tenant : %q %v", t.Name, err))
 
 				return err
 			}
@@ -566,7 +555,6 @@ func loadOIDCConf(tCfg *tenantsConfig, t *tenant) error {
 
 			if block == nil {
 				skip.Log("tenant", t.Name, "err", "failed to parse issuer CA certificate PEM")
-				t = nil
 
 				return err
 			}
@@ -574,7 +562,6 @@ func loadOIDCConf(tCfg *tenantsConfig, t *tenant) error {
 			cert, err := x509.ParseCertificate(block.Bytes)
 			if err != nil {
 				skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse issuer certificate: %v", err))
-				t = nil
 
 				return err
 			}
@@ -618,9 +605,9 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 			oidcHandler http.Handler
 		)
 
-		if (authentication.TenantOIDCConfig{}) != oidcConf {
+		if len(oidcConf.Tenant) > 0 {
 			// Create OIDC middleware for a tenant.
-			oidcHandler, authN, err = authentication.NewOIDC(tCfg.logger, "/oidc/"+t.Name, oidcConf)
+			oidcHandler, authN, err = authentication.NewOIDC(tCfg.logger, "/oidc/"+t.Name, *oidcConf)
 			if err != nil {
 				level.Error(tCfg.logger).Log("msg", "tenant failed to register. retrying ..", t.Name, err)
 				retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
@@ -634,9 +621,8 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 			r.Mount("/oidc/"+t.Name, oidcHandler)
 		}
 
-		mTLSMiddleware := authentication.NewMTLS(mTLSConf)
-
-		if len(mTLSConf.CAs) > 0 {
+		if len(mTLSConf.Tenant) > 0 {
+			mTLSMiddleware := authentication.NewMTLS(*mTLSConf)
 			authN = mTLSMiddleware
 		}
 
@@ -759,11 +745,9 @@ func expBackOffWaitTime(retryCount int) uint64 {
 }
 
 // Create authentication middlware for a tenant.
-func tennatAuthN(t *tenant) (authentication.TenantOIDCConfig, authentication.MTLSConfig, error) {
-	var (
-		oidcConf authentication.TenantOIDCConfig
-		mTLSConf authentication.MTLSConfig
-	)
+func tennatAuthN(t *tenant) (*authentication.TenantOIDCConfig, *authentication.MTLSConfig, error) {
+	oidcConf := authentication.TenantOIDCConfig{}
+	mTLSConf := authentication.MTLSConfig{}
 
 	switch {
 	case t.OIDC != nil:
@@ -789,10 +773,10 @@ func tennatAuthN(t *tenant) (authentication.TenantOIDCConfig, authentication.MTL
 		stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
 		err := errors.New("tenant must specify either an OIDC or an mTLS configuration : " + t.Name)
 
-		return authentication.TenantOIDCConfig{}, authentication.MTLSConfig{}, err
+		return &oidcConf, &mTLSConf, err
 	}
 
-	return oidcConf, mTLSConf, nil
+	return &oidcConf, &mTLSConf, nil
 }
 
 // Populate rateLimit configuration for a tenant.

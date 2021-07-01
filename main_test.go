@@ -51,12 +51,6 @@ func TestOnboardTenants(t *testing.T) {
 	cfg.rbacConfigPath = "./test/config/rbac.yaml"
 	cfg.tenantsConfigPath = "./test/config/tenants.yaml"
 	cfg.server.healthcheckURL = "https://127.0.0.1:8443"
-	cfg.tls.healthchecksServerCAFile = "./tmp/certs/ca.pem"
-	cfg.tls.minVersion = "VersionTLS13"
-	cipherSuites := []string{"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"}
-	cfg.tls.cipherSuites = cipherSuites
-	cfg.tls.serverCertFile = "./tmp/certs/server.pem"
-	cfg.tls.serverKeyFile = "./tmp/certs/server.key"
 	cfg.tls.reloadInterval = time.Minute
 	cfg.middleware.concurrentRequestLimit = 1000
 	cfg.middleware.backLogLimitConcurrentRequests = 0
