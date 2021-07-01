@@ -36,11 +36,6 @@ func WithAuthorizers(authorizer rbac.Authorizer, permission rbac.Permission, res
 			if !ok {
 				groups = []string{}
 			}
-			if authorizer == nil {
-				http.Error(w, "error finding tenant", http.StatusUnauthorized)
-
-				return
-			}
 
 			if statusCode, ok := authorizer.Authorize(subject, groups, permission, resource, tenant); !ok {
 				w.WriteHeader(statusCode)

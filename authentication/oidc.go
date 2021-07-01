@@ -44,7 +44,7 @@ type OIDCConfig struct {
 // Middleware is a convenience type for functions that wrap http.Handlers.
 type Middleware func(http.Handler) http.Handler
 
-// NewOIDC creates a http.Handler and a Middlewares for a
+// NewOIDC creates a http.Handler and a Middleware for a
 // tenant that is able to authenticate requests and provide the
 // authorization code grant flow for users.
 func NewOIDC(logger log.Logger, prefix string, config TenantOIDCConfig) (http.Handler, Middleware, error) {
@@ -54,6 +54,7 @@ func NewOIDC(logger log.Logger, prefix string, config TenantOIDCConfig) (http.Ha
 	}
 
 	h := chi.NewRouter()
+	middleware := p.Middleware()
 
 	const (
 		loginRoute    = "/login"
@@ -62,25 +63,6 @@ func NewOIDC(logger log.Logger, prefix string, config TenantOIDCConfig) (http.Ha
 
 	h.Handle(loginRoute, otelhttp.WithRouteTag(prefix+loginRoute, p.LoginHandler()))
 	h.Handle(callbackRoute, otelhttp.WithRouteTag(prefix+callbackRoute, p.CallbackHandler()))
-
-	middleware := p.Middleware()
-
-	r := chi.NewRouter()
-	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, ok := GetTenant(r.Context())
-		const msg = "P error finding tenant"
-		if !ok {
-			level.Warn(logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
-		}
-		if r == nil {
-			level.Debug(logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusUnauthorized)
-			return
-		}
-		h.ServeHTTP(w, r)
-	}))
 
 	return h, middleware, nil
 }

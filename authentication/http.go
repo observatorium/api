@@ -80,21 +80,3 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 
 	return groups, ok
 }
-
-// Creates a single Middleware.
-func WithTenantMiddleware(middleware Middleware) Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, ok := GetTenant(r.Context())
-			if !ok {
-				http.Error(w, "error finding tenant", http.StatusBadRequest)
-				return
-			}
-			if middleware == nil {
-				http.Error(w, "error finding tenant", http.StatusUnauthorized)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
