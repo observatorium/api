@@ -623,6 +623,14 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 			authZ = tCfg.authorizer
 		}
 
+		if authZ == nil {
+			level.Error(tCfg.logger).Log("msg", "invalid authorization for tenant", t.Name)
+			retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
+			retryCount++
+
+			continue
+		}
+
 		r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := authentication.GetTenant(r.Context())
 			if !ok {
