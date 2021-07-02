@@ -70,8 +70,8 @@ workflows:
           filters:
             branches:
               only:
-                - master
-  tagged-master:
+                - main
+  tagged-main:
     jobs:
       - container-release:
           filters:
