@@ -22,9 +22,6 @@ import (
 	"syscall"
 	"time"
 
-	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
-	metricsv1 "github.com/observatorium/api/api/metrics/v1"
-
 	rbacproxytls "github.com/brancz/kube-rbac-proxy/pkg/tls"
 	"github.com/ghodss/yaml"
 	"github.com/go-chi/chi"
@@ -43,6 +40,8 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	logsv1 "github.com/observatorium/api/api/logs/v1"
+	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
+	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
@@ -140,6 +139,11 @@ func main() {
 	cfg, err := parseFlags()
 	if err != nil {
 		stdlog.Fatalf("parse flag: %v", err)
+	}
+
+	if !cfg.metrics.enabled && !cfg.logs.enabled {
+		stdlog.Fatal("Neither logging nor metrics endpoints are enabled. " +
+			"Specifying at least a logging or a metrics endpoint is mandatory")
 	}
 
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
