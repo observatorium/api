@@ -22,6 +22,9 @@ import (
 	"syscall"
 	"time"
 
+	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
+	metricsv1 "github.com/observatorium/api/api/metrics/v1"
+
 	rbacproxytls "github.com/brancz/kube-rbac-proxy/pkg/tls"
 	"github.com/ghodss/yaml"
 	"github.com/go-chi/chi"
@@ -40,8 +43,6 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 
 	logsv1 "github.com/observatorium/api/api/logs/v1"
-	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
-	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
@@ -107,6 +108,8 @@ type metricsConfig struct {
 	writeEndpoint *url.URL
 	tenantHeader  string
 	tenantLabel   string
+	// enable metrics if at least one {read|write}Endpoint} is provided.
+	enabled bool
 }
 
 type logsConfig struct {
@@ -456,55 +459,57 @@ func main() {
 			r.Mount("/oidc/{tenant}", oidcHandler)
 
 			// Metrics
-			r.Group(func(r chi.Router) {
-				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
-				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
-				if rateLimitClient != nil {
-					r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
-				} else {
-					r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
-				}
-
-				r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
-					tenant, ok := authentication.GetTenant(r.Context())
-					if !ok {
-						w.WriteHeader(http.StatusNotFound)
-						return
+			if cfg.metrics.enabled {
+				r.Group(func(r chi.Router) {
+					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
+					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
+					if rateLimitClient != nil {
+						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
+					} else {
+						r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
 					}
 
-					http.Redirect(w, r, path.Join("/api/metrics/v1/", tenant, "graph"), http.StatusMovedPermanently)
-				})
+					r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
+						tenant, ok := authentication.GetTenant(r.Context())
+						if !ok {
+							w.WriteHeader(http.StatusNotFound)
+							return
+						}
 
-				r.Mount("/api/v1/{tenant}",
-					metricslegacy.NewHandler(
-						cfg.metrics.readEndpoint,
-						metricslegacy.Logger(logger),
-						metricslegacy.Registry(reg),
-						metricslegacy.HandlerInstrumenter(ins),
-						metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
-						metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricslegacy.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
-						metricslegacy.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-					),
-				)
+						http.Redirect(w, r, path.Join("/api/metrics/v1/", tenant, "graph"), http.StatusMovedPermanently)
+					})
 
-				r.Mount("/api/metrics/v1/{tenant}",
-					stripTenantPrefix("/api/metrics/v1",
-						metricsv1.NewHandler(
+					r.Mount("/api/v1/{tenant}",
+						metricslegacy.NewHandler(
 							cfg.metrics.readEndpoint,
-							cfg.metrics.writeEndpoint,
-							metricsv1.Logger(logger),
-							metricsv1.Registry(reg),
-							metricsv1.HandlerInstrumenter(ins),
-							metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
-							metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-							metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
-							metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-							metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+							metricslegacy.Logger(logger),
+							metricslegacy.Registry(reg),
+							metricslegacy.HandlerInstrumenter(ins),
+							metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
+							metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricslegacy.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+							metricslegacy.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						),
-					),
-				)
-			})
+					)
+
+					r.Mount("/api/metrics/v1/{tenant}",
+						stripTenantPrefix("/api/metrics/v1",
+							metricsv1.NewHandler(
+								cfg.metrics.readEndpoint,
+								cfg.metrics.writeEndpoint,
+								metricsv1.Logger(logger),
+								metricsv1.Registry(reg),
+								metricsv1.HandlerInstrumenter(ins),
+								metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
+								metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+								metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+							),
+						),
+					)
+				})
+			}
 
 			// Logs
 			if cfg.logs.enabled {
@@ -738,19 +743,27 @@ func parseFlags() (config, error) {
 
 	flag.Parse()
 
-	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--metrics.read.endpoint %q is invalid: %w", rawMetricsReadEndpoint, err)
+	if rawMetricsReadEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.read.endpoint %q is invalid: %w", rawMetricsReadEndpoint, err)
+		}
+
+		cfg.metrics.readEndpoint = metricsReadEndpoint
 	}
 
-	cfg.metrics.readEndpoint = metricsReadEndpoint
+	if rawMetricsWriteEndpoint != "" {
+		cfg.metrics.enabled = true
 
-	metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--metrics.write.endpoint %q is invalid: %w", rawMetricsWriteEndpoint, err)
+		metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.write.endpoint %q is invalid: %w", rawMetricsWriteEndpoint, err)
+		}
+
+		cfg.metrics.writeEndpoint = metricsWriteEndpoint
 	}
-
-	cfg.metrics.writeEndpoint = metricsWriteEndpoint
 
 	if rawLogsReadEndpoint != "" {
 		cfg.logs.enabled = true
