@@ -182,14 +182,14 @@ func main() {
 	}
 
 	// Load all the command line configuration into tenantsConfig struct.
-	tCfg := tenantsConfig{}
-	loadTenantConfigs(&cfg, &tCfg)
+	tCfg := loadTenantConfigs(&cfg)
 
 	// Onboard tenants.
-	onboardTenants(cfg, tCfg)
+	listenAndServeTenants(cfg, tCfg)
+	stdlog.Fatalf("could not start Observatorium API server, exiting ...")
 }
 
-func onboardTenants(cfg config, tCfg tenantsConfig) {
+func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 	defer level.Info(tCfg.logger).Log("msg", "exiting")
 
 	tp, closer, err := tracing.InitTracer(
@@ -198,11 +198,12 @@ func onboardTenants(cfg config, tCfg tenantsConfig) {
 		cfg.internalTracing.endpointType,
 		cfg.internalTracing.samplingFraction,
 	)
-	if err != nil {
-		stdlog.Fatalf("initialize tracer: %v", err)
-	}
-
 	defer closer()
+
+	if err != nil {
+		level.Error(tCfg.logger).Log("msg", "initialize tracer:", "err", err)
+		return
+	}
 
 	otel.SetErrorHandler(otelErrorHandler{logger: tCfg.logger})
 
@@ -221,7 +222,6 @@ func onboardTenants(cfg config, tCfg tenantsConfig) {
 
 	var g run.Group
 	{
-		// Signal channels must be buffered.
 		sig := make(chan os.Signal, 1)
 		g.Add(func() error {
 			signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
@@ -249,7 +249,8 @@ func onboardTenants(cfg config, tCfg tenantsConfig) {
 			cfg.tls.cipherSuites,
 		)
 		if err != nil {
-			stdlog.Fatalf("failed to initialize tls config: %v", err)
+			level.Error(tCfg.logger).Log("msg", "failed to initialize tls config:", "err", err)
+			return
 		}
 		if tlsConfig != nil {
 			r, err := rbacproxytls.NewCertReloader(
@@ -258,7 +259,8 @@ func onboardTenants(cfg config, tCfg tenantsConfig) {
 				cfg.tls.reloadInterval,
 			)
 			if err != nil {
-				stdlog.Fatalf("failed to initialize certificate reloader: %v", err)
+				level.Error(tCfg.logger).Log("msg", "failed to initialize certificate reloader:", "err", err)
+				return
 			}
 			tlsConfig.GetCertificate = r.GetCertificate
 			ctx, cancel := context.WithCancel(context.Background())
@@ -304,11 +306,11 @@ func onboardTenants(cfg config, tCfg tenantsConfig) {
 	}
 
 	if err := g.Run(); err != nil {
-		stdlog.Fatal(err)
+		return
 	}
 }
 
-// Return handler for common healthchecks across all the tenants.
+// commonHealthChecks returns handler for common healthchecks across all the tenants.
 func commonHealthChecks(cfg config, tCfg tenantsConfig) *healthcheck.Handler {
 	healthchecks := healthcheck.NewMetricsHandler(healthcheck.NewHandler(), tCfg.reg)
 
@@ -328,7 +330,7 @@ func commonHealthChecks(cfg config, tCfg tenantsConfig) *healthcheck.Handler {
 			t.TLSClientConfig.RootCAs.AppendCertsFromPEM(caCert)
 		}
 
-		// checks if server is up
+		// Checks if server is up.
 		healthchecks.AddLivenessCheck("http",
 			healthcheck.HTTPCheckClient(
 				&http.Client{Transport: t},
@@ -391,7 +393,8 @@ func loadRBACConfig(cfg config) (rbac.Authorizer, error) {
 }
 
 // Load tenant config information from tenants.yaml.
-func loadTenantConfigs(cfg *config, tCfg *tenantsConfig) {
+func loadTenantConfigs(cfg *config) tenantsConfig {
+	tCfg := tenantsConfig{}
 	tCfg.logger = logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 
 	f, err := ioutil.ReadFile(cfg.tenantsConfigPath)
@@ -406,17 +409,17 @@ func loadTenantConfigs(cfg *config, tCfg *tenantsConfig) {
 	skip := level.Warn(log.With(tCfg.logger, "msg", "skipping invalid tenant"))
 
 	for _, t := range tCfg.Tenants {
-		err = loadOIDCConf(tCfg, t)
+		err = loadOIDCConf(&tCfg, t)
 		if err != nil {
 			skip.Log("tenant", t.Name, "err", err)
 		}
 
-		err = loadMTLSConf(tCfg, t)
+		err = loadMTLSConf(&tCfg, t)
 		if err != nil {
 			skip.Log("tenant", t.Name, "err", err)
 		}
 
-		err = newAuthorizer(tCfg, t)
+		err = newAuthorizer(&tCfg, t)
 		if err != nil {
 			skip.Log("tenant", t.Name, "err", err)
 		}
@@ -426,11 +429,10 @@ func loadTenantConfigs(cfg *config, tCfg *tenantsConfig) {
 	tCfg.authorizer, err = loadRBACConfig(*cfg)
 	if err != nil {
 		stdlog.Fatalf("unable to read RBAC YAML: %v", err)
-		return
+		return tCfg
 	}
 
 	tCfg.reg = prometheus.NewRegistry()
-
 	tCfg.reg.MustRegister(
 		version.NewCollector("observatorium"),
 		collectors.NewGoCollector(),
@@ -448,6 +450,8 @@ func loadTenantConfigs(cfg *config, tCfg *tenantsConfig) {
 	}
 
 	tCfg.ins = signalhttp.NewHandlerInstrumenter(tCfg.reg, []string{"group", "handler"})
+
+	return tCfg
 }
 
 // Create autorizer for a tenant.
@@ -613,8 +617,12 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 		}
 
 		if len(mTLSConf.Tenant) > 0 {
-			mTLSMiddleware := authentication.NewMTLS(*mTLSConf)
-			authN = mTLSMiddleware
+			mTLSMiddleware, err := authentication.NewMTLS(*mTLSConf)
+			if err != nil {
+				level.Info(tCfg.logger).Log("msg", "err", err.Error(), "tenant", t.Name)
+			} else {
+				authN = mTLSMiddleware
+			}
 		}
 
 		if t.OPA != nil {
@@ -690,7 +698,7 @@ func registerTenantRetryMetric(tCfg *tenantsConfig) (*prometheus.CounterVec, err
 	return retryCounterMetric, nil
 }
 
-// Handler for Metrics legacy API.
+// metricsLegacyHandler creates handler for legacyMetrics V1 API.
 func metricsLegacyHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
 	return metricslegacy.NewHandler(
 		cfg.metrics.readEndpoint,
@@ -703,7 +711,7 @@ func metricsLegacyHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorize
 		metricslegacy.UIMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")))
 }
 
-// Handler for Metrics V1 API.
+// metricsHandler creates handler for Metrics V1 API.
 func metricsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
 	return metricsv1.NewHandler(
 		cfg.metrics.readEndpoint,
@@ -718,7 +726,7 @@ func metricsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) htt
 	)
 }
 
-// Handler for Logs V1 API.
+// logsHandler creates handler for Logs V1 API.
 func logsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
 	return logsv1.NewHandler(
 		cfg.logs.readEndpoint,
@@ -732,15 +740,13 @@ func logsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.H
 		logsv1.WriteMiddleware(authorization.WithAuthorizers(authZ, rbac.Write, "logs")))
 }
 
-// Calculate exponential backoff wait time for retrying tenant onboarding.
+// expBackOffWaitTime calculate exponential backoff wait time, used for retrying failed tenant onboarding.
 func expBackOffWaitTime(retryCount int) uint64 {
 	if retryCount == 0 {
 		return 0
 	}
 
-	waitTime := math.Pow(2, float64(retryCount))
-
-	return uint64(waitTime)
+	return uint64(math.Pow(2, float64(retryCount)))
 }
 
 // Create authentication middlware for a tenant.

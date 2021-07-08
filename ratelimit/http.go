@@ -38,25 +38,25 @@ type middleware struct {
 
 // WithLocalRateLimiter returns a middleware that controls the amount of requests per tenant using an in-memory store.
 func WithLocalRateLimiter(configs ...Config) Middleware {
-	var mWare middleware
+	var mw middleware
 	for _, c := range configs {
-		mWare = middleware{c.Matcher, httprate.NewRateLimiter(
+		mw = middleware{c.Matcher, httprate.NewRateLimiter(
 			c.Limit,
 			c.Window,
 			nil,
 		).Handler}
 	}
 
-	return combine(mWare)
+	return combine(mw)
 }
 
 // WithSharedRateLimiter returns a middleware that controls the amount of requests per tenant using an external service.
 func WithSharedRateLimiter(logger log.Logger, client *Client, configs ...Config) Middleware {
 	logger = log.With(logger, "component", "rate limiter")
 
-	var mWare middleware
+	var mw middleware
 	for _, c := range configs {
-		mWare = middleware{c.Matcher, rateLimiter{logger, client, &request{
+		mw = middleware{c.Matcher, rateLimiter{logger, client, &request{
 			name:     requestName,
 			key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
 			limit:    int64(c.Limit),
@@ -64,10 +64,10 @@ func WithSharedRateLimiter(logger log.Logger, client *Client, configs ...Config)
 		}}.Handler}
 	}
 
-	return combine(mWare)
+	return combine(mw)
 }
 
-func combine(mWare middleware) func(next http.Handler) http.Handler {
+func combine(mw middleware) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, ok := authentication.GetTenant(r.Context())
@@ -77,14 +77,14 @@ func combine(mWare middleware) func(next http.Handler) http.Handler {
 				return
 			}
 
-			if mWare.matcher == nil {
+			if mw.matcher == nil {
 				// No rate limits configured for this tenant.
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			if mWare.matcher.MatchString(r.URL.Path) {
-				mWare.handler(next).ServeHTTP(w, r)
+			if mw.matcher.MatchString(r.URL.Path) {
+				mw.handler(next).ServeHTTP(w, r)
 				return
 			}
 

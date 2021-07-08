@@ -10,42 +10,22 @@ import (
 
 // Tests if retries are working for tenant registrations.
 // To test this, a tenant with wrong configuration needs to be present at /test/conf/tenants.yaml.
-func TestOnboardTenants(t *testing.T) {
+func TestListenAndServeTenants(t *testing.T) {
 	cfg := config{}
 
 	cfg.server.listen = "0.0.0.0:8443"
 	cfg.server.listenInternal = "0.0.0.0:8448"
 
-	u, err := url.ParseRequestURI("http://127.0.0.1:3100")
-
-	if err != nil {
-		t.FailNow()
-	}
-
+	u, _ := url.ParseRequestURI("http://127.0.0.1:3100")
 	cfg.logs.readEndpoint = u
 
-	u, err = url.ParseRequestURI("http://127.0.0.1:3100")
-
-	if err != nil {
-		t.FailNow()
-	}
-
+	u, _ = url.ParseRequestURI("http://127.0.0.1:3100")
 	cfg.logs.writeEndpoint = u
 
-	u, err = url.ParseRequestURI("http://127.0.0.1:9091")
-
-	if err != nil {
-		t.FailNow()
-	}
-
+	u, _ = url.ParseRequestURI("http://127.0.0.1:9091")
 	cfg.metrics.readEndpoint = u
 
-	u, err = url.ParseRequestURI("http://127.0.0.1:19291")
-
-	if err != nil {
-		t.FailNow()
-	}
-
+	u, _ = url.ParseRequestURI("http://127.0.0.1:19291")
 	cfg.metrics.writeEndpoint = u
 
 	cfg.rbacConfigPath = "./test/config/rbac.yaml"
@@ -57,12 +37,11 @@ func TestOnboardTenants(t *testing.T) {
 	cfg.logLevel = "debug"
 
 	// command line configuration is now setup, populate tenantsConfig struct from commadline configuration.
-	tCfg := tenantsConfig{}
-	loadTenantConfigs(&cfg, &tCfg)
+	tCfg := loadTenantConfigs(&cfg)
 
 	// onboard teants in a goroutine and watch retry metrics to go up as the tenant registration fails for
 	// a tenant with wrong configuration at ./test/conf/tenants.yaml.
-	go onboardTenants(cfg, tCfg)
+	go listenAndServeTenants(cfg, tCfg)
 
 	var initCount, laterCount *float64
 

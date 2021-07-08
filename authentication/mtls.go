@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -14,7 +15,7 @@ type MTLSConfig struct {
 }
 
 // NewMTLS create Middleware for a tenant.
-func NewMTLS(config MTLSConfig) Middleware {
+func NewMTLS(config MTLSConfig) (Middleware, error) {
 	middleware := func(next http.Handler) http.Handler {
 		caPool := x509.NewCertPool()
 
@@ -73,5 +74,10 @@ func NewMTLS(config MTLSConfig) Middleware {
 		})
 	}
 
-	return middleware
+	if middleware == nil {
+		err := fmt.Errorf("NO mTLS configuration is present")
+		return nil, err
+	}
+
+	return middleware, nil
 }
