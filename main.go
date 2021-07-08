@@ -491,7 +491,7 @@ func main() {
 							metricslegacy.HandlerInstrumenter(ins),
 							metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
 							metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-							metricslegacy.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+							metricslegacy.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 							metricslegacy.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						),
 					)
@@ -506,7 +506,7 @@ func main() {
 								metricsv1.HandlerInstrumenter(ins),
 								metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 								metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-								metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+								metricsv1.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 								metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 								metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 							),
