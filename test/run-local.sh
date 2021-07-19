@@ -60,8 +60,7 @@ done
     --grpc-address=127.0.0.1:10911 \
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
-    --log.level=error \
-    --web.external-prefix=.
+    --log.level=error
 ) &
 
 (
