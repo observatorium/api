@@ -241,13 +241,11 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			proxyWrite = &httputil.ReverseProxy{
 				Director: middlewares,
 				ErrorLog: proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(
-					&http.Transport{
-						DialContext: (&net.Dialer{
-							Timeout: ReadTimeout,
-						}).DialContext,
-					},
-				),
+				Transport: &http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout: ReadTimeout,
+					}).DialContext,
+				},
 			}
 		}
 		r.Group(func(r chi.Router) {

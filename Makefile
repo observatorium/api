@@ -27,11 +27,11 @@ CONTAINER_CMD := docker run --rm \
 		quay.io/coreos/jsonnet-ci
 
 THANOS ?= $(BIN_DIR)/thanos
-THANOS_VERSION ?= 0.13.0
+THANOS_VERSION ?= 0.21.1
 PROMETHEUS ?= $(BIN_DIR)/prometheus
 PROMETHEUS_VERSION ?= 2.15.2
 LOKI ?= $(BIN_DIR)/loki
-LOKI_VERSION ?= 1.5.0
+LOKI_VERSION ?= 2.2.1
 WEBSOCAT ?= $(BIN_DIR)/websocat
 WEBSOCAT_VERSION ?= 1.5.0
 WEBSOCAT_PKG =

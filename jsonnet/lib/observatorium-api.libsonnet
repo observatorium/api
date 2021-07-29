@@ -8,10 +8,6 @@ local defaults = {
   version: error 'must provide version',
   image: error 'must provide image',
   replicas: error 'must provide replicas',
-  metrics: {
-    readEnpoint: error 'must provide metrics readEnpoint',
-    writeEndpoint: error 'must provide metrics writeEndpoint',
-  },
   ports: {
     public: 8080,
     internal: 8081,
@@ -19,6 +15,7 @@ local defaults = {
   resources: {},
   serviceMonitor: false,
   logs: {},
+  metrics: {},
   rbac: {},
   tenants: {},
   tls: {},
@@ -108,10 +105,14 @@ function(params) {
               args: [
                 '--web.listen=0.0.0.0:%s' % api.config.ports.public,
                 '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
-                '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
-                '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
                 '--log.level=warn',
               ] + (
+                if api.config.metrics != {} then
+                  [
+                    '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
+                    '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
+                  ] else []
+              ) + (
                 if api.config.logs != {} then
                   [
                     '--logs.read.endpoint=' + api.config.logs.readEndpoint,

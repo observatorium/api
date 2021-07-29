@@ -88,6 +88,7 @@ done
   $THANOS receive \
     --receive.hashrings-file=./test/config/hashrings.json \
     --receive.local-endpoint=127.0.0.1:10901 \
+    --label "receive_replica=\"0\"" \
     --receive.default-tenant-id="1610b0c3-c509-4592-a256-a1871353dbfa" \
     --grpc-address=127.0.0.1:10901 \
     --http-address=127.0.0.1:10902 \
@@ -101,8 +102,7 @@ done
     --grpc-address=127.0.0.1:10911 \
     --http-address=127.0.0.1:9091 \
     --store=127.0.0.1:10901 \
-    --log.level=error \
-    --web.external-prefix=.
+    --log.level=error
 ) &
 
 (
@@ -142,7 +142,6 @@ if $UP \
   --endpoint-read=https://127.0.0.1:8443/api/metrics/v1/test-oidc/api/v1/query \
   --endpoint-write=https://127.0.0.1:8443/api/metrics/v1/test-oidc/api/v1/receive \
   --period=500ms \
-  --initial-query-delay=250ms \
   --threshold=1 \
   --latency=10s \
   --duration=10s \

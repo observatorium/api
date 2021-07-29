@@ -108,6 +108,8 @@ type metricsConfig struct {
 	writeEndpoint *url.URL
 	tenantHeader  string
 	tenantLabel   string
+	// enable metrics if at least one {read|write}Endpoint} is provided.
+	enabled bool
 }
 
 type logsConfig struct {
@@ -707,7 +709,7 @@ func metricsLegacyHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorize
 		metricslegacy.HandlerInstrumenter(tCfg.ins),
 		metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
 		metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")),
-		metricslegacy.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+		metricslegacy.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 		metricslegacy.UIMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")))
 }
 
@@ -721,7 +723,7 @@ func metricsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) htt
 		metricsv1.HandlerInstrumenter(tCfg.ins),
 		metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 		metricsv1.ReadMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")),
-		metricsv1.ReadMiddleware(authorization.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+		metricsv1.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
 		metricsv1.WriteMiddleware(authorization.WithAuthorizers(authZ, rbac.Write, "metrics")),
 	)
 }
@@ -929,19 +931,27 @@ func parseFlags() (config, error) {
 
 	flag.Parse()
 
-	metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--metrics.read.endpoint %q is invalid: %w", rawMetricsReadEndpoint, err)
+	if rawMetricsReadEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		metricsReadEndpoint, err := url.ParseRequestURI(rawMetricsReadEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.read.endpoint %q is invalid: %w", rawMetricsReadEndpoint, err)
+		}
+
+		cfg.metrics.readEndpoint = metricsReadEndpoint
 	}
 
-	cfg.metrics.readEndpoint = metricsReadEndpoint
+	if rawMetricsWriteEndpoint != "" {
+		cfg.metrics.enabled = true
 
-	metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
-	if err != nil {
-		return cfg, fmt.Errorf("--metrics.write.endpoint %q is invalid: %w", rawMetricsWriteEndpoint, err)
+		metricsWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.write.endpoint %q is invalid: %w", rawMetricsWriteEndpoint, err)
+		}
+
+		cfg.metrics.writeEndpoint = metricsWriteEndpoint
 	}
-
-	cfg.metrics.writeEndpoint = metricsWriteEndpoint
 
 	if rawLogsReadEndpoint != "" {
 		cfg.logs.enabled = true
