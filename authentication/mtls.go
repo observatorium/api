@@ -19,11 +19,6 @@ func NewMTLS(config MTLSConfig) (Middleware, error) {
 	middleware := func(next http.Handler) http.Handler {
 		caPool := x509.NewCertPool()
 
-		if len(config.CAs) == 0 {
-			// NO mTLS configuration is present.
-			return nil
-		}
-
 		for _, ca := range config.CAs {
 			caPool.AddCert(ca)
 		}
