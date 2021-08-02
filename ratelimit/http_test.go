@@ -21,6 +21,7 @@ const (
 	testTenant  = "test-tenant"
 )
 
+// nolint: gochecknoglobals
 var mockResetTime = time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 
 type pathTestParams struct {
@@ -30,6 +31,7 @@ type pathTestParams struct {
 	expectedTooManyRequests int
 }
 
+// nolint:dupl,funlen,scopelint
 func TestWithLocalRateLimiter(t *testing.T) {
 	matcherOne, matcherTwo := compileMatchers(t)
 	cases := []struct {
@@ -144,7 +146,6 @@ func TestWithLocalRateLimiter(t *testing.T) {
 					)
 				}
 			}
-
 		})
 	}
 }
@@ -173,6 +174,7 @@ func (m *mockSharedLimiter) reset() {
 	m.received = 0
 }
 
+// nolint:dupl,funlen,scopelint
 func TestWithSharedRateLimiter(t *testing.T) {
 	matcherOne, matcherTwo := compileMatchers(t)
 	cases := []struct {
@@ -318,9 +320,7 @@ func TestWithSharedRateLimiter(t *testing.T) {
 						}
 					}
 				}
-
 			}
-
 		})
 	}
 }
@@ -333,10 +333,13 @@ func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, r
 
 	results := make(chan result)
 	errCh := make(chan error)
+
 	var wg sync.WaitGroup
+
 	for i := 0; i < reqNum; i++ {
 		wg.Add(1)
 		time.Sleep(pathTest.waitBetween)
+
 		go func() {
 			defer wg.Done()
 
@@ -345,6 +348,8 @@ func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, r
 				errCh <- err
 				return
 			}
+
+			defer res.Body.Close()
 
 			results <- result{
 				res.StatusCode,
@@ -370,8 +375,9 @@ func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, r
 	var (
 		gotOKs             int
 		gotTooManyRequests int
-		gotHeaders         []http.Header
+		gotHeaders         = make([]http.Header, 0, len(results))
 	)
+
 	for r := range results {
 		switch r.statusCode {
 		case http.StatusOK:
