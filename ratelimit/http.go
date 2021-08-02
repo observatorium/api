@@ -18,6 +18,10 @@ import (
 const (
 	requestName    = "observatorium:tenant_per_endpoint"
 	requestTimeout = time.Millisecond * 500
+
+	headerKeyRemaining = "X-RateLimit-Remaining"
+	headerKeyLimit     = "X-RateLimit-Limit"
+	headerKeyReset     = "X-RateLimit-Reset"
 )
 
 // Config configures a rate limiter per endpoint, per tenant.
@@ -51,7 +55,7 @@ func WithLocalRateLimiter(configs ...Config) Middleware {
 }
 
 // WithSharedRateLimiter returns a middleware that controls the amount of requests per tenant using an external service.
-func WithSharedRateLimiter(logger log.Logger, client *Client, configs ...Config) Middleware {
+func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs ...Config) Middleware {
 	logger = log.With(logger, "component", "rate limiter")
 
 	middlewares := make(map[string][]middleware)
@@ -99,9 +103,9 @@ func combine(middlewares map[string][]middleware) func(next http.Handler) http.H
 }
 
 type rateLimiter struct {
-	logger log.Logger
-	client *Client
-	req    *request
+	logger        log.Logger
+	limiterClient SharedRateLimiter
+	req           *request
 }
 
 func (l rateLimiter) Handler(next http.Handler) http.Handler {
@@ -109,10 +113,10 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 		ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 		defer cancel()
 
-		remaining, resetTime, err := l.client.GetRateLimits(ctx, l.req)
-		w.Header().Set("X-RateLimit-Limit", strconv.FormatInt(l.req.limit, 10))
-		w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(remaining, 10))
-		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(resetTime, 10))
+		remaining, resetTime, err := l.limiterClient.GetRateLimits(ctx, l.req)
+		w.Header().Set(headerKeyLimit, strconv.FormatInt(l.req.limit, 10))
+		w.Header().Set(headerKeyRemaining, strconv.FormatInt(remaining, 10))
+		w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 
 		if err != nil {
 			if err == errOverLimit {
