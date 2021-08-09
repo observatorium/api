@@ -230,13 +230,16 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 		})
 	}
 	{
+		// Register for capturing retry metrics.
+		retryCounterMetric, _ := registerTenantRetryMetric(&tCfg)
+
 		r := chi.NewRouter()
 		commonMiddlewares(r, cfg, tCfg)
 		for _, t := range tCfg.Tenants {
 			if t == nil {
 				continue
 			}
-			go newTenant(&cfg, &tCfg, r, t)
+			go newTenant(&cfg, &tCfg, r, t, retryCounterMetric)
 		}
 		tlsConfig, err := tls.NewServerConfig(
 			log.With(tCfg.logger, "protocol", "HTTP"),
@@ -406,17 +409,17 @@ func loadTenantConfigs(cfg *config) tenantsConfig {
 	skip := level.Warn(log.With(tCfg.logger, "msg", "skipping invalid tenant"))
 
 	for _, t := range tCfg.Tenants {
-		err = loadOIDCConf(&tCfg, t)
+		err = loadOIDCConf(tCfg.logger, t)
 		if err != nil {
 			skip.Log("tenant", t.Name, "err", err)
 		}
 
-		err = loadMTLSConf(&tCfg, t)
+		err = loadMTLSConf(tCfg.logger, t)
 		if err != nil {
 			skip.Log("tenant", t.Name, "err", err)
 		}
 
-		err = newAuthorizer(&tCfg, t)
+		err = newAuthorizer(tCfg.logger, t)
 		if err != nil {
 			skip.Log("tenant", t.Name, "err", err)
 		}
@@ -451,9 +454,9 @@ func loadTenantConfigs(cfg *config) tenantsConfig {
 	return tCfg
 }
 
-// Create autorizer for a tenant.
-func newAuthorizer(tCfg *tenantsConfig, t *tenant) error {
-	skip := level.Warn(log.With(tCfg.logger, "msg", "skipping invalid tenant"))
+// Create authorizer for a tenant.
+func newAuthorizer(logger log.Logger, t *tenant) error {
+	skip := level.Warn(log.With(logger, "msg", "skipping invalid tenant"))
 
 	if t.OPA != nil {
 		if t.OPA.URL != "" {
@@ -464,9 +467,9 @@ func newAuthorizer(tCfg *tenantsConfig, t *tenant) error {
 				return err
 			}
 
-			t.OPA.authorizer = opa.NewRESTAuthorizer(u, opa.LoggerOption(log.With(tCfg.logger, "tenant", t.Name)))
+			t.OPA.authorizer = opa.NewRESTAuthorizer(u, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
 		} else {
-			a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths, opa.LoggerOption(log.With(tCfg.logger, "tenant", t.Name)))
+			a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
 			if err != nil {
 				skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
 
@@ -480,10 +483,10 @@ func newAuthorizer(tCfg *tenantsConfig, t *tenant) error {
 }
 
 // Load MTLS auth information for a tenant.
-func loadMTLSConf(tCfg *tenantsConfig, t *tenant) error {
+func loadMTLSConf(logger log.Logger, t *tenant) error {
 	var err error
 
-	skip := level.Warn(log.With(tCfg.logger, "msg", "skipping invalid tenant"))
+	skip := level.Warn(log.With(logger, "msg", "skipping invalid tenant"))
 
 	if t.MTLS != nil {
 		if t.MTLS.CAPath != "" {
@@ -531,8 +534,8 @@ func loadMTLSConf(tCfg *tenantsConfig, t *tenant) error {
 }
 
 // Load OIDC auth information for a tenant.
-func loadOIDCConf(tCfg *tenantsConfig, t *tenant) error {
-	skip := level.Warn(log.With(tCfg.logger, "msg", "skipping invalid tenant"))
+func loadOIDCConf(logger log.Logger, t *tenant) error {
+	skip := level.Warn(log.With(logger, "msg", "skipping invalid tenant"))
 
 	var err error
 
@@ -570,17 +573,15 @@ func loadOIDCConf(tCfg *tenantsConfig, t *tenant) error {
 }
 
 // Onboard a tenant.
-func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
+func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCounterMetric *prometheus.CounterVec) {
 	retryCount := 0
-
-	retryCounterMetric, _ := registerTenantRetryMetric(tCfg)
 
 	for {
 		// Calculate wait time before rerying a failed tenant registration.
 		waitTime := expBackOffWaitTime(retryCount)
 		time.Sleep(time.Duration(waitTime) * time.Millisecond)
 
-		rateLimits := tenantRateLimits(tCfg, t)
+		rateLimits := tenantRateLimits(tCfg.logger, t)
 
 		oidcConf, mTLSConf, err := tennatAuthN(t)
 		if err != nil {
@@ -607,10 +608,9 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 
 				continue
 			}
-		}
-
-		if oidcHandler != nil {
-			r.Mount("/oidc/"+t.Name, oidcHandler)
+			if oidcHandler != nil {
+				r.Mount("/oidc/"+t.Name, oidcHandler)
+			}
 		}
 
 		if len(mTLSConf.Tenant) > 0 {
@@ -782,14 +782,14 @@ func tennatAuthN(t *tenant) (*authentication.TenantOIDCConfig, *authentication.M
 }
 
 // Populate rateLimit configuration for a tenant.
-func tenantRateLimits(tCfg *tenantsConfig, t *tenant) []ratelimit.Config {
+func tenantRateLimits(logger log.Logger, t *tenant) []ratelimit.Config {
 	rateLimits := []ratelimit.Config{}
 
 	if t.RateLimits != nil {
 		for _, rl := range t.RateLimits {
 			matcher, err := regexp.Compile(rl.Endpoint)
 			if err != nil {
-				level.Warn(tCfg.logger).Log("msg", "failed to compile matcher for rate limiter", "err", err)
+				level.Warn(logger).Log("msg", "failed to compile matcher for rate limiter", "err", err)
 			}
 
 			rateLimits = append(rateLimits, ratelimit.Config{
