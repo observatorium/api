@@ -1,86 +1,68 @@
 package tenants
 
 import (
-	"net/url"
 	"testing"
 	"time"
 
-	prometheus "github.com/prometheus/client_model/go"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Tests if retries are working for tenant registrations.
-// To test this, a tenant with wrong configuration needs to be present at /test/conf/tenants.yaml.
+const (
+	rbacConfig   = "../test/config/rbac.yaml"
+	tenantConfig = "../test/config/tenants-failing.yaml"
+)
+
+// TODO @matej-g: Consider redesigning this as an integration test to test full flow and
+// avoid sleeping here
 func TestListenAndServeTenants(t *testing.T) {
-	cfg := Config{}
+	cfg := Config{
+		RBACConfigPath:    rbacConfig,
+		TenantsConfigPath: tenantConfig,
+		Middleware: middlewareConfig{
+			ConcurrentRequestLimit: 1000,
+		},
+		LogLevel: "debug",
+	}
 
-	cfg.Server.Listen = "0.0.0.0:8443"
-	cfg.Server.ListenInternal = "0.0.0.0:8448"
-
-	u, _ := url.ParseRequestURI("http://127.0.0.1:3100")
-	cfg.Logs.ReadEndpoint = u
-
-	u, _ = url.ParseRequestURI("http://127.0.0.1:3100")
-	cfg.Logs.WriteEndpoint = u
-
-	u, _ = url.ParseRequestURI("http://127.0.0.1:9091")
-	cfg.Metrics.ReadEndpoint = u
-
-	u, _ = url.ParseRequestURI("http://127.0.0.1:19291")
-	cfg.Metrics.WriteEndpoint = u
-
-	cfg.RBACConfigPath = "../test/config/rbac.yaml"
-	cfg.TenantsConfigPath = "../test/config/tenants.yaml"
-	cfg.Server.HealthcheckURL = "https://127.0.0.1:8443"
-	cfg.TLS.ReloadInterval = time.Minute
-	cfg.Middleware.ConcurrentRequestLimit = 1000
-	cfg.Middleware.BackLogLimitConcurrentRequests = 0
-	cfg.LogLevel = "debug"
-
-	// command line configuration is now setup, populate tenantsConfig struct from commadline configuration.
 	tCfg := loadTenantConfigs(&cfg)
 
 	// onboard teants in a goroutine and watch retry metrics to go up as the tenant registration fails for
-	// a tenant with wrong configuration at ./test/conf/tenants.yaml.
+	// a tenant with wrong configuration
 	go listenAndServeTenants(&cfg, &tCfg)
 
-	var initCount, laterCount *float64
-
-	time.Sleep(300 * time.Millisecond)
-
-	mFamily, err := tCfg.reg.Gather()
-	if err != nil {
-		t.FailNow()
-	}
-
 	// Get the initial value for retry attempt counter.
-	initCount = getRetryMetricCounter(mFamily)
+	time.Sleep(300 * time.Millisecond)
+	initCount := getRetryMetricCounter(t, tCfg.reg)
 
 	// Wait for more retry attempts.
-	time.Sleep(10 * time.Second)
+	time.Sleep(300 * time.Millisecond)
+	laterCount := getRetryMetricCounter(t, tCfg.reg)
 
-	mFamily, err = tCfg.reg.Gather()
-	if err != nil {
-		t.FailNow()
+	if *initCount <= 0 {
+		t.Fatalf("unexpected initial registration retry count: wanted 0, got %v instead", *initCount)
 	}
 
-	// Get the current value for retry attempt counter.
-	laterCount = getRetryMetricCounter(mFamily)
-
-	// Fail the test if the retry attempts are not increasing.
-	if *initCount <= 0 || (*laterCount <= *initCount) {
-		t.FailNow()
+	if *laterCount <= *initCount {
+		t.Fatalf(
+			"later registration retry count should be lower than initial count: got later count %v, initial count %v",
+			*initCount,
+			*laterCount,
+		)
 	}
 }
 
-func getRetryMetricCounter(mFamily []*prometheus.MetricFamily) *float64 {
-	var retryCount *float64
+func getRetryMetricCounter(t *testing.T, reg *prometheus.Registry) *float64 {
+	mFamily, err := reg.Gather()
+	if err != nil {
+		t.Fatalf("error gathering metrics: %v", err)
+	}
 
 	for _, m := range mFamily {
 		if m.GetName() == "tenant_onboarding_attempts_total" {
-			retryCount = m.Metric[0].Counter.Value
-			break
+			return m.Metric[0].Counter.Value
 		}
 	}
 
-	return retryCount
+	t.Fatalf("metric not found")
+	return nil
 }

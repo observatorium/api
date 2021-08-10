@@ -20,7 +20,6 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus-community/prom-label-proxy v0.3.1-0.20210623095334-9d425172d7bb
 	github.com/prometheus/client_golang v1.11.0
-	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.29.0
 	github.com/prometheus/prometheus v1.8.2-0.20210621150501-ff58416a0b02
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.16.0

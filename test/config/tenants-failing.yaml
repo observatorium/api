@@ -1,0 +1,22 @@
+tenants:
+- name: fail-oidc
+  id: 1610b0c1-c509-4592-a256-a1871353dbfa
+  oidc:
+    clientID: test1
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV01
+    issuerCAPath: ./tmp/certs/ca.pem
+    issuerURL: https://127.0.0.1:5556/dex-fail
+    redirectURL: https://localhost:8443/oidc/fail-oidc/callback
+    usernameClaim: email
+  opa:
+    query: data.observatorium.allow
+    paths:
+      - ./test/config/observatorium.rego
+      - ./test/config/rbac.yaml
+  rateLimits:
+    - endpoint: "/api/metrics/v1/.+/api/v1/receive"
+      limit: 100
+      window: 1s
+    - endpoint: "/api/logs/v1/.*"
+      limit: 100
+      window: 1s
