@@ -28,6 +28,10 @@ type Client struct {
 	client   gubernator.V1Client
 }
 
+type SharedRateLimiter interface {
+	GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error)
+}
+
 // NewClient creates a new gubernator client with default configuration.
 func NewClient(reg prometheus.Registerer) *Client {
 	grpcMetrics := grpc_prometheus.NewClientMetrics()
