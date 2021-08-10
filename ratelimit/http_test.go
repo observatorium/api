@@ -113,7 +113,7 @@ func TestWithLocalRateLimiter(t *testing.T) {
 			r := chi.NewMux()
 
 			r.Group(func(r chi.Router) {
-				r.Use(authentication.WithTenant)
+				r.Use(authentication.WithTenant(testTenant, "0"))
 				r.Use(rlmw)
 
 				r.HandleFunc(testPathOne+"/{tenant}", func(res http.ResponseWriter, req *http.Request) {
@@ -258,7 +258,7 @@ func TestWithSharedRateLimiter(t *testing.T) {
 			r := chi.NewMux()
 
 			r.Group(func(r chi.Router) {
-				r.Use(authentication.WithTenant)
+				r.Use(authentication.WithTenant(testTenant, "0"))
 				r.Use(rlmw)
 
 				r.HandleFunc(testPathOne+"/{tenant}", func(res http.ResponseWriter, req *http.Request) {

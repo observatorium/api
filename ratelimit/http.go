@@ -42,36 +42,36 @@ type middleware struct {
 
 // WithLocalRateLimiter returns a middleware that controls the amount of requests per tenant using an in-memory store.
 func WithLocalRateLimiter(configs ...Config) Middleware {
-	var mw middleware
+	mws := make([]middleware, 0, len(configs))
 	for _, c := range configs {
-		mw = middleware{c.Matcher, httprate.NewRateLimiter(
+		mws = append(mws, middleware{c.Matcher, httprate.NewRateLimiter(
 			c.Limit,
 			c.Window,
 			nil,
-		).Handler}
+		).Handler})
 	}
 
-	return combine(mw)
+	return combine(mws)
 }
 
 // WithSharedRateLimiter returns a middleware that controls the amount of requests per tenant using an external service.
 func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs ...Config) Middleware {
 	logger = log.With(logger, "component", "rate limiter")
 
-	var mw middleware
+	mws := make([]middleware, 0, len(configs))
 	for _, c := range configs {
-		mw = middleware{c.Matcher, rateLimiter{logger, client, &request{
+		mws = append(mws, middleware{c.Matcher, rateLimiter{logger, client, &request{
 			name:     requestName,
 			key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
 			limit:    int64(c.Limit),
 			duration: c.Window.Microseconds(),
-		}}.Handler}
+		}}.Handler})
 	}
 
-	return combine(mw)
+	return combine(mws)
 }
 
-func combine(mw middleware) func(next http.Handler) http.Handler {
+func combine(mws []middleware) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, ok := authentication.GetTenant(r.Context())
@@ -81,15 +81,17 @@ func combine(mw middleware) func(next http.Handler) http.Handler {
 				return
 			}
 
-			if mw.matcher == nil {
+			if len(mws) == 0 {
 				// No rate limits configured for this tenant.
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			if mw.matcher.MatchString(r.URL.Path) {
-				mw.handler(next).ServeHTTP(w, r)
-				return
+			for _, mw := range mws {
+				if mw.matcher.MatchString(r.URL.Path) {
+					mw.handler(next).ServeHTTP(w, r)
+					return
+				}
 			}
 
 			// No rate limits configured for this endpoint.
