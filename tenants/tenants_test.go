@@ -4,7 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi"
+	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/common/version"
 )
 
 const (
@@ -12,31 +16,38 @@ const (
 	tenantConfig = "../test/config/tenants-failing.yaml"
 )
 
-// TODO @matej-g: Consider redesigning this as an integration test to test full flow and
-// avoid sleeping here
-func TestListenAndServeTenants(t *testing.T) {
-	cfg := Config{
-		RBACConfigPath:    rbacConfig,
-		TenantsConfigPath: tenantConfig,
-		Middleware: middlewareConfig{
-			ConcurrentRequestLimit: 1000,
-		},
-		LogLevel: "debug",
-	}
+func TestRegister(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		version.NewCollector("observatorium"),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
 
-	tCfg := loadTenantConfigs(&cfg)
+	r := chi.NewRouter()
+	Register(
+		r,
+		tenantConfig,
+		rbacConfig,
+		"",
+		MetricsConfig{},
+		LogsConfig{},
+		log.NewNopLogger(),
+		reg,
+	)
 
 	// onboard teants in a goroutine and watch retry metrics to go up as the tenant registration fails for
 	// a tenant with wrong configuration
-	go listenAndServeTenants(&cfg, &tCfg)
 
 	// Get the initial value for retry attempt counter.
 	time.Sleep(300 * time.Millisecond)
-	initCount := getRetryMetricCounter(t, tCfg.reg)
+
+	initCount := getRetryMetricCounter(t, reg)
 
 	// Wait for more retry attempts.
 	time.Sleep(300 * time.Millisecond)
-	laterCount := getRetryMetricCounter(t, tCfg.reg)
+
+	laterCount := getRetryMetricCounter(t, reg)
 
 	if *initCount <= 0 {
 		t.Fatalf("unexpected initial registration retry count: wanted 0, got %v instead", *initCount)
@@ -51,7 +62,7 @@ func TestListenAndServeTenants(t *testing.T) {
 	}
 }
 
-func getRetryMetricCounter(t *testing.T, reg *prometheus.Registry) *float64 {
+func getRetryMetricCounter(t *testing.T, reg prometheus.Gatherer) *float64 {
 	mFamily, err := reg.Gather()
 	if err != nil {
 		t.Fatalf("error gathering metrics: %v", err)
@@ -64,5 +75,6 @@ func getRetryMetricCounter(t *testing.T, reg *prometheus.Registry) *float64 {
 	}
 
 	t.Fatalf("metric not found")
+
 	return nil
 }

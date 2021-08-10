@@ -118,7 +118,8 @@ done
       --server \
       ./test/config \
       --ignore '*.json' \
-      --ignore '*.yml'
+      --ignore '*.yml' \
+      --ignore 'tenants-failing.yaml'
 ) &
 
 echo "-------------------------------------------"
