@@ -61,74 +61,74 @@ const (
 	grpcDialTimeout = 1 * time.Second
 )
 
-type config struct {
-	logLevel  string
-	logFormat string
+type Config struct {
+	LogLevel  string
+	LogFormat string
 
-	rbacConfigPath    string
-	tenantsConfigPath string
+	RBACConfigPath    string
+	TenantsConfigPath string
 
-	debug           debugConfig
-	server          serverConfig
-	tls             tlsConfig
-	metrics         metricsConfig
-	logs            logsConfig
-	middleware      middlewareConfig
-	internalTracing internalTracingConfig
+	Debug           debugConfig
+	Server          serverConfig
+	TLS             tlsConfig
+	Metrics         metricsConfig
+	Logs            logsConfig
+	Middleware      middlewareConfig
+	InternalTracing internalTracingConfig
 }
 
 type debugConfig struct {
-	mutexProfileFraction int
-	blockProfileRate     int
-	name                 string
+	MutexProfileFraction int
+	BlockProfileRate     int
+	Name                 string
 }
 
 type serverConfig struct {
-	listen         string
-	listenInternal string
-	healthcheckURL string
+	Listen         string
+	ListenInternal string
+	HealthcheckURL string
 }
 
 type tlsConfig struct {
-	minVersion     string
-	cipherSuites   []string
-	reloadInterval time.Duration
+	MinVersion     string
+	CipherSuites   []string
+	ReloadInterval time.Duration
 
-	serverCertFile string
-	serverKeyFile  string
+	ServerCertFile string
+	ServerKeyFile  string
 
-	healthchecksServerCAFile string
-	healthchecksServerName   string
+	HealthchecksServerCAFile string
+	HealthchecksServerName   string
 }
 
 type metricsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	tenantHeader  string
-	tenantLabel   string
+	ReadEndpoint  *url.URL
+	WriteEndpoint *url.URL
+	TenantHeader  string
+	TenantLabel   string
 }
 
 type logsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	tailEndpoint  *url.URL
-	tenantHeader  string
+	ReadEndpoint  *url.URL
+	WriteEndpoint *url.URL
+	TailEndpoint  *url.URL
+	TenantHeader  string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
-	enabled bool
+	Enabled bool
 }
 
 type middlewareConfig struct {
-	rateLimiterAddress                string
-	concurrentRequestLimit            int
-	backLogLimitConcurrentRequests    int
-	backLogDurationConcurrentRequests time.Duration
+	RateLimiterAddress                string
+	ConcurrentRequestLimit            int
+	BackLogLimitConcurrentRequests    int
+	BackLogDurationConcurrentRequests time.Duration
 }
 
 type internalTracingConfig struct {
-	serviceName      string
-	endpoint         string
-	endpointType     tracing.EndpointType
-	samplingFraction float64
+	ServiceName      string
+	Endpoint         string
+	EndpointType     tracing.EndpointType
+	SamplingFraction float64
 }
 
 type tenant struct {
@@ -164,36 +164,33 @@ type tenant struct {
 }
 
 type tenantsConfig struct {
-	Tenants         []*tenant `json:"tenants"`
-	rateLimitClient *ratelimit.Client
-	authorizer      rbac.Authorizer
-	ins             signalhttp.HandlerInstrumenter
-	reg             *prometheus.Registry
-	logger          log.Logger
+	Tenants            []*tenant `json:"tenants"`
+	rateLimitClient    *ratelimit.Client
+	authorizer         rbac.Authorizer
+	ins                signalhttp.HandlerInstrumenter
+	reg                *prometheus.Registry
+	retryCounterMetric *prometheus.CounterVec
+	logger             log.Logger
 }
 
-func Run() {
-	cfg, err := parseFlags()
-	if err != nil {
-		stdlog.Fatalf("parse flag: %v", err)
-	}
-
+func Run(cfg *Config) {
 	// Load all the command line configuration into tenantsConfig struct.
-	tCfg := loadTenantConfigs(&cfg)
+	tCfg := loadTenantConfigs(cfg)
 
 	// Onboard tenants.
-	listenAndServeTenants(cfg, tCfg)
+	listenAndServeTenants(cfg, &tCfg)
 	stdlog.Fatalf("could not start Observatorium API server, exiting ...")
 }
 
-func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
+//nolint:funlen
+func listenAndServeTenants(cfg *Config, tCfg *tenantsConfig) {
 	defer level.Info(tCfg.logger).Log("msg", "exiting")
 
 	tp, closer, err := tracing.InitTracer(
-		cfg.internalTracing.serviceName,
-		cfg.internalTracing.endpoint,
-		cfg.internalTracing.endpointType,
-		cfg.internalTracing.samplingFraction,
+		cfg.InternalTracing.ServiceName,
+		cfg.InternalTracing.Endpoint,
+		cfg.InternalTracing.EndpointType,
+		cfg.InternalTracing.SamplingFraction,
 	)
 	defer closer()
 
@@ -202,12 +199,19 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 		return
 	}
 
+	// Register for capturing retry metrics.
+	err = registerTenantRetryMetric(tCfg)
+	if err != nil {
+		level.Error(tCfg.logger).Log("msg", "initialize Prometheus registry:", "err", err)
+		return
+	}
+
 	otel.SetErrorHandler(otelErrorHandler{logger: tCfg.logger})
 
 	debug := os.Getenv("DEBUG") != ""
 	if debug {
-		runtime.SetMutexProfileFraction(cfg.debug.mutexProfileFraction)
-		runtime.SetBlockProfileRate(cfg.debug.blockProfileRate)
+		runtime.SetMutexProfileFraction(cfg.Debug.MutexProfileFraction)
+		runtime.SetBlockProfileRate(cfg.Debug.BlockProfileRate)
 	}
 	// maxprocs will automate adjustment by using cgroups info about cpu limit if it set as value for runtime.GOMAXPROCS.
 	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {}))
@@ -230,23 +234,20 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 		})
 	}
 	{
-		// Register for capturing retry metrics.
-		retryCounterMetric, _ := registerTenantRetryMetric(&tCfg)
-
 		r := chi.NewRouter()
 		commonMiddlewares(r, cfg, tCfg)
 		for _, t := range tCfg.Tenants {
 			if t == nil {
 				continue
 			}
-			go newTenant(&cfg, &tCfg, r, t, retryCounterMetric)
+			go newTenant(cfg, tCfg, r, t)
 		}
 		tlsConfig, err := tls.NewServerConfig(
 			log.With(tCfg.logger, "protocol", "HTTP"),
-			cfg.tls.serverCertFile,
-			cfg.tls.serverKeyFile,
-			cfg.tls.minVersion,
-			cfg.tls.cipherSuites,
+			cfg.TLS.ServerCertFile,
+			cfg.TLS.ServerKeyFile,
+			cfg.TLS.MinVersion,
+			cfg.TLS.CipherSuites,
 		)
 		if err != nil {
 			level.Error(tCfg.logger).Log("msg", "failed to initialize tls config:", "err", err)
@@ -254,9 +255,9 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 		}
 		if tlsConfig != nil {
 			r, err := rbacproxytls.NewCertReloader(
-				cfg.tls.serverCertFile,
-				cfg.tls.serverKeyFile,
-				cfg.tls.reloadInterval,
+				cfg.TLS.ServerCertFile,
+				cfg.TLS.ServerKeyFile,
+				cfg.TLS.ReloadInterval,
 			)
 			if err != nil {
 				level.Error(tCfg.logger).Log("msg", "failed to initialize certificate reloader:", "err", err)
@@ -272,14 +273,14 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 		}
 
 		s := http.Server{
-			Addr:         cfg.server.listen,
+			Addr:         cfg.Server.Listen,
 			Handler:      otelhttp.NewHandler(r, "api", otelhttp.WithTracerProvider(tp)),
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
 		}
 		g.Add(func() error {
-			level.Info(tCfg.logger).Log("msg", "starting the HTTP server", "address", cfg.server.listen)
+			level.Info(tCfg.logger).Log("msg", "starting the HTTP server", "address", cfg.Server.Listen)
 			if tlsConfig != nil {
 				return s.ListenAndServeTLS("", "")
 			}
@@ -289,7 +290,6 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 			// gracePeriod is duration the server gracefully shuts down.
 			ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 			defer cancel()
-
 			level.Info(tCfg.logger).Log("msg", "shutting down the HTTP server")
 			_ = s.Shutdown(ctx)
 		})
@@ -311,17 +311,17 @@ func listenAndServeTenants(cfg config, tCfg tenantsConfig) {
 }
 
 // commonHealthChecks returns handler for common healthchecks across all the tenants.
-func commonHealthChecks(cfg config, tCfg tenantsConfig) *healthcheck.Handler {
+func commonHealthChecks(cfg *Config, tCfg *tenantsConfig) *healthcheck.Handler {
 	healthchecks := healthcheck.NewMetricsHandler(healthcheck.NewHandler(), tCfg.reg)
 
-	if cfg.server.healthcheckURL != "" {
+	if cfg.Server.HealthcheckURL != "" {
 		t := (http.DefaultTransport).(*http.Transport).Clone()
 		t.TLSClientConfig = &stdtls.Config{
-			ServerName: cfg.tls.healthchecksServerName,
+			ServerName: cfg.TLS.HealthchecksServerName,
 		}
 
-		if cfg.tls.healthchecksServerCAFile != "" {
-			caCert, err := ioutil.ReadFile(cfg.tls.healthchecksServerCAFile)
+		if cfg.TLS.HealthchecksServerCAFile != "" {
+			caCert, err := ioutil.ReadFile(cfg.TLS.HealthchecksServerCAFile)
 			if err != nil {
 				stdlog.Fatalf("failed to initialize healthcheck server TLS CA: %v", err)
 			}
@@ -334,7 +334,7 @@ func commonHealthChecks(cfg config, tCfg tenantsConfig) *healthcheck.Handler {
 		healthchecks.AddLivenessCheck("http",
 			healthcheck.HTTPCheckClient(
 				&http.Client{Transport: t},
-				cfg.server.healthcheckURL,
+				cfg.Server.HealthcheckURL,
 				http.MethodGet,
 				http.StatusNotFound,
 				time.Second,
@@ -346,20 +346,20 @@ func commonHealthChecks(cfg config, tCfg tenantsConfig) *healthcheck.Handler {
 }
 
 // Apply common middlewares across all the tenants.
-func commonMiddlewares(r *chi.Mux, cfg config, tCfg tenantsConfig) {
+func commonMiddlewares(r *chi.Mux, cfg *Config, tCfg *tenantsConfig) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.StripSlashes)
 	r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
 	// With default value of zero backlog concurrent requests crossing a rate-limit result in non-200 HTTP response.
-	r.Use(middleware.ThrottleBacklog(cfg.middleware.concurrentRequestLimit,
-		cfg.middleware.backLogLimitConcurrentRequests, cfg.middleware.backLogDurationConcurrentRequests))
+	r.Use(middleware.ThrottleBacklog(cfg.Middleware.ConcurrentRequestLimit,
+		cfg.Middleware.BackLogLimitConcurrentRequests, cfg.Middleware.BackLogDurationConcurrentRequests))
 	r.Use(server.Logger(tCfg.logger))
 }
 
 // Create internal server.
-func setupInternalServer(cfg config, tCfg tenantsConfig, healthchecks healthcheck.Handler) *http.Server {
+func setupInternalServer(cfg *Config, tCfg *tenantsConfig, healthchecks healthcheck.Handler) *http.Server {
 	h := internalserver.NewHandler(
 		internalserver.WithName("Internal - Observatorium API"),
 		internalserver.WithHealthchecks(healthchecks),
@@ -368,7 +368,7 @@ func setupInternalServer(cfg config, tCfg tenantsConfig, healthchecks healthchec
 	)
 
 	s := http.Server{
-		Addr:    cfg.server.listenInternal,
+		Addr:    cfg.Server.ListenInternal,
 		Handler: h,
 	}
 
@@ -376,8 +376,8 @@ func setupInternalServer(cfg config, tCfg tenantsConfig, healthchecks healthchec
 }
 
 // Load RBAC config information from rbac.yaml.
-func loadRBACConfig(cfg config) (rbac.Authorizer, error) {
-	f, err := os.Open(cfg.rbacConfigPath)
+func loadRBACConfig(cfg Config) (rbac.Authorizer, error) {
+	f, err := os.Open(cfg.RBACConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -393,13 +393,13 @@ func loadRBACConfig(cfg config) (rbac.Authorizer, error) {
 }
 
 // Load tenant config information from tenants.yaml.
-func loadTenantConfigs(cfg *config) tenantsConfig {
+func loadTenantConfigs(cfg *Config) tenantsConfig {
 	tCfg := tenantsConfig{}
-	tCfg.logger = logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
+	tCfg.logger = logger.NewLogger(cfg.LogLevel, cfg.LogFormat, cfg.Debug.Name)
 
-	f, err := ioutil.ReadFile(cfg.tenantsConfigPath)
+	f, err := ioutil.ReadFile(cfg.TenantsConfigPath)
 	if err != nil {
-		stdlog.Fatalf("cannot read tenant configuration file from path %q: %v", cfg.tenantsConfigPath, err)
+		stdlog.Fatalf("cannot read tenant configuration file from path %q: %v", cfg.TenantsConfigPath, err)
 	}
 
 	if err := yaml.Unmarshal(f, &tCfg); err != nil {
@@ -439,12 +439,12 @@ func loadTenantConfigs(cfg *config) tenantsConfig {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 
-	if cfg.middleware.rateLimiterAddress != "" {
+	if cfg.Middleware.RateLimiterAddress != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
 		defer cancel()
 
 		tCfg.rateLimitClient = ratelimit.NewClient(tCfg.reg)
-		if err := tCfg.rateLimitClient.Dial(ctx, cfg.middleware.rateLimiterAddress); err != nil {
+		if err := tCfg.rateLimitClient.Dial(ctx, cfg.Middleware.RateLimiterAddress); err != nil {
 			stdlog.Fatal(err)
 		}
 	}
@@ -573,7 +573,7 @@ func loadOIDCConf(logger log.Logger, t *tenant) error {
 }
 
 // Onboard a tenant.
-func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCounterMetric *prometheus.CounterVec) {
+func newTenant(cfg *Config, tCfg *tenantsConfig, r *chi.Mux, t *tenant) {
 	retryCount := 0
 
 	for {
@@ -586,7 +586,7 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCou
 		oidcConf, mTLSConf, err := tennatAuthN(t)
 		if err != nil {
 			level.Error(tCfg.logger).Log("msg", "tenant must specify either an OIDC or an mTLS configuration", t.Name, err)
-			retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
+			tCfg.retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
 			retryCount++
 
 			continue
@@ -603,14 +603,13 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCou
 			oidcHandler, authN, err = authentication.NewOIDC(tCfg.logger, "/oidc/"+t.Name, *oidcConf)
 			if err != nil {
 				level.Error(tCfg.logger).Log("msg", "tenant failed to register. retrying ..", t.Name, err)
-				retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
+				tCfg.retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
 				retryCount++
 
 				continue
 			}
-			if oidcHandler != nil {
-				r.Mount("/oidc/"+t.Name, oidcHandler)
-			}
+
+			r.Mount("/oidc/"+t.Name, oidcHandler)
 		}
 
 		if len(mTLSConf.Tenant) > 0 {
@@ -630,7 +629,7 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCou
 
 		if authZ == nil {
 			level.Error(tCfg.logger).Log("msg", "invalid authorization for tenant", t.Name)
-			retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
+			tCfg.retryCounterMetric.With(prometheus.Labels{"tenant": t.Name}).Inc()
 			retryCount++
 
 			continue
@@ -650,7 +649,7 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCou
 		r.Group(func(r chi.Router) {
 			r.Use(authentication.WithTenant(t.Name, t.ID))
 			r.Use(authN)
-			r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, t.ID))
+			r.Use(authentication.WithTenantHeader(cfg.Metrics.TenantHeader, t.ID))
 
 			if tCfg.rateLimitClient != nil {
 				r.Use(ratelimit.WithSharedRateLimiter(tCfg.logger, tCfg.rateLimitClient, rateLimits...))
@@ -662,11 +661,11 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCou
 			r.Mount("/api/metrics/v1/"+t.Name, stripTenantPrefix("/api/metrics/v1", metricsHandler(cfg, tCfg, authZ)))
 		})
 		// Logs
-		if cfg.logs.enabled {
+		if cfg.Logs.Enabled {
 			r.Group(func(r chi.Router) {
 				r.Use(authentication.WithTenant(t.Name, t.ID))
 				r.Use(authN)
-				r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, t.ID))
+				r.Use(authentication.WithTenantHeader(cfg.Logs.TenantHeader, t.ID))
 				r.Mount("/api/logs/v1/"+t.Name, stripTenantPrefix("/api/logs/v1", logsHandler(cfg, tCfg, authZ)))
 			})
 		}
@@ -677,8 +676,8 @@ func newTenant(cfg *config, tCfg *tenantsConfig, r *chi.Mux, t *tenant, retryCou
 	}
 }
 
-func registerTenantRetryMetric(tCfg *tenantsConfig) (*prometheus.CounterVec, error) {
-	retryCounterMetric := prometheus.NewCounterVec(
+func registerTenantRetryMetric(tCfg *tenantsConfig) error {
+	retryMetric := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "tenant_onboarding_attempts_total",
 			Help: "Number of tenant onboarding attempts.",
@@ -686,49 +685,51 @@ func registerTenantRetryMetric(tCfg *tenantsConfig) (*prometheus.CounterVec, err
 		[]string{"tenant"},
 	)
 
-	err := tCfg.reg.Register(retryCounterMetric)
+	err := tCfg.reg.Register(retryMetric)
 	if err != nil {
 		level.Info(tCfg.logger).Log("msg", "duplicate registration of metric", "error", err)
-		return retryCounterMetric, err
+		return err
 	}
 
-	return retryCounterMetric, nil
+	tCfg.retryCounterMetric = retryMetric
+
+	return nil
 }
 
 // metricsLegacyHandler creates handler for legacyMetrics V1 API.
-func metricsLegacyHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
+func metricsLegacyHandler(cfg *Config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
 	return metricslegacy.NewHandler(
-		cfg.metrics.readEndpoint,
+		cfg.Metrics.ReadEndpoint,
 		metricslegacy.Logger(tCfg.logger),
 		metricslegacy.Registry(tCfg.reg),
 		metricslegacy.HandlerInstrumenter(tCfg.ins),
 		metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
 		metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")),
-		metricslegacy.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+		metricslegacy.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.Metrics.TenantLabel)),
 		metricslegacy.UIMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")))
 }
 
 // metricsHandler creates handler for Metrics V1 API.
-func metricsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
+func metricsHandler(cfg *Config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
 	return metricsv1.NewHandler(
-		cfg.metrics.readEndpoint,
-		cfg.metrics.writeEndpoint,
+		cfg.Metrics.ReadEndpoint,
+		cfg.Metrics.WriteEndpoint,
 		metricsv1.Logger(tCfg.logger),
 		metricsv1.Registry(tCfg.reg),
 		metricsv1.HandlerInstrumenter(tCfg.ins),
 		metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
 		metricsv1.ReadMiddleware(authorization.WithAuthorizers(authZ, rbac.Read, "metrics")),
-		metricsv1.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
+		metricsv1.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.Metrics.TenantLabel)),
 		metricsv1.WriteMiddleware(authorization.WithAuthorizers(authZ, rbac.Write, "metrics")),
 	)
 }
 
 // logsHandler creates handler for Logs V1 API.
-func logsHandler(cfg *config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
+func logsHandler(cfg *Config, tCfg *tenantsConfig, authZ rbac.Authorizer) http.Handler {
 	return logsv1.NewHandler(
-		cfg.logs.readEndpoint,
-		cfg.logs.tailEndpoint,
-		cfg.logs.writeEndpoint,
+		cfg.Logs.ReadEndpoint,
+		cfg.Logs.TailEndpoint,
+		cfg.Logs.WriteEndpoint,
 		logsv1.Logger(tCfg.logger),
 		logsv1.Registry(tCfg.reg),
 		logsv1.HandlerInstrumenter(tCfg.ins),

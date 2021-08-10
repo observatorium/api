@@ -11,37 +11,37 @@ import (
 // Tests if retries are working for tenant registrations.
 // To test this, a tenant with wrong configuration needs to be present at /test/conf/tenants.yaml.
 func TestListenAndServeTenants(t *testing.T) {
-	cfg := config{}
+	cfg := Config{}
 
-	cfg.server.listen = "0.0.0.0:8443"
-	cfg.server.listenInternal = "0.0.0.0:8448"
+	cfg.Server.Listen = "0.0.0.0:8443"
+	cfg.Server.ListenInternal = "0.0.0.0:8448"
 
 	u, _ := url.ParseRequestURI("http://127.0.0.1:3100")
-	cfg.logs.readEndpoint = u
+	cfg.Logs.ReadEndpoint = u
 
 	u, _ = url.ParseRequestURI("http://127.0.0.1:3100")
-	cfg.logs.writeEndpoint = u
+	cfg.Logs.WriteEndpoint = u
 
 	u, _ = url.ParseRequestURI("http://127.0.0.1:9091")
-	cfg.metrics.readEndpoint = u
+	cfg.Metrics.ReadEndpoint = u
 
 	u, _ = url.ParseRequestURI("http://127.0.0.1:19291")
-	cfg.metrics.writeEndpoint = u
+	cfg.Metrics.WriteEndpoint = u
 
-	cfg.rbacConfigPath = "../test/config/rbac.yaml"
-	cfg.tenantsConfigPath = "../test/config/tenants.yaml"
-	cfg.server.healthcheckURL = "https://127.0.0.1:8443"
-	cfg.tls.reloadInterval = time.Minute
-	cfg.middleware.concurrentRequestLimit = 1000
-	cfg.middleware.backLogLimitConcurrentRequests = 0
-	cfg.logLevel = "debug"
+	cfg.RBACConfigPath = "../test/config/rbac.yaml"
+	cfg.TenantsConfigPath = "../test/config/tenants.yaml"
+	cfg.Server.HealthcheckURL = "https://127.0.0.1:8443"
+	cfg.TLS.ReloadInterval = time.Minute
+	cfg.Middleware.ConcurrentRequestLimit = 1000
+	cfg.Middleware.BackLogLimitConcurrentRequests = 0
+	cfg.LogLevel = "debug"
 
 	// command line configuration is now setup, populate tenantsConfig struct from commadline configuration.
 	tCfg := loadTenantConfigs(&cfg)
 
 	// onboard teants in a goroutine and watch retry metrics to go up as the tenant registration fails for
 	// a tenant with wrong configuration at ./test/conf/tenants.yaml.
-	go listenAndServeTenants(cfg, tCfg)
+	go listenAndServeTenants(&cfg, &tCfg)
 
 	var initCount, laterCount *float64
 
