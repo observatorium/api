@@ -33,7 +33,7 @@ PROMETHEUS_VERSION ?= 2.15.2
 LOKI ?= $(BIN_DIR)/loki
 LOKI_VERSION ?= 2.2.1
 WEBSOCAT ?= $(BIN_DIR)/websocat
-WEBSOCAT_VERSION ?= 1.5.0
+WEBSOCAT_VERSION ?= 1.8.0
 WEBSOCAT_PKG =
 ifeq ($(shell go env GOOS),linux)
 	WEBSOCAT_PKG = "websocat_amd64-linux"

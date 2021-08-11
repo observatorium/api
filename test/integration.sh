@@ -220,13 +220,13 @@ echo "-------------------------------------------"
 write_logs=$(curl \
                -v -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
                --cacert ./tmp/certs/ca.pem \
-               -XPOST -s https://127.0.0.1:8443/api/logs/v1/test-oidc/api/v1/push --data-raw \
+               -XPOST -s https://127.0.0.1:8443/api/logs/v1/test-oidc/loki/api/v1/push --data-raw \
                "{\"streams\": [{ \"stream\": { \"__name__\": \"up_test\", \"foo\": \"bar\" }, \"values\": [ [ \"$(date '+%s%N')\", \"log line 1\" ] ] }]}" \
                2> /dev/null && echo $?)
 
 tail_logs=$($WEBSOCAT \
               -b -1 -U -H="Authorization: Bearer $token" \
-              --ws-c-uri=wss://127.0.0.1:8443/api/logs/v1/test-oidc/api/v1/tail\?query=%7Bfoo%3D%22bar%22%2C__name__%3D%22up_test%22%7D  - \
+              --ws-c-uri=wss://127.0.0.1:8443/api/logs/v1/test-oidc/loki/api/v1/tail\?query=%7Bfoo%3D%22bar%22%2C__name__%3D%22up_test%22%7D  - \
               ws-c:cmd:'openssl s_client -connect 127.0.0.1:8443 -CAfile ./tmp/certs/ca.pem -quiet' \
               1> /dev/null && echo $?)
 
