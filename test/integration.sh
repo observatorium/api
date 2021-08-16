@@ -117,8 +117,7 @@ done
       run \
       --server \
       ./test/config \
-      --ignore '*.json' \
-      --ignore '*.yml'
+      --ignore '*.json'
 ) &
 
 echo "-------------------------------------------"

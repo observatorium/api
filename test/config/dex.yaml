@@ -1,14 +1,12 @@
-issuer: https://127.0.0.1:5556/dex
+issuer: https://e2e_observatorium_api-observatorium-dex:5556/dex
 storage:
   type: sqlite3
   config:
     file: /tmp/dex.db
-frontend:
-  dir: ./test/dex
 web:
   https: 0.0.0.0:5556
-  tlsCert: ./tmp/certs/server.pem
-  tlsKey: ./tmp/certs/server.key
+  tlsCert: /shared/certs/dex.pem
+  tlsKey: /shared/certs/dex.key
 telemetry:
   http: 0.0.0.0:5558
 logger:
@@ -20,7 +18,7 @@ staticClients:
   name: test
   secret: ZXhhbXBsZS1hcHAtc2VjcmV0
   redirectURIs:
-  - https://localhost:8443/oidc/test-oidc/callback
+  - https://e2e_observatorium_api-observatorium-api:8443/oidc/test-oidc/callback
 enablePasswordDB: true
 staticPasswords:
 - email: "admin@example.com"

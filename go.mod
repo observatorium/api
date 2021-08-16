@@ -6,6 +6,8 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/cloudflare/cfssl v1.4.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/efficientgo/e2e v0.10.0
+	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.0+incompatible
 	github.com/go-chi/httprate v0.4.0
@@ -17,6 +19,7 @@ require (
 	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2
+	github.com/pkg/errors v0.9.1
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/prometheus-community/prom-label-proxy v0.3.1-0.20210623095334-9d425172d7bb
 	github.com/prometheus/client_golang v1.11.0

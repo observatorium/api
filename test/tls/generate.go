@@ -42,8 +42,8 @@ func main() {
 	)
 
 	flag.StringVar(&caCommonName, "root-common-name", "observatorium", "")
-	flag.StringVar(&serverCommonName, "server-common-name", "localhost", "")
-	flag.StringVar(&serverSANs, "server-sans", "localhost,127.0.0.1", "A comma-separated list of SANs for the client.")
+	flag.StringVar(&serverCommonName, "server-common-name", "e2e_observatorium_api-observatorium-api", "")
+	flag.StringVar(&serverSANs, "server-sans", "e2e_observatorium_api-observatorium-api,127.0.0.1", "A comma-separated list of SANs for the client.")
 	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
 	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
 	flag.StringVar(&clientSANs, "client-sans", "up", "A comma-separated list of SANs for the client.")
@@ -74,6 +74,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	dexBundle, err := generateCert("e2e_observatorium_api-observatorium-dex", []string{"e2e_observatorium_api-observatorium-dex"}, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	if err != nil {
+		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
+		os.Exit(1)
+	}
+
 	clientSigningConfig := config.Signing{
 		Default: &defaultSigningConfig,
 		Profiles: map[string]*config.SigningProfile{
@@ -96,6 +102,8 @@ func main() {
 		"ca.pem":     caBundle.cert,
 		"server.key": serverBundle.key,
 		"server.pem": serverBundle.cert,
+		"dex.key":    dexBundle.key,
+		"dex.pem":    dexBundle.cert,
 		"client.key": clientBundle.key,
 		"client.pem": clientBundle.cert,
 	} {
