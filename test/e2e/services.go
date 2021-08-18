@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	prometheusImage = "prom/prometheus:v2.29.0"
-	thanosImage     = "quay.io/thanos/thanos:v0.22.0"
-	lokiImage       = "grafana/loki:2.3.0"
-	upImage         = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
+	thanosImage = "quay.io/thanos/thanos:v0.22.0"
+	lokiImage   = "grafana/loki:2.3.0"
+	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
 
 	dexImage = "dexidp/dex:v2.30.0"
 	opaImage = "openpolicyagent/opa:0.31.0"
@@ -76,18 +75,19 @@ func newThanosReceiveService(
 	hashringsContainerPath string,
 ) *e2e.InstrumentedRunnable {
 	ports := map[string]int{
-		"http": 10902,
-		"grpc": 10901,
+		"http":         10902,
+		"grpc":         10901,
+		"remote_write": 19291,
 	}
 
 	args := e2e.BuildArgs(map[string]string{
 		"--receive.hashrings-file":    hashringsContainerPath,
-		"--receive.local-endpoint":    ":10901",
+		"--receive.local-endpoint":    "0.0.0.0:10901",
 		"--label":                     replicaLabel,
 		"--receive.default-tenant-id": defaultTenantID,
-		"--grpc-address":              ":" + strconv.Itoa(ports["grpc"]),
-		"--http-address":              ":" + strconv.Itoa(ports["http"]),
-		"--remote-write.address":      ":19291",
+		"--grpc-address":              "0.0.0.0:" + strconv.Itoa(ports["grpc"]),
+		"--http-address":              "0.0.0.0:" + strconv.Itoa(ports["http"]),
+		"--remote-write.address":      "0.0.0.0:19291",
 		"--log.level":                 "debug", // TODO: Log levels? Which to use where?
 		"--tsdb.path":                 "/tmp",
 	})
@@ -113,8 +113,8 @@ func newThanosQueryService(
 	}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--grpc-address": ":" + strconv.Itoa(ports["grpc"]),
-		"--http-address": ":" + strconv.Itoa(ports["http"]),
+		"--grpc-address": "0.0.0.0:" + strconv.Itoa(ports["grpc"]),
+		"--http-address": "0.0.0.0:" + strconv.Itoa(ports["http"]),
 		"--store":        storeAddress,
 		"--log.level":    "error", // TODO: Log levels? Which to use where?
 	})
@@ -142,8 +142,9 @@ func newLokiService(env e2e.Environment, name string, configContainerPath string
 
 	return e2e.NewInstrumentedRunnable(env, name, ports, "http").Init(
 		e2e.StartOptions{
-			Image:     lokiImage,
-			Command:   e2e.NewCommandWithoutEntrypoint("loki", args...),
+			Image:   lokiImage,
+			Command: e2e.NewCommandWithoutEntrypoint("loki", args...),
+			// TODO: Remove 503, we should wait until 200?
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/ready", 200, 503),
 			User:      strconv.Itoa(os.Getuid()),
 			// WaitReadyBackoff: &backoff.Config{
@@ -215,6 +216,44 @@ func newObservatoriumAPIService(
 			Command:   e2e.NewCommandWithoutEntrypoint("observatorium-api", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http-internal", "/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
+		},
+	), nil
+}
+
+func newUpService(
+	env e2e.Environment,
+	name string,
+	endpointType string,
+	readEndpoint, writeEndpoint string,
+	containerCertsDir string,
+	token string,
+) (*e2e.InstrumentedRunnable, error) {
+	ports := map[string]int{
+		"http": 8888,
+	}
+
+	args := e2e.BuildArgs(map[string]string{
+		"--listen":         "0.0.0.0:" + strconv.Itoa(ports["http"]),
+		"--endpoint-type":  endpointType,
+		"--tls-ca-file":    filepath.Join(containerCertsDir, "ca.pem"),
+		"--endpoint-read":  readEndpoint,
+		"--endpoint-write": writeEndpoint,
+		"--period":         "500ms",
+		"--threshold":      "1",
+		"--latency":        "10s",
+		"--duration":       "0",
+		"--log.level":      "debug",
+		"--name":           "observatorium_write",
+		"--labels":         "_id=\"test\"",
+		"--token":          token,
+	})
+
+	return e2e.NewInstrumentedRunnable(env, name, ports, "http").Init(
+		e2e.StartOptions{
+			Image:   upImage,
+			Command: e2e.NewCommandWithoutEntrypoint("up", args...),
+			// Readiness: e2e.NewHTTPReadinessProbe("http", "/", 200, 200),
+			User: strconv.Itoa(os.Getuid()),
 		},
 	), nil
 }
