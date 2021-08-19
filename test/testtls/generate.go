@@ -1,12 +1,10 @@
 package testtls
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -16,6 +14,7 @@ import (
 	"github.com/cloudflare/cfssl/initca"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
+	"github.com/pkg/errors"
 )
 
 type certBundle struct {
@@ -25,15 +24,13 @@ type certBundle struct {
 
 func GenerateCerts(
 	path string,
-	serverCommonNameArg string,
-	serverSANsArg []string,
+	apiCommonName string,
+	apiSANs []string,
 	dexCommonName string,
 	dexSANs []string,
 ) error {
 	var (
 		caCommonName     string
-		serverCommonName string
-		serverSANs       string
 		serverExpiration time.Duration
 		clientCommonName string
 		clientSANs       string
@@ -47,20 +44,16 @@ func GenerateCerts(
 		}
 	)
 
-	flag.StringVar(&caCommonName, "root-common-name", "observatorium", "")
-	flag.StringVar(&serverCommonName, "server-common-name", serverCommonNameArg, "")
-	flag.StringVar(&serverSANs, "server-sans", strings.Join(serverSANsArg, ","), "A comma-separated list of SANs for the client.")
-	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
-	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
-	flag.StringVar(&clientSANs, "client-sans", "up", "A comma-separated list of SANs for the client.")
-	flag.StringVar(&clientGroups, "client-groups", "test", "A comma-separated list of groups for the client.")
-	flag.DurationVar(&clientExpiration, "client-duration", defaultConfig.Expiry, "")
-	flag.Parse()
+	caCommonName = "observatorium"
+	serverExpiration = defaultConfig.Expiry
+	clientCommonName = "up"
+	clientSANs = "up"
+	clientGroups = "test"
+	clientExpiration = defaultConfig.Expiry
 
 	caBundle, err := generateCACert(caCommonName)
 	if err != nil {
-		fmt.Printf("generate CA cert %s: %v\n", caCommonName, err)
-		os.Exit(1)
+		return errors.Wrap(err, fmt.Sprintf("generate CA cert %s", caCommonName))
 	}
 
 	serverSigningConfig := config.Signing{
@@ -74,16 +67,14 @@ func GenerateCerts(
 		},
 	}
 
-	serverBundle, err := generateCert(serverCommonName, signer.SplitHosts(serverSANs), nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	serverBundle, err := generateCert(apiCommonName, apiSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
-		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
-		os.Exit(1)
+		return errors.Wrap(err, fmt.Sprintf("generate server cert %s, %s", apiCommonName, apiSANs))
 	}
 
 	dexBundle, err := generateCert(dexCommonName, dexSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
-		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
-		os.Exit(1)
+		return errors.Wrap(err, fmt.Sprintf("generate server cert %s, %s", dexCommonName, dexSANs))
 	}
 
 	clientSigningConfig := config.Signing{
@@ -99,8 +90,7 @@ func GenerateCerts(
 
 	clientBundle, err := generateCert(clientCommonName, signer.SplitHosts(clientSANs), signer.SplitHosts(clientGroups), "client", &clientSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
-		fmt.Printf("generate client cert %s, %s: %v\n", clientCommonName, clientSANs, err)
-		os.Exit(1)
+		return errors.Wrap(err, fmt.Sprintf("generate client cert %s, %s", clientCommonName, clientSANs))
 	}
 
 	for file, content := range map[string][]byte{

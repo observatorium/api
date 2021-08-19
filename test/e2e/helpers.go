@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -20,60 +19,46 @@ import (
 	"github.com/pkg/errors"
 )
 
-const dockerLocalSharedDir = "/shared"
+type testType string
 
-func prepareConfigsAndCerts(t *testing.T, e e2e.Environment) (configsContainerDir string, certsContainerDir string) {
-	var err error
+const (
+	metrics testType = "metrics"
+	logs    testType = "logs"
 
+	dockerLocalSharedDir = "/shared"
+	certsSharedDir       = "certs"
+	configSharedDir      = "config"
+
+	certsContainerPath   = dockerLocalSharedDir + "/" + certsSharedDir
+	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
+
+	envMetricsName = "e2e_metrics_read_write"
+	envLogsName    = "e2e_logs_read_write_tail"
+
+	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
+	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
+)
+
+// Generates certificates and copies static configuration to the shared directory.
+func prepareConfigsAndCerts(t *testing.T, testType testType, e e2e.Environment) {
 	testutil.Ok(
 		t,
 		testtls.GenerateCerts(
-			filepath.Join(e.SharedDir(), "certs"),
-			getContainerName(apiName),
-			[]string{getContainerName(apiName), "127.0.0.1"},
-			getContainerName("dex"),
-			[]string{getContainerName("dex")},
+			filepath.Join(e.SharedDir(), certsSharedDir),
+			getContainerName(testType, "observatorium_api"),
+			[]string{getContainerName(testType, "observatorium_api"), "127.0.0.1"},
+			getContainerName(testType, "dex"),
+			[]string{getContainerName(testType, "dex"), "127.0.0.1"},
 		),
 	)
 
-	// certsContainerDir, err = copyTestDir(e.SharedDir(), "../testtls/certs", "certs")
-	// testutil.Ok(t, err)
-
-	configsContainerDir, err = copyTestDir(e.SharedDir(), "../config", "config")
-	testutil.Ok(t, err)
-
-	return configsContainerDir, filepath.Join(dockerLocalSharedDir, "certs")
+	testutil.Ok(t, exec.Command("cp", "-r", "../config", filepath.Join(e.SharedDir(), configSharedDir)).Run())
 }
 
-// copyTestDir copies a directory from host to the shared directory, returning
-// path to where the directory is available within a container.
-func copyTestDir(sharedDir string, srcDir string, dirName string) (string, error) {
-	if err := exec.Command("cp", "-r", srcDir, sharedDir).Run(); err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("copying dir %s", srcDir))
-	}
-
-	return filepath.Join(dockerLocalSharedDir, dirName), nil
-}
-
-// obtainToken obtains a bearer token needed for communication with API.
-func obtainToken(endpoint string, certPath string) (string, error) {
+// obtainToken obtains a bearer token needed for communication with the API.
+func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 	type token struct {
 		IDToken string `json:"id_token"`
-	}
-
-	cert, err := ioutil.ReadFile(filepath.Join(certPath, "ca.pem"))
-	if err != nil {
-		return "", errors.Wrap(err, "cannot read cert file")
-	}
-
-	// TODO: Fix certs?
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(cert)
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
 	}
 
 	data := url.Values{}
@@ -91,7 +76,9 @@ func obtainToken(endpoint string, certPath string) (string, error) {
 	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	c := &http.Client{
-		Transport: tr,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConf,
+		},
 	}
 
 	res, err := c.Do(r)
@@ -102,7 +89,7 @@ func obtainToken(endpoint string, certPath string) (string, error) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return "", errors.Wrap(err, "cannot read body")
 	}
 
 	var t token
@@ -113,6 +100,30 @@ func obtainToken(endpoint string, certPath string) (string, error) {
 	return t.IDToken, nil
 }
 
-func getContainerName(serviceName string) string {
-	return envName + "-" + serviceName
+func getContainerName(testType testType, serviceName string) string {
+	if testType == metrics {
+		return envMetricsName + "-" + serviceName
+	}
+
+	return envLogsName + "-" + serviceName
+}
+
+func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
+	cert, err := ioutil.ReadFile(filepath.Join(filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem")))
+	testutil.Ok(t, err)
+
+	cp := x509.NewCertPool()
+	cp.AppendCertsFromPEM(cert)
+
+	return &tls.Config{
+		RootCAs: cp,
+	}
+}
+
+func assertResponse(t *testing.T, response string, expected string) {
+	testutil.Assert(
+		t,
+		strings.Contains(response, expected),
+		fmt.Sprintf("failed to assert that the response '%s' contains '%s'", response, expected),
+	)
 }

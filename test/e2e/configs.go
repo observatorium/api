@@ -8,12 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/efficientgo/e2e"
 	"github.com/efficientgo/tools/core/pkg/testutil"
-)
-
-const (
-	envName = "e2e_metrics_read_write"
-	apiName = "observatorium_api"
 )
 
 const tenantsYamlTpl = `
@@ -101,28 +97,27 @@ staticPasswords:
 
 func createTenantsYAML(
 	t *testing.T,
-	configDir string,
-	containerConfigDir string,
+	e e2e.Environment,
 	issuerURL string,
-	containerCertsDir string,
 	opaURL string,
 ) {
+	// TODO: Simplify
 	yamlContent := []byte(fmt.Sprintf(
 		tenantsYamlTpl,
-		filepath.Join(containerCertsDir, "ca.pem"),
+		filepath.Join(certsContainerPath, "ca.pem"),
 		path.Join(issuerURL, "dex"),
-		filepath.Join(containerConfigDir, "observatorium.rego"),
-		filepath.Join(containerConfigDir, "rbac.yaml"),
-		filepath.Join(containerCertsDir, "ca.pem"),
+		filepath.Join(configsContainerPath, "observatorium.rego"),
+		filepath.Join(configsContainerPath, "rbac.yaml"),
+		filepath.Join(certsContainerPath, "ca.pem"),
 		path.Join(issuerURL, "dex"),
-		filepath.Join(containerConfigDir, "observatorium.rego"),
-		filepath.Join(containerConfigDir, "rbac.yaml"),
-		filepath.Join(containerCertsDir, "ca.pem"),
+		filepath.Join(configsContainerPath, "observatorium.rego"),
+		filepath.Join(configsContainerPath, "rbac.yaml"),
+		filepath.Join(certsContainerPath, "ca.pem"),
 		path.Join(opaURL, "v1/data/observatorium/allow"),
 	))
 
 	err := ioutil.WriteFile(
-		filepath.Join(configDir, "tenants.yaml"),
+		filepath.Join(e.SharedDir(), configSharedDir, "tenants.yaml"),
 		yamlContent,
 		os.FileMode(0755),
 	)
@@ -131,7 +126,7 @@ func createTenantsYAML(
 
 func createDexYAML(
 	t *testing.T,
-	configDir string,
+	e e2e.Environment,
 	issuer string,
 	redirectURI string,
 ) {
@@ -142,7 +137,7 @@ func createDexYAML(
 	))
 
 	err := ioutil.WriteFile(
-		filepath.Join(configDir, "dex.yaml"),
+		filepath.Join(e.SharedDir(), configSharedDir, "dex.yaml"),
 		yamlContent,
 		os.FileMode(0755),
 	)
