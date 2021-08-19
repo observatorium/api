@@ -1,12 +1,12 @@
-// +build tools
-
-package main
+package testtls
 
 import (
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -23,7 +23,13 @@ type certBundle struct {
 	key  []byte
 }
 
-func main() {
+func GenerateCerts(
+	path string,
+	serverCommonNameArg string,
+	serverSANsArg []string,
+	dexCommonName string,
+	dexSANs []string,
+) error {
 	var (
 		caCommonName     string
 		serverCommonName string
@@ -42,8 +48,8 @@ func main() {
 	)
 
 	flag.StringVar(&caCommonName, "root-common-name", "observatorium", "")
-	flag.StringVar(&serverCommonName, "server-common-name", "e2e_observatorium_api-observatorium-api", "")
-	flag.StringVar(&serverSANs, "server-sans", "e2e_observatorium_api-observatorium-api,127.0.0.1", "A comma-separated list of SANs for the client.")
+	flag.StringVar(&serverCommonName, "server-common-name", serverCommonNameArg, "")
+	flag.StringVar(&serverSANs, "server-sans", strings.Join(serverSANsArg, ","), "A comma-separated list of SANs for the client.")
 	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
 	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
 	flag.StringVar(&clientSANs, "client-sans", "up", "A comma-separated list of SANs for the client.")
@@ -74,7 +80,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dexBundle, err := generateCert("e2e_observatorium_api-observatorium-dex", []string{"e2e_observatorium_api-observatorium-dex"}, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	dexBundle, err := generateCert(dexCommonName, dexSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
 		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
 		os.Exit(1)
@@ -108,11 +114,18 @@ func main() {
 		"client.pem": clientBundle.cert,
 	} {
 		// Write certificates
-		if err := ioutil.WriteFile(file, content, 0644); err != nil {
+		if err := os.MkdirAll(path, 0750); err != nil {
+			fmt.Printf("mkdir: %v\n", err)
+			os.Exit(1)
+		}
+
+		if err := ioutil.WriteFile(filepath.Join(path, file), content, 0644); err != nil {
 			fmt.Printf("write file: %v\n", err)
 			os.Exit(1)
 		}
 	}
+
+	return nil
 }
 
 // Helpers

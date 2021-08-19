@@ -16,7 +16,7 @@ import (
 )
 
 func TestLogsReadWriteAndTail(t *testing.T) {
-	e, err := e2e.NewDockerEnvironment("e2e_observatorium_api")
+	e, err := e2e.NewDockerEnvironment("e2e_logs_read_write_tail")
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 

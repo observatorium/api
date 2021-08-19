@@ -11,6 +11,11 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
+const (
+	envName = "e2e_metrics_read_write"
+	apiName = "observatorium_api"
+)
+
 const tenantsYamlTpl = `
 tenants:
 - name: test-oidc
@@ -63,6 +68,37 @@ tenants:
       window: 1s
 `
 
+const dexYAMLTpl = `
+issuer: https://%s:5556/dex
+storage:
+  type: sqlite3
+  config:
+    file: /tmp/dex.db
+web:
+  https: 0.0.0.0:5556
+  tlsCert: /shared/certs/dex.pem
+  tlsKey: /shared/certs/dex.key
+telemetry:
+  http: 0.0.0.0:5558
+logger:
+  level: "debug"
+oauth2:
+  passwordConnector: local
+staticClients:
+- id: test
+  name: test
+  secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+  redirectURIs:
+  - https://%s:8443/oidc/test-oidc/callback
+enablePasswordDB: true
+staticPasswords:
+- email: "admin@example.com"
+  # bcrypt hash of the string "password"
+  hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+  username: "admin"
+  userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+`
+
 func createTenantsYAML(
 	t *testing.T,
 	configDir string,
@@ -90,6 +126,25 @@ func createTenantsYAML(
 		yamlContent,
 		os.FileMode(0755),
 	)
-	fmt.Println(err)
+	testutil.Ok(t, err)
+}
+
+func createDexYAML(
+	t *testing.T,
+	configDir string,
+	issuer string,
+	redirectURI string,
+) {
+	yamlContent := []byte(fmt.Sprintf(
+		dexYAMLTpl,
+		issuer,
+		redirectURI,
+	))
+
+	err := ioutil.WriteFile(
+		filepath.Join(configDir, "dex.yaml"),
+		yamlContent,
+		os.FileMode(0755),
+	)
 	testutil.Ok(t, err)
 }

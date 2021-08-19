@@ -3,41 +3,31 @@ package e2e
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"net/url"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/efficientgo/e2e"
 	"github.com/efficientgo/tools/core/pkg/testutil"
-	"github.com/pkg/errors"
 	promapi "github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 )
 
 func TestMetricsReadAndWrite(t *testing.T) {
-	e, err := e2e.NewDockerEnvironment("e2e_observatorium_api")
+	e, err := e2e.NewDockerEnvironment(envName)
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	certsContainerDir, err := copyTestDir(e.SharedDir(), "../../tmp/certs", "certs")
-	testutil.Ok(t, err)
-
-	configsContainerDir, err := copyTestDir(e.SharedDir(), "../config", "config")
-	testutil.Ok(t, err)
+	configsContainerDir, certsContainerDir := prepareConfigsAndCerts(t, e)
 
 	readEndpoint, writeEndpoint, extReadEndpoint, _, _, rateLimiter, token := startAndWaitOnBaseServices(t, e, configsContainerDir, certsContainerDir)
 
 	api, err := newObservatoriumAPIService(
-		e, "observatorium-api", "", "", "", readEndpoint, writeEndpoint,
+		e, apiName, "", "", "", readEndpoint, writeEndpoint,
 		filepath.Join(configsContainerDir, "rbac.yaml"), filepath.Join(configsContainerDir, "tenants.yaml"),
 		certsContainerDir, rateLimiter,
 	)
@@ -165,7 +155,9 @@ func startAndWaitOnBaseServices(
 	rateLimiter string,
 	token string,
 ) {
-	dex := newDexService(e, "observatorium-dex", filepath.Join(configsContainerDir, "dex.yaml"))
+	createDexYAML(t, filepath.Join(e.SharedDir(), "config"), getContainerName("dex"), getContainerName(apiName))
+
+	dex := newDexService(e, "dex", filepath.Join(configsContainerDir, "dex.yaml"))
 	gubernator := newGubernatorService(e, "observatorium-gubernator")
 	thanosReceive := newThanosReceiveService(
 		e, "observatorium-thanos-receive",
@@ -203,71 +195,4 @@ func startAndWaitOnBaseServices(
 		loki.Endpoint("http"),
 		gubernator.InternalEndpoint("grpc"),
 		token
-}
-
-// copyTestDir copies a directory from host to the shared directory, returning
-// path to where the directory is available within a container.
-func copyTestDir(sharedDir string, srcDir string, dirName string) (string, error) {
-	if err := exec.Command("cp", "-r", srcDir, sharedDir).Run(); err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("copying dir %s", srcDir))
-	}
-
-	return filepath.Join(dockerLocalSharedDir, dirName), nil
-}
-
-func obtainToken(endpoint string, certPath string) (string, error) {
-	type token struct {
-		IDToken string `json:"id_token"`
-	}
-
-	cert, err := ioutil.ReadFile(filepath.Join(certPath, "ca.pem"))
-	if err != nil {
-		return "", errors.Wrap(err, "cannot read cert file")
-	}
-
-	// TODO: Fix certs?
-	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(cert)
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-
-	data := url.Values{}
-	data.Add("grant_type", "password")
-	data.Add("username", "admin@example.com")
-	data.Add("password", "password")
-	data.Add("client_id", "test")
-	data.Add("client_secret", "ZXhhbXBsZS1hcHAtc2VjcmV0")
-	data.Add("scope", "openid email")
-
-	r, err := http.NewRequest(http.MethodPost, "https://"+endpoint+"/dex/token", strings.NewReader(data.Encode()))
-	if err != nil {
-		return "", errors.Wrap(err, "cannot create new request")
-	}
-	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	c := &http.Client{
-		Transport: tr,
-	}
-
-	res, err := c.Do(r)
-	if err != nil {
-		return "", errors.Wrap(err, "request failed")
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var t token
-	if err := json.Unmarshal(body, &t); err != nil {
-		return "", errors.Wrap(err, "cannot unmarshal token")
-	}
-
-	return t.IDToken, nil
 }

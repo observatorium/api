@@ -22,8 +22,7 @@ const (
 
 	apiImage = "quay.io/observatorium/api:latest"
 
-	dockerLocalSharedDir = "/shared"
-	logLevelInfo         = "info"
+	logLevelInfo = "info"
 )
 
 func newDexService(env e2e.Environment, name string, containerConfigPath string) *e2e.InstrumentedRunnable {
@@ -260,7 +259,7 @@ func newUpService(
 		e2e.StartOptions{
 			Image:   upImage,
 			Command: e2e.NewCommandWithoutEntrypoint("up", args...),
-			// Readiness: e2e.NewHTTPReadinessProbe("http", "/", 200, 200),
+			// Readiness: e2e.NewHTTPReadinessProbe("http", "/", 200, 200), TODO:
 			User: strconv.Itoa(os.Getuid()),
 		},
 	), nil
