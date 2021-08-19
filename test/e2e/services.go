@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/efficientgo/e2e"
 )
@@ -16,7 +17,7 @@ const (
 
 	dexImage = "dexidp/dex:v2.30.0"
 	opaImage = "openpolicyagent/opa:0.31.0"
-	// websocatImage   = ""
+	// websocatImage   = "" TODO: Remove
 	gubernatorImage = "thrawn01/gubernator:1.0.0-rc.8"
 
 	apiImage = "quay.io/observatorium/api:latest"
@@ -196,9 +197,9 @@ func newObservatoriumAPIService(
 		"--tls.server.key-file":             filepath.Join(certsPath, "server.key"),
 		"--tls.healthchecks.server-ca-file": filepath.Join(certsPath, "ca.pem"),
 		// TODO: Make conditional based on if provided
-		// "--logs.read.endpoint":              logsReadEndpoint,
-		// "--logs.tail.endpoint":              logsTailEndpoint,
-		// "--logs.write.endpoint":    logsWriteEndpoint,
+		"--logs.read.endpoint":     "http://" + logsReadEndpoint,
+		"--logs.tail.endpoint":     "http://" + logsTailEndpoint,
+		"--logs.write.endpoint":    "http://" + logsWriteEndpoint,
 		"--metrics.read.endpoint":  "http://" + metricsReadEndpoint,
 		"--metrics.write.endpoint": "http://" + metricsWriteEndpoint,
 		"--rbac.config":            rbacConfigPath,
@@ -233,20 +234,27 @@ func newUpService(
 	}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--listen":         "0.0.0.0:" + strconv.Itoa(ports["http"]),
-		"--endpoint-type":  endpointType,
-		"--tls-ca-file":    filepath.Join(containerCertsDir, "ca.pem"),
-		"--endpoint-read":  readEndpoint,
-		"--endpoint-write": writeEndpoint,
-		"--period":         "500ms",
-		"--threshold":      "1",
-		"--latency":        "10s",
-		"--duration":       "0",
-		"--log.level":      "debug",
-		"--name":           "observatorium_write",
-		"--labels":         "_id=\"test\"",
-		"--token":          token,
+		"--listen":                      "0.0.0.0:" + strconv.Itoa(ports["http"]),
+		"--endpoint-type":               endpointType,
+		"--tls-ca-file":                 filepath.Join(containerCertsDir, "ca.pem"),
+		"--tls-client-cert-file":        filepath.Join(containerCertsDir, "client.pem"),
+		"--tls-client-private-key-file": filepath.Join(containerCertsDir, "client.key"),
+		"--endpoint-read":               readEndpoint,
+		"--endpoint-write":              writeEndpoint,
+		"--period":                      "500ms",
+		"--threshold":                   "1",
+		"--latency":                     "10s",
+		"--duration":                    "0",
+		"--log.level":                   "debug",
+		"--name":                        "observatorium_write",
+		"--labels":                      "_id=\"test\"",
+		"--token":                       token,
 	})
+
+	timeFn := func() string { return strconv.FormatInt(time.Now().UnixNano(), 10) }
+	if endpointType == "logs" {
+		args = append(args, "--logs=[\""+timeFn()+"\",\"log line 1\"]")
+	}
 
 	return e2e.NewInstrumentedRunnable(env, name, ports, "http").Init(
 		e2e.StartOptions{

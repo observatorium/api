@@ -214,7 +214,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 			const tailRoute = "/loki/api/v1/tail"
 			r.Handle(tailRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "tail"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+tailRoute, tailRead),
+				tailRead,
 			))
 
 			// Legacy APIs for Grafana <= 6

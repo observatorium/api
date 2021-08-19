@@ -34,7 +34,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	configsContainerDir, err := copyTestDir(e.SharedDir(), "../config", "config")
 	testutil.Ok(t, err)
 
-	readEndpoint, writeEndpoint, extReadEndpoint, _, rateLimiter, token := startAndWaitOnBaseServices(t, e, configsContainerDir, certsContainerDir)
+	readEndpoint, writeEndpoint, extReadEndpoint, _, _, rateLimiter, token := startAndWaitOnBaseServices(t, e, configsContainerDir, certsContainerDir)
 
 	api, err := newObservatoriumAPIService(
 		e, "observatorium-api", "", "", "", readEndpoint, writeEndpoint,
@@ -161,6 +161,7 @@ func startAndWaitOnBaseServices(
 	metricsWriteEndpoint string,
 	metricsExtReadEndpoint string,
 	logsEndpoint string,
+	logsExtEndpoint string,
 	rateLimiter string,
 	token string,
 ) {
@@ -199,6 +200,7 @@ func startAndWaitOnBaseServices(
 		thanosReceive.InternalEndpoint("remote_write"),
 		thanosQuery.Endpoint("http"),
 		loki.InternalEndpoint("http"),
+		loki.Endpoint("http"),
 		gubernator.InternalEndpoint("grpc"),
 		token
 }
