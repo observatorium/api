@@ -1,3 +1,5 @@
+// +build interactive
+
 package e2e
 
 import (
@@ -17,8 +19,6 @@ import (
 // Otherwise ensure you run the test with flags '-v'(to see the output)
 // and '-test.timeout=9999m' to ensure the test is not terminated.
 func TestInteractiveSetup(t *testing.T) {
-	// t.Skip("Comment this line out and run the test to spin up a whole setup")
-
 	fmt.Printf("Starting services...\n")
 
 	e, err := e2e.NewDockerEnvironment(envInteractive)

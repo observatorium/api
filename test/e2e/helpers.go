@@ -1,3 +1,5 @@
+// +build integration interactive
+
 package e2e
 
 import (
@@ -16,29 +18,6 @@ import (
 	"github.com/efficientgo/e2e"
 	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/observatorium/api/test/testtls"
-	"github.com/pkg/errors"
-)
-
-type testType string
-
-const (
-	metrics     testType = "metrics"
-	logs        testType = "logs"
-	interactive testType = "interactive"
-
-	dockerLocalSharedDir = "/shared"
-	certsSharedDir       = "certs"
-	configSharedDir      = "config"
-
-	certsContainerPath   = dockerLocalSharedDir + "/" + certsSharedDir
-	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
-
-	envMetricsName = "e2e_metrics_read_write"
-	envLogsName    = "e2e_logs_read_write_tail"
-	envInteractive = "e2e_interactive"
-
-	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
-	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
 )
 
 // Generates certificates and copies static configuration to the shared directory.
@@ -73,7 +52,7 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 
 	r, err := http.NewRequest(http.MethodPost, "https://"+endpoint+"/dex/token", strings.NewReader(data.Encode()))
 	if err != nil {
-		return "", errors.Wrap(err, "cannot create new request")
+		return "", fmt.Errorf("cannot create new request: %v\n", err)
 	}
 	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
@@ -85,18 +64,18 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 
 	res, err := c.Do(r)
 	if err != nil {
-		return "", errors.Wrap(err, "request failed")
+		return "", fmt.Errorf("request failed: %v\n", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return "", errors.Wrap(err, "cannot read body")
+		return "", fmt.Errorf("cannot read body: %v\n", err)
 	}
 
 	var t token
 	if err := json.Unmarshal(body, &t); err != nil {
-		return "", errors.Wrap(err, "cannot unmarshal token")
+		return "", fmt.Errorf("cannot unmarshal token : %v\n", err)
 	}
 
 	return t.IDToken, nil

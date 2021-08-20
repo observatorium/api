@@ -1,3 +1,5 @@
+// +build integration
+
 package e2e
 
 import (
@@ -15,7 +17,6 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// TODO: Standalone?
 func TestMetricsReadAndWrite(t *testing.T) {
 	t.Parallel()
 

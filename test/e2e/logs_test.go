@@ -1,3 +1,5 @@
+// +build integration
+
 package e2e
 
 import (
@@ -36,7 +38,6 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-mtls/loki/api/v1/query",
 			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-mtls/loki/api/v1/push",
 			withToken(token),
-			// TODO: Improve timing - occasional flake
 			withRunParameters(&runParams{initialDelay: "100ms", period: "1s", threshold: "1", latency: "10s", duration: "0"}),
 		)
 		testutil.Ok(t, err)

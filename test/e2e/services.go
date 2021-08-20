@@ -1,3 +1,5 @@
+// +build integration interactive
+
 package e2e
 
 import (
@@ -12,7 +14,8 @@ import (
 )
 
 const (
-	apiImage    = "quay.io/observatorium/api:latest"
+	apiImage = "quay.io/observatorium/api:latest"
+
 	thanosImage = "quay.io/thanos/thanos:v0.22.0"
 	lokiImage   = "grafana/loki:2.3.0"
 	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
