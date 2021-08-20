@@ -12,6 +12,8 @@ import (
 )
 
 func TestLogsReadWriteAndTail(t *testing.T) {
+	t.Parallel()
+
 	e, err := e2e.NewDockerEnvironment(envLogsName)
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)

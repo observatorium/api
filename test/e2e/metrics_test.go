@@ -15,9 +15,10 @@ import (
 	"github.com/prometheus/common/model"
 )
 
-// TODO: Make parallel?
 // TODO: Standalone?
 func TestMetricsReadAndWrite(t *testing.T) {
+	t.Parallel()
+
 	e, err := e2e.NewDockerEnvironment(envMetricsName)
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
@@ -123,6 +124,4 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 		assertResponse(t, string(body), "No StoreAPIs matched for this query")
 	})
-
-	// TODO: Add rate limiting tests?
 }
