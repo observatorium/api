@@ -22,8 +22,9 @@ import (
 type testType string
 
 const (
-	metrics testType = "metrics"
-	logs    testType = "logs"
+	metrics     testType = "metrics"
+	logs        testType = "logs"
+	interactive testType = "interactive"
 
 	dockerLocalSharedDir = "/shared"
 	certsSharedDir       = "certs"
@@ -34,6 +35,7 @@ const (
 
 	envMetricsName = "e2e_metrics_read_write"
 	envLogsName    = "e2e_logs_read_write_tail"
+	envInteractive = "e2e_interactive"
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
@@ -101,11 +103,16 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 }
 
 func getContainerName(testType testType, serviceName string) string {
-	if testType == metrics {
+	switch testType {
+	case logs:
+		return envLogsName + "-" + serviceName
+	case metrics:
 		return envMetricsName + "-" + serviceName
+	case interactive:
+		return envInteractive + "-" + serviceName
+	default:
+		return "not_found"
 	}
-
-	return envLogsName + "-" + serviceName
 }
 
 func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {

@@ -19,15 +19,15 @@ tenants:
   oidc:
     clientID: test
     clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
-    issuerCAPath: %s
-    issuerURL: https://%s
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
     redirectURL: https://localhost:8443/oidc/test-oidc/callback
     usernameClaim: email
   opa:
     query: data.observatorium.allow
     paths:
-      - %s
-      - %s
+      - %[3]s
+      - %[4]s
   rateLimits:
     - endpoint: "/api/metrics/v1/.+/api/v1/receive"
       limit: 100
@@ -40,21 +40,21 @@ tenants:
   oidc:
     clientID: test
     clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
-    issuerCAPath: %s
-    issuerURL: https://%s
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
     redirectURL: https://localhost:8443/oidc/test-attacker/callback
     usernameClaim: email
   opa:
     query: data.observatorium.allow
     paths:
-    - %s
-    - %s
+    - %[3]s
+    - %[4]s
 - name: test-mtls
   id: 845cdfd9-f936-443c-979c-2ee7dc91f646
   mTLS:
-    caPath: %s
+    caPath: %[5]s
   opa:
-    url: http://%s
+    url: http://%[6]s
   rateLimits:
     - endpoint: "/api/metrics/v1/.+/api/v1/receive"
       limit: 1
@@ -63,6 +63,30 @@ tenants:
       limit: 1
       window: 1s
 `
+
+func createTenantsYAML(
+	t *testing.T,
+	e e2e.Environment,
+	issuerURL string,
+	opaURL string,
+) {
+	yamlContent := []byte(fmt.Sprintf(
+		tenantsYamlTpl,
+		filepath.Join(certsContainerPath, "ca.pem"),
+		path.Join(issuerURL, "dex"),
+		filepath.Join(configsContainerPath, "observatorium.rego"),
+		filepath.Join(configsContainerPath, "rbac.yaml"),
+		filepath.Join(certsContainerPath, "ca.pem"),
+		path.Join(opaURL, "v1/data/observatorium/allow"),
+	))
+
+	err := ioutil.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "tenants.yaml"),
+		yamlContent,
+		os.FileMode(0755),
+	)
+	testutil.Ok(t, err)
+}
 
 const dexYAMLTpl = `
 issuer: https://%s:5556/dex
@@ -94,35 +118,6 @@ staticPasswords:
   username: "admin"
   userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
 `
-
-func createTenantsYAML(
-	t *testing.T,
-	e e2e.Environment,
-	issuerURL string,
-	opaURL string,
-) {
-	// TODO: Simplify
-	yamlContent := []byte(fmt.Sprintf(
-		tenantsYamlTpl,
-		filepath.Join(certsContainerPath, "ca.pem"),
-		path.Join(issuerURL, "dex"),
-		filepath.Join(configsContainerPath, "observatorium.rego"),
-		filepath.Join(configsContainerPath, "rbac.yaml"),
-		filepath.Join(certsContainerPath, "ca.pem"),
-		path.Join(issuerURL, "dex"),
-		filepath.Join(configsContainerPath, "observatorium.rego"),
-		filepath.Join(configsContainerPath, "rbac.yaml"),
-		filepath.Join(certsContainerPath, "ca.pem"),
-		path.Join(opaURL, "v1/data/observatorium/allow"),
-	))
-
-	err := ioutil.WriteFile(
-		filepath.Join(e.SharedDir(), configSharedDir, "tenants.yaml"),
-		yamlContent,
-		os.FileMode(0755),
-	)
-	testutil.Ok(t, err)
-}
 
 func createDexYAML(
 	t *testing.T,

@@ -75,9 +75,8 @@ func newDexService(testType e2e.Environment) *e2e.InstrumentedRunnable {
 
 	return e2e.NewInstrumentedRunnable(testType, "dex", ports, "http-telemetry").Init(
 		e2e.StartOptions{
-			Image: dexImage,
-			// TODO: With or without entrypoint?
-			Command: e2e.NewCommandWithoutEntrypoint("dex", "serve", filepath.Join(configsContainerPath, "dex.yaml")),
+			Image:   dexImage,
+			Command: e2e.NewCommand("dex", "serve", filepath.Join(configsContainerPath, "dex.yaml")),
 			Readiness: e2e.NewCmdReadinessProbe(e2e.NewCommand(
 				"wget",
 				"--no-check-certificate",

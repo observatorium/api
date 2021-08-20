@@ -36,14 +36,15 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-mtls/loki/api/v1/query",
 			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-mtls/loki/api/v1/push",
 			withToken(token),
-			withRunParameters(&runParams{initialDelay: "0s", period: "250ms", threshold: "1", latency: "10s", duration: "0"}),
+			// TODO: Improve timing - occasional flake
+			withRunParameters(&runParams{initialDelay: "100ms", period: "1s", threshold: "1", latency: "10s", duration: "0"}),
 		)
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
-		// Wait until 10 queries are run.
+		// Wait until 5 queries are run.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(10),
+			e2e.Equals(5),
 			[]string{"up_queries_total"},
 			e2e.WaitMissingMetrics(),
 		))
@@ -51,15 +52,15 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 		// Check that up metrics are correct.
 		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, float64(10), upMetrics[0])
-		testutil.Equals(t, float64(10), upMetrics[1])
+		testutil.Equals(t, float64(5), upMetrics[0])
+		testutil.Equals(t, float64(5), upMetrics[1])
 
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
 		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, float64(20), apiMetrics[0])
+		testutil.Equals(t, float64(10), apiMetrics[0])
 
 		// Simple test to check if we can query Loki for logs.
 		r, err := http.NewRequest(
