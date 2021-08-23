@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi"
 )
@@ -17,6 +18,8 @@ func (c contextKey) String() string {
 }
 
 const (
+	// accessTokenKey is the key that holds the bearer token in a request context.
+	accessTokenKey contextKey = "accessToken"
 	// groupsKey is the key that holds the groups in a request context.
 	groupsKey contextKey = "groups"
 	// subjectKey is the key that holds the subject in a request context.
@@ -45,6 +48,20 @@ func WithTenantID(tenantIDs map[string]string) Middleware {
 			tenant := chi.URLParam(r, "tenant")
 			next.ServeHTTP(w, r.WithContext(
 				context.WithValue(r.Context(), tenantIDKey, tenantIDs[tenant]),
+			))
+		})
+	}
+}
+
+// WithAccessToken returns a middleware that looks up the authorization access
+// token from the request and adds it to the request context.
+func WithAccessToken() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rawToken := r.Header.Get("Authorization")
+			token := rawToken[strings.LastIndex(rawToken, " ")+1:]
+			next.ServeHTTP(w, r.WithContext(
+				context.WithValue(r.Context(), accessTokenKey, token),
 			))
 		})
 	}
@@ -91,6 +108,14 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 	groups, ok := value.([]string)
 
 	return groups, ok
+}
+
+// GetAccessToken extracts the access token from the provided context.
+func GetAccessToken(ctx context.Context) (string, bool) {
+	value := ctx.Value(accessTokenKey)
+	token, ok := value.(string)
+
+	return token, ok
 }
 
 // Middleware is a convenience type for functions that wrap http.Handlers.
