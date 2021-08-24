@@ -66,7 +66,9 @@ func NewOIDC(logger log.Logger, reg prometheus.Registerer, prefix string, config
 		p, err := NewProvider(context.TODO(), logger, getCookieForTenant(c.Tenant), "/"+c.Tenant, c.OIDCConfig)
 		if err != nil {
 			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
+
 			tenantErrors.Inc()
+
 			continue
 		}
 
