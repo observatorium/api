@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 )
@@ -47,15 +48,25 @@ type Middleware func(http.Handler) http.Handler
 // NewOIDC creates a single http.Handler and a set of Middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(logger log.Logger, prefix string, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
+func NewOIDC(logger log.Logger, reg prometheus.Registerer, prefix string, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
 	handlers := map[string]http.Handler{}
 	middlewares := map[string]Middleware{}
 	warnings := make([]error, 0, len(configs))
+
+	tenantErrors := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "observatorium",
+		Subsystem: "api",
+		Name:      "tenant_registration_failures",
+		Help:      "The number of tenants for which OIDC provider instantiation failed.",
+	})
+
+	reg.MustRegister(tenantErrors)
 
 	for _, c := range configs {
 		p, err := NewProvider(context.TODO(), logger, getCookieForTenant(c.Tenant), "/"+c.Tenant, c.OIDCConfig)
 		if err != nil {
 			warnings = append(warnings, fmt.Errorf("failed to instantiate OIDC provider for tenant %q: %w", c.Tenant, err))
+			tenantErrors.Inc()
 			continue
 		}
 
