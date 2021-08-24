@@ -456,7 +456,7 @@ func main() {
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
 
-			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, "/oidc/{tenant}", oidcs)
+			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, reg, "/oidc/{tenant}", oidcs)
 			for _, w := range warnings {
 				level.Warn(logger).Log("msg", w.Error())
 			}
