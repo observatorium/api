@@ -48,7 +48,12 @@ type Middleware func(http.Handler) http.Handler
 // NewOIDC creates a single http.Handler and a set of Middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
-func NewOIDC(logger log.Logger, reg prometheus.Registerer, prefix string, configs []TenantOIDCConfig) (http.Handler, map[string]Middleware, []error) {
+func NewOIDC(
+	logger log.Logger,
+	reg prometheus.Registerer,
+	prefix string,
+	configs []TenantOIDCConfig,
+) (http.Handler, map[string]Middleware, []error) {
 	handlers := map[string]http.Handler{}
 	middlewares := map[string]Middleware{}
 	warnings := make([]error, 0, len(configs))
