@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 )
@@ -54,15 +55,26 @@ type OIDCHandlers struct {
 	handlers    map[string]http.Handler
 	middlewares map[string]Middleware
 
-	logger log.Logger
+	logger          log.Logger
+	retryCountIncFn func()
 }
 
 // NewOIDCHandlers instantiates OIDC handlers.
-func NewOIDCHandlers(l log.Logger) *OIDCHandlers {
+func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
+	tenantErrors := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "observatorium",
+		Subsystem: "api",
+		Name:      "tenant_registration_failures",
+		Help:      "The number of attempts for which tenant OIDC provider instantiation failed.",
+	})
+
+	reg.MustRegister(tenantErrors)
+
 	return &OIDCHandlers{
-		handlers:    make(map[string]http.Handler),
-		middlewares: make(map[string]Middleware),
-		logger:      l,
+		handlers:        make(map[string]http.Handler),
+		middlewares:     make(map[string]Middleware),
+		logger:          l,
+		retryCountIncFn: tenantErrors.Inc,
 	}
 }
 
@@ -83,6 +95,7 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
 				level.Warn(oh.logger).Log("msg", "failed to instantiate OIDC provider for tenant", "tenant", config.Tenant, "error", err)
+				oh.retryCountIncFn()
 				b.Wait()
 				continue
 			}

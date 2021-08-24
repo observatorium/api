@@ -456,7 +456,7 @@ func main() {
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
 
-			oh := authentication.NewOIDCHandlers(logger)
+			oh := authentication.NewOIDCHandlers(logger, reg)
 			for _, oidc := range oidcs {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
