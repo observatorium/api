@@ -14,7 +14,7 @@ type MTLSConfig struct {
 }
 
 // NewMTLS creates a set of Middlewares for all specified tenants.
-func NewMTLS(configs []MTLSConfig) map[string]Middleware {
+func NewMTLS(configs []MTLSConfig) MiddlewareFn {
 	middlewares := map[string]Middleware{}
 
 	for _, c := range configs {
@@ -73,5 +73,8 @@ func NewMTLS(configs []MTLSConfig) map[string]Middleware {
 		}
 	}
 
-	return middlewares
+	return func(tenant string) (Middleware, bool) {
+		mw, ok := middlewares[tenant]
+		return mw, ok
+	}
 }

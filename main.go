@@ -456,6 +456,7 @@ func main() {
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
 
+			mTLSMiddlewareFn := authentication.NewMTLS(mTLSs)
 			oh := authentication.NewOIDCHandlers(logger, reg)
 			for _, oidc := range oidcs {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
@@ -465,7 +466,7 @@ func main() {
 			// Metrics
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.Middlewares(), authentication.NewMTLS(mTLSs)))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFn))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -518,7 +519,7 @@ func main() {
 			// Logs
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.Middlewares(), authentication.NewMTLS(mTLSs)))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFn))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",

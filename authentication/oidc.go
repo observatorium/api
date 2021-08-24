@@ -55,26 +55,26 @@ type OIDCHandlers struct {
 	handlers    map[string]http.Handler
 	middlewares map[string]Middleware
 
-	logger          log.Logger
-	retryCountIncFn func()
+	logger     log.Logger
+	retryGauge prometheus.Gauge
 }
 
 // NewOIDCHandlers instantiates OIDC handlers.
 func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
-	tenantErrors := prometheus.NewGauge(prometheus.GaugeOpts{
+	tenantsFailing := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "observatorium",
 		Subsystem: "api",
-		Name:      "tenant_registration_failures",
-		Help:      "The number of attempts for which tenant OIDC provider instantiation failed.",
+		Name:      "tenants_failing_registrations",
+		Help:      "The number of tenants for which OIDC provider instantiation is failing.",
 	})
 
-	reg.MustRegister(tenantErrors)
+	reg.MustRegister(tenantsFailing)
 
 	return &OIDCHandlers{
-		handlers:        make(map[string]http.Handler),
-		middlewares:     make(map[string]Middleware),
-		logger:          l,
-		retryCountIncFn: tenantErrors.Inc,
+		handlers:    make(map[string]http.Handler),
+		middlewares: make(map[string]Middleware),
+		logger:      l,
+		retryGauge:  tenantsFailing,
 	}
 }
 
@@ -83,6 +83,11 @@ func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
 // cannot be established, the method will retry to connect with an increasing
 // backoff.
 func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig) {
+	const (
+		loginRoute    = "/login"
+		callbackRoute = "/callback"
+	)
+
 	ctx := context.Background()
 	b := backoff.New(ctx, backoff.Config{
 		Min:        500 * time.Millisecond,
@@ -91,22 +96,22 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 	})
 
 	go func() {
+		var isFailing bool
 		for b.Reset(); b.Ongoing(); {
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
 				level.Warn(oh.logger).Log("msg", "failed to instantiate OIDC provider for tenant", "tenant", config.Tenant, "error", err)
-				oh.retryCountIncFn()
+
+				if !isFailing {
+					oh.retryGauge.Inc()
+					isFailing = true
+				}
+
 				b.Wait()
 				continue
 			}
 
 			r := chi.NewRouter()
-
-			const (
-				loginRoute    = "/login"
-				callbackRoute = "/callback"
-			)
-
 			r.Handle(loginRoute, otelhttp.WithRouteTag(prefix+loginRoute, p.LoginHandler()))
 			r.Handle(callbackRoute, otelhttp.WithRouteTag(prefix+callbackRoute, p.CallbackHandler()))
 
@@ -115,18 +120,28 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 			oh.middlewares[config.Tenant] = p.Middleware()
 			oh.mtx.Unlock()
 
-			level.Debug(oh.logger).Log("msg", "OIDC provider instantiated for tenant", "tenant", config.Tenant)
+			level.Info(oh.logger).Log("msg", "OIDC provider instantiated for tenant", "tenant", config.Tenant)
+
+			if isFailing {
+				oh.retryGauge.Dec()
+			}
+
 			return
 		}
 	}()
 }
 
-// Middlewares returns a collction of OIDC middlewares for all registered tenants.
-func (oh *OIDCHandlers) Middlewares() map[string]Middleware {
+// GetTenantMiddleware an OIDC middleware for the specified tenant, if found.
+func (oh *OIDCHandlers) GetTenantMiddleware(tenant string) (Middleware, bool) {
 	oh.mtx.RLock()
-	defer oh.mtx.RUnlock()
+	mw, ok := oh.middlewares[tenant]
+	oh.mtx.RUnlock()
 
-	return oh.middlewares
+	if !ok {
+		return nil, false
+	}
+
+	return mw, true
 }
 
 // Router returns a router with handlers for all registered tenants.
