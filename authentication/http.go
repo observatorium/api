@@ -94,7 +94,7 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 }
 
 // MiddlewareFn is function type able to return
-// authentication middleware for given tenant. If
+// authentication middleware for a given tenant. If
 // no middleware is found, second parameter should
 // be false.
 type MiddlewareFn func(tenant string) (Middleware, bool)
