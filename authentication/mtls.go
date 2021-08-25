@@ -14,7 +14,7 @@ type MTLSConfig struct {
 }
 
 // NewMTLS creates a set of Middlewares for all specified tenants.
-func NewMTLS(configs []MTLSConfig) MiddlewareFn {
+func NewMTLS(configs []MTLSConfig) MiddlewareFunc {
 	middlewares := map[string]Middleware{}
 
 	for _, c := range configs {

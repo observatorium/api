@@ -44,9 +44,6 @@ type OIDCConfig struct {
 	UsernameClaim string
 }
 
-// Middleware is a convenience type for functions that wrap http.Handlers.
-type Middleware func(http.Handler) http.Handler
-
 // OIDCHandlers holds handlers and a set of middlewares for all
 // tenants that is able to authenticate requests and provide the
 // authorization code grant flow for users.
@@ -92,11 +89,15 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 	b := backoff.New(ctx, backoff.Config{
 		Min:        500 * time.Millisecond,
 		Max:        5 * time.Second,
-		MaxRetries: 0, // retry indefinitely
+		MaxRetries: 0, // Retry indefinitely.
 	})
 
 	go func() {
-		var isFailing bool
+		var (
+			isFailing bool
+			r         = chi.NewRouter()
+		)
+
 		for b.Reset(); b.Ongoing(); {
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
@@ -111,7 +112,6 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 				continue
 			}
 
-			r := chi.NewRouter()
 			r.Handle(loginRoute, otelhttp.WithRouteTag(prefix+loginRoute, p.LoginHandler()))
 			r.Handle(callbackRoute, otelhttp.WithRouteTag(prefix+callbackRoute, p.CallbackHandler()))
 
@@ -137,11 +137,7 @@ func (oh *OIDCHandlers) GetTenantMiddleware(tenant string) (Middleware, bool) {
 	mw, ok := oh.middlewares[tenant]
 	oh.mtx.RUnlock()
 
-	if !ok {
-		return nil, false
-	}
-
-	return mw, true
+	return mw, ok
 }
 
 // Router returns a router with handlers for all registered tenants.

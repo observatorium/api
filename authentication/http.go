@@ -93,15 +93,16 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 	return groups, ok
 }
 
-// MiddlewareFn is function type able to return
-// authentication middleware for a given tenant. If
-// no middleware is found, second parameter should
-// be false.
-type MiddlewareFn func(tenant string) (Middleware, bool)
+// Middleware is a convenience type for functions that wrap http.Handlers.
+type Middleware func(http.Handler) http.Handler
+
+// MiddlewareFunc is a function type able to return authentication middleware for
+// a given tenant. If no middleware is found, the second return value should be false.
+type MiddlewareFunc func(tenant string) (Middleware, bool)
 
 // WithTenantMiddlewares creates a single Middleware for all
 // provided tenant-middleware sets.
-func WithTenantMiddlewares(mwFns ...MiddlewareFn) Middleware {
+func WithTenantMiddlewares(mwFns ...MiddlewareFunc) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := GetTenant(r.Context())
@@ -117,7 +118,7 @@ func WithTenantMiddlewares(mwFns ...MiddlewareFn) Middleware {
 				}
 			}
 
-			http.Error(w, "error finding tenant", http.StatusUnauthorized)
+			http.Error(w, "tenant not found, have you registered it?", http.StatusUnauthorized)
 		})
 	}
 }
