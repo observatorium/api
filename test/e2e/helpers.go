@@ -21,15 +21,15 @@ import (
 )
 
 // Generates certificates and copies static configuration to the shared directory.
-func prepareConfigsAndCerts(t *testing.T, testType testType, e e2e.Environment) {
+func prepareConfigsAndCerts(t *testing.T, tt testType, e e2e.Environment) {
 	testutil.Ok(
 		t,
 		testtls.GenerateCerts(
 			filepath.Join(e.SharedDir(), certsSharedDir),
-			getContainerName(t, testType, "observatorium_api"),
-			[]string{getContainerName(t, testType, "observatorium_api"), "127.0.0.1"},
-			getContainerName(t, testType, "dex"),
-			[]string{getContainerName(t, testType, "dex"), "127.0.0.1"},
+			getContainerName(t, tt, "observatorium_api"),
+			[]string{getContainerName(t, tt, "observatorium_api"), "127.0.0.1"},
+			getContainerName(t, tt, "dex"),
+			[]string{getContainerName(t, tt, "dex"), "127.0.0.1"},
 		),
 	)
 
@@ -81,8 +81,8 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 	return t.IDToken, nil
 }
 
-func getContainerName(t *testing.T, testType testType, serviceName string) string {
-	switch testType {
+func getContainerName(t *testing.T, tt testType, serviceName string) string {
+	switch tt {
 	case logs:
 		return envLogsName + "-" + serviceName
 	case metrics:
@@ -96,7 +96,7 @@ func getContainerName(t *testing.T, testType testType, serviceName string) strin
 }
 
 func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
-	cert, err := ioutil.ReadFile(filepath.Join(filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem")))
+	cert, err := ioutil.ReadFile(filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"))
 	testutil.Ok(t, err)
 
 	cp := x509.NewCertPool()

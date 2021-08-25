@@ -59,8 +59,8 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
-func startBaseServices(t *testing.T, e e2e.Environment, testType testType) (token string, rateLimiterAddr string) {
-	createDexYAML(t, e, getContainerName(t, testType, "dex"), getContainerName(t, testType, "observatorium_api"))
+func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (token string, rateLimiterAddr string) {
+	createDexYAML(t, e, getContainerName(t, tt, "dex"), getContainerName(t, tt, "observatorium_api"))
 
 	dex := newDexService(e)
 	gubernator := newGubernatorService(e)
@@ -297,7 +297,7 @@ func withRunParameters(params *runParams) upOption {
 func newUpRun(
 	env e2e.Environment,
 	name string,
-	testType testType,
+	tt testType,
 	readEndpoint, writeEndpoint string,
 	options ...upOption,
 ) (*e2e.InstrumentedRunnable, error) {
@@ -313,7 +313,7 @@ func newUpRun(
 
 	args := e2e.BuildArgs(map[string]string{
 		"--listen":                      "0.0.0.0:" + strconv.Itoa(ports["http"]),
-		"--endpoint-type":               string(testType),
+		"--endpoint-type":               string(tt),
 		"--tls-ca-file":                 filepath.Join(certsContainerPath, "ca.pem"),
 		"--tls-client-cert-file":        filepath.Join(certsContainerPath, "client.pem"),
 		"--tls-client-private-key-file": filepath.Join(certsContainerPath, "client.key"),
@@ -324,7 +324,7 @@ func newUpRun(
 		"--labels":                      "_id=\"test\"",
 	})
 
-	if testType == logs {
+	if tt == logs {
 		args = append(args, "--logs=[\""+timeFn()+"\",\"log line 1\"]")
 	}
 
