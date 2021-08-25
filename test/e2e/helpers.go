@@ -26,10 +26,10 @@ func prepareConfigsAndCerts(t *testing.T, testType testType, e e2e.Environment) 
 		t,
 		testtls.GenerateCerts(
 			filepath.Join(e.SharedDir(), certsSharedDir),
-			getContainerName(testType, "observatorium_api"),
-			[]string{getContainerName(testType, "observatorium_api"), "127.0.0.1"},
-			getContainerName(testType, "dex"),
-			[]string{getContainerName(testType, "dex"), "127.0.0.1"},
+			getContainerName(t, testType, "observatorium_api"),
+			[]string{getContainerName(t, testType, "observatorium_api"), "127.0.0.1"},
+			getContainerName(t, testType, "dex"),
+			[]string{getContainerName(t, testType, "dex"), "127.0.0.1"},
 		),
 	)
 
@@ -81,7 +81,7 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 	return t.IDToken, nil
 }
 
-func getContainerName(testType testType, serviceName string) string {
+func getContainerName(t *testing.T, testType testType, serviceName string) string {
 	switch testType {
 	case logs:
 		return envLogsName + "-" + serviceName
@@ -90,7 +90,8 @@ func getContainerName(testType testType, serviceName string) string {
 	case interactive:
 		return envInteractive + "-" + serviceName
 	default:
-		return "not_found"
+		t.Fatal("invalid test type provided")
+		return ""
 	}
 }
 

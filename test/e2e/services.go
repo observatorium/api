@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/efficientgo/e2e"
+	e2edb "github.com/efficientgo/e2e/db"
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
@@ -34,7 +35,12 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 	metricsExtReadEndppoint string,
 ) {
 	thanosReceive := newThanosReceiveService(e)
-	thanosQuery := newThanosQueryService(e, thanosReceive.InternalEndpoint("grpc"))
+	thanosQuery := e2edb.NewThanosQuerier(
+		e,
+		"thanos-query",
+		[]string{thanosReceive.InternalEndpoint("grpc")},
+		e2edb.WithImage(thanosImage),
+	)
 	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery))
 
 	return thanosQuery.InternalEndpoint("http"),
@@ -49,13 +55,12 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	loki := newLokiService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(loki))
 
-	return loki.InternalEndpoint("http"),
-		loki.Endpoint("http")
+	return loki.InternalEndpoint("http"), loki.Endpoint("http")
 }
 
-// Starts and waits until all base services required for test are ready.
+// startBaseServices starts and waits until all base services required for the test are ready.
 func startBaseServices(t *testing.T, e e2e.Environment, testType testType) (token string, rateLimiterAddr string) {
-	createDexYAML(t, e, getContainerName(testType, "dex"), getContainerName(testType, "observatorium_api"))
+	createDexYAML(t, e, getContainerName(t, testType, "dex"), getContainerName(t, testType, "observatorium_api"))
 
 	dex := newDexService(e)
 	gubernator := newGubernatorService(e)
@@ -70,13 +75,13 @@ func startBaseServices(t *testing.T, e e2e.Environment, testType testType) (toke
 	return token, gubernator.InternalEndpoint("grpc")
 }
 
-func newDexService(testType e2e.Environment) *e2e.InstrumentedRunnable {
+func newDexService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{
 		"https":          5556,
 		"http-telemetry": 5558,
 	}
 
-	return e2e.NewInstrumentedRunnable(testType, "dex", ports, "http-telemetry").Init(
+	return e2e.NewInstrumentedRunnable(e, "dex", ports, "http-telemetry").Init(
 		e2e.StartOptions{
 			Image:   dexImage,
 			Command: e2e.NewCommand("dex", "serve", filepath.Join(configsContainerPath, "dex.yaml")),
@@ -92,13 +97,13 @@ func newDexService(testType e2e.Environment) *e2e.InstrumentedRunnable {
 	)
 }
 
-func newGubernatorService(testType e2e.Environment) *e2e.InstrumentedRunnable {
+func newGubernatorService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{
 		"http": 8880,
 		"grpc": 8881,
 	}
 
-	return e2e.NewInstrumentedRunnable(testType, "gubernator", ports, "http").Init(
+	return e2e.NewInstrumentedRunnable(e, "gubernator", ports, "http").Init(
 		e2e.StartOptions{
 			Image: gubernatorImage,
 			EnvVars: map[string]string{
@@ -113,7 +118,7 @@ func newGubernatorService(testType e2e.Environment) *e2e.InstrumentedRunnable {
 	)
 }
 
-func newThanosReceiveService(testType e2e.Environment) *e2e.InstrumentedRunnable {
+func newThanosReceiveService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{
 		"http":         10902,
 		"grpc":         10901,
@@ -132,7 +137,7 @@ func newThanosReceiveService(testType e2e.Environment) *e2e.InstrumentedRunnable
 		"--tsdb.path":                 "/tmp",
 	})
 
-	return e2e.NewInstrumentedRunnable(testType, "thanos-receive", ports, "http").Init(
+	return e2e.NewInstrumentedRunnable(e, "thanos-receive", ports, "http").Init(
 		e2e.StartOptions{
 			Image:     thanosImage,
 			Command:   e2e.NewCommand("receive", args...),
@@ -142,30 +147,7 @@ func newThanosReceiveService(testType e2e.Environment) *e2e.InstrumentedRunnable
 	)
 }
 
-func newThanosQueryService(testType e2e.Environment, storeAddress string) *e2e.InstrumentedRunnable {
-	ports := map[string]int{
-		"http": 9091,
-		"grpc": 10911,
-	}
-
-	args := e2e.BuildArgs(map[string]string{
-		"--grpc-address": "0.0.0.0:" + strconv.Itoa(ports["grpc"]),
-		"--http-address": "0.0.0.0:" + strconv.Itoa(ports["http"]),
-		"--store":        storeAddress,
-		"--log.level":    logLevelError,
-	})
-
-	return e2e.NewInstrumentedRunnable(testType, "thanos-query", ports, "http").Init(
-		e2e.StartOptions{
-			Image:     thanosImage,
-			Command:   e2e.NewCommand("query", args...),
-			Readiness: e2e.NewHTTPReadinessProbe("http", "/-/ready", 200, 200),
-			User:      strconv.Itoa(os.Getuid()),
-		},
-	)
-}
-
-func newLokiService(testType e2e.Environment) *e2e.InstrumentedRunnable {
+func newLokiService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{"http": 3100}
 
 	args := e2e.BuildArgs(map[string]string{
@@ -174,7 +156,7 @@ func newLokiService(testType e2e.Environment) *e2e.InstrumentedRunnable {
 		"-log.level":   logLevelError,
 	})
 
-	return e2e.NewInstrumentedRunnable(testType, "loki", ports, "http").Init(
+	return e2e.NewInstrumentedRunnable(e, "loki", ports, "http").Init(
 		e2e.StartOptions{
 			Image:   lokiImage,
 			Command: e2e.NewCommandWithoutEntrypoint("loki", args...),
@@ -187,7 +169,7 @@ func newLokiService(testType e2e.Environment) *e2e.InstrumentedRunnable {
 	)
 }
 
-func newOPAService(testType e2e.Environment) *e2e.InstrumentedRunnable {
+func newOPAService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
 	args := e2e.BuildArgs(map[string]string{
@@ -196,7 +178,7 @@ func newOPAService(testType e2e.Environment) *e2e.InstrumentedRunnable {
 		"--ignore":           "*.json",
 	})
 
-	return e2e.NewInstrumentedRunnable(testType, "opa", ports, "http").Init(
+	return e2e.NewInstrumentedRunnable(e, "opa", ports, "http").Init(
 		e2e.StartOptions{
 			Image:     opaImage,
 			Command:   e2e.NewCommand("run", args...),
@@ -235,7 +217,7 @@ func withRateLimiter(addr string) apiOption {
 }
 
 func newObservatoriumAPIService(
-	testType e2e.Environment,
+	e e2e.Environment,
 	options ...apiOption,
 ) (*e2e.InstrumentedRunnable, error) {
 	opts := apiOptions{}
@@ -275,7 +257,7 @@ func newObservatoriumAPIService(
 		args = append(args, "--middleware.rate-limiter.grpc-address="+opts.ratelimiterAddr)
 	}
 
-	return e2e.NewInstrumentedRunnable(testType, "observatorium_api", ports, "http-internal").Init(
+	return e2e.NewInstrumentedRunnable(e, "observatorium_api", ports, "http-internal").Init(
 		e2e.StartOptions{
 			Image:     apiImage,
 			Command:   e2e.NewCommandWithoutEntrypoint("observatorium-api", args...),
