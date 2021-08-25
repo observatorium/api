@@ -53,16 +53,16 @@ type OIDCHandlers struct {
 	middlewares map[string]Middleware
 
 	logger     log.Logger
-	retryGauge prometheus.Gauge
+	retryCount prometheus.Counter
 }
 
 // NewOIDCHandlers instantiates OIDC handlers.
 func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
-	tenantsFailing := prometheus.NewGauge(prometheus.GaugeOpts{
+	tenantsFailing := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "observatorium",
 		Subsystem: "api",
-		Name:      "tenants_failing_registrations",
-		Help:      "The number of tenants for which OIDC provider instantiation is failing.",
+		Name:      "tenants_failed_registrations",
+		Help:      "The number of failed OIDC provider instantiations.",
 	})
 
 	reg.MustRegister(tenantsFailing)
@@ -71,7 +71,7 @@ func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
 		handlers:    make(map[string]http.Handler),
 		middlewares: make(map[string]Middleware),
 		logger:      l,
-		retryGauge:  tenantsFailing,
+		retryCount:  tenantsFailing,
 	}
 }
 
@@ -93,21 +93,13 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 	})
 
 	go func() {
-		var (
-			isFailing bool
-			r         = chi.NewRouter()
-		)
+		r := chi.NewRouter()
 
 		for b.Reset(); b.Ongoing(); {
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
 				level.Warn(oh.logger).Log("msg", "failed to instantiate OIDC provider for tenant", "tenant", config.Tenant, "error", err)
-
-				if !isFailing {
-					oh.retryGauge.Inc()
-					isFailing = true
-				}
-
+				oh.retryCount.Inc()
 				b.Wait()
 				continue
 			}
@@ -121,10 +113,6 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 			oh.mtx.Unlock()
 
 			level.Info(oh.logger).Log("msg", "OIDC provider instantiated for tenant", "tenant", config.Tenant)
-
-			if isFailing {
-				oh.retryGauge.Dec()
-			}
 
 			return
 		}
