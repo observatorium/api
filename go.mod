@@ -6,6 +6,7 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/cloudflare/cfssl v1.4.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.0+incompatible
 	github.com/go-chi/httprate v0.4.0

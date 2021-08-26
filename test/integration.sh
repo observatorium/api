@@ -19,34 +19,6 @@ UP=${UP:-up}
 WEBSOCAT=${WEBSOCAT:=websocat}
 GUBERNATOR=${GUBERNATOR:-gubernator}
 
-($DEX serve ./test/config/dex.yaml) &
-
-echo "-------------------------------------------"
-echo "- Waiting for Dex to come up...  -"
-echo "-------------------------------------------"
-
-until curl --output /dev/null --silent --fail --insecure https://127.0.0.1:5556/dex/.well-known/openid-configuration; do
-  printf '.'
-  sleep 1
-done
-
-echo "-------------------------------------------"
-echo "- Getting authentication token...         -"
-echo "-------------------------------------------"
-sleep 2
-
-token=$(curl --request POST \
-  --silent \
-  --cacert ./tmp/certs/ca.pem \
-  --url https://127.0.0.1:5556/dex/token \
-  --header 'content-type: application/x-www-form-urlencoded' \
-  --data grant_type=password \
-  --data username=admin@example.com \
-  --data password=password \
-  --data client_id=test \
-  --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 \
-  --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
-
 (
   GUBER_HTTP_ADDRESS=localhost:8880 \
   GUBER_GRPC_ADDRESS=localhost:8881 \
@@ -130,6 +102,40 @@ until curl --output /dev/null --silent --fail http://127.0.0.1:8448/ready; do
   printf '.'
   sleep 1
 done
+
+echo "-------------------------------------------"
+echo "- Start Dex & ensure OIDC retries         -"
+echo "-------------------------------------------"
+
+($DEX serve ./test/config/dex.yaml) &
+
+echo "-------------------------------------------"
+echo "- Waiting for Dex to come up...  -"
+echo "-------------------------------------------"
+
+until curl --output /dev/null --silent --fail --insecure https://127.0.0.1:5556/dex/.well-known/openid-configuration; do
+  printf '.'
+  sleep 1
+done
+
+# Enough time for re-registration
+sleep 6
+
+echo "-------------------------------------------"
+echo "- Getting authentication token...         -"
+echo "-------------------------------------------"
+
+token=$(curl --request POST \
+  --silent \
+  --cacert ./tmp/certs/ca.pem \
+  --url https://127.0.0.1:5556/dex/token \
+  --header 'content-type: application/x-www-form-urlencoded' \
+  --data grant_type=password \
+  --data username=admin@example.com \
+  --data password=password \
+  --data client_id=test \
+  --data client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 \
+  --data scope="openid email" | sed 's/^{.*"id_token":[^"]*"\([^"]*\)".*}/\1/')
 
 echo "-------------------------------------------"
 echo "- Metrics tests                           -"
