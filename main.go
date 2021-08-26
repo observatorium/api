@@ -98,6 +98,9 @@ type tlsConfig struct {
 	serverCertFile string
 	serverKeyFile  string
 
+	internalServerCertFile string
+	internalServerKeyFile  string
+
 	healthchecksServerCAFile string
 	healthchecksServerName   string
 }
@@ -607,13 +610,53 @@ func main() {
 			internalserver.WithPProf(),
 		)
 
+		internalTLSConfig, err := tls.NewServerConfig(
+			log.With(logger, "protocol", "HTTP"),
+			cfg.tls.internalServerCertFile,
+			cfg.tls.internalServerKeyFile,
+			cfg.tls.minVersion,
+			cfg.tls.cipherSuites,
+		)
+		if err != nil {
+			stdlog.Fatalf("failed to initialize tls config: %v", err)
+		}
+
+		if internalTLSConfig != nil {
+			r, err := rbacproxytls.NewCertReloader(
+				cfg.tls.internalServerCertFile,
+				cfg.tls.internalServerKeyFile,
+				cfg.tls.reloadInterval,
+			)
+			if err != nil {
+				stdlog.Fatalf("failed to initialize certificate reloader: %v", err)
+			}
+
+			internalTLSConfig.GetCertificate = r.GetCertificate
+
+			ctx, cancel := context.WithCancel(context.Background())
+			g.Add(func() error {
+				return r.Watch(ctx)
+			}, func(error) {
+				cancel()
+			})
+		}
+
 		s := http.Server{
-			Addr:    cfg.server.listenInternal,
-			Handler: h,
+			Addr:         cfg.server.listenInternal,
+			Handler:      h,
+			TLSConfig:    internalTLSConfig,
+			ReadTimeout:  readTimeout,  // best set per handler.
+			WriteTimeout: writeTimeout, // best set per handler.
 		}
 
 		g.Add(func() error {
 			level.Info(logger).Log("msg", "starting internal HTTP server", "address", s.Addr)
+
+			if internalTLSConfig != nil {
+				// internalServerCertFile and internalServerKeyFile passed in TLSConfig at initialization.
+				return s.ListenAndServeTLS("", "")
+			}
+
 			return s.ListenAndServe()
 		}, func(err error) {
 			_ = s.Shutdown(context.Background())
@@ -720,6 +763,10 @@ func parseFlags() (config, error) {
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
 		"File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.tls.internalServerCertFile, "tls.internal.server.cert-file", "",
+		"File containing the default x509 Certificate for internal HTTPS. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.tls.internalServerKeyFile, "tls.internal.server.key-file", "",
+		"File containing the default x509 private key matching --tls.internal.server.cert-file. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.healthchecksServerCAFile, "tls.healthchecks.server-ca-file", "",
 		"File containing the TLS CA against which to verify servers."+
 			" If no server CA is specified, the client will use the system certificates.")

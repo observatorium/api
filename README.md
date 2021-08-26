@@ -103,6 +103,10 @@ Usage of ./observatorium-api:
     	File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
   -tls.healthchecks.server-name string
     	Server name is used to verify the hostname of the certificates returned by the server. If no server name is specified, the server name will be inferred from the healthcheck URL.
+  -tls.internal.server.cert-file string
+    	File containing the default x509 Certificate for internal HTTPS. Leave blank to disable TLS.
+  -tls.internal.server.key-file string
+    	File containing the default x509 private key matching --tls.internal.server.cert-file. Leave blank to disable TLS.
   -tls.min-version string
     	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
   -tls.reload-interval duration
