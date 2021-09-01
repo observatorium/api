@@ -186,10 +186,11 @@ func main() {
 			cas    []*x509.Certificate
 		} `json:"mTLS"`
 		OPA *struct {
-			Query      string   `json:"query"`
-			Paths      []string `json:"paths"`
-			URL        string   `json:"url"`
-			authorizer rbac.Authorizer
+			Query           string   `json:"query"`
+			Paths           []string `json:"paths"`
+			URL             string   `json:"url"`
+			WithAccessToken bool     `json:"withAccessToken"`
+			authorizer      rbac.Authorizer
 		} `json:"opa"`
 		RateLimits []*struct {
 			Endpoint string   `json:"endpoint"`
@@ -281,9 +282,15 @@ func main() {
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
-					t.OPA.authorizer = opa.NewRESTAuthorizer(u, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
+					t.OPA.authorizer = opa.NewRESTAuthorizer(u,
+						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
+						opa.AccessTokenOption(t.OPA.WithAccessToken),
+					)
 				} else {
-					a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
+					a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths,
+						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
+						opa.AccessTokenOption(t.OPA.WithAccessToken),
+					)
 					if err != nil {
 						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
 						tenantsCfg.Tenants[i] = nil
@@ -458,6 +465,7 @@ func main() {
 
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
+			r.Use(authentication.WithAccessToken())
 
 			mTLSMiddlewareFunc := authentication.NewMTLS(mTLSs)
 			oh := authentication.NewOIDCHandlers(logger, reg)
