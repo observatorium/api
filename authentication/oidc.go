@@ -53,17 +53,17 @@ type OIDCHandlers struct {
 	middlewares map[string]Middleware
 
 	logger     log.Logger
-	retryCount prometheus.Counter
+	retryCount *prometheus.CounterVec
 }
 
 // NewOIDCHandlers instantiates OIDC handlers.
 func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
-	tenantsFailing := prometheus.NewCounter(prometheus.CounterOpts{
+	tenantsFailing := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "observatorium",
 		Subsystem: "api",
 		Name:      "tenants_failed_registrations",
 		Help:      "The number of failed OIDC provider instantiations.",
-	})
+	}, []string{"tenant"})
 
 	reg.MustRegister(tenantsFailing)
 
@@ -98,8 +98,7 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 		for b.Reset(); b.Ongoing(); {
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
-				level.Warn(oh.logger).Log("msg", "failed to instantiate OIDC provider for tenant", "tenant", config.Tenant, "error", err)
-				oh.retryCount.Inc()
+				oh.retryCount.WithLabelValues(config.Tenant).Inc()
 				b.Wait()
 				continue
 			}
