@@ -98,6 +98,9 @@ type tlsConfig struct {
 	serverCertFile string
 	serverKeyFile  string
 
+	internalServerCertFile string
+	internalServerKeyFile  string
+
 	healthchecksServerCAFile string
 	healthchecksServerName   string
 }
@@ -183,10 +186,11 @@ func main() {
 			cas    []*x509.Certificate
 		} `json:"mTLS"`
 		OPA *struct {
-			Query      string   `json:"query"`
-			Paths      []string `json:"paths"`
-			URL        string   `json:"url"`
-			authorizer rbac.Authorizer
+			Query           string   `json:"query"`
+			Paths           []string `json:"paths"`
+			URL             string   `json:"url"`
+			WithAccessToken bool     `json:"withAccessToken"`
+			authorizer      rbac.Authorizer
 		} `json:"opa"`
 		RateLimits []*struct {
 			Endpoint string   `json:"endpoint"`
@@ -278,9 +282,15 @@ func main() {
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
-					t.OPA.authorizer = opa.NewRESTAuthorizer(u, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
+					t.OPA.authorizer = opa.NewRESTAuthorizer(u,
+						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
+						opa.AccessTokenOption(t.OPA.WithAccessToken),
+					)
 				} else {
-					a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths, opa.LoggerOption(log.With(logger, "tenant", t.Name)))
+					a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths,
+						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
+						opa.AccessTokenOption(t.OPA.WithAccessToken),
+					)
 					if err != nil {
 						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
 						tenantsCfg.Tenants[i] = nil
@@ -455,17 +465,19 @@ func main() {
 
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
+			r.Use(authentication.WithAccessToken())
 
-			oidcHandler, oidcTenantMiddlewares, warnings := authentication.NewOIDC(logger, "/oidc/{tenant}", oidcs)
-			for _, w := range warnings {
-				level.Warn(logger).Log("msg", w.Error())
+			mTLSMiddlewareFunc := authentication.NewMTLS(mTLSs)
+			oh := authentication.NewOIDCHandlers(logger, reg)
+			for _, oidc := range oidcs {
+				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
-			r.Mount("/oidc/{tenant}", oidcHandler)
+			r.Mount("/oidc/{tenant}", oh.Router())
 
 			// Metrics
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -518,7 +530,7 @@ func main() {
 			// Logs
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",
@@ -607,13 +619,53 @@ func main() {
 			internalserver.WithPProf(),
 		)
 
+		internalTLSConfig, err := tls.NewServerConfig(
+			log.With(logger, "protocol", "HTTP"),
+			cfg.tls.internalServerCertFile,
+			cfg.tls.internalServerKeyFile,
+			cfg.tls.minVersion,
+			cfg.tls.cipherSuites,
+		)
+		if err != nil {
+			stdlog.Fatalf("failed to initialize tls config: %v", err)
+		}
+
+		if internalTLSConfig != nil {
+			r, err := rbacproxytls.NewCertReloader(
+				cfg.tls.internalServerCertFile,
+				cfg.tls.internalServerKeyFile,
+				cfg.tls.reloadInterval,
+			)
+			if err != nil {
+				stdlog.Fatalf("failed to initialize certificate reloader: %v", err)
+			}
+
+			internalTLSConfig.GetCertificate = r.GetCertificate
+
+			ctx, cancel := context.WithCancel(context.Background())
+			g.Add(func() error {
+				return r.Watch(ctx)
+			}, func(error) {
+				cancel()
+			})
+		}
+
 		s := http.Server{
-			Addr:    cfg.server.listenInternal,
-			Handler: h,
+			Addr:         cfg.server.listenInternal,
+			Handler:      h,
+			TLSConfig:    internalTLSConfig,
+			ReadTimeout:  readTimeout,  // best set per handler.
+			WriteTimeout: writeTimeout, // best set per handler.
 		}
 
 		g.Add(func() error {
 			level.Info(logger).Log("msg", "starting internal HTTP server", "address", s.Addr)
+
+			if internalTLSConfig != nil {
+				// internalServerCertFile and internalServerKeyFile passed in TLSConfig at initialization.
+				return s.ListenAndServeTLS("", "")
+			}
+
 			return s.ListenAndServe()
 		}, func(err error) {
 			_ = s.Shutdown(context.Background())
@@ -720,6 +772,10 @@ func parseFlags() (config, error) {
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
 		"File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.tls.internalServerCertFile, "tls.internal.server.cert-file", "",
+		"File containing the default x509 Certificate for internal HTTPS. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.tls.internalServerKeyFile, "tls.internal.server.key-file", "",
+		"File containing the default x509 private key matching --tls.internal.server.cert-file. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.healthchecksServerCAFile, "tls.healthchecks.server-ca-file", "",
 		"File containing the TLS CA against which to verify servers."+
 			" If no server CA is specified, the client will use the system certificates.")

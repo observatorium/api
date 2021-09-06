@@ -3,6 +3,7 @@ package authentication
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi"
 )
@@ -17,6 +18,8 @@ func (c contextKey) String() string {
 }
 
 const (
+	// accessTokenKey is the key that holds the bearer token in a request context.
+	accessTokenKey contextKey = "accessToken"
 	// groupsKey is the key that holds the groups in a request context.
 	groupsKey contextKey = "groups"
 	// subjectKey is the key that holds the subject in a request context.
@@ -45,6 +48,20 @@ func WithTenantID(tenantIDs map[string]string) Middleware {
 			tenant := chi.URLParam(r, "tenant")
 			next.ServeHTTP(w, r.WithContext(
 				context.WithValue(r.Context(), tenantIDKey, tenantIDs[tenant]),
+			))
+		})
+	}
+}
+
+// WithAccessToken returns a middleware that looks up the authorization access
+// token from the request and adds it to the request context.
+func WithAccessToken() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rawToken := r.Header.Get("Authorization")
+			token := rawToken[strings.LastIndex(rawToken, " ")+1:]
+			next.ServeHTTP(w, r.WithContext(
+				context.WithValue(r.Context(), accessTokenKey, token),
 			))
 		})
 	}
@@ -93,17 +110,24 @@ func GetGroups(ctx context.Context) ([]string, bool) {
 	return groups, ok
 }
 
+// GetAccessToken extracts the access token from the provided context.
+func GetAccessToken(ctx context.Context) (string, bool) {
+	value := ctx.Value(accessTokenKey)
+	token, ok := value.(string)
+
+	return token, ok
+}
+
+// Middleware is a convenience type for functions that wrap http.Handlers.
+type Middleware func(http.Handler) http.Handler
+
+// MiddlewareFunc is a function type able to return authentication middleware for
+// a given tenant. If no middleware is found, the second return value should be false.
+type MiddlewareFunc func(tenant string) (Middleware, bool)
+
 // WithTenantMiddlewares creates a single Middleware for all
 // provided tenant-middleware sets.
-func WithTenantMiddlewares(middlewareSets ...map[string]Middleware) Middleware {
-	middlewares := map[string]Middleware{}
-
-	for _, ms := range middlewareSets {
-		for t, m := range ms {
-			middlewares[t] = m
-		}
-	}
-
+func WithTenantMiddlewares(mwFns ...MiddlewareFunc) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := GetTenant(r.Context())
@@ -111,13 +135,15 @@ func WithTenantMiddlewares(middlewareSets ...map[string]Middleware) Middleware {
 				http.Error(w, "error finding tenant", http.StatusBadRequest)
 				return
 			}
-			m, ok := middlewares[tenant]
-			if !ok {
-				http.Error(w, "error finding tenant", http.StatusUnauthorized)
-				return
+
+			for _, mwFn := range mwFns {
+				if m, ok := mwFn(tenant); ok {
+					m(next).ServeHTTP(w, r)
+					return
+				}
 			}
 
-			m(next).ServeHTTP(w, r)
+			http.Error(w, "tenant not found, have you registered it?", http.StatusUnauthorized)
 		})
 	}
 }

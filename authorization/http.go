@@ -35,7 +35,14 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			if statusCode, ok := a.Authorize(subject, groups, permission, resource, tenant); !ok {
+			token, ok := authentication.GetAccessToken(r.Context())
+			if !ok {
+				http.Error(w, "error finding access token", http.StatusUnauthorized)
+
+				return
+			}
+
+			if statusCode, ok := a.Authorize(subject, groups, permission, resource, tenant, token); !ok {
 				w.WriteHeader(statusCode)
 
 				return

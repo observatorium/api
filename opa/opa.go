@@ -18,6 +18,11 @@ import (
 	"github.com/observatorium/api/rbac"
 )
 
+const (
+	contentTypeHeader           = "Content-Type"
+	xForwardedAccessTokenHeader = "X-Forwarded-Access-Token" //nolint:gosec
+)
+
 // Input models the data that is used for OPA input documents.
 type Input struct {
 	Groups     []string        `json:"groups"`
@@ -28,8 +33,9 @@ type Input struct {
 }
 
 type config struct {
-	logger     log.Logger
-	registerer prometheus.Registerer
+	logger          log.Logger
+	registerer      prometheus.Registerer
+	withAccessToken bool
 }
 
 // Option modifies the configuration of an OPA authorizer.
@@ -39,6 +45,13 @@ type Option func(c *config)
 func LoggerOption(logger log.Logger) Option {
 	return func(c *config) {
 		c.logger = logger
+	}
+}
+
+// AccessTokenOptions sets the flag for the access token requirement.
+func AccessTokenOption(f bool) Option {
+	return func(c *config) {
+		c.withAccessToken = f
 	}
 }
 
@@ -53,12 +66,18 @@ type restAuthorizer struct {
 	client *http.Client
 	url    *url.URL
 
-	logger     log.Logger
-	registerer prometheus.Registerer
+	logger          log.Logger
+	registerer      prometheus.Registerer
+	withAccessToken bool
 }
 
 // Authorize implements the rbac.Authorizer interface.
-func (a *restAuthorizer) Authorize(subject string, groups []string, permission rbac.Permission, resource, tenant string) (int, bool) {
+func (a *restAuthorizer) Authorize(
+	subject string,
+	groups []string,
+	permission rbac.Permission,
+	resource, tenant, token string,
+) (int, bool) {
 	var i interface{} = Input{
 		Groups:     groups,
 		Permission: permission,
@@ -78,7 +97,26 @@ func (a *restAuthorizer) Authorize(subject string, groups []string, permission r
 		return http.StatusForbidden, false
 	}
 
-	res, err := a.client.Post(a.url.String(), "application/json", bytes.NewBuffer(j))
+	req, err := http.NewRequest(http.MethodPost, a.url.String(), bytes.NewBuffer(j))
+	if err != nil {
+		level.Error(a.logger).Log("msg", "failed to build authorization request", "err", err.Error())
+
+		return http.StatusInternalServerError, false
+	}
+
+	req.Header.Set(contentTypeHeader, "application/json")
+
+	if a.withAccessToken {
+		if token == "" {
+			level.Error(a.logger).Log("msg", "failed to forward access token to authorization request")
+
+			return http.StatusInternalServerError, false
+		}
+
+		req.Header.Set(xForwardedAccessTokenHeader, token)
+	}
+
+	res, err := a.client.Do(req)
 	if err != nil {
 		level.Error(a.logger).Log("msg", "make request to OPA endpoint", "URL", a.url.String(), "err", err.Error())
 
@@ -137,10 +175,11 @@ func NewRESTAuthorizer(u *url.URL, opts ...Option) rbac.Authorizer {
 	}
 
 	return &restAuthorizer{
-		client:     http.DefaultClient,
-		logger:     c.logger,
-		registerer: c.registerer,
-		url:        u,
+		client:          http.DefaultClient,
+		logger:          c.logger,
+		registerer:      c.registerer,
+		url:             u,
+		withAccessToken: c.withAccessToken,
 	}
 }
 
@@ -152,7 +191,12 @@ type inProcessAuthorizer struct {
 }
 
 // Authorize implements the rbac.Authorizer interface.
-func (a *inProcessAuthorizer) Authorize(subject string, groups []string, permission rbac.Permission, resource, tenant string) (int, bool) {
+func (a *inProcessAuthorizer) Authorize(
+	subject string,
+	groups []string,
+	permission rbac.Permission,
+	resource, tenant, token string,
+) (int, bool) {
 	var i interface{} = Input{
 		Groups:     groups,
 		Permission: permission,
