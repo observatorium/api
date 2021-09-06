@@ -84,11 +84,11 @@ test-unit:
 	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short $(shell go list ./... | grep -v api/test/e2e)
 
 .PHONY: test-e2e
-test-e2e: container
-	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short -tags integration ./test/e2e
+test-e2e: container-test
+	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short --tags integration ./test/e2e
 
 .PHONY: test-interactive
-test-interactive: container
+test-interactive: container-test
 	CGO_ENABLED=1 GO111MODULE=on go test -v -tags interactive -test.timeout=9999m ./test/e2e
 
 .PHONY: test-load
@@ -115,6 +115,14 @@ ratelimit/gubernator/gubernator.proto:
 proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $(PROTOC) $(PROTOC_GEN_GO) $(BIN_DIR)
 	@cp -f $(PROTOC_GEN_GO) $(BIN_DIR)/protoc-gen-go
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin scripts/generate_proto.sh
+
+.PHONY: container-test
+container-test: build
+	@cp ./observatorium-api ./observatorium_api_for_docker
+	@docker build \
+		-f Dockerfile.e2e-test \
+		-t $(DOCKER_REPO):latest .
+	@rm ./observatorium_api_for_docker
 
 .PHONY: container
 container: Dockerfile
