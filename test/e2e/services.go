@@ -59,10 +59,14 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
-func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (token string, rateLimiterAddr string) {
+func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (
+	dex *e2e.InstrumentedRunnable,
+	token string,
+	rateLimiterAddr string,
+) {
 	createDexYAML(t, e, getContainerName(t, tt, "dex"), getContainerName(t, tt, "observatorium_api"))
 
-	dex := newDexService(e)
+	dex = newDexService(e)
 	gubernator := newGubernatorService(e)
 	opa := newOPAService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(dex, gubernator, opa))
@@ -72,7 +76,7 @@ func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (token stri
 	token, err := obtainToken(dex.Endpoint("https"), getTLSClientConfig(t, e))
 	testutil.Ok(t, err)
 
-	return token, gubernator.InternalEndpoint("grpc")
+	return dex, token, gubernator.InternalEndpoint("grpc")
 }
 
 func newDexService(e e2e.Environment) *e2e.InstrumentedRunnable {

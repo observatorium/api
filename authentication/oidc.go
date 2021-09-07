@@ -22,9 +22,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const (
-	state = "I love Observatorium"
-)
+const state = "I love Observatorium"
 
 // TenantOIDCConfig represents the OIDC configuration for a single tenant.
 type TenantOIDCConfig struct {

@@ -25,7 +25,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	prepareConfigsAndCerts(t, metrics, e)
-	token, rateLimiterAddr := startBaseServices(t, e, metrics)
+	_, token, rateLimiterAddr := startBaseServices(t, e, metrics)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 
 	api, err := newObservatoriumAPIService(

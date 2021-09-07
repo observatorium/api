@@ -21,7 +21,7 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	prepareConfigsAndCerts(t, logs, e)
-	token, rateLimiterAddr := startBaseServices(t, e, logs)
+	_, token, rateLimiterAddr := startBaseServices(t, e, logs)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 
 	api, err := newObservatoriumAPIService(

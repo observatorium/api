@@ -19,6 +19,7 @@ type testType string
 const (
 	metrics     testType = "metrics"
 	logs        testType = "logs"
+	tenants     testType = "tenants"
 	interactive testType = "interactive"
 
 	dockerLocalSharedDir = "/shared"
@@ -30,6 +31,7 @@ const (
 
 	envMetricsName = "e2e_metrics_read_write"
 	envLogsName    = "e2e_logs_read_write_tail"
+	envTenantsName = "e2e_tenants"
 	envInteractive = "e2e_interactive"
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
