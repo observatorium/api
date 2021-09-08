@@ -43,51 +43,51 @@ tenants:
 - name: test-oidc
   id: 1610b0c3-c509-4592-a256-a1871353dbfa
   oidc:
-	clientID: test
-	clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
-	issuerCAPath: %[1]s
-	issuerURL: https://%[2]s
-	redirectURL: https://localhost:8443/oidc/test-oidc/callback
-	usernameClaim: email
+    clientID: test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
+    redirectURL: https://localhost:8443/oidc/test-oidc/callback
+    usernameClaim: email
   opa:
-	query: data.observatorium.allow
-	paths:
-	  - %[3]s
-	  - %[4]s
+    query: data.observatorium.allow
+    paths:
+      - %[3]s
+      - %[4]s
   rateLimits:
-	- endpoint: "/api/metrics/v1/.+/api/v1/receive"
-	  limit: 100
-	  window: 1s
-	- endpoint: "/api/logs/v1/.*"
-	  limit: 100
-	  window: 1s
+    - endpoint: "/api/metrics/v1/.+/api/v1/receive"
+      limit: 100
+      window: 1s
+    - endpoint: "/api/logs/v1/.*"
+      limit: 100
+      window: 1s
 - name: test-attacker
   id: 066df98b-04e1-46c5-86f7-dc3250bfe869
   oidc:
-	clientID: test
-	clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
-	issuerCAPath: %[1]s
-	issuerURL: https://%[2]s
-	redirectURL: https://localhost:8443/oidc/test-attacker/callback
-	usernameClaim: email
+    clientID: test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
+    redirectURL: https://localhost:8443/oidc/test-attacker/callback
+    usernameClaim: email
   opa:
-	query: data.observatorium.allow
-	paths:
-	- %[3]s
-	- %[4]s
+    query: data.observatorium.allow
+    paths:
+    - %[3]s
+    - %[4]s
 - name: test-mtls
   id: 845cdfd9-f936-443c-979c-2ee7dc91f646
   mTLS:
-	caPath: %[5]s
+    caPath: %[5]s
   opa:
-	url: http://%[6]s
+    url: http://%[6]s
   rateLimits:
-	- endpoint: "/api/metrics/v1/.+/api/v1/receive"
-	  limit: 1
-	  window: 1s
-	- endpoint: "/api/logs/v1/.*"
-	  limit: 1
-	  window: 1s
+    - endpoint: "/api/metrics/v1/.+/api/v1/receive"
+      limit: 1
+      window: 1s
+    - endpoint: "/api/logs/v1/.*"
+      limit: 1
+      window: 1s
 `
 
 func createTenantsYAML(
@@ -119,7 +119,7 @@ issuer: https://%s:5556/dex
 storage:
   type: sqlite3
   config:
-	file: /tmp/dex.db
+    file: /tmp/dex.db
 web:
   https: 0.0.0.0:5556
   tlsCert: /shared/certs/dex.pem

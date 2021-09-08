@@ -85,7 +85,7 @@ test-unit:
 
 .PHONY: test-e2e
 test-e2e: container-test
-	CGO_ENABLED=1 GO111MODULE=on go test -v -count=1 -race -short --tags integration ./test/e2e
+	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short --tags integration ./test/e2e
 
 .PHONY: test-interactive
 test-interactive: container-test
