@@ -1,12 +1,10 @@
-// +build tools
-
-package main
+package testtls
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cloudflare/cfssl/cli/genkey"
@@ -23,38 +21,31 @@ type certBundle struct {
 	key  []byte
 }
 
-func main() {
+func GenerateCerts(
+	path string,
+	apiCommonName string,
+	apiSANs []string,
+	dexCommonName string,
+	dexSANs []string,
+) error {
 	var (
-		caCommonName     string
-		serverCommonName string
-		serverSANs       string
-		serverExpiration time.Duration
-		clientCommonName string
-		clientSANs       string
-		clientGroups     string
-		clientExpiration time.Duration
-
 		defaultConfig        = config.DefaultConfig()
 		defaultSigningConfig = config.SigningProfile{
 			Expiry:       168 * time.Hour,
 			ExpiryString: "168h",
 		}
-	)
 
-	flag.StringVar(&caCommonName, "root-common-name", "observatorium", "")
-	flag.StringVar(&serverCommonName, "server-common-name", "localhost", "")
-	flag.StringVar(&serverSANs, "server-sans", "localhost,127.0.0.1", "A comma-separated list of SANs for the client.")
-	flag.DurationVar(&serverExpiration, "server-duration", defaultConfig.Expiry, "")
-	flag.StringVar(&clientCommonName, "client-common-name", "up", "")
-	flag.StringVar(&clientSANs, "client-sans", "up", "A comma-separated list of SANs for the client.")
-	flag.StringVar(&clientGroups, "client-groups", "test", "A comma-separated list of groups for the client.")
-	flag.DurationVar(&clientExpiration, "client-duration", defaultConfig.Expiry, "")
-	flag.Parse()
+		caCommonName     = "observatorium"
+		serverExpiration = defaultConfig.Expiry
+		clientCommonName = "up"
+		clientSANs       = "up"
+		clientGroups     = "test"
+		clientExpiration = defaultConfig.Expiry
+	)
 
 	caBundle, err := generateCACert(caCommonName)
 	if err != nil {
-		fmt.Printf("generate CA cert %s: %v\n", caCommonName, err)
-		os.Exit(1)
+		return fmt.Errorf("generate CA cert %s: %v", caCommonName, err)
 	}
 
 	serverSigningConfig := config.Signing{
@@ -68,10 +59,14 @@ func main() {
 		},
 	}
 
-	serverBundle, err := generateCert(serverCommonName, signer.SplitHosts(serverSANs), nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	apiBundle, err := generateCert(apiCommonName, apiSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
 	if err != nil {
-		fmt.Printf("generate server cert %s, %s: %v\n", serverCommonName, serverSANs, err)
-		os.Exit(1)
+		return fmt.Errorf("generate server cert %s, %s: %v", apiCommonName, apiSANs, err)
+	}
+
+	dexBundle, err := generateCert(dexCommonName, dexSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	if err != nil {
+		return fmt.Errorf("generate server cert %s, %s: %v", dexCommonName, dexSANs, err)
 	}
 
 	clientSigningConfig := config.Signing{
@@ -85,26 +80,35 @@ func main() {
 		},
 	}
 
-	clientBundle, err := generateCert(clientCommonName, signer.SplitHosts(clientSANs), signer.SplitHosts(clientGroups), "client", &clientSigningConfig, caBundle.cert, caBundle.key)
+	clientBundle, err := generateCert(
+		clientCommonName, signer.SplitHosts(clientSANs), signer.SplitHosts(clientGroups),
+		"client", &clientSigningConfig, caBundle.cert, caBundle.key,
+	)
 	if err != nil {
-		fmt.Printf("generate client cert %s, %s: %v\n", clientCommonName, clientSANs, err)
-		os.Exit(1)
+		return fmt.Errorf("generate client cert %s, %s: %v", clientCommonName, clientSANs, err)
 	}
 
 	for file, content := range map[string][]byte{
 		"ca.key":     caBundle.key,
 		"ca.pem":     caBundle.cert,
-		"server.key": serverBundle.key,
-		"server.pem": serverBundle.cert,
+		"server.key": apiBundle.key,
+		"server.pem": apiBundle.cert,
+		"dex.key":    dexBundle.key,
+		"dex.pem":    dexBundle.cert,
 		"client.key": clientBundle.key,
 		"client.pem": clientBundle.cert,
 	} {
 		// Write certificates
-		if err := ioutil.WriteFile(file, content, 0644); err != nil {
-			fmt.Printf("write file: %v\n", err)
-			os.Exit(1)
+		if err := os.MkdirAll(path, 0750); err != nil {
+			return fmt.Errorf("mkdir %s: %v", path, err)
+		}
+
+		if err := ioutil.WriteFile(filepath.Join(path, file), content, 0644); err != nil {
+			return fmt.Errorf("write file %s: %v", file, err)
 		}
 	}
+
+	return nil
 }
 
 // Helpers
@@ -121,12 +125,19 @@ func generateCACert(commonName string) (certBundle, error) {
 	return certBundle{cert: cert, key: key}, nil
 }
 
-func generateCert(commonName string, hosts []string, groups []string, profile string, signingConfig *config.Signing, ca []byte, caKey []byte) (certBundle, error) {
-	fmt.Printf("cert generate, commonName=%s, hosts=%v, groups=%v, profile=%s, signingConfig=%+v\n", commonName, hosts, groups, profile, signingConfig)
+func generateCert(
+	commonName string, hosts []string, groups []string, profile string,
+	signingConfig *config.Signing, ca []byte, caKey []byte,
+) (certBundle, error) {
+	fmt.Printf("cert generate, commonName=%s, hosts=%v, groups=%v, profile=%s, signingConfig=%+v\n",
+		commonName, hosts, groups, profile, signingConfig)
+
 	names := make([]csr.Name, 0, len(groups))
+
 	for _, g := range groups {
 		names = append(names, csr.Name{OU: g})
 	}
+
 	req := csr.CertificateRequest{
 		CN:         commonName,
 		Names:      names,
@@ -135,6 +146,7 @@ func generateCert(commonName string, hosts []string, groups []string, profile st
 	}
 
 	g := &csr.Generator{Validator: genkey.Validator}
+
 	csrBytes, key, err := g.ProcessRequest(&req)
 	if err != nil {
 		return certBundle{}, fmt.Errorf("process request (%+v): %w", req, err)

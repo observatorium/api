@@ -6,12 +6,14 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/cloudflare/cfssl v1.4.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/efficientgo/e2e v0.11.1
 	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.0+incompatible
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/kit v0.10.0
 	github.com/golang/protobuf v1.5.2
+	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/lib/pq v1.3.0 // indirect

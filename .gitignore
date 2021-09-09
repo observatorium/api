@@ -19,3 +19,4 @@ vendor
 .envrc
 .bin
 .idea
+e2e_*
