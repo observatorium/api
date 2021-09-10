@@ -1,4 +1,4 @@
-// +build interactive
+// +build integration
 
 package e2e
 
