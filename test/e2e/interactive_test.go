@@ -26,7 +26,7 @@ func TestInteractiveSetup(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	prepareConfigsAndCerts(t, interactive, e)
-	token, rateLimiterAddr := startBaseServices(t, e, interactive)
+	token, rateLimiterAddr, _ := startBaseServices(t, e, interactive)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 
@@ -48,7 +48,7 @@ func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Observatorium internal server on host machine: 	%s \n", api.Endpoint("http-internal"))
 	fmt.Printf("Thanos Query on host machine: 			%s \n", readExtEndpoint)
 	fmt.Printf("Loki on host machine: 				%s \n", logsExtEndpoint)
-	fmt.Printf("API Token: 					%s \n\n", token)
+	fmt.Printf("API Token: 					%+v \n\n", token)
 
 	testutil.Ok(t, e2einteractive.RunUntilEndpointHit())
 }
