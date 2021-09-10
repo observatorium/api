@@ -11,13 +11,6 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
-// This tests spins up a full setup for Observatorium API with all
-// dependent services. It is intended for short-lived manual testing
-// on your local environemnt. You can run the test by executing
-// 'make test-interactive'.
-//
-// Otherwise ensure you run the test with flags '-v'(to see the output)
-// and '-test.timeout=9999m' to ensure the test is not terminated.
 func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Starting services...\n")
 

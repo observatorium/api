@@ -7,6 +7,20 @@
 This project is an API server for Observatorium.
 The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.
 
+## Getting started
+
+For a quick start, run:
+
+```bash
+make test-interactive
+```
+
+This command spins up a full setup for Observatorium API with all dependent services. It is intended for short-lived manual testing on your local environment.
+
+It is also possible to run the [test](test/e2e/interactive_test.go) with flags '-v' (to see the output) and '-test.timeout=9999m' to ensure the test is not terminated.
+
+Since this starts all necessary services in a Docker environment, make sure you have [Docker](https://docs.docker.com/get-docker/) installed.
+
 ## Backends
 
 The Observatorium API server fulfills requests by proxying reads and writes to a backend for each type of observability signal.
@@ -49,76 +63,77 @@ Compatible backends must implement the Loki write API, e.g. Loki.
 ## Usage
 
 [embedmd]:# (tmp/help.txt)
+
 ```txt
 Usage of ./observatorium-api:
   -debug.block-profile-rate int
-    	The percentage of goroutine blocking events that are reported in the blocking profile. (default 10)
+      The percentage of goroutine blocking events that are reported in the blocking profile. (default 10)
   -debug.mutex-profile-fraction int
-    	The percentage of mutex contention events that are reported in the mutex profile. (default 10)
+     The percentage of mutex contention events that are reported in the mutex profile. (default 10)
   -debug.name string
-    	A name to add as a prefix to log lines. (default "observatorium")
+     A name to add as a prefix to log lines. (default "observatorium")
   -internal.tracing.endpoint string
-    	The full URL of the trace agent or collector. If it's not set, tracing will be disabled.
+     The full URL of the trace agent or collector. If it's not set, tracing will be disabled.
   -internal.tracing.endpoint-type string
-    	The tracing endpoint type. Options: 'agent', 'collector'. (default "agent")
+     The tracing endpoint type. Options: 'agent', 'collector'. (default "agent")
   -internal.tracing.sampling-fraction float
-    	The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled. (default 0.1)
+     The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled. (default 0.1)
   -internal.tracing.service-name string
-    	The service name to report to the tracing backend. (default "observatorium_api")
+     The service name to report to the tracing backend. (default "observatorium_api")
   -log.format string
-    	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
+     The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
-    	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
+     The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -logs.read.endpoint string
-    	The endpoint against which to make read requests for logs.
+     The endpoint against which to make read requests for logs.
   -logs.tail.endpoint string
-    	The endpoint against which to make tail read requests for logs.
+     The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string
-    	The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Scope-OrgID")
+     The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Scope-OrgID")
   -logs.write.endpoint string
-    	The endpoint against which to make write requests for logs.
+     The endpoint against which to make write requests for logs.
   -metrics.read.endpoint string
-    	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
+     The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
   -metrics.tenant-header string
-    	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
+     The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.tenant-label string
-    	The name of the PromQL label that should hold the tenant ID in metrics upstreams. (default "tenant_id")
+     The name of the PromQL label that should hold the tenant ID in metrics upstreams. (default "tenant_id")
   -metrics.write.endpoint string
-    	The endpoint against which to make write requests for metrics.
+     The endpoint against which to make write requests for metrics.
   -middleware.backlog-duration-concurrent-requests duration
-    	The time duration to buffer up concurrent requests. (default 1ms)
+     The time duration to buffer up concurrent requests. (default 1ms)
   -middleware.backlog-limit-concurrent-requests int
-    	The number of concurrent requests that can buffered.
+     The number of concurrent requests that can buffered.
   -middleware.concurrent-request-limit int
-    	The limit that controls the number of concurrently processed requests across all tenants. (default 10000)
+     The limit that controls the number of concurrently processed requests across all tenants. (default 10000)
   -middleware.rate-limiter.grpc-address string
-    	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
+     The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
   -rbac.config string
-    	Path to the RBAC configuration file. (default "rbac.yaml")
+     Path to the RBAC configuration file. (default "rbac.yaml")
   -tenants.config string
-    	Path to the tenants file. (default "tenants.yaml")
+     Path to the tenants file. (default "tenants.yaml")
   -tls.cipher-suites string
-    	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
+     Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
   -tls.healthchecks.server-ca-file string
-    	File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
+     File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
   -tls.healthchecks.server-name string
-    	Server name is used to verify the hostname of the certificates returned by the server. If no server name is specified, the server name will be inferred from the healthcheck URL.
+     Server name is used to verify the hostname of the certificates returned by the server. If no server name is specified, the server name will be inferred from the healthcheck URL.
   -tls.internal.server.cert-file string
-    	File containing the default x509 Certificate for internal HTTPS. Leave blank to disable TLS.
+     File containing the default x509 Certificate for internal HTTPS. Leave blank to disable TLS.
   -tls.internal.server.key-file string
-    	File containing the default x509 private key matching --tls.internal.server.cert-file. Leave blank to disable TLS.
+     File containing the default x509 private key matching --tls.internal.server.cert-file. Leave blank to disable TLS.
   -tls.min-version string
-    	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
+     Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
   -tls.reload-interval duration
-    	The interval at which to watch for TLS certificate changes. (default 1m0s)
+     The interval at which to watch for TLS certificate changes. (default 1m0s)
   -tls.server.cert-file string
-    	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
+     File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls.server.key-file string
-    	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
+     File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
   -web.healthchecks.url string
-    	The URL against which to run healthchecks. (default "http://localhost:8080")
+     The URL against which to run healthchecks. (default "http://localhost:8080")
   -web.internal.listen string
-    	The address on which the internal server listens. (default ":8081")
+     The address on which the internal server listens. (default ":8081")
   -web.listen string
-    	The address on which the public server listens. (default ":8080")
+     The address on which the public server listens. (default ":8080")
 ```
