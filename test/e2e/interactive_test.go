@@ -1,4 +1,4 @@
-//go:build interactive
+// +build interactive
 
 package e2e
 
