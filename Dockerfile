@@ -7,7 +7,7 @@ WORKDIR /opt
 
 RUN git update-index --refresh; make build
 
-FROM alpine:3.12 as runner
+FROM alpine:3.14 as runner
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /opt/observatorium-api /bin/observatorium-api
