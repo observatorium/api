@@ -1,6 +1,6 @@
 module github.com/observatorium/api
 
-go 1.14
+go 1.16
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
@@ -16,7 +16,6 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/lib/pq v1.3.0 // indirect
 	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2

@@ -11,13 +11,6 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
-// This tests spins up a full setup for Observatorium API with all
-// dependent services. It is intended for short-lived manual testing
-// on your local environemnt. You can run the test by executing
-// 'make test-interactive'.
-//
-// Otherwise ensure you run the test with flags '-v'(to see the output)
-// and '-test.timeout=9999m' to ensure the test is not terminated.
 func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Starting services...\n")
 
@@ -26,7 +19,7 @@ func TestInteractiveSetup(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	prepareConfigsAndCerts(t, interactive, e)
-	token, rateLimiterAddr := startBaseServices(t, e, interactive)
+	token, rateLimiterAddr, _ := startBaseServices(t, e, interactive)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 
@@ -48,7 +41,7 @@ func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Observatorium internal server on host machine: 	%s \n", api.Endpoint("http-internal"))
 	fmt.Printf("Thanos Query on host machine: 			%s \n", readExtEndpoint)
 	fmt.Printf("Loki on host machine: 				%s \n", logsExtEndpoint)
-	fmt.Printf("API Token: 					%s \n\n", token)
+	fmt.Printf("API Token: 					%+v \n\n", token)
 
 	testutil.Ok(t, e2einteractive.RunUntilEndpointHit())
 }

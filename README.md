@@ -7,6 +7,20 @@
 This project is an API server for Observatorium.
 The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.
 
+## Getting started
+
+For a quick start, run:
+
+```bash
+make test-interactive
+```
+
+This command spins up a full setup for Observatorium API with all dependent services. It is intended for short-lived manual testing on your local environment.
+
+It is also possible to run the [test](test/e2e/interactive_test.go) with flags '-v' (to see the output) and '-test.timeout=9999m' to ensure the test is not terminated.
+
+Since this starts all necessary services in a Docker environment, make sure you have [Docker](https://docs.docker.com/get-docker/) installed.
+
 ## Backends
 
 The Observatorium API server fulfills requests by proxying reads and writes to a backend for each type of observability signal.
