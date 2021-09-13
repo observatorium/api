@@ -19,7 +19,7 @@ func TestInteractiveSetup(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	prepareConfigsAndCerts(t, interactive, e)
-	token, rateLimiterAddr, _ := startBaseServices(t, e, interactive)
+	_, token, rateLimiterAddr := startBaseServices(t, e, interactive)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 
@@ -32,6 +32,16 @@ func TestInteractiveSetup(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
+	up, err := newUpRun(
+		e, "up-metrics-read-write", metrics,
+		"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/query",
+		"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/receive",
+		withToken(token),
+		withRunParameters(&runParams{period: "5000ms", threshold: "1", latency: "10s", duration: "0"}),
+	)
+	testutil.Ok(t, err)
+	testutil.Ok(t, e2e.StartAndWaitReady(up))
+
 	testutil.Ok(t, e2einteractive.OpenInBrowser("http://"+readExtEndpoint))
 
 	fmt.Printf("\n")
@@ -41,7 +51,7 @@ func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Observatorium internal server on host machine: 	%s \n", api.Endpoint("http-internal"))
 	fmt.Printf("Thanos Query on host machine: 			%s \n", readExtEndpoint)
 	fmt.Printf("Loki on host machine: 				%s \n", logsExtEndpoint)
-	fmt.Printf("API Token: 					%+v \n\n", token)
+	fmt.Printf("API Token: 					%s \n\n", token)
 
 	testutil.Ok(t, e2einteractive.RunUntilEndpointHit())
 }
