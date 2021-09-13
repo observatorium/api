@@ -52,7 +52,7 @@ jobs:
 
   container-push:
     machine:
-      image: ubuntu-1604:201903-01
+      image: ubuntu-2004:202107-02
     steps:
       - checkout
       - run: |
@@ -61,7 +61,7 @@ jobs:
 
   container-release:
     machine:
-      image: ubuntu-1604:201903-01
+      image: ubuntu-2004:202107-02
     steps:
       - checkout
       - run: |
