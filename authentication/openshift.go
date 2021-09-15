@@ -292,8 +292,8 @@ func (p *OpenShiftAuthProvider) Middleware() Middleware {
 			// 2. When a service calls the obs-api providing client certificates signed by the cluster CA
 			res, ok, _ := p.authenticator.AuthenticateRequest(r)
 			if ok {
-				ctx := context.WithValue(r.Context(), subjectKey, res.User.GetName())
-				ctx = context.WithValue(ctx, groupsKey, res.User.GetGroups())
+				ctx := context.WithValue(r.Context(), SubjectKey, res.User.GetName())
+				ctx = context.WithValue(ctx, GroupsKey, res.User.GetGroups())
 
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
@@ -345,8 +345,8 @@ func (p *OpenShiftAuthProvider) Middleware() Middleware {
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), subjectKey, claims.Subject)
-			ctx = context.WithValue(ctx, groupsKey, claims.Groups)
+			ctx := context.WithValue(r.Context(), SubjectKey, claims.Subject)
+			ctx = context.WithValue(ctx, GroupsKey, claims.Groups)
 
 			var accessToken string
 			if p.config.CookieSecret != "" {
@@ -358,7 +358,7 @@ func (p *OpenShiftAuthProvider) Middleware() Middleware {
 					return
 				}
 
-				ctx = context.WithValue(ctx, accessTokenKey, accessToken)
+				ctx = context.WithValue(ctx, AccessTokenKey, accessToken)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))

@@ -44,6 +44,8 @@ import (
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authentication/openshift"
+	providers "github.com/observatorium/api/authentication/providers"
+
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
@@ -189,6 +191,11 @@ func main() {
 			RedirectURL    string `json:"redirectURL"`
 			CookieSecret   string `json:"cookieSecret"`
 		} `json:"openshift"`
+		Authenticator *struct {
+			Type   string                 `json:"type"`
+			Config map[string]interface{} `json:"config"`
+		} `json:"authenticator"`
+
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
@@ -243,7 +250,7 @@ func main() {
 					}
 					cert, err := x509.ParseCertificate(block.Bytes)
 					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse issuer certificate: %v", err))
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse issuer certificate: %s", err))
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
@@ -281,6 +288,13 @@ func main() {
 					if len(rest) == 0 {
 						break
 					}
+				}
+			}
+			if t.Authenticator != nil {
+				if t.Authenticator.Config == nil {
+					skip.Log("tenant", t.Name, "err", "failed to find authenticator config")
+					tenantsCfg.Tenants[i] = nil
+					continue
 				}
 			}
 			if t.OPA != nil {
@@ -442,8 +456,11 @@ func main() {
 			var ocpAuths []authentication.TenantOpenShiftAuthConfig
 			var ocpCA []byte
 			var mTLSs []authentication.MTLSConfig
+
 			authorizers := map[string]rbac.Authorizer{}
 			var rateLimits []ratelimit.Config
+			ah := providers.NewAuthenticatorsHandlers(logger, reg)
+
 			for _, t := range tenantsCfg.Tenants {
 				if t == nil {
 					continue
@@ -502,9 +519,13 @@ func main() {
 						Tenant: t.Name,
 						CAs:    t.MTLS.cas,
 					})
+				case t.Authenticator != nil:
+					ah.NewTenantAuthenticator(t.Authenticator.Config, t.Name, t.Authenticator.Type, logger)
+
 				default:
-					stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
+					stdlog.Fatalf("tenant %q must specify either an OIDC, an mTLS or a supported authenticator configuration", t.Name)
 				}
+
 				if t.OPA != nil {
 					authorizers[t.Name] = t.OPA.authorizer
 				} else {
@@ -523,7 +544,12 @@ func main() {
 			for _, oidc := range oidcs {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
-			r.Mount("/oidc/{tenant}", oh.Router())
+
+			routers := oh.Router()
+			if ah.AuthenticatorsRouters() != nil {
+				routers = ah.AuthenticatorsRouters()
+			}
+			r.Mount("/oidc/{tenant}", routers)
 
 			osh := authentication.NewOpenShiftAuthHandlers(logger, tfm)
 			for _, ocpauth := range ocpAuths {
@@ -534,7 +560,7 @@ func main() {
 			// Metrics.
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares, oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -592,7 +618,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares, oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",

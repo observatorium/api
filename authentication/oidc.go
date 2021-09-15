@@ -288,7 +288,7 @@ func (p *OIDCProvider) Middleware() Middleware {
 				}
 				sub = username
 			}
-			ctx := context.WithValue(r.Context(), subjectKey, sub)
+			ctx := context.WithValue(r.Context(), SubjectKey, sub)
 
 			if p.config.GroupClaim != "" {
 				var groups []string
@@ -317,7 +317,7 @@ func (p *OIDCProvider) Middleware() Middleware {
 						groups = append(groups, fmt.Sprintf("%v", v[i]))
 					}
 				}
-				ctx = context.WithValue(ctx, groupsKey, groups)
+				ctx = context.WithValue(ctx, GroupsKey, groups)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))

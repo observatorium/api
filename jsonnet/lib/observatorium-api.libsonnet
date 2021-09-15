@@ -366,6 +366,10 @@ function(params) {
         tenant
         for tenant in api.config.tenants.tenants
         if std.objectHas(tenant, 'oidc')
+      ] + [
+        tenant
+        for tenant in api.config.tenants.tenants
+        if std.objectHas(tenant, 'authenticator')
       ],
     },
     stringData: {

@@ -42,13 +42,15 @@ const tenantsYamlTpl = `
 tenants:
 - name: test-oidc
   id: 1610b0c3-c509-4592-a256-a1871353dbfa
-  oidc:
-    clientID: test
-    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
-    issuerCAPath: %[1]s
-    issuerURL: https://%[2]s
-    redirectURL: https://localhost:8443/oidc/test-oidc/callback
-    usernameClaim: email
+  authenticator:
+    type: oidc
+    config:
+      clientID: test
+      clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+      issuerCAPath: %[1]s
+      issuerURL: https://%[2]s
+      redirectURL: https://localhost:8443/oidc/test-oidc/callback
+      usernameClaim: email
   opa:
     query: data.observatorium.allow
     paths:
