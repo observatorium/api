@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	apiImage = "quay.io/observatorium/api:latest"
+	apiImage = "quay.io/observatorium/api:local_e2e_test" // Image that is built if you run `make container-test`.
 
-	thanosImage = "quay.io/thanos/thanos:v0.22.0"
+	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
+	thanosImage = "quay.io/thanos/thanos:main-2021-09-23-177b4f23"
 	lokiImage   = "grafana/loki:2.3.0"
 	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
 

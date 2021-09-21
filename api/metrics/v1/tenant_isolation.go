@@ -13,9 +13,13 @@ import (
 	"github.com/prometheus/prometheus/promql/parser"
 )
 
-// WithEnforceTenantLabel returns a middleware that ensures that every query
-// has a tenant label enforced.
-func WithEnforceTenantLabel(label string) func(http.Handler) http.Handler {
+const (
+	queryParam    = "query"
+	matchersParam = "match[]"
+)
+
+// WithEnforceTenancyOnQuery returns a middleware that ensures that every query has a tenant label enforced.
+func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// Adapted from
 		// https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go.
@@ -73,8 +77,6 @@ func WithEnforceTenantLabel(label string) func(http.Handler) http.Handler {
 	}
 }
 
-const queryParam = "query"
-
 // Adapted from
 // https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go.
 func enforceQueryValues(e *injectproxy.Enforcer, v url.Values) (values string, foundQuery bool, err error) {
@@ -97,4 +99,58 @@ func enforceQueryValues(e *injectproxy.Enforcer, v url.Values) (values string, f
 	v.Set(queryParam, expr.String())
 
 	return v.Encode(), true, nil
+}
+
+// WithEnforceTenancyOnMatchers returns a middleware that ensures that every matchers has a tenant label enforced.
+func WithEnforceTenancyOnMatchers(label string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		// matcher ensures all the provided match[] if any has label injected. If none was provided,
+		// single matcher is injected. This works for non-query Prometheus APIs like: /api/v1/series,
+		// /api/v1/label/<name>/values, /api/v1/labels and /federate support multiple matchers.
+		// See e.g https://prometheus.io/docs/prometheus/latest/querying/api/#querying-metadata
+		// Adapted from
+		// https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go#L318.
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			id, ok := authentication.GetTenantID(r.Context())
+			if !ok {
+				http.Error(w, "error finding tenant ID", http.StatusInternalServerError)
+				return
+			}
+
+			matcher := &labels.Matcher{
+				Name:  label,
+				Type:  labels.MatchEqual,
+				Value: id,
+			}
+
+			q := r.URL.Query()
+			matchers := q[matchersParam]
+
+			if len(matchers) == 0 {
+				q.Set(matchersParam, matchersToString(matcher))
+			} else {
+				// Inject label to existing matchers.
+				for i, m := range matchers {
+					ms, err := parser.ParseMetricSelector(m)
+					if err != nil {
+						return
+					}
+					matchers[i] = matchersToString(append(ms, matcher)...)
+				}
+				q[matchersParam] = matchers
+			}
+
+			r.URL.RawQuery = q.Encode()
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func matchersToString(ms ...*labels.Matcher) string {
+	el := make([]string, 0, len(ms))
+	for _, m := range ms {
+		el = append(el, m.String())
+	}
+
+	return fmt.Sprintf("{%v}", strings.Join(el, ","))
 }
