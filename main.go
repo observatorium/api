@@ -474,7 +474,7 @@ func main() {
 			}
 			r.Mount("/oidc/{tenant}", oh.Router())
 
-			// Metrics
+			// Metrics.
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
@@ -498,13 +498,13 @@ func main() {
 					r.Mount("/api/v1/{tenant}",
 						metricslegacy.NewHandler(
 							cfg.metrics.readEndpoint,
-							metricslegacy.Logger(logger),
-							metricslegacy.Registry(reg),
-							metricslegacy.HandlerInstrumenter(ins),
-							metricslegacy.SpanRoutePrefix("/api/v1/{tenant}"),
-							metricslegacy.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-							metricslegacy.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
-							metricslegacy.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricslegacy.WithLogger(logger),
+							metricslegacy.WithRegistry(reg),
+							metricslegacy.WithHandlerInstrumenter(ins),
+							metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
+							metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+							metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						),
 					)
 
@@ -513,21 +513,23 @@ func main() {
 							metricsv1.NewHandler(
 								cfg.metrics.readEndpoint,
 								cfg.metrics.writeEndpoint,
-								metricsv1.Logger(logger),
-								metricsv1.Registry(reg),
-								metricsv1.HandlerInstrumenter(ins),
-								metricsv1.SpanRoutePrefix("/api/metrics/v1/{tenant}"),
-								metricsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-								metricsv1.ReadMiddleware(metricsv1.WithEnforceTenantLabel(cfg.metrics.tenantLabel)),
-								metricsv1.UIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-								metricsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+								metricsv1.WithLogger(logger),
+								metricsv1.WithRegistry(reg),
+								metricsv1.WithHandlerInstrumenter(ins),
+								metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
+								metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+								metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
+								metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 							),
 						),
 					)
 				})
 			}
 
-			// Logs
+			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
@@ -540,11 +542,11 @@ func main() {
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
 								logsv1.Logger(logger),
-								logsv1.Registry(reg),
-								logsv1.HandlerInstrumenter(ins),
-								logsv1.SpanRoutePrefix("/api/logs/v1/{tenant}"),
-								logsv1.ReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
-								logsv1.WriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+								logsv1.WithRegistry(reg),
+								logsv1.WithHandlerInstrumenter(ins),
+								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
+								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
+								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
 							),
 						),
 					)

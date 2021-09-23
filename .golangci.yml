@@ -9,7 +9,7 @@ linters-settings:
   errcheck:
     exclude: .errcheck_excludes
   lll:
-    line-length: 140
+    line-length: 160
   funlen:
-    lines: 120
+    lines: 140
     statements: 60

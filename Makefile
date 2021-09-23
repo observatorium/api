@@ -120,7 +120,7 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 container-test: build
 	@docker build \
 		-f Dockerfile.e2e-test \
-		-t $(DOCKER_REPO):latest .
+		-t $(DOCKER_REPO):local_e2e_test .
 
 .PHONY: container
 container: Dockerfile

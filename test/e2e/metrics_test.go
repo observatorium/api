@@ -5,10 +5,10 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efficientgo/e2e"
 	"github.com/efficientgo/tools/core/pkg/testutil"
@@ -75,7 +75,6 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		{
 			now := model.Now()
 			v, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}", now.Time())
-
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
@@ -91,7 +90,6 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		{
 			now := model.Now()
 			v, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}[1m]", now.Time())
-
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
@@ -101,28 +99,105 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		}
 	})
 
+	// Query Thanos through Observatorium API to ensure we don't change API and the tenancy isolation is ensured.
 	t.Run("metrics-tenant-isolation", func(t *testing.T) {
-		r, err := http.NewRequest(
-			http.MethodGet,
-			"https://"+api.Endpoint("https")+"/api/metrics/v1/test-attacker/api/v1/query?query=observatorium_write",
-			nil,
-		)
-		testutil.Ok(t, err)
-		r.Header.Add("Authorization", "bearer "+token)
-
-		c := &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: getTLSClientConfig(t, e),
-			},
+		tr := &http.Transport{
+			TLSClientConfig: getTLSClientConfig(t, e),
 		}
 
-		res, err := c.Do(r)
+		apiTest, err := promapi.NewClient(promapi.Config{
+			Address:      "https://" + api.Endpoint("https") + "/api/metrics/v1/test-oidc",
+			RoundTripper: &tokenRoundTripper{rt: tr, token: token},
+		})
 		testutil.Ok(t, err)
-		defer res.Body.Close()
-
-		body, err := ioutil.ReadAll(res.Body)
+		apiAttacker, err := promapi.NewClient(promapi.Config{
+			Address:      "https://" + api.Endpoint("https") + "/api/metrics/v1/test-attacker",
+			RoundTripper: &tokenRoundTripper{rt: tr, token: token},
+		})
 		testutil.Ok(t, err)
 
-		assertResponse(t, string(body), "No StoreAPIs matched for this query")
+		now := model.Now()
+		t.Run("query", func(t *testing.T) {
+			v, w, err := v1.NewAPI(apiTest).Query(context.Background(), "observatorium_write{}", now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+
+			vs := strings.Split(v.String(), " => ")
+			testutil.Equals(t, "observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\""+defaultTenantID+"\"}", vs[0])
+
+			// Check timestamp.
+			ts := strings.Split(vs[1], " @")
+			testutil.Equals(t, fmt.Sprintf("[%v]", now), ts[1])
+
+			// For attacker there should be no data.
+			v, w, err = v1.NewAPI(apiAttacker).Query(context.Background(), "observatorium_write{}", now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, "", v.String())
+		})
+		t.Run("query_range", func(t *testing.T) {
+			v, w, err := v1.NewAPI(apiTest).QueryRange(context.Background(), "observatorium_write{}", v1.Range{Start: now.Time().Add(-5 * time.Minute), End: now.Time(), Step: 1 * time.Minute})
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+
+			vs := strings.Split(v.String(), " =>")
+			testutil.Equals(t, "observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\""+defaultTenantID+"\"}", vs[0])
+
+			// Check timestamp.
+			ts := strings.Split(vs[1], " @")
+			testutil.Equals(t, fmt.Sprintf("[%v]", now), ts[1])
+
+			// For attacker there should be no data.
+			v, w, err = v1.NewAPI(apiAttacker).QueryRange(context.Background(), "observatorium_write{}", v1.Range{Start: now.Time().Add(-5 * time.Minute), End: now.Time(), Step: 1 * time.Minute})
+			testutil.Ok(t, err)
+			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, "", v.String())
+		})
+		t.Run("series", func(t *testing.T) {
+			v, w, err := v1.NewAPI(apiTest).Series(context.Background(), []string{"observatorium_write{}"}, now.Time().Add(-5*time.Minute), now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+			testutil.Equals(t, []model.LabelSet{{"__name__": "observatorium_write", "_id": "test", "receive_replica": "0", "tenant_id": "1610b0c3-c509-4592-a256-a1871353dbfa"}}, v)
+
+			// For attacker there should be no data.
+			v, w, err = v1.NewAPI(apiAttacker).Series(context.Background(), []string{"observatorium_write{}"}, now.Time().Add(-5*time.Minute), now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, 0, len(v), "%v", v)
+		})
+		t.Run("label_names", func(t *testing.T) {
+			v, w, err := v1.NewAPI(apiTest).LabelNames(context.Background(), nil, now.Time().Add(-5*time.Minute), now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+			testutil.Equals(t, []string{"__name__", "_id", "receive_replica", "tenant_id"}, v)
+
+			// For attacker there should be no data.
+			v, w, err = v1.NewAPI(apiAttacker).LabelNames(context.Background(), nil, now.Time().Add(-5*time.Minute), now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+			testutil.Equals(t, 0, len(v), "%v", v)
+		})
+		t.Run("labels_values", func(t *testing.T) {
+			v, w, err := v1.NewAPI(apiTest).LabelValues(context.Background(), "__name__", nil, now.Time().Add(-5*time.Minute), now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+			testutil.Equals(t, model.LabelValues{"observatorium_write"}, v)
+
+			// For attacker there should be no data.
+			v, w, err = v1.NewAPI(apiAttacker).LabelValues(context.Background(), "__name__", nil, now.Time().Add(-5*time.Minute), now.Time())
+			testutil.Ok(t, err)
+			testutil.Equals(t, 0, len(w), "%v", w)
+			testutil.Equals(t, 0, len(v), "%v", v)
+		})
 	})
+}
+
+type tokenRoundTripper struct {
+	rt    http.RoundTripper
+	token string
+}
+
+func (rt *tokenRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Add("Authorization", "bearer "+rt.token)
+	return rt.rt.RoundTrip(r)
 }

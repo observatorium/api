@@ -20,50 +20,50 @@ const (
 )
 
 type handlerConfiguration struct {
-	logger          log.Logger
-	registry        *prometheus.Registry
-	instrument      handlerInstrumenter
-	spanRoutePrefix string
-	readMiddlewares []func(http.Handler) http.Handler
-	uiMiddlewares   []func(http.Handler) http.Handler
+	logger           log.Logger
+	registry         *prometheus.Registry
+	instrument       handlerInstrumenter
+	spanRoutePrefix  string
+	queryMiddlewares []func(http.Handler) http.Handler
+	uiMiddlewares    []func(http.Handler) http.Handler
 }
 
 type HandlerOption func(h *handlerConfiguration)
 
-func Logger(logger log.Logger) HandlerOption {
+func WithLogger(logger log.Logger) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.logger = logger
 	}
 }
 
-func Registry(r *prometheus.Registry) HandlerOption {
+func WithRegistry(r *prometheus.Registry) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.registry = r
 	}
 }
 
-func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
+func WithHandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
 	}
 }
 
-// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
-func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+// WithSpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
-// ReadMiddleware adds a middleware for all read operations.
-func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+// WithQueryMiddleware adds a middleware for all query operations.
+func WithQueryMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
-		h.readMiddlewares = append(h.readMiddlewares, m)
+		h.queryMiddlewares = append(h.queryMiddlewares, m)
 	}
 }
 
-// ReadMiddleware adds a middleware for all read operations.
-func UIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+// WithUIMiddleware adds a middleware for all other operations than read, query and write operations.
+func WithUIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.uiMiddlewares = append(h.uiMiddlewares, m)
 	}
@@ -75,7 +75,7 @@ type handlerInstrumenter interface {
 
 type nopInstrumentHandler struct{}
 
-func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc {
+func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handler) http.HandlerFunc {
 	return handler.ServeHTTP
 }
 
@@ -114,7 +114,7 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Use(c.readMiddlewares...)
+		r.Use(c.queryMiddlewares...)
 		const (
 			queryRoute      = "/api/v1/query"
 			queryRangeRoute = "/api/v1/query_range"

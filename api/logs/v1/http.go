@@ -40,36 +40,36 @@ func Logger(logger log.Logger) HandlerOption {
 	}
 }
 
-// Registry adds a custom Prometheus registry for the handler to use.
-func Registry(r *prometheus.Registry) HandlerOption {
+// WithRegistry adds a custom Prometheus registry for the handler to use.
+func WithRegistry(r *prometheus.Registry) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.registry = r
 	}
 }
 
-// HandlerInstrumenter adds a custom HTTP handler instrument middleware for the handler to use.
-func HandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
+// WithHandlerInstrumenter adds a custom HTTP handler instrument middleware for the handler to use.
+func WithHandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
 	}
 }
 
-// SpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
-func SpanRoutePrefix(spanRoutePrefix string) HandlerOption {
+// WithSpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
-// ReadMiddleware adds a middleware for all read operations.
-func ReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+// WithReadMiddleware adds a middleware for all read operations.
+func WithReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.readMiddlewares = append(h.readMiddlewares, m)
 	}
 }
 
-// WriteMiddleware adds a middleware for all write operations.
-func WriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+// WithWriteMiddleware adds a middleware for all write operations.
+func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.writeMiddlewares = append(h.writeMiddlewares, m)
 	}
