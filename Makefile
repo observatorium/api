@@ -55,6 +55,11 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 $(BIN_NAME): deps main.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
 
+%.y.go: %.y | $(GOYACC)
+	$(GOYACC) -p $(basename $(notdir $<)) -o $@ $<
+	sed -i.back '/^\/\/line/ d' $@
+	rm ${@}.back
+
 .PHONY: build
 build: $(BIN_NAME)
 

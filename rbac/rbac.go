@@ -51,7 +51,7 @@ type RoleBinding struct {
 // Authorizer can authorize a subject's permission for a tenant's resource.
 type Authorizer interface {
 	// Authorize answers the question: can subject S in groups G perform permission P on resource R for Tenant T?
-	Authorize(subject string, groups []string, permission Permission, resource, tenant, token string) (int, bool)
+	Authorize(subject string, groups []string, permission Permission, resource, tenant, token string) (int, bool, string)
 }
 
 // tenant represents the read and write permissions of many subjects on a single tenant.
@@ -67,15 +67,16 @@ type tenants map[string]tenant
 type resources map[string]tenants
 
 // Authorize implements the Authorizer interface.
-func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant, token string) (int, bool) {
+
+func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant, token string) (int, bool, string) {
 	ts, ok := rs[resource]
 	if !ok {
-		return http.StatusForbidden, false
+		return http.StatusForbidden, false, ""
 	}
 
 	t, ok := ts[tenant]
 	if !ok {
-		return http.StatusForbidden, false
+		return http.StatusForbidden, false, ""
 	}
 
 	var pmap map[Subject]struct{}
@@ -89,17 +90,17 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 
 	// First check the user directly
 	if _, ok := pmap[Subject{Name: subject, Kind: User}]; ok {
-		return http.StatusOK, ok
+		return http.StatusOK, ok, ""
 	}
 
 	// Now check the user's groups.
 	for _, group := range groups {
 		if _, ok := pmap[Subject{Name: group, Kind: Group}]; ok {
-			return http.StatusOK, ok
+			return http.StatusOK, ok, ""
 		}
 	}
 
-	return http.StatusForbidden, false
+	return http.StatusForbidden, false, ""
 }
 
 //nolint:gocognit
