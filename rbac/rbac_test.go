@@ -973,12 +973,15 @@ func TestNewAuthorizer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			a := NewAuthorizer(tc.roles, tc.roleBindings)
 			for i := range tc.ios {
-				sc, out := a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant, "")
+				sc, out, data := a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource, tc.ios[i].tenant, "")
 				if sc != tc.ios[i].statusCode {
 					t.Errorf("test case %d: expected status code %d; got %d", i, tc.ios[i].statusCode, sc)
 				}
 				if out != tc.ios[i].output {
 					t.Errorf("test case %d: expected return %t; got %t", i, tc.ios[i].output, out)
+				}
+				if data != "" {
+					t.Errorf("test case %d: no custom data supported", i)
 				}
 			}
 		})
