@@ -66,13 +66,19 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, token)
+			tenantID, ok := authentication.GetTenantID(r.Context())
+			if !ok {
+				http.Error(w, "error finding tenant id", http.StatusUnauthorized)
+
+				return
+			}
+
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
 			if !ok {
 				w.WriteHeader(statusCode)
 
 				return
 			}
-
 			next.ServeHTTP(w, r.WithContext(WithData(ctx, data)))
 		})
 	}
