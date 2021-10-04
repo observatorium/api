@@ -96,6 +96,7 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 		for b.Reset(); b.Ongoing(); {
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
+				level.Warn(oh.logger).Log("msg", "failed to instantiate OIDC provider for tenant", "tenant", config.Tenant, "error", err)
 				oh.retryCount.WithLabelValues(config.Tenant).Inc()
 				b.Wait()
 				continue
