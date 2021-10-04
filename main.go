@@ -726,7 +726,16 @@ func parseFlags() (config, error) {
 		rawTracingEndpointType  string
 	)
 
-	cfg := config{}
+	// if at least one metrics/logs endpoint (read or write) is set
+	// metrics/logs will be enabled.
+	cfg := config{
+		metrics: metricsConfig{
+			enabled: false,
+		},
+		logs: logsConfig{
+			enabled: false,
+		},
+	}
 
 	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
 		"Path to the RBAC configuration file.")
