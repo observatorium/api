@@ -29,7 +29,6 @@ const OIDCAuthenticatorType = "oidc"
 
 //nolint:gochecknoinits
 func init() {
-	// authenticatorFactories[OIDCAuthenticatorType] = newOIDCAuthenticator
 	onboardNewProvider(OIDCAuthenticatorType, newOIDCAuthenticator)
 }
 

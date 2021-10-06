@@ -57,7 +57,7 @@ func TestNewAuthentication(t *testing.T) {
 	l := logger.NewLogger("info", logger.LogFormatLogfmt, "")
 
 	// Register the authenticator factory
-	providerFactories[authenticatorTypeName] = newdummyAuthenticator
+	onboardNewProvider(authenticatorTypeName, newdummyAuthenticator)
 
 	tenant := "test-tenant"
 
