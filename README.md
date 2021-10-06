@@ -108,7 +108,7 @@ Usage of ./observatorium-api:
   -middleware.rate-limiter.grpc-address string
     	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
   -rbac.config string
-    	Path to the RBAC configuration file. (default "rbac.yaml")
+    	Path to the RBAC configuration file.
   -tenants.config string
     	Path to the tenants file. (default "tenants.yaml")
   -tls.cipher-suites string

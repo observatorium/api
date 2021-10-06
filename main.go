@@ -43,12 +43,13 @@ import (
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
+	authorizationProviders "github.com/observatorium/api/authorization/providers"
+
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
 	"github.com/observatorium/api/proxy"
 	"github.com/observatorium/api/ratelimit"
-	"github.com/observatorium/api/rbac"
 	"github.com/observatorium/api/server"
 	"github.com/observatorium/api/tls"
 	"github.com/observatorium/api/tracing"
@@ -180,7 +181,12 @@ func main() {
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
 		} `json:"oidc"`
-		MTLS *struct {
+		Authorizer *struct {
+			Type   string                 `json:"type"`
+			Config map[string]interface{} `json:"config"`
+		} `json:"authorizer"`
+		authorizer authorization.Authorizer
+		MTLS       *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
 			cas    []*x509.Certificate
@@ -190,7 +196,6 @@ func main() {
 			Paths           []string `json:"paths"`
 			URL             string   `json:"url"`
 			WithAccessToken bool     `json:"withAccessToken"`
-			authorizer      rbac.Authorizer
 		} `json:"opa"`
 		RateLimits []*struct {
 			Endpoint string   `json:"endpoint"`
@@ -274,7 +279,27 @@ func main() {
 					}
 				}
 			}
-			if t.OPA != nil {
+
+			var authorizer authorization.Authorizer
+
+			if cfg.rbacConfigPath != "" {
+				baseAuthorizer := authorizationProviders.AuthorizationProviderBase{
+					Logger: logger,
+					Type:   "rbac",
+				}
+
+				config := map[string]interface{}{
+					"rbacFilePath": cfg.rbacConfigPath,
+				}
+
+				authorizer, err = authorizationProviders.InitializeTenantAuthorizer(config, &baseAuthorizer)
+				if err != nil {
+					stdlog.Fatalf("failed to initialize rbac authorizer with %s", err)
+				}
+			}
+
+			switch {
+			case t.OPA != nil:
 				if t.OPA.URL != "" {
 					u, err := url.Parse(t.OPA.URL)
 					if err != nil {
@@ -282,7 +307,7 @@ func main() {
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
-					t.OPA.authorizer = opa.NewRESTAuthorizer(u,
+					t.authorizer = opa.NewRESTAuthorizer(u,
 						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
 						opa.AccessTokenOption(t.OPA.WithAccessToken),
 					)
@@ -296,21 +321,34 @@ func main() {
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
-					t.OPA.authorizer = a
+					t.authorizer = a
 				}
-			}
-		}
-	}
+			case t.Authorizer != nil:
+				if t.Authorizer.Config == nil {
+					skip.Log("tenant", t.Name, "err", "failed to find authorizer config")
+					tenantsCfg.Tenants[i] = nil
+					continue
+				}
+				baseAuthorizer := authorizationProviders.AuthorizationProviderBase{
+					Tenant: t.Name,
+					Logger: logger,
+					Type:   t.Authorizer.Type,
+				}
 
-	var authorizer rbac.Authorizer
-	{
-		f, err := os.Open(cfg.rbacConfigPath)
-		if err != nil {
-			stdlog.Fatalf("cannot read RBAC configuration file from path %q: %v", cfg.rbacConfigPath, err)
-		}
-		defer f.Close()
-		if authorizer, err = rbac.Parse(f); err != nil {
-			stdlog.Fatalf("unable to read RBAC YAML: %v", err)
+				authZ, err := authorizationProviders.InitializeTenantAuthorizer(t.Authorizer.Config, &baseAuthorizer)
+				if err != nil {
+					skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to initialize the authorizer: %s", err))
+					tenantsCfg.Tenants[i] = nil
+					continue
+				}
+
+				t.authorizer = authZ
+			case cfg.rbacConfigPath != "":
+				t.authorizer = authorizer
+			default:
+				skip.Log("tenant", t.Name, "err", "failed to find any authorizer")
+				tenantsCfg.Tenants[i] = nil
+			}
 		}
 	}
 
@@ -412,7 +450,7 @@ func main() {
 			tenantIDs := map[string]string{}
 			var oidcs []authentication.TenantOIDCConfig
 			var mTLSs []authentication.MTLSConfig
-			authorizers := map[string]rbac.Authorizer{}
+			authorizers := map[string]authorization.Authorizer{}
 			var rateLimits []ratelimit.Config
 			for _, t := range tenantsCfg.Tenants {
 				if t == nil {
@@ -456,11 +494,8 @@ func main() {
 				default:
 					stdlog.Fatalf("tenant %q must specify either an OIDC or an mTLS configuration", t.Name)
 				}
-				if t.OPA != nil {
-					authorizers[t.Name] = t.OPA.authorizer
-				} else {
-					authorizers[t.Name] = authorizer
-				}
+
+				authorizers[t.Name] = t.authorizer
 			}
 
 			r.Use(authentication.WithTenant)
@@ -502,9 +537,9 @@ func main() {
 							metricslegacy.WithRegistry(reg),
 							metricslegacy.WithHandlerInstrumenter(ins),
 							metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
-							metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, authorization.Read, "metrics")),
 							metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
-							metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, authorization.Read, "metrics")),
 						),
 					)
 
@@ -517,13 +552,13 @@ func main() {
 								metricsv1.WithRegistry(reg),
 								metricsv1.WithHandlerInstrumenter(ins),
 								metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
-								metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, authorization.Read, "metrics")),
 								metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
-								metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+								metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, authorization.Read, "metrics")),
 								metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
 								metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
-								metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-								metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+								metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, authorization.Read, "metrics")),
+								metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, authorization.Write, "metrics")),
 							),
 						),
 					)
@@ -546,9 +581,9 @@ func main() {
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(ins),
 								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
-								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
+								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, authorization.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, authorization.Write, "logs")),
 							),
 						),
 					)
@@ -728,7 +763,7 @@ func parseFlags() (config, error) {
 
 	cfg := config{}
 
-	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
+	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "",
 		"Path to the RBAC configuration file.")
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
 		"Path to the tenants file.")

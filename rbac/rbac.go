@@ -7,20 +7,13 @@ import (
 	"net/http"
 
 	"github.com/ghodss/yaml"
+	"github.com/observatorium/api/authorization"
 )
-
-// Permission is an Observatorium RBAC permission.
-type Permission string
 
 // SubjectKind is a kind of Observatorium RBAC subject.
 type SubjectKind string
 
 const (
-	// Write gives access to write data to a tenant.
-	Write Permission = "write"
-	// Read gives access to read data from a tenant.
-	Read Permission = "read"
-
 	// User represents a subject that is a user.
 	User SubjectKind = "user"
 	// Group represents a subject that is a group.
@@ -29,10 +22,10 @@ const (
 
 // Role describes a set of permissions to interact with a tenant.
 type Role struct {
-	Name        string       `json:"name"`
-	Resources   []string     `json:"resources"`
-	Tenants     []string     `json:"tenants"`
-	Permissions []Permission `json:"permissions"`
+	Name        string                     `json:"name"`
+	Resources   []string                   `json:"resources"`
+	Tenants     []string                   `json:"tenants"`
+	Permissions []authorization.Permission `json:"permissions"`
 }
 
 // Subject represents a subject that has been bound to a role.
@@ -48,12 +41,6 @@ type RoleBinding struct {
 	Roles    []string  `json:"roles"`
 }
 
-// Authorizer can authorize a subject's permission for a tenant's resource.
-type Authorizer interface {
-	// Authorize answers the question: can subject S in groups G perform permission P on resource R for Tenant T?
-	Authorize(subject string, groups []string, permission Permission, resource, tenant, tenantID, token string) (int, bool, string)
-}
-
 // tenant represents the read and write permissions of many subjects on a single tenant.
 type tenant struct {
 	read  map[Subject]struct{}
@@ -67,7 +54,7 @@ type tenants map[string]tenant
 type resources map[string]tenants
 
 // Authorize implements the Authorizer interface.
-func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant,
+func (rs resources) Authorize(subject string, groups []string, permission authorization.Permission, resource, tenant,
 	tenantID, token string) (int, bool, string) {
 	ts, ok := rs[resource]
 	if !ok {
@@ -82,9 +69,9 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 	var pmap map[Subject]struct{}
 
 	switch permission {
-	case Read:
+	case authorization.Read:
 		pmap = t.read
-	case Write:
+	case authorization.Write:
 		pmap = t.write
 	}
 
@@ -105,7 +92,7 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 
 //nolint:gocognit
 // NewAuthorizer creates a new Authorizer.
-func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
+func NewAuthorizer(roles []Role, roleBindings []RoleBinding) authorization.Authorizer {
 	rs := make(map[string]Role)
 	for _, role := range roles {
 		rs[role.Name] = role
@@ -138,9 +125,9 @@ func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
 					for _, s := range rb.Subjects {
 						for _, p := range role.Permissions {
 							switch p {
-							case Read:
+							case authorization.Read:
 								t[tenantName].read[s] = struct{}{}
-							case Write:
+							case authorization.Write:
 								t[tenantName].write[s] = struct{}{}
 							}
 						}
@@ -154,7 +141,7 @@ func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
 }
 
 // Parse parses RBAC data from a reader and creates a new Authorizer.
-func Parse(r io.Reader) (Authorizer, error) {
+func Parse(r io.Reader) (authorization.Authorizer, error) {
 	rbac := struct {
 		Roles        []Role        `json:"roles"`
 		RoleBindings []RoleBinding `json:"roleBindings"`

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/rbac"
 )
 
 // contextKey to use when setting context values in the HTTP package.
@@ -32,7 +31,7 @@ func WithData(ctx context.Context, data string) context.Context {
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
-func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
+func WithAuthorizers(authorizers map[string]Authorizer, permission Permission, resource string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()

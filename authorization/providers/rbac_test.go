@@ -1,4 +1,4 @@
-package rbac
+package providers
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 )
 
 // nolint:dupl,funlen,scopelint
-func TestNewAuthorizer(t *testing.T) {
+func TestRBACAuthorizer(t *testing.T) {
 	type io struct {
 		subject    string
 		groups     []string
@@ -1015,7 +1015,7 @@ func TestNewAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := NewAuthorizer(tc.roles, tc.roleBindings)
+			a := rbacAuthorizer(tc.roles, tc.roleBindings)
 			for i := range tc.ios {
 				sc, out, data := a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource,
 					tc.ios[i].tenant, tc.ios[i].tenantID, "")

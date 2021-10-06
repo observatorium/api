@@ -1,4 +1,4 @@
-package opa
+package providers
 
 import (
 	"bytes"
@@ -12,12 +12,17 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/mitchellh/mapstructure"
+	"github.com/observatorium/api/authorization"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/server/types"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/observatorium/api/authorization"
 )
+
+//nolint:gochecknoinits
+func init() {
+	authorizersFactories["opa"] = newOPAAuthorizer
+}
 
 const (
 	contentTypeHeader           = "Content-Type"
@@ -34,32 +39,34 @@ type Input struct {
 	TenantID   string                   `json:"tenantID"`
 }
 
-type config struct {
+type opaAuthorizerConfig struct {
 	logger          log.Logger
 	registerer      prometheus.Registerer
-	withAccessToken bool
+	Query           string   `json:"query"`
+	Paths           []string `json:"paths"`
+	URL             string   `json:"url"`
+	WithAccessToken bool     `json:"withAccessToken"`
+	// authorizer      authorization.Authorizer
 }
-
-// Option modifies the configuration of an OPA authorizer.
-type Option func(c *config)
+type Option func(c *opaAuthorizerConfig)
 
 // LoggerOption sets a custom logger for the authorizer.
 func LoggerOption(logger log.Logger) Option {
-	return func(c *config) {
+	return func(c *opaAuthorizerConfig) {
 		c.logger = logger
 	}
 }
 
 // AccessTokenOptions sets the flag for the access token requirement.
 func AccessTokenOption(f bool) Option {
-	return func(c *config) {
-		c.withAccessToken = f
+	return func(c *opaAuthorizerConfig) {
+		c.WithAccessToken = f
 	}
 }
 
 // RegistererOption sets a Prometheus registerer for the authorizer.
 func RegistererOption(r prometheus.Registerer) Option {
-	return func(c *config) {
+	return func(c *opaAuthorizerConfig) {
 		c.registerer = r
 	}
 }
@@ -194,26 +201,6 @@ func (a *restAuthorizer) Authorize(
 	return http.StatusOK, allowed, data
 }
 
-// NewRESTAuthorizer creates a new authorization.Authorizer that works against an OPA endpoint.
-func NewRESTAuthorizer(u *url.URL, opts ...Option) authorization.Authorizer {
-	c := &config{
-		logger:     log.NewNopLogger(),
-		registerer: prometheus.NewRegistry(),
-	}
-
-	for _, o := range opts {
-		o(c)
-	}
-
-	return &restAuthorizer{
-		client:          http.DefaultClient,
-		logger:          c.logger,
-		registerer:      c.registerer,
-		url:             u,
-		withAccessToken: c.withAccessToken,
-	}
-}
-
 type inProcessAuthorizer struct {
 	query *rego.PreparedEvalQuery
 
@@ -221,7 +208,6 @@ type inProcessAuthorizer struct {
 	registerer prometheus.Registerer
 }
 
-// Authorize implements the authorization.Authorizer interface.
 func (a *inProcessAuthorizer) Authorize(
 	subject string,
 	groups []string,
@@ -288,9 +274,9 @@ func (a *inProcessAuthorizer) Authorize(
 	return http.StatusOK, allowed, data
 }
 
-// NewInProcessAuthorizer creates a new authorization.Authorizer that works in-process.
-func NewInProcessAuthorizer(query string, paths []string, opts ...Option) (authorization.Authorizer, error) {
-	c := &config{
+// newInProcessAuthorizer creates a new authorization.Authorizer that works in-process.
+func newInProcessAuthorizer(query string, paths []string, opts ...Option) (authorization.Authorizer, error) {
+	c := &opaAuthorizerConfig{
 		logger:     log.NewNopLogger(),
 		registerer: prometheus.NewRegistry(),
 	}
@@ -311,4 +297,55 @@ func NewInProcessAuthorizer(query string, paths []string, opts ...Option) (autho
 		query:      &q,
 		registerer: c.registerer,
 	}, nil
+}
+
+// newRESTAuthorizer creates a new authorization.Authorizer that works against an OPA endpoint.
+func newRESTAuthorizer(u *url.URL, opts ...Option) authorization.Authorizer {
+	c := &opaAuthorizerConfig{
+		logger:     log.NewNopLogger(),
+		registerer: prometheus.NewRegistry(),
+	}
+
+	for _, o := range opts {
+		o(c)
+	}
+
+	return &restAuthorizer{
+		client:          http.DefaultClient,
+		logger:          c.logger,
+		registerer:      c.registerer,
+		url:             u,
+		withAccessToken: c.WithAccessToken,
+	}
+}
+
+func newOPAAuthorizer(c map[string]interface{}, baseAuthorizer *AuthorizationProviderBase) (authorization.Authorizer, error) {
+	var config opaAuthorizerConfig
+
+	err := mapstructure.Decode(c, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.URL != "" {
+		u, err := url.Parse(config.URL)
+		if err != nil {
+			return nil, err
+		}
+
+		return newRESTAuthorizer(u,
+			LoggerOption(log.With(baseAuthorizer.Logger, "tenant", baseAuthorizer.Tenant)),
+			AccessTokenOption(config.WithAccessToken),
+		), nil
+	}
+
+	a, err := newInProcessAuthorizer(config.Query, config.Paths,
+		LoggerOption(log.With(baseAuthorizer.Logger, "tenant", baseAuthorizer.Tenant)),
+		AccessTokenOption(config.WithAccessToken),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
 }

@@ -13,10 +13,12 @@ require (
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/kit v0.10.0
 	github.com/golang/protobuf v1.5.2
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
+	github.com/mitchellh/mapstructure v1.4.1
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
@@ -24,6 +26,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.29.0
 	github.com/prometheus/prometheus v1.8.2-0.20210621150501-ff58416a0b02
+	github.com/stretchr/testify v1.7.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.16.0
 	go.opentelemetry.io/contrib/propagators v0.16.0
 	go.opentelemetry.io/otel v0.16.0

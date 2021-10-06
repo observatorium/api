@@ -1,3 +1,4 @@
+//go:build integration || interactive
 // +build integration interactive
 
 package e2e
@@ -49,11 +50,13 @@ tenants:
     issuerURL: https://%[2]s
     redirectURL: https://localhost:8443/oidc/test-oidc/callback
     usernameClaim: email
-  opa:
-    query: data.observatorium.allow
-    paths:
-      - %[3]s
-      - %[4]s
+  authorizer:
+    type: opa
+    config:
+      query: data.observatorium.allow
+      paths:
+        - %[3]s
+        - %[4]s
   rateLimits:
     - endpoint: "/api/metrics/v1/.+/api/v1/receive"
       limit: 100
