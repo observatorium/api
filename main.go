@@ -180,6 +180,16 @@ func main() {
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
 		} `json:"oidc"`
+		OAUTH2 *struct {
+			ClientID     string `json:"clientID"`
+			ClientSecret string `json:"clientSecret"`
+			IssuerRawCA  []byte `json:"issuerCA"`
+			IssuerCAPath string `json:"issuerCAPath"`
+			issuerCA     *x509.Certificate
+			AuthURL      string `json:"authURL"`
+			TokenURL     string `json:"tokenURL"`
+			RedirectURL  string `json:"redirectURL"`
+		}
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
@@ -239,6 +249,31 @@ func main() {
 						continue
 					}
 					t.OIDC.issuerCA = cert
+				}
+			}
+			if t.OAUTH2 != nil {
+				if t.OAUTH2.IssuerCAPath != "" {
+					t.OAUTH2.IssuerRawCA, err = ioutil.ReadFile(t.OAUTH2.IssuerCAPath)
+					if err != nil {
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read issuer CA certificate file from path %q: %v", t.OAUTH2.IssuerCAPath, err))
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+				}
+				if len(t.OAUTH2.IssuerRawCA) != 0 {
+					block, _ := pem.Decode(t.OAUTH2.IssuerRawCA)
+					if block == nil {
+						skip.Log("tenant", t.Name, "err", "failed to parse issuer CA certificate PEM")
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+					cert, err := x509.ParseCertificate(block.Bytes)
+					if err != nil {
+						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse issuer certificate: %v", err))
+						tenantsCfg.Tenants[i] = nil
+						continue
+					}
+					t.OAUTH2.issuerCA = cert
 				}
 			}
 			if t.MTLS != nil {
@@ -411,6 +446,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			tenantIDs := map[string]string{}
 			var oidcs []authentication.TenantOIDCConfig
+			var oauth2s []authentication.TenantOAuth2Config
 			var mTLSs []authentication.MTLSConfig
 			authorizers := map[string]rbac.Authorizer{}
 			var rateLimits []ratelimit.Config
@@ -448,6 +484,18 @@ func main() {
 							UsernameClaim: t.OIDC.UsernameClaim,
 						},
 					})
+				case t.OAUTH2 != nil:
+					oauth2s = append(oauth2s, authentication.TenantOAuth2Config{
+						Tenant: t.Name,
+						OAuth2Config: authentication.OAuth2Config{
+							ClientID:     t.OAUTH2.ClientID,
+							ClientSecret: t.OAUTH2.ClientSecret,
+							IssuerCA:     t.OAUTH2.issuerCA,
+							AuthURL:      t.OAUTH2.AuthURL,
+							TokenURL:     t.OAUTH2.TokenURL,
+							RedirectURL:  t.OAUTH2.RedirectURL,
+						},
+					})
 				case t.MTLS != nil:
 					mTLSs = append(mTLSs, authentication.MTLSConfig{
 						Tenant: t.Name,
@@ -473,6 +521,12 @@ func main() {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
 			r.Mount("/oidc/{tenant}", oh.Router())
+
+			oah := authentication.NewOAuth2Handlers(logger, reg)
+			for _, oauth2 := range oauth2s {
+				oah.AddOAuth2ForTenant("/oauth2/{tenant}", oauth2)
+			}
+			r.Mount("/oauth2/{tenant}", oah.Router())
 
 			// Metrics.
 			if cfg.metrics.enabled {

@@ -12,6 +12,7 @@ require (
 	github.com/go-chi/chi v4.1.0+incompatible
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/kit v0.10.0
+	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
