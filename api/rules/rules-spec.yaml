@@ -1,0 +1,96 @@
+openapi: 3.0.0
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/observatorium/rules-backend/1.0.0
+info:
+  description: The Rules Backend API
+  version: "1.0.0"
+  title: Rules Backend API
+  contact:
+    email: prem@redhat.com
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+tags:
+  - name: rulesv1
+    description: Calls related to rules
+#   - name: developers
+#     description: Operations available to regular developers
+paths:
+  /api/v1/{tenant}/rules:
+    parameters:
+      - in: path
+        name: tenant
+        description: name of the tenant
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - rulesv1
+      summary: lists all rules for a tenant
+      operationId: listRules
+      description: |
+        You can list all rules for a tenant
+      responses:
+        '200':
+          description: all rules for that tenant
+          content:
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/Rules'
+        '404':
+          description: invalid tenant
+    put:
+      tags:
+        - rulesv1
+      summary: set/overwrite the rules for the tenant
+      operationId: setRules
+      description: Set rules for the tenant
+      responses:
+        '201':
+          description: rule file created
+        '400':
+          description: 'invalid rules object'
+      requestBody:
+        content:
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/Rules'
+        description: Rules to set
+components:
+  schemas:
+    Rules:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleGroup'
+    RuleGroup:
+      type: object
+      properties:
+        interval:
+          type: string
+          example: '1m'
+        name:
+          type: string
+          example: 'telemeter.rules'
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rule'
+    Rule:
+      type: object
+      properties:
+        expr:
+          type: string
+          example: 'count by (name) (cluster{condition="halted"} == 1)'
+        record:
+          type: string
+          example: 'count:cluster_halted'
+        labels:
+          type: object
+          additionalProperties:
+            type: string
