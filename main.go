@@ -108,6 +108,7 @@ type tlsConfig struct {
 type metricsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
+	rulesEndpoint *url.URL
 	tenantHeader  string
 	tenantLabel   string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
@@ -527,6 +528,20 @@ func main() {
 							),
 						),
 					)
+
+					r.Mount("/api/v1/{tenant}/rules",
+						// TODO: config handler
+						metricsv1.NewRulesHandler(
+							cfg.metrics.rulesEndpoint,
+							metricslegacy.WithLogger(logger),
+							metricslegacy.WithRegistry(reg),
+							metricslegacy.WithHandlerInstrumenter(ins),
+							metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
+							metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+							metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+							metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						),
+					)
 				})
 			}
 
@@ -720,6 +735,7 @@ func parseFlags() (config, error) {
 		rawTLSCipherSuites      string
 		rawMetricsReadEndpoint  string
 		rawMetricsWriteEndpoint string
+		rawMetricsRulesEndpoint  string
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
@@ -768,6 +784,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
+		"The endpoint against which to make post requests for creating recording rules.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
@@ -827,6 +845,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.metrics.writeEndpoint = metricsWriteEndpoint
+	}
+
+	if rawMetricsRulesEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		metricsRulesEndpoint, err := url.ParseRequestURI(rawMetricsRulesEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.rules.endpoint %q is invalid: %w", rawMetricsRulesEndpoint, err)
+		}
+
+		cfg.metrics.rulesEndpoint = metricsRulesEndpoint
 	}
 
 	if rawLogsReadEndpoint != "" {
