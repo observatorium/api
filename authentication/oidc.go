@@ -22,8 +22,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const state = "I love Observatorium"
-
 // TenantOIDCConfig represents the OIDC configuration for a single tenant.
 type TenantOIDCConfig struct {
 	Tenant string
@@ -55,21 +53,12 @@ type OIDCHandlers struct {
 }
 
 // NewOIDCHandlers instantiates OIDC handlers.
-func NewOIDCHandlers(l log.Logger, reg prometheus.Registerer) *OIDCHandlers {
-	tenantsFailing := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "observatorium",
-		Subsystem: "api",
-		Name:      "tenants_failed_registrations",
-		Help:      "The number of failed OIDC provider instantiations.",
-	}, []string{"tenant"})
-
-	reg.MustRegister(tenantsFailing)
-
+func NewOIDCHandlers(l log.Logger, retryCount *prometheus.CounterVec) *OIDCHandlers {
 	return &OIDCHandlers{
 		handlers:    make(map[string]http.Handler),
 		middlewares: make(map[string]Middleware),
 		logger:      l,
-		retryCount:  tenantsFailing,
+		retryCount:  retryCount,
 	}
 }
 
@@ -97,7 +86,7 @@ func (oh *OIDCHandlers) AddOIDCForTenant(prefix string, config TenantOIDCConfig)
 			p, err := NewProvider(ctx, oh.logger, getCookieForTenant(config.Tenant), "/"+config.Tenant, config.OIDCConfig)
 			if err != nil {
 				level.Warn(oh.logger).Log("msg", "failed to instantiate OIDC provider for tenant", "tenant", config.Tenant, "error", err)
-				oh.retryCount.WithLabelValues(config.Tenant).Inc()
+				oh.retryCount.WithLabelValues(config.Tenant, providerOIDC).Inc()
 				b.Wait()
 				continue
 			}

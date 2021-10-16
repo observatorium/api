@@ -43,6 +43,7 @@ import (
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/authentication/openshift"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
@@ -180,6 +181,12 @@ func main() {
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
 		} `json:"oidc"`
+		OpenShift *struct {
+			KubeConfigPath string `json:"kubeconfig"`
+			ServiceAccount string `json:"serviceAccount"`
+			RedirectURL    string `json:"redirectURL"`
+			CookieSecret   string `json:"cookieSecret"`
+		} `json:"openshift"`
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
@@ -411,6 +418,8 @@ func main() {
 		r.Group(func(r chi.Router) {
 			tenantIDs := map[string]string{}
 			var oidcs []authentication.TenantOIDCConfig
+			var ocpAuths []authentication.TenantOpenShiftAuthConfig
+			var ocpCA []byte
 			var mTLSs []authentication.MTLSConfig
 			authorizers := map[string]rbac.Authorizer{}
 			var rateLimits []ratelimit.Config
@@ -448,6 +457,25 @@ func main() {
 							UsernameClaim: t.OIDC.UsernameClaim,
 						},
 					})
+				case t.OpenShift != nil:
+					// Load CAs once for all tenants using openshift authentication.
+					if len(ocpCA) == 0 {
+						ocpCA, err = openshift.GetServiceAccountCACert()
+						if err != nil {
+							level.Warn(logger).Log("msg", "failed to load serviceccount ca certificate", "err", err)
+							continue
+						}
+					}
+					ocpAuths = append(ocpAuths, authentication.TenantOpenShiftAuthConfig{
+						Tenant: t.Name,
+						OpenShiftAuthConfig: authentication.OpenShiftAuthConfig{
+							KubeConfigPath:   t.OpenShift.KubeConfigPath,
+							ServiceAccount:   t.OpenShift.ServiceAccount,
+							ServiceAccountCA: ocpCA,
+							RedirectURL:      t.OpenShift.RedirectURL,
+							CookieSecret:     t.OpenShift.CookieSecret,
+						},
+					})
 				case t.MTLS != nil:
 					mTLSs = append(mTLSs, authentication.MTLSConfig{
 						Tenant: t.Name,
@@ -467,17 +495,25 @@ func main() {
 			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
 
+			tfm := authentication.RegisterTenantsFailingMetric(reg)
+
 			mTLSMiddlewareFunc := authentication.NewMTLS(mTLSs)
-			oh := authentication.NewOIDCHandlers(logger, reg)
+			oh := authentication.NewOIDCHandlers(logger, tfm)
 			for _, oidc := range oidcs {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
 			r.Mount("/oidc/{tenant}", oh.Router())
 
+			osh := authentication.NewOpenShiftAuthHandlers(logger, tfm)
+			for _, ocpauth := range ocpAuths {
+				osh.AddOpenShiftAuthForTenant("/openshift/{tenant}", ocpauth)
+			}
+			r.Mount("/openshift/{tenant}", osh.Router())
+
 			// Metrics.
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -533,7 +569,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",
