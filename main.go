@@ -107,19 +107,21 @@ type tlsConfig struct {
 }
 
 type metricsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	tenantHeader  string
-	tenantLabel   string
+	readEndpoint   *url.URL
+	writeEndpoint  *url.URL
+	upstreamCAFile string
+	tenantHeader   string
+	tenantLabel    string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
 	enabled bool
 }
 
 type logsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	tailEndpoint  *url.URL
-	tenantHeader  string
+	readEndpoint   *url.URL
+	writeEndpoint  *url.URL
+	tailEndpoint   *url.URL
+	upstreamCAFile string
+	tenantHeader   string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -402,6 +404,25 @@ func main() {
 			)
 		}
 
+		var (
+			metricsUpstreamCACert []byte
+			logsUpstreamCACert    []byte
+		)
+
+		if cfg.metrics.upstreamCAFile != "" {
+			metricsUpstreamCACert, err = ioutil.ReadFile(cfg.metrics.upstreamCAFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream metrics TLS CA: %v", err)
+			}
+		}
+
+		if cfg.logs.upstreamCAFile != "" {
+			logsUpstreamCACert, err = ioutil.ReadFile(cfg.logs.upstreamCAFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream logs TLS CA: %v", err)
+			}
+		}
+
 		r := chi.NewRouter()
 		r.Use(middleware.RequestID)
 		r.Use(middleware.RealIP)
@@ -534,6 +555,7 @@ func main() {
 					r.Mount("/api/v1/{tenant}",
 						metricslegacy.NewHandler(
 							cfg.metrics.readEndpoint,
+							metricsUpstreamCACert,
 							metricslegacy.WithLogger(logger),
 							metricslegacy.WithRegistry(reg),
 							metricslegacy.WithHandlerInstrumenter(ins),
@@ -549,6 +571,7 @@ func main() {
 							metricsv1.NewHandler(
 								cfg.metrics.readEndpoint,
 								cfg.metrics.writeEndpoint,
+								metricsUpstreamCACert,
 								metricsv1.WithLogger(logger),
 								metricsv1.WithRegistry(reg),
 								metricsv1.WithHandlerInstrumenter(ins),
@@ -578,6 +601,7 @@ func main() {
 								cfg.logs.readEndpoint,
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
+								logsUpstreamCACert,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(ins),
@@ -796,6 +820,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
 		"The endpoint against which to make read requests for logs.")
+	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
 		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
@@ -804,6 +830,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",

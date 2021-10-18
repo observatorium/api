@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"crypto/x509"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -111,7 +112,8 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 }
 
 // NewHandler creates the new metrics v1 handler.
-func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
+// nolint:funlen
+func NewHandler(read, write *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -167,16 +169,21 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-read"}),
 			)
 
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: readTimeout,
+				}).DialContext,
+			}
+
+			if len(upstreamCA) != 0 {
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			}
+
 			proxyRead = &httputil.ReverseProxy{
-				Director: middlewares,
-				ErrorLog: proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(
-					&http.Transport{
-						DialContext: (&net.Dialer{
-							Timeout: readTimeout,
-						}).DialContext,
-					},
-				),
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
 			}
 		}
 		r.Group(func(r chi.Router) {
@@ -204,6 +211,12 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
 			)
 
+			t := http.DefaultTransport.(*http.Transport)
+			if len(upstreamCA) != 0 {
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			}
+
 			uiProxy = &httputil.ReverseProxy{
 				Director:  middlewares,
 				Transport: otelhttp.NewTransport(http.DefaultTransport),
@@ -228,16 +241,21 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
 			)
 
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: writeTimeout,
+				}).DialContext,
+			}
+
+			if len(upstreamCA) != 0 {
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			}
+
 			proxyWrite = &httputil.ReverseProxy{
-				Director: middlewares,
-				ErrorLog: proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(
-					&http.Transport{
-						DialContext: (&net.Dialer{
-							Timeout: writeTimeout,
-						}).DialContext,
-					},
-				),
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
 			}
 		}
 		r.Group(func(r chi.Router) {

@@ -1,6 +1,7 @@
 package legacy
 
 import (
+	"crypto/x509"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -79,7 +80,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 	return handler.ServeHTTP
 }
 
-func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
+func NewHandler(url *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -100,16 +101,21 @@ func NewHandler(url *url.URL, opts ...HandlerOption) http.Handler {
 			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricslegacy-read"}),
 		)
 
+		t := &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: readTimeout,
+			}).DialContext,
+		}
+
+		if len(upstreamCA) != 0 {
+			t.TLSClientConfig.RootCAs = x509.NewCertPool()
+			t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+		}
+
 		legacyProxy = &httputil.ReverseProxy{
-			Director: middlewares,
-			ErrorLog: proxy.Logger(c.logger),
-			Transport: otelhttp.NewTransport(
-				&http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: readTimeout,
-					}).DialContext,
-				},
-			),
+			Director:  middlewares,
+			ErrorLog:  proxy.Logger(c.logger),
+			Transport: otelhttp.NewTransport(t),
 		}
 	}
 
