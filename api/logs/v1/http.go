@@ -2,6 +2,7 @@
 package http
 
 import (
+	"crypto/x509"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -85,7 +86,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler {
+func NewHandler(read, tail, write *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -108,16 +109,21 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-read"}),
 			)
 
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: ReadTimeout,
+				}).DialContext,
+			}
+
+			if len(upstreamCA) != 0 {
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			}
+
 			proxyRead = &httputil.ReverseProxy{
-				Director: middlewares,
-				ErrorLog: proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(
-					&http.Transport{
-						DialContext: (&net.Dialer{
-							Timeout: ReadTimeout,
-						}).DialContext,
-					},
-				),
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
 			}
 		}
 		r.Group(func(r chi.Router) {
@@ -199,14 +205,21 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-tail"}),
 			)
 
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: ReadTimeout,
+				}).DialContext,
+			}
+
+			if len(upstreamCA) != 0 {
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			}
+
 			tailRead = &httputil.ReverseProxy{
-				Director: middlewares,
-				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: ReadTimeout,
-					}).DialContext,
-				},
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: t,
 			}
 		}
 		r.Group(func(r chi.Router) {
@@ -236,16 +249,21 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-write"}),
 			)
 
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: WriteTimeout,
+				}).DialContext,
+			}
+
+			if len(upstreamCA) != 0 {
+				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			}
+
 			proxyWrite = &httputil.ReverseProxy{
-				Director: middlewares,
-				ErrorLog: proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(
-					&http.Transport{
-						DialContext: (&net.Dialer{
-							Timeout: ReadTimeout,
-						}).DialContext,
-					},
-				),
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
 			}
 		}
 		r.Group(func(r chi.Router) {
