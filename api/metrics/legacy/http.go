@@ -1,6 +1,7 @@
 package legacy
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"net"
 	"net/http"
@@ -108,7 +109,9 @@ func NewHandler(url *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Han
 		}
 
 		if len(upstreamCA) != 0 {
-			t.TLSClientConfig.RootCAs = x509.NewCertPool()
+			t.TLSClientConfig = &tls.Config{
+				RootCAs: x509.NewCertPool(),
+			}
 			t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
 		}
 

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"net"
 	"net/http"
@@ -176,7 +177,9 @@ func NewHandler(read, write *url.URL, upstreamCA []byte, opts ...HandlerOption) 
 			}
 
 			if len(upstreamCA) != 0 {
-				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig = &tls.Config{
+					RootCAs: x509.NewCertPool(),
+				}
 				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
 			}
 
@@ -213,7 +216,9 @@ func NewHandler(read, write *url.URL, upstreamCA []byte, opts ...HandlerOption) 
 
 			t := http.DefaultTransport.(*http.Transport)
 			if len(upstreamCA) != 0 {
-				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig = &tls.Config{
+					RootCAs: x509.NewCertPool(),
+				}
 				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
 			}
 
@@ -248,7 +253,9 @@ func NewHandler(read, write *url.URL, upstreamCA []byte, opts ...HandlerOption) 
 			}
 
 			if len(upstreamCA) != 0 {
-				t.TLSClientConfig.RootCAs = x509.NewCertPool()
+				t.TLSClientConfig = &tls.Config{
+					RootCAs: x509.NewCertPool(),
+				}
 				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
 			}
 
