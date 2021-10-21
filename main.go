@@ -531,16 +531,7 @@ func main() {
 
 					r.Mount("/api/v1/{tenant}/rules",
 						// TODO: config handler
-						metricsv1.NewRulesHandler(
-							cfg.metrics.rulesEndpoint,
-							metricslegacy.WithLogger(logger),
-							metricslegacy.WithRegistry(reg),
-							metricslegacy.WithHandlerInstrumenter(ins),
-							metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
-							metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-							metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
-							metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						),
+						metricsv1.Handler(),
 					)
 				})
 			}

@@ -40,6 +40,10 @@ Compatible backends must implement the Prometheus HTTP API, e.g. Prometheus, Tha
 The backend to which to write metrics can be specified with the `--metrics.write.endpoint` flag.
 Compatible backends must implement the Prometheus remote-write API, e.g. Thanos receiver, Cortex, etc.
 
+#### --metrics.rules.endpoint
+
+The backend to which to write rules can be specified with the `--metrics.rules.endpoint` flag.
+
 ### Logs
 
 The Observatorium API server can serve read and write requests for logs.
