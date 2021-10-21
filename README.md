@@ -42,7 +42,7 @@ Compatible backends must implement the Prometheus remote-write API, e.g. Thanos 
 
 #### --metrics.rules.endpoint
 
-The backend to which to write rules can be specified with the `--metrics.rules.endpoint` flag.
+The rules backend to where rules can be stored can be specified with the `--metrics.rules.endpoint` flag.
 
 ### Logs
 
