@@ -281,7 +281,6 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 		//	level.Warn(c.logger).Log("msg", "could not create rules endpoint client")
 		//}
 		//client.ListRules(tenant)
-
 		var proxyRules http.Handler
 		{
 			middlewares := proxy.Middlewares(
