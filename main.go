@@ -588,10 +588,10 @@ func main() {
 						),
 					)
 
-					r.Mount("/api/v1/{tenant}/rules",
-						// TODO: config handler
-						metricsv1.Handler(),
-					)
+					//r.Mount("/api/v1/{tenant}/rules",
+					//	// TODO: config handler
+					//	server2.Handler(),
+					//)
 				})
 			}
 
