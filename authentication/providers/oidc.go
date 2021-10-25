@@ -258,14 +258,14 @@ func (a OIDCAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 	})
 }
 
-func (a OIDCAuthenticator) GetHandler() http.Handler {
+func (a OIDCAuthenticator) GetHandler() (string, http.Handler) {
 	r := chi.NewRouter()
 
 	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		a.Handler.ServeHTTP(w, r)
 	}))
 
-	return r
+	return "/oidc/{tenant}", r
 }
 
 func (a OIDCAuthenticator) GetTenant() string {

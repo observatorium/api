@@ -545,17 +545,17 @@ func main() {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
 
-			routers := oh.Router()
-			if ah.AuthenticatorsRouters() != nil {
-				routers = ah.AuthenticatorsRouters()
-			}
-			r.Mount("/oidc/{tenant}", routers)
+			r.Mount("/oidc/{tenant}", oh.Router())
 
 			osh := authentication.NewOpenShiftAuthHandlers(logger, tfm)
 			for _, ocpauth := range ocpAuths {
 				osh.AddOpenShiftAuthForTenant("/openshift/{tenant}", ocpauth)
 			}
 			r.Mount("/openshift/{tenant}", osh.Router())
+
+			for handlerPrefixPattern, handler := range ah.Routes() {
+				r.Mount(handlerPrefixPattern, handler)
+			}
 
 			// Metrics.
 			if cfg.metrics.enabled {

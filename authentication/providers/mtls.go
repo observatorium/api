@@ -141,8 +141,8 @@ func (a MTLSAuthenticator) AuthenticationMiddleware(next http.Handler) http.Hand
 	})
 }
 
-func (a MTLSAuthenticator) GetHandler() http.Handler {
-	return nil
+func (a MTLSAuthenticator) GetHandler() (string, http.Handler) {
+	return "", nil
 }
 
 func (a MTLSAuthenticator) GetTenant() string {

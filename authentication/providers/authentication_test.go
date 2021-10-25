@@ -30,8 +30,8 @@ func (a DummyAuthenticator) AuthenticationMiddleware(next http.Handler) http.Han
 	})
 }
 
-func (a DummyAuthenticator) GetHandler() http.Handler {
-	return nil
+func (a DummyAuthenticator) GetHandler() (string, http.Handler) {
+	return "", nil
 }
 
 func (a DummyAuthenticator) GetTenant() string {
@@ -88,7 +88,7 @@ func TestNewAuthentication(t *testing.T) {
 			t.Fatalf("middleware of the dummy authenticator has not been found")
 		}
 
-		handler := initializedAuthenticator.GetHandler()
+		_, handler := initializedAuthenticator.GetHandler()
 		if handler != nil {
 			t.Fatalf("getting undefined handler should be nil")
 		}

@@ -10,7 +10,6 @@ import (
 
 	"net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/observatorium/api/authentication"
 )
 
@@ -37,24 +36,18 @@ type AuthenticatorFactory func(c map[string]interface{}, tenant string, logger l
 // provider.
 type AuthenticationProvider interface {
 	AuthenticationMiddleware(next http.Handler) http.Handler
-	GetHandler() http.Handler
+	GetHandler() (string, http.Handler)
 	GetTenant() string
 }
 
-// AuthenticationProviderBase holds the base information of an authenticator
-type AuthenticationProviderBase struct {
-	Tenant string
-	Type   string
-	Logger log.Logger
-}
+type tenantsHandlers map[string]http.Handler
 
 // AuthenticatorsHandlers manages all middleware and handlers of all authenticators
 type AuthenticatorsHandlers struct {
-	mtx sync.RWMutex
-
-	handlers    map[string]http.Handler
-	middlewares map[string]authentication.Middleware
-	logger      log.Logger
+	mtx              sync.RWMutex
+	patternsHandlers map[string]tenantsHandlers
+	middlewares      map[string]authentication.Middleware
+	logger           log.Logger
 }
 
 // NewAuthenticatorsHandlers create a new authentication handler
@@ -69,9 +62,9 @@ func NewAuthenticatorsHandlers(l log.Logger, reg prometheus.Registerer) *Authent
 	reg.MustRegister(registrationRetryCount)
 
 	return &AuthenticatorsHandlers{
-		handlers:    make(map[string]http.Handler),
-		middlewares: make(map[string]authentication.Middleware),
-		logger:      l,
+		patternsHandlers: make(map[string]tenantsHandlers),
+		middlewares:      make(map[string]authentication.Middleware),
+		logger:           l,
 	}
 }
 
@@ -98,7 +91,13 @@ func (ah *AuthenticatorsHandlers) NewTenantAuthenticator(config map[string]inter
 
 		ah.mtx.Lock()
 		ah.middlewares[authenticator.GetTenant()] = ah.getAuthenticatorMiddleware(authenticator)
-		ah.handlers[authenticator.GetTenant()] = authenticator.GetHandler()
+		pattern, handler := authenticator.GetHandler()
+		if pattern != "" && handler != nil {
+			if ah.patternsHandlers[pattern] == nil {
+				ah.patternsHandlers[pattern] = make(tenantsHandlers)
+			}
+			ah.patternsHandlers[pattern][authenticator.GetTenant()] = handler
+		}
 		ah.mtx.Unlock()
 
 		level.Debug(ah.logger).Log("msg", fmt.Sprintf("successfully initialized authenticator %s", authenticatorType), "tenant", tenant)
@@ -116,28 +115,33 @@ func (ah *AuthenticatorsHandlers) AuthenticatorMiddlewares(tenant string) (authe
 	return mw, ok
 }
 
-func (ah *AuthenticatorsHandlers) AuthenticatorsRouters() *chi.Mux {
-	r := chi.NewRouter()
+func (ah *AuthenticatorsHandlers) Routes() map[string]http.HandlerFunc {
+	handlers := make(map[string]http.HandlerFunc)
+	patternHandler := func(pattern string) http.HandlerFunc {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant, ok := authentication.GetTenant(r.Context())
+			const msg = "error finding tenant"
+			if !ok {
+				level.Warn(ah.logger).Log("msg", msg, "tenant", tenant)
+				http.Error(w, msg, http.StatusInternalServerError)
+				return
+			}
 
-	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenant, ok := authentication.GetTenant(r.Context())
-		const msg = "error finding tenant"
-		if !ok {
-			level.Warn(ah.logger).Log("msg", msg, "tenant", tenant)
-			http.Error(w, msg, http.StatusInternalServerError)
-			return
-		}
+			h, ok := ah.patternsHandlers[pattern][tenant]
+			if !ok {
+				level.Debug(ah.logger).Log("msg", msg, "tenant", tenant)
+				http.Error(w, msg, http.StatusUnauthorized)
+				return
+			}
+			h.ServeHTTP(w, r)
+		})
+	}
 
-		h, ok := ah.handlers[tenant]
-		if !ok {
-			level.Debug(ah.logger).Log("msg", msg, "tenant", tenant)
-			http.Error(w, msg, http.StatusUnauthorized)
-			return
-		}
-		h.ServeHTTP(w, r)
-	}))
+	for pattern := range ah.patternsHandlers {
+		handlers[pattern] = patternHandler(pattern)
+	}
 
-	return r
+	return handlers
 }
 
 func (ah *AuthenticatorsHandlers) getAuthenticatorFactory(authType string) (AuthenticatorFactory, error) {
