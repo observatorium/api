@@ -33,14 +33,25 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 
 	t.Run("tenants-authenticator-provider-retry", func(t *testing.T) {
 		// Check that retries metric increases eventually.
+		// This is with the new authenticators setup.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
 			e2e.Greater(0),
-			[]string{"observatorium_api_tenants_authenticator_failed_registrations"},
-			// []string{"observatorium_api_tenants_failed_registrations"},
+			[]string{"observatorium_api_tenants_failed_registrations"},
 			e2e.WaitMissingMetrics(),
 			e2e.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-oidc"),
-				matchers.MustNewMatcher(matchers.MatchEqual, "authenticator", "oidc"),
+				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
+			),
+		))
+
+		// Test a tenant with legacy configuration setup.
+		testutil.Ok(t, api.WaitSumMetricsWithOptions(
+			e2e.Greater(0),
+			[]string{"observatorium_api_tenants_failed_registrations"},
+			e2e.WaitMissingMetrics(),
+			e2e.WithLabelMatchers(
+				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-attacker"),
+				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
 			),
 		))
 

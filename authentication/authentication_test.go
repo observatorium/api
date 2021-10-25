@@ -1,4 +1,4 @@
-package providers
+package authentication
 
 import (
 	"context"
@@ -21,27 +21,25 @@ type DummyAuthenticatorConfig struct {
 	Name string `json:"name"`
 }
 
-func (a DummyAuthenticator) AuthenticationMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		type key string
-		const authenticatedKey key = "authenticated"
-		ctx := context.WithValue(r.Context(), authenticatedKey, true)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+func (a DummyAuthenticator) Middleware() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			type key string
+			const authenticatedKey key = "authenticated"
+			ctx := context.WithValue(r.Context(), authenticatedKey, true)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
-func (a DummyAuthenticator) GetHandler() (string, http.Handler) {
+func (a DummyAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
 
-func (a DummyAuthenticator) GetTenant() string {
-	return a.tenant
-}
-
-func newDummyAuthenticator(c map[string]interface{}, tenant string, logger log.Logger) (AuthenticationProvider, error) {
+func newDummyAuthenticator(c map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
 	var config DummyAuthenticatorConfig
-	err := mapstructure.Decode(c, &config)
 
+	err := mapstructure.Decode(c, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -59,26 +57,27 @@ func TestNewAuthentication(t *testing.T) {
 	l := logger.NewLogger("info", logger.LogFormatLogfmt, "")
 
 	// Register the authenticator factory
-	authenticatorsFactories[authenticatorTypeName] = newDummyAuthenticator
+	authenticatorFactories[authenticatorTypeName] = newDummyAuthenticator
 
 	tenant := "test-tenant"
 
 	reg := prometheus.NewRegistry()
-	ah := NewAuthenticatorsHandlers(l, reg)
+	registrationFailingMetric := RegisterTenantsFailingMetric(reg)
+	ah := NewAuthenticatorsHandlers(l, registrationFailingMetric)
 
 	t.Run("Getting an authenticator factory", func(t *testing.T) {
-		_, err := ah.getAuthenticatorFactory(authenticatorTypeName)
+		_, err := getAuthenticatorFactory(authenticatorTypeName)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
-		_, err = ah.getAuthenticatorFactory("unregistered-authenticator")
+		_, err = getAuthenticatorFactory("unregistered-authenticator")
 		if err == nil {
 			t.Fatalf("getting an authenticator factory of unregistered authenticator should fail")
 		}
 	})
 
 	t.Run("initialize authenticators", func(t *testing.T) {
-		initializedAuthenticator := <-ah.NewTenantAuthenticator(dummyConfig, tenant, authenticatorTypeName, l)
+		initializedAuthenticator := <-ah.NewTenantAuthenticator(dummyConfig, tenant, authenticatorTypeName, registrationFailingMetric, l)
 		if initializedAuthenticator == nil {
 			t.Fatalf("initialized authenticator should not be nil")
 		}
@@ -88,12 +87,12 @@ func TestNewAuthentication(t *testing.T) {
 			t.Fatalf("middleware of the dummy authenticator has not been found")
 		}
 
-		_, handler := initializedAuthenticator.GetHandler()
+		_, handler := initializedAuthenticator.Handler()
 		if handler != nil {
 			t.Fatalf("getting undefined handler should be nil")
 		}
 
-		nonExistAuthenticator := <-ah.NewTenantAuthenticator(dummyConfig, tenant, "not-exist", l)
+		nonExistAuthenticator := <-ah.NewTenantAuthenticator(dummyConfig, tenant, "not-exist", registrationFailingMetric, l)
 		if nonExistAuthenticator != nil {
 			t.Fatalf("intializing a non-exist authenticator should return a nil authenticator")
 		}

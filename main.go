@@ -5,7 +5,6 @@ import (
 	stdtls "crypto/tls"
 	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"flag"
 	"fmt"
@@ -43,8 +42,6 @@ import (
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/authentication/openshift"
-	providers "github.com/observatorium/api/authentication/providers"
 
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
@@ -184,12 +181,14 @@ func main() {
 			IssuerURL     string `json:"issuerURL"`
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
+			config        map[string]interface{}
 		} `json:"oidc"`
 		OpenShift *struct {
 			KubeConfigPath string `json:"kubeconfig"`
 			ServiceAccount string `json:"serviceAccount"`
 			RedirectURL    string `json:"redirectURL"`
 			CookieSecret   string `json:"cookieSecret"`
+			config         map[string]interface{}
 		} `json:"openshift"`
 		Authenticator *struct {
 			Type   string                 `json:"type"`
@@ -200,6 +199,7 @@ func main() {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
 			cas    []*x509.Certificate
+			config map[string]interface{}
 		} `json:"mTLS"`
 		OPA *struct {
 			Query           string   `json:"query"`
@@ -233,63 +233,36 @@ func main() {
 		skip := level.Warn(log.With(logger, "msg", "skipping invalid tenant"))
 		for i, t := range tenantsCfg.Tenants {
 			if t.OIDC != nil {
-				if t.OIDC.IssuerCAPath != "" {
-					t.OIDC.IssuerRawCA, err = ioutil.ReadFile(t.OIDC.IssuerCAPath)
-					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read issuer CA certificate file from path %q: %v", t.OIDC.IssuerCAPath, err))
-						tenantsCfg.Tenants[i] = nil
-						continue
-					}
+				oidcConfig, err := unmarshalLegacyAuthenticatorConfig(t.OIDC)
+				if err != nil {
+					skip.Log("msg", "failed to unmarshal legacy OIDC config", "err", err, "tenant", t.Name)
+					tenantsCfg.Tenants[i] = nil
+					continue
 				}
-				if len(t.OIDC.IssuerRawCA) != 0 {
-					block, _ := pem.Decode(t.OIDC.IssuerRawCA)
-					if block == nil {
-						skip.Log("tenant", t.Name, "err", "failed to parse issuer CA certificate PEM")
-						tenantsCfg.Tenants[i] = nil
-						continue
-					}
-					cert, err := x509.ParseCertificate(block.Bytes)
-					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse issuer certificate: %s", err))
-						tenantsCfg.Tenants[i] = nil
-						continue
-					}
-					t.OIDC.issuerCA = cert
-				}
+
+				t.OIDC.config = oidcConfig
 			}
+
 			if t.MTLS != nil {
-				if t.MTLS.CAPath != "" {
-					t.MTLS.RawCA, err = ioutil.ReadFile(t.MTLS.CAPath)
-					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("cannot read CA certificate file from path %q: %v", t.OIDC.IssuerCAPath, err))
-						tenantsCfg.Tenants[i] = nil
-						continue
-					}
+				mTLSConfig, err := unmarshalLegacyAuthenticatorConfig(t.MTLS)
+				if err != nil {
+					skip.Log("msg", "failed to unmarshal legacy mTLS config", "err", err, "tenant", t.Name)
+					tenantsCfg.Tenants[i] = nil
+					continue
 				}
-				var (
-					block *pem.Block
-					rest  []byte = t.MTLS.RawCA
-					cert  *x509.Certificate
-				)
-				for {
-					block, rest = pem.Decode(rest)
-					if block == nil {
-						skip.Log("tenant", t.Name, "err", "failed to parse CA certificate PEM")
-						tenantsCfg.Tenants[i] = nil
-						break
-					}
-					cert, err = x509.ParseCertificate(block.Bytes)
-					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse CA certificate: %v", err))
-						tenantsCfg.Tenants[i] = nil
-						break
-					}
-					t.MTLS.cas = append(t.MTLS.cas, cert)
-					if len(rest) == 0 {
-						break
-					}
-				}
+				t.MTLS.config = mTLSConfig
 			}
+
+			if t.OpenShift != nil {
+				openshiftConfig, err := unmarshalLegacyAuthenticatorConfig(t.OpenShift)
+				if err != nil {
+					skip.Log("msg", "failed to unmarshal legacy openshift config", "err", err, "tenant", t.Name)
+					tenantsCfg.Tenants[i] = nil
+					continue
+				}
+				t.OpenShift.config = openshiftConfig
+			}
+
 			if t.Authenticator != nil {
 				if t.Authenticator.Config == nil {
 					skip.Log("tenant", t.Name, "err", "failed to find authenticator config")
@@ -297,6 +270,7 @@ func main() {
 					continue
 				}
 			}
+
 			if t.OPA != nil {
 				if t.OPA.URL != "" {
 					u, err := url.Parse(t.OPA.URL)
@@ -452,14 +426,12 @@ func main() {
 
 		r.Group(func(r chi.Router) {
 			tenantIDs := map[string]string{}
-			var oidcs []authentication.TenantOIDCConfig
-			var ocpAuths []authentication.TenantOpenShiftAuthConfig
-			var ocpCA []byte
-			var mTLSs []authentication.MTLSConfig
-
 			authorizers := map[string]rbac.Authorizer{}
 			var rateLimits []ratelimit.Config
-			ah := providers.NewAuthenticatorsHandlers(logger, reg)
+			// registrationRetryCount used by authenticator providers to count
+			// registration failures per tenant.
+			registerTenantsFailingMetric := authentication.RegisterTenantsFailingMetric(reg)
+			ah := authentication.NewAuthenticatorsHandlers(logger, registerTenantsFailingMetric)
 
 			for _, t := range tenantsCfg.Tenants {
 				if t == nil {
@@ -481,49 +453,18 @@ func main() {
 						})
 					}
 				}
+
 				switch {
 				case t.OIDC != nil:
-					oidcs = append(oidcs, authentication.TenantOIDCConfig{
-						Tenant: t.Name,
-						OIDCConfig: authentication.OIDCConfig{
-							ClientID:      t.OIDC.ClientID,
-							ClientSecret:  t.OIDC.ClientSecret,
-							GroupClaim:    t.OIDC.GroupClaim,
-							IssuerCA:      t.OIDC.issuerCA,
-							IssuerURL:     t.OIDC.IssuerURL,
-							RedirectURL:   t.OIDC.RedirectURL,
-							UsernameClaim: t.OIDC.UsernameClaim,
-						},
-					})
+					ah.NewTenantAuthenticator(t.OIDC.config, t.Name, authentication.OIDCAuthenticatorType, registerTenantsFailingMetric, logger)
 				case t.OpenShift != nil:
-					// Load CAs once for all tenants using openshift authentication.
-					if len(ocpCA) == 0 {
-						ocpCA, err = openshift.GetServiceAccountCACert()
-						if err != nil {
-							level.Warn(logger).Log("msg", "failed to load serviceccount ca certificate", "err", err)
-							continue
-						}
-					}
-					ocpAuths = append(ocpAuths, authentication.TenantOpenShiftAuthConfig{
-						Tenant: t.Name,
-						OpenShiftAuthConfig: authentication.OpenShiftAuthConfig{
-							KubeConfigPath:   t.OpenShift.KubeConfigPath,
-							ServiceAccount:   t.OpenShift.ServiceAccount,
-							ServiceAccountCA: ocpCA,
-							RedirectURL:      t.OpenShift.RedirectURL,
-							CookieSecret:     t.OpenShift.CookieSecret,
-						},
-					})
+					ah.NewTenantAuthenticator(t.OpenShift.config, t.Name, authentication.OpenShiftAuthenticatorType, registerTenantsFailingMetric, logger)
 				case t.MTLS != nil:
-					mTLSs = append(mTLSs, authentication.MTLSConfig{
-						Tenant: t.Name,
-						CAs:    t.MTLS.cas,
-					})
+					ah.NewTenantAuthenticator(t.MTLS.config, t.Name, authentication.MTLSAuthenticatorType, registerTenantsFailingMetric, logger)
 				case t.Authenticator != nil:
-					ah.NewTenantAuthenticator(t.Authenticator.Config, t.Name, t.Authenticator.Type, logger)
-
+					ah.NewTenantAuthenticator(t.Authenticator.Config, t.Name, t.Authenticator.Type, registerTenantsFailingMetric, logger)
 				default:
-					stdlog.Fatalf("tenant %q must specify either an OIDC, an mTLS or a supported authenticator configuration", t.Name)
+					stdlog.Fatalf("tenant %q must specify either an OIDC, mTLS, openshift or a supported authenticator configuration", t.Name)
 				}
 
 				if t.OPA != nil {
@@ -537,22 +478,6 @@ func main() {
 			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
 
-			tfm := authentication.RegisterTenantsFailingMetric(reg)
-
-			mTLSMiddlewareFunc := authentication.NewMTLS(mTLSs)
-			oh := authentication.NewOIDCHandlers(logger, tfm)
-			for _, oidc := range oidcs {
-				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
-			}
-
-			r.Mount("/oidc/{tenant}", oh.Router())
-
-			osh := authentication.NewOpenShiftAuthHandlers(logger, tfm)
-			for _, ocpauth := range ocpAuths {
-				osh.AddOpenShiftAuthForTenant("/openshift/{tenant}", ocpauth)
-			}
-			r.Mount("/openshift/{tenant}", osh.Router())
-
 			for handlerPrefixPattern, handler := range ah.Routes() {
 				r.Mount(handlerPrefixPattern, handler)
 			}
@@ -560,7 +485,7 @@ func main() {
 			// Metrics.
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares, oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -618,7 +543,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares, oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",
@@ -972,6 +897,21 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 		tenantPrefix := path.Join("/", prefix, tenant)
 		http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
 	})
+}
+
+func unmarshalLegacyAuthenticatorConfig(v interface{}) (map[string]interface{}, error) {
+	jsonBytes, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+
+	var config map[string]interface{}
+
+	if err := json.Unmarshal(jsonBytes, &config); err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 type otelErrorHandler struct {
