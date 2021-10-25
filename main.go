@@ -572,6 +572,7 @@ func main() {
 							metricsv1.NewHandler(
 								cfg.metrics.readEndpoint,
 								cfg.metrics.writeEndpoint,
+								cfg.metrics.rulesEndpoint,
 								metricsUpstreamCACert,
 								metricsv1.WithLogger(logger),
 								metricsv1.WithRegistry(reg),
@@ -587,11 +588,6 @@ func main() {
 							),
 						),
 					)
-
-					//r.Mount("/api/v1/{tenant}/rules",
-					//	// TODO: config handler
-					//	server2.Handler(),
-					//)
 				})
 			}
 
