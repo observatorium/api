@@ -93,6 +93,8 @@ Usage of ./observatorium-api:
     	The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Scope-OrgID")
+  -logs.tls.ca-file string
+    	File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.
   -logs.write.endpoint string
     	The endpoint against which to make write requests for logs.
   -metrics.read.endpoint string
@@ -101,6 +103,8 @@ Usage of ./observatorium-api:
     	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.tenant-label string
     	The name of the PromQL label that should hold the tenant ID in metrics upstreams. (default "tenant_id")
+  -metrics.tls.ca-file string
+    	File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -middleware.backlog-duration-concurrent-requests duration

@@ -43,6 +43,7 @@ import (
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/authentication/openshift"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
@@ -109,6 +110,7 @@ type metricsConfig struct {
 	readEndpoint  *url.URL
 	writeEndpoint *url.URL
 	rulesEndpoint *url.URL
+	upstreamCAFile string
 	tenantHeader  string
 	tenantLabel   string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
@@ -116,10 +118,11 @@ type metricsConfig struct {
 }
 
 type logsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	tailEndpoint  *url.URL
-	tenantHeader  string
+	readEndpoint   *url.URL
+	writeEndpoint  *url.URL
+	tailEndpoint   *url.URL
+	upstreamCAFile string
+	tenantHeader   string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -181,6 +184,12 @@ func main() {
 			RedirectURL   string `json:"redirectURL"`
 			UsernameClaim string `json:"usernameClaim"`
 		} `json:"oidc"`
+		OpenShift *struct {
+			KubeConfigPath string `json:"kubeconfig"`
+			ServiceAccount string `json:"serviceAccount"`
+			RedirectURL    string `json:"redirectURL"`
+			CookieSecret   string `json:"cookieSecret"`
+		} `json:"openshift"`
 		MTLS *struct {
 			RawCA  []byte `json:"ca"`
 			CAPath string `json:"caPath"`
@@ -396,6 +405,25 @@ func main() {
 			)
 		}
 
+		var (
+			metricsUpstreamCACert []byte
+			logsUpstreamCACert    []byte
+		)
+
+		if cfg.metrics.upstreamCAFile != "" {
+			metricsUpstreamCACert, err = ioutil.ReadFile(cfg.metrics.upstreamCAFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream metrics TLS CA: %v", err)
+			}
+		}
+
+		if cfg.logs.upstreamCAFile != "" {
+			logsUpstreamCACert, err = ioutil.ReadFile(cfg.logs.upstreamCAFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream logs TLS CA: %v", err)
+			}
+		}
+
 		r := chi.NewRouter()
 		r.Use(middleware.RequestID)
 		r.Use(middleware.RealIP)
@@ -412,6 +440,8 @@ func main() {
 		r.Group(func(r chi.Router) {
 			tenantIDs := map[string]string{}
 			var oidcs []authentication.TenantOIDCConfig
+			var ocpAuths []authentication.TenantOpenShiftAuthConfig
+			var ocpCA []byte
 			var mTLSs []authentication.MTLSConfig
 			authorizers := map[string]rbac.Authorizer{}
 			var rateLimits []ratelimit.Config
@@ -449,6 +479,25 @@ func main() {
 							UsernameClaim: t.OIDC.UsernameClaim,
 						},
 					})
+				case t.OpenShift != nil:
+					// Load CAs once for all tenants using openshift authentication.
+					if len(ocpCA) == 0 {
+						ocpCA, err = openshift.GetServiceAccountCACert()
+						if err != nil {
+							level.Warn(logger).Log("msg", "failed to load serviceccount ca certificate", "err", err)
+							continue
+						}
+					}
+					ocpAuths = append(ocpAuths, authentication.TenantOpenShiftAuthConfig{
+						Tenant: t.Name,
+						OpenShiftAuthConfig: authentication.OpenShiftAuthConfig{
+							KubeConfigPath:   t.OpenShift.KubeConfigPath,
+							ServiceAccount:   t.OpenShift.ServiceAccount,
+							ServiceAccountCA: ocpCA,
+							RedirectURL:      t.OpenShift.RedirectURL,
+							CookieSecret:     t.OpenShift.CookieSecret,
+						},
+					})
 				case t.MTLS != nil:
 					mTLSs = append(mTLSs, authentication.MTLSConfig{
 						Tenant: t.Name,
@@ -468,17 +517,25 @@ func main() {
 			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
 
+			tfm := authentication.RegisterTenantsFailingMetric(reg)
+
 			mTLSMiddlewareFunc := authentication.NewMTLS(mTLSs)
-			oh := authentication.NewOIDCHandlers(logger, reg)
+			oh := authentication.NewOIDCHandlers(logger, tfm)
 			for _, oidc := range oidcs {
 				oh.AddOIDCForTenant("/oidc/{tenant}", oidc)
 			}
 			r.Mount("/oidc/{tenant}", oh.Router())
 
+			osh := authentication.NewOpenShiftAuthHandlers(logger, tfm)
+			for _, ocpauth := range ocpAuths {
+				osh.AddOpenShiftAuthForTenant("/openshift/{tenant}", ocpauth)
+			}
+			r.Mount("/openshift/{tenant}", osh.Router())
+
 			// Metrics.
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -499,6 +556,7 @@ func main() {
 					r.Mount("/api/v1/{tenant}",
 						metricslegacy.NewHandler(
 							cfg.metrics.readEndpoint,
+							metricsUpstreamCACert,
 							metricslegacy.WithLogger(logger),
 							metricslegacy.WithRegistry(reg),
 							metricslegacy.WithHandlerInstrumenter(ins),
@@ -514,6 +572,7 @@ func main() {
 							metricsv1.NewHandler(
 								cfg.metrics.readEndpoint,
 								cfg.metrics.writeEndpoint,
+								metricsUpstreamCACert,
 								metricsv1.WithLogger(logger),
 								metricsv1.WithRegistry(reg),
 								metricsv1.WithHandlerInstrumenter(ins),
@@ -539,7 +598,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, mTLSMiddlewareFunc))
+					r.Use(authentication.WithTenantMiddlewares(oh.GetTenantMiddleware, osh.GetTenantMiddleware, mTLSMiddlewareFunc))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",
@@ -548,6 +607,7 @@ func main() {
 								cfg.logs.readEndpoint,
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
+								logsUpstreamCACert,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(ins),
@@ -767,6 +827,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
 		"The endpoint against which to make read requests for logs.")
+	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
 		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
@@ -777,6 +839,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make post requests for creating recording rules.")
+	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
