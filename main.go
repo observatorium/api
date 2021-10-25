@@ -107,12 +107,12 @@ type tlsConfig struct {
 }
 
 type metricsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	rulesEndpoint *url.URL
+	readEndpoint   *url.URL
+	writeEndpoint  *url.URL
+	rulesEndpoint  *url.URL
 	upstreamCAFile string
-	tenantHeader  string
-	tenantLabel   string
+	tenantHeader   string
+	tenantLabel    string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
 	enabled bool
 }
@@ -786,7 +786,7 @@ func parseFlags() (config, error) {
 		rawTLSCipherSuites      string
 		rawMetricsReadEndpoint  string
 		rawMetricsWriteEndpoint string
-		rawMetricsRulesEndpoint  string
+		rawMetricsRulesEndpoint string
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
