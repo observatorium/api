@@ -3,6 +3,9 @@ package v1
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/rules"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
@@ -276,45 +280,50 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 	}
 
 	if rulesEndpoint != nil {
-		//client, err := rules.NewClient(rulesEndpoint.String())
-		//if err != nil {
-		//	level.Warn(c.logger).Log("msg", "could not create rules endpoint client")
-		//}
-		//client.ListRules(tenant)
-		var proxyRules http.Handler
-		{
-			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(rulesEndpoint),
-				proxy.MiddlewareSetPrefixHeader(),
-				proxy.MiddlewareLogger(c.logger),
-				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-rules"}),
-			)
-
-			t := &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout: writeTimeout,
-				}).DialContext,
-			}
-
-			if len(upstreamCA) != 0 {
-				t.TLSClientConfig = &tls.Config{
-					RootCAs: x509.NewCertPool(),
-				}
-				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
-			}
-
-			proxyRules = &httputil.ReverseProxy{
-				Director:  middlewares,
-				ErrorLog:  proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(t),
-			}
+		client, err := rules.NewClient(rulesEndpoint.String())
+		if err != nil {
+			level.Warn(c.logger).Log("msg", "could not create rules endpoint client")
+			return r
 		}
+
 		r.Group(func(r chi.Router) {
-			//r.Use(c.rulesMiddlewares...)
-			r.Handle(rulesRoute, c.instrument.NewHandler(
-				prometheus.Labels{"group": "metricsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyRules),
-			))
+			r.Get(rulesRoute, func(w http.ResponseWriter, r *http.Request) {
+				tenant, ok := authentication.GetTenant(r.Context())
+				if !ok {
+					http.Error(w, "error finding tenant", http.StatusUnauthorized)
+					return
+				}
+				resp, err := client.ListRules(r.Context(), tenant)
+				if err != nil {
+					http.Error(w, "error listing rules %w", http.StatusInternalServerError)
+					return
+				}
+				defer resp.Body.Close()
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					http.Error(w, "error reading rules response", http.StatusInternalServerError)
+					return
+				}
+				w.Write(body)
+			})
+
+			r.Put(rulesRoute, func(w http.ResponseWriter, r *http.Request) {
+				tenant, ok := authentication.GetTenant(r.Context())
+				if !ok {
+					http.Error(w, "error finding tenant", http.StatusUnauthorized)
+				}
+				resp, err := client.SetRulesWithBody(r.Context(), tenant, r.Header.Get("Content-type"), r.Body)
+				if err != nil {
+					http.Error(w, "error creating rules %w", http.StatusInternalServerError)
+				}
+				defer resp.Body.Close()
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					http.Error(w, "error reading rules response", http.StatusInternalServerError)
+					return
+				}
+				w.Write(body)
+			})
 		})
 	}
 
