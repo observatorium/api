@@ -3,9 +3,6 @@ package v1
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/rules"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -19,6 +16,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/rules"
 )
 
 const (
@@ -287,43 +285,9 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 		}
 
 		r.Group(func(r chi.Router) {
-			r.Get(rulesRoute, func(w http.ResponseWriter, r *http.Request) {
-				tenant, ok := authentication.GetTenant(r.Context())
-				if !ok {
-					http.Error(w, "error finding tenant", http.StatusUnauthorized)
-					return
-				}
-				resp, err := client.ListRules(r.Context(), tenant)
-				if err != nil {
-					http.Error(w, "error listing rules %w", http.StatusInternalServerError)
-					return
-				}
-				defer resp.Body.Close()
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					http.Error(w, "error reading rules response", http.StatusInternalServerError)
-					return
-				}
-				w.Write(body)
-			})
-
-			r.Put(rulesRoute, func(w http.ResponseWriter, r *http.Request) {
-				tenant, ok := authentication.GetTenant(r.Context())
-				if !ok {
-					http.Error(w, "error finding tenant", http.StatusUnauthorized)
-				}
-				resp, err := client.SetRulesWithBody(r.Context(), tenant, r.Header.Get("Content-type"), r.Body)
-				if err != nil {
-					http.Error(w, "error creating rules %w", http.StatusInternalServerError)
-				}
-				defer resp.Body.Close()
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					http.Error(w, "error reading rules response", http.StatusInternalServerError)
-					return
-				}
-				w.Write(body)
-			})
+			rh := rulesHandler{client: client}
+			r.Get(rulesRoute, rh.get)
+			r.Put(rulesRoute, rh.put)
 		})
 	}
 
