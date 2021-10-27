@@ -100,7 +100,7 @@ Usage of ./observatorium-api:
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
   -metrics.rules.endpoint string
-    	The endpoint against which to make get requests for listing recording rules and put requests for creating recording rules.
+    	The endpoint against which to make get requests for listing recording rules and put requests for creating/updating recording rules.
   -metrics.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.tenant-label string
