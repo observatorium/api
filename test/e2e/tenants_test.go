@@ -19,14 +19,14 @@ func TestTenantsRetryOIDCRegistration(t *testing.T) {
 
 	prepareConfigsAndCerts(t, tenants, e)
 	dex, _, _ := startBaseServices(t, e, tenants)
-	readEndpoint, writeEndpoint, _ := startServicesForMetrics(t, e)
+	readEndpoint, writeEndpoint, _, _ := startServicesForMetrics(t, e)
 
 	// Start API with stopped Dex and observe retries.
 	dex.Stop()
 
 	api, err := newObservatoriumAPIService(
 		e,
-		withMetricsEndpoints("http://"+readEndpoint, "http://"+writeEndpoint),
+		withMetricsEndpoints("http://"+readEndpoint, "http://"+writeEndpoint, ""),
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
