@@ -284,9 +284,15 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 			return r
 		}
 
+		rh := rulesHandler{client: client}
+
 		r.Group(func(r chi.Router) {
-			rh := rulesHandler{client: client}
+			r.Use(c.uiMiddlewares...)
 			r.Get(rulesRoute, rh.get)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.writeMiddlewares...)
 			r.Put(rulesRoute, rh.put)
 		})
 	}
