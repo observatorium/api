@@ -11,17 +11,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type DummyAuthenticator struct {
+type dummyAuthenticator struct {
 	tenant string
 	logger log.Logger
-	Config DummyAuthenticatorConfig
+	Config dummyAuthenticatorConfig
 }
 
-type DummyAuthenticatorConfig struct {
+type dummyAuthenticatorConfig struct {
 	Name string `json:"name"`
 }
 
-func (a DummyAuthenticator) Middleware() Middleware {
+func (a dummyAuthenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			type key string
@@ -32,19 +32,19 @@ func (a DummyAuthenticator) Middleware() Middleware {
 	}
 }
 
-func (a DummyAuthenticator) Handler() (string, http.Handler) {
+func (a dummyAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
 
-func newDummyAuthenticator(c map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
-	var config DummyAuthenticatorConfig
+func newdummyAuthenticator(c map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
+	var config dummyAuthenticatorConfig
 
 	err := mapstructure.Decode(c, &config)
 	if err != nil {
 		return nil, err
 	}
 
-	return &DummyAuthenticator{
+	return &dummyAuthenticator{
 		tenant: tenant,
 		logger: logger,
 		Config: config,
@@ -57,7 +57,7 @@ func TestNewAuthentication(t *testing.T) {
 	l := logger.NewLogger("info", logger.LogFormatLogfmt, "")
 
 	// Register the authenticator factory
-	authenticatorFactories[authenticatorTypeName] = newDummyAuthenticator
+	authenticatorFactories[authenticatorTypeName] = newdummyAuthenticator
 
 	tenant := "test-tenant"
 

@@ -44,7 +44,7 @@ type Provider interface {
 
 type tenantHandlers map[string]http.Handler
 
-// AuthenticatorsHandlers manages all middleware and handlers of all authenticators
+// AuthenticatorsHandlers manages all middleware and handlers of all authenticators.
 type AuthenticatorsHandlers struct {
 	mtx                    sync.RWMutex
 	patternHandlers        map[string]tenantHandlers
@@ -53,7 +53,7 @@ type AuthenticatorsHandlers struct {
 	registrationRetryCount *prometheus.CounterVec
 }
 
-// NewAuthenticatorsHandlers create a new authentication handler
+// NewAuthenticatorsHandlers creates a new authentication handler.
 func NewAuthenticatorsHandlers(l log.Logger, registrationRetryCount *prometheus.CounterVec) *AuthenticatorsHandlers {
 	return &AuthenticatorsHandlers{
 		registrationRetryCount: registrationRetryCount,
@@ -110,35 +110,26 @@ func (ah *AuthenticatorsHandlers) AuthenticatorMiddlewares(tenant string) (Middl
 	return mw, ok
 }
 
-func (ah *AuthenticatorsHandlers) Routes() map[string]http.HandlerFunc {
-	handlers := make(map[string]http.HandlerFunc)
-	patternHandler := func(pattern string) http.HandlerFunc {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant, ok := GetTenant(r.Context())
-			const msg = "error finding tenant"
-			if !ok {
-				level.Warn(ah.logger).Log("msg", msg, "tenant", tenant)
-				http.Error(w, msg, http.StatusInternalServerError)
-				return
-			}
+func (ah *AuthenticatorsHandlers) PatternRoutes(pattern string) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tenant, ok := GetTenant(r.Context())
+		const msg = "error finding tenant"
+		if !ok {
+			level.Warn(ah.logger).Log("msg", msg, "tenant", tenant)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
 
-			h, ok := ah.patternHandlers[pattern][tenant]
-			if !ok {
-				level.Debug(ah.logger).Log("msg", msg, "tenant", tenant)
-				http.Error(w, msg, http.StatusUnauthorized)
-				return
-			}
-			h.ServeHTTP(w, r)
-		})
-	}
-
-	ah.mtx.RLock()
-	for pattern := range ah.patternHandlers {
-		handlers[pattern] = patternHandler(pattern)
-	}
-	ah.mtx.RUnlock()
-
-	return handlers
+		ah.mtx.RLock()
+		h, ok := ah.patternHandlers[pattern][tenant]
+		ah.mtx.RUnlock()
+		if !ok {
+			level.Debug(ah.logger).Log("msg", msg, "tenant", tenant)
+			http.Error(w, msg, http.StatusUnauthorized)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func getAuthenticatorFactory(authType string) (AuthenticatorFactory, error) {

@@ -490,11 +490,5 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 }
 
 func (a OpenShiftAuthenticator) Handler() (string, http.Handler) {
-	r := chi.NewRouter()
-
-	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		a.handler.ServeHTTP(w, r)
-	}))
-
-	return "/openshift/{tenant}", r
+	return "/openshift/{tenant}", a.handler
 }

@@ -96,7 +96,6 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		}
 
 		cert, err := x509.ParseCertificate(block.Bytes)
-
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse issuer certificate: %s", err.Error())
 		}
@@ -261,13 +260,7 @@ func (a oidcAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 }
 
 func (a oidcAuthenticator) Handler() (string, http.Handler) {
-	r := chi.NewRouter()
-
-	r.Mount("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		a.handler.ServeHTTP(w, r)
-	}))
-
-	return "/oidc/{tenant}", r
+	return "/oidc/{tenant}", a.handler
 }
 
 //nolint:gocognit

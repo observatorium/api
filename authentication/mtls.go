@@ -37,8 +37,8 @@ type MTLSAuthenticator struct {
 
 func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
 	var config mTLSConfig
-	err := mapstructure.Decode(c, &config)
 
+	err := mapstructure.Decode(c, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,6 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 			}
 
 			cert, err = x509.ParseCertificate(block.Bytes)
-
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse CA certificate: %v", err)
 			}

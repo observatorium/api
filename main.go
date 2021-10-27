@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -139,6 +140,53 @@ type internalTracingConfig struct {
 	samplingFraction float64
 }
 
+type tenant struct {
+	Name string `json:"name"`
+	ID   string `json:"id"`
+	OIDC *struct {
+		ClientID      string `json:"clientID"`
+		ClientSecret  string `json:"clientSecret"`
+		GroupClaim    string `json:"groupClaim"`
+		IssuerRawCA   []byte `json:"issuerCA"`
+		IssuerCAPath  string `json:"issuerCAPath"`
+		issuerCA      *x509.Certificate
+		IssuerURL     string `json:"issuerURL"`
+		RedirectURL   string `json:"redirectURL"`
+		UsernameClaim string `json:"usernameClaim"`
+		config        map[string]interface{}
+	} `json:"oidc"`
+	OpenShift *struct {
+		KubeConfigPath string `json:"kubeconfig"`
+		ServiceAccount string `json:"serviceAccount"`
+		RedirectURL    string `json:"redirectURL"`
+		CookieSecret   string `json:"cookieSecret"`
+		config         map[string]interface{}
+	} `json:"openshift"`
+	Authenticator *struct {
+		Type   string                 `json:"type"`
+		Config map[string]interface{} `json:"config"`
+	} `json:"authenticator"`
+
+	MTLS *struct {
+		RawCA  []byte `json:"ca"`
+		CAPath string `json:"caPath"`
+		cas    []*x509.Certificate
+		config map[string]interface{}
+	} `json:"mTLS"`
+	OPA *struct {
+		Query           string   `json:"query"`
+		Paths           []string `json:"paths"`
+		URL             string   `json:"url"`
+		WithAccessToken bool     `json:"withAccessToken"`
+		authorizer      rbac.Authorizer
+	} `json:"opa"`
+	RateLimits []*struct {
+		Endpoint string   `json:"endpoint"`
+		Limit    int      `json:"limit"`
+		Window   duration `json:"window"`
+	} `json:"rateLimits"`
+}
+
 //nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
@@ -167,53 +215,6 @@ func main() {
 	defer closer()
 
 	otel.SetErrorHandler(otelErrorHandler{logger: logger})
-
-	type tenant struct {
-		Name string `json:"name"`
-		ID   string `json:"id"`
-		OIDC *struct {
-			ClientID      string `json:"clientID"`
-			ClientSecret  string `json:"clientSecret"`
-			GroupClaim    string `json:"groupClaim"`
-			IssuerRawCA   []byte `json:"issuerCA"`
-			IssuerCAPath  string `json:"issuerCAPath"`
-			issuerCA      *x509.Certificate
-			IssuerURL     string `json:"issuerURL"`
-			RedirectURL   string `json:"redirectURL"`
-			UsernameClaim string `json:"usernameClaim"`
-			config        map[string]interface{}
-		} `json:"oidc"`
-		OpenShift *struct {
-			KubeConfigPath string `json:"kubeconfig"`
-			ServiceAccount string `json:"serviceAccount"`
-			RedirectURL    string `json:"redirectURL"`
-			CookieSecret   string `json:"cookieSecret"`
-			config         map[string]interface{}
-		} `json:"openshift"`
-		Authenticator *struct {
-			Type   string                 `json:"type"`
-			Config map[string]interface{} `json:"config"`
-		} `json:"authenticator"`
-
-		MTLS *struct {
-			RawCA  []byte `json:"ca"`
-			CAPath string `json:"caPath"`
-			cas    []*x509.Certificate
-			config map[string]interface{}
-		} `json:"mTLS"`
-		OPA *struct {
-			Query           string   `json:"query"`
-			Paths           []string `json:"paths"`
-			URL             string   `json:"url"`
-			WithAccessToken bool     `json:"withAccessToken"`
-			authorizer      rbac.Authorizer
-		} `json:"opa"`
-		RateLimits []*struct {
-			Endpoint string   `json:"endpoint"`
-			Limit    int      `json:"limit"`
-			Window   duration `json:"window"`
-		} `json:"rateLimits"`
-	}
 
 	type tenantsConfig struct {
 		Tenants []*tenant `json:"tenants"`
@@ -433,6 +434,9 @@ func main() {
 			registerTenantsFailingMetric := authentication.RegisterTenantsFailingMetric(reg)
 			ah := authentication.NewAuthenticatorsHandlers(logger, registerTenantsFailingMetric)
 
+			// registeredAuthNRoutes is used to avoid double register the same pattern.
+			var regMtx sync.RWMutex
+			registeredAuthNRoutes := make(map[string]struct{})
 			for _, t := range tenantsCfg.Tenants {
 				if t == nil {
 					continue
@@ -454,18 +458,23 @@ func main() {
 					}
 				}
 
-				switch {
-				case t.OIDC != nil:
-					ah.NewTenantAuthenticator(t.OIDC.config, t.Name, authentication.OIDCAuthenticatorType, registerTenantsFailingMetric, logger)
-				case t.OpenShift != nil:
-					ah.NewTenantAuthenticator(t.OpenShift.config, t.Name, authentication.OpenShiftAuthenticatorType, registerTenantsFailingMetric, logger)
-				case t.MTLS != nil:
-					ah.NewTenantAuthenticator(t.MTLS.config, t.Name, authentication.MTLSAuthenticatorType, registerTenantsFailingMetric, logger)
-				case t.Authenticator != nil:
-					ah.NewTenantAuthenticator(t.Authenticator.Config, t.Name, t.Authenticator.Type, registerTenantsFailingMetric, logger)
-				default:
-					stdlog.Fatalf("tenant %q must specify either an OIDC, mTLS, openshift or a supported authenticator configuration", t.Name)
+				authenticatorConfig, authenticatorType, err := tenantAuthenticatorConfig(t)
+				if err != nil {
+					stdlog.Fatalf(err.Error())
 				}
+
+				go func(config map[string]interface{}, authType, tenant string) {
+					initializedAuthenticator := <-ah.NewTenantAuthenticator(config, tenant, authType, registerTenantsFailingMetric, logger)
+					if initializedAuthenticator != nil {
+						pattern, _ := initializedAuthenticator.Handler()
+						regMtx.Lock()
+						defer regMtx.Unlock()
+						if _, ok := registeredAuthNRoutes[pattern]; !ok && pattern != "" {
+							registeredAuthNRoutes[pattern] = struct{}{}
+							r.Mount(pattern, ah.PatternRoutes(pattern))
+						}
+					}
+				}(authenticatorConfig, authenticatorType, t.Name)
 
 				if t.OPA != nil {
 					authorizers[t.Name] = t.OPA.authorizer
@@ -477,10 +486,6 @@ func main() {
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
-
-			for handlerPrefixPattern, handler := range ah.Routes() {
-				r.Mount(handlerPrefixPattern, handler)
-			}
 
 			// Metrics.
 			if cfg.metrics.enabled {
@@ -912,6 +917,21 @@ func unmarshalLegacyAuthenticatorConfig(v interface{}) (map[string]interface{}, 
 	}
 
 	return config, nil
+}
+
+func tenantAuthenticatorConfig(t *tenant) (map[string]interface{}, string, error) {
+	switch {
+	case t.OIDC != nil:
+		return t.OIDC.config, authentication.OIDCAuthenticatorType, nil
+	case t.OpenShift != nil:
+		return t.OpenShift.config, authentication.OpenShiftAuthenticatorType, nil
+	case t.MTLS != nil:
+		return t.MTLS.config, authentication.MTLSAuthenticatorType, nil
+	case t.Authenticator != nil:
+		return t.Authenticator.Config, t.Authenticator.Type, nil
+	default:
+		return nil, "", fmt.Errorf("tenant %q must specify either an OIDC, mTLS, openshift or a supported authenticator configuration", t.Name)
+	}
 }
 
 type otelErrorHandler struct {
