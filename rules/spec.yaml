@@ -1,22 +1,14 @@
 openapi: 3.0.0
-servers:
-  # Added by API Auto Mocking Plugin
-  - description: SwaggerHub API Auto Mocking
-    url: https://virtserver.swaggerhub.com/observatorium/rules-backend/1.0.0
 info:
   description: The Rules Backend API
   version: "1.0.0"
   title: Rules Backend API
-  contact:
-    email: prem@redhat.com
   license:
     name: Apache 2.0
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
 tags:
   - name: rulesv1
     description: Calls related to rules
-#   - name: developers
-#     description: Operations available to regular developers
 paths:
   /api/v1/{tenant}/rules:
     parameters:
