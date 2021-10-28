@@ -30,7 +30,6 @@ const (
 	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
 
 	envMetricsName = "e2e_metrics_read_write"
-	envMetricsRulesName = "e2e_metrics_rules"
 	envLogsName    = "e2e_logs_read_write_tail"
 	envTenantsName = "e2e_tenants"
 	envInteractive = "e2e_interactive"

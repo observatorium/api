@@ -91,7 +91,7 @@ func WithQueryMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-// WithUIMiddleware adds a middleware for all non read, non query, non write operations (e.g. ui).
+// WithUIMiddleware adds a middleware for all non read, non query, non write operations (e.g ui).
 func WithUIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.uiMiddlewares = append(h.uiMiddlewares, m)
