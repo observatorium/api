@@ -55,6 +55,8 @@ components:
   schemas:
     Rules:
       type: object
+      required:
+        - groups
       properties:
         groups:
           type: array
@@ -62,6 +64,10 @@ components:
             $ref: '#/components/schemas/RuleGroup'
     RuleGroup:
       type: object
+      required:
+        - interval
+        - name
+        - rules
       properties:
         interval:
           type: string
@@ -75,6 +81,10 @@ components:
             $ref: '#/components/schemas/Rule'
     Rule:
       type: object
+      required:
+        - expr
+        - record
+        - labels
       properties:
         expr:
           type: string
