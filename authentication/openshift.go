@@ -74,7 +74,8 @@ type OpenShiftAuthenticator struct {
 }
 
 //nolint:funlen
-func newOpenshiftAuthenticator(c map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
+func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
+	registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
 	var config openshiftAuthenticatorConfig
 
 	const (
@@ -146,6 +147,8 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string, registra
 
 			continue
 		}
+
+		break
 	}
 
 	var clientID string
@@ -163,6 +166,8 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string, registra
 
 			continue
 		}
+
+		break
 	}
 
 	authOpts := openshift.DelegatingAuthenticationOptions{
@@ -225,6 +230,7 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string, registra
 			RedirectURL: config.RedirectURL,
 		},
 	}
+
 	r := chi.NewRouter()
 	r.Handle(loginRoute, otelhttp.WithRouteTag(handlerPrefix+loginRoute, osAuthenticator.openshiftLoginHandler()))
 	r.Handle(callbackRoute, otelhttp.WithRouteTag(handlerPrefix+callbackRoute, osAuthenticator.openshiftCallbackHandler()))
