@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   description: The Rules Backend API
-  version: "1.0.0"
+  version: "0.0.1"
   title: Rules Backend API
   license:
     name: Apache 2.0
