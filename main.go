@@ -398,7 +398,7 @@ func main() {
 					&http.Client{Transport: t},
 					cfg.server.healthcheckURL,
 					http.MethodGet,
-					http.StatusNotFound,
+					http.StatusOK,
 					time.Second,
 				),
 			)
@@ -646,6 +646,10 @@ func main() {
 				cancel()
 			})
 		}
+
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
 
 		s := http.Server{
 			Addr:         cfg.server.listen,

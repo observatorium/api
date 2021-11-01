@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
-	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
+	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2
 	github.com/pkg/errors v0.9.1
