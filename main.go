@@ -432,7 +432,7 @@ func main() {
 			// registrationRetryCount used by authenticator providers to count
 			// registration failures per tenant.
 			registerTenantsFailingMetric := authentication.RegisterTenantsFailingMetric(reg)
-			ah := authentication.NewAuthenticatorsHandlers(logger, registerTenantsFailingMetric)
+			pm := authentication.NewProviderManager(logger, registerTenantsFailingMetric)
 
 			// registeredAuthNRoutes is used to avoid double register the same pattern.
 			var regMtx sync.RWMutex
@@ -464,14 +464,14 @@ func main() {
 				}
 
 				go func(config map[string]interface{}, authType, tenant string) {
-					initializedAuthenticator := <-ah.NewTenantAuthenticator(config, tenant, authType, registerTenantsFailingMetric, logger)
+					initializedAuthenticator := <-pm.InitializeProvider(config, tenant, authType, registerTenantsFailingMetric, logger)
 					if initializedAuthenticator != nil {
 						pattern, _ := initializedAuthenticator.Handler()
 						regMtx.Lock()
 						defer regMtx.Unlock()
 						if _, ok := registeredAuthNRoutes[pattern]; !ok && pattern != "" {
 							registeredAuthNRoutes[pattern] = struct{}{}
-							r.Mount(pattern, ah.PatternRoutes(pattern))
+							r.Mount(pattern, pm.PatternHandler(pattern))
 						}
 					}
 				}(authenticatorConfig, authenticatorType, t.Name)
@@ -490,7 +490,7 @@ func main() {
 			// Metrics.
 			if cfg.metrics.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares))
+					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 					if rateLimitClient != nil {
 						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
@@ -548,7 +548,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(authentication.WithTenantMiddlewares(ah.AuthenticatorMiddlewares))
+					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
 					r.Mount("/api/logs/v1/{tenant}",

@@ -11,29 +11,29 @@ import (
 )
 
 //nolint:gochecknoglobals
-// authenticatorFactories map is used for the providers' self-registration.
-var authenticatorFactories map[string]AuthenticatorFactory
+// providerFactories map is used for the providers' self-registration.
+var providerFactories map[string]ProviderFactory
 
 //nolint:gochecknoglobals
-// authenticatorsMtx is used to protect the authenticatorFactories.
-var authenticatorsMtx sync.RWMutex
+// providersMtx is used to protect the providerFactories.
+var providersMtx sync.RWMutex
 
 //nolint:gochecknoinits
 func init() {
-	authenticatorFactories = make(map[string]AuthenticatorFactory)
+	providerFactories = make(map[string]ProviderFactory)
 }
 
 // onboardNewProvider is used by the providers to register themselves.
-func onboardNewProvider(providerType string, factory AuthenticatorFactory) {
-	authenticatorsMtx.Lock()
-	defer authenticatorsMtx.Unlock()
+func onboardNewProvider(providerType string, factory ProviderFactory) {
+	providersMtx.Lock()
+	defer providersMtx.Unlock()
 
-	authenticatorFactories[providerType] = factory
+	providerFactories[providerType] = factory
 }
 
-// AuthenticatorFactory represents each authenticator factory, a function to create a new corresponding
+// ProviderFactory represents each authenticator factory, a function to create a new corresponding
 // authentication provider.
-type AuthenticatorFactory func(config map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error)
+type ProviderFactory func(config map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error)
 
 // Provider is an interface that should be implemented to onboard a new authentication.
 // provider.
@@ -44,8 +44,8 @@ type Provider interface {
 
 type tenantHandlers map[string]http.Handler
 
-// AuthenticatorsHandlers manages all middleware and handlers of all authenticators.
-type AuthenticatorsHandlers struct {
+// ProviderManager manages all middleware and handlers of all authenticators.
+type ProviderManager struct {
 	mtx                    sync.RWMutex
 	patternHandlers        map[string]tenantHandlers
 	middlewares            map[string]Middleware
@@ -53,9 +53,9 @@ type AuthenticatorsHandlers struct {
 	registrationRetryCount *prometheus.CounterVec
 }
 
-// NewAuthenticatorsHandlers creates a new authentication handler.
-func NewAuthenticatorsHandlers(l log.Logger, registrationRetryCount *prometheus.CounterVec) *AuthenticatorsHandlers {
-	return &AuthenticatorsHandlers{
+// NewProviderManager creates a new authentication handler.
+func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.CounterVec) *ProviderManager {
+	return &ProviderManager{
 		registrationRetryCount: registrationRetryCount,
 		patternHandlers:        make(map[string]tenantHandlers),
 		middlewares:            make(map[string]Middleware),
@@ -65,19 +65,19 @@ func NewAuthenticatorsHandlers(l log.Logger, registrationRetryCount *prometheus.
 
 // NewTenantAuthenticator initializes an authenticator provider and register the created
 // authentication middleware and handler.
-func (ah *AuthenticatorsHandlers) NewTenantAuthenticator(config map[string]interface{},
+func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 	tenant string, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) chan Provider {
 	authCh := make(chan Provider)
 
 	go func() {
-		authenticatorFactory, err := getAuthenticatorFactory(authenticatorType)
+		ProviderFactory, err := getProviderFactory(authenticatorType)
 		if err != nil {
 			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
 			return
 		}
 
-		authenticator, err := authenticatorFactory(config, tenant, registrationRetryCount, logger)
+		authenticator, err := ProviderFactory(config, tenant, registrationRetryCount, logger)
 		if err != nil {
 			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
@@ -102,7 +102,7 @@ func (ah *AuthenticatorsHandlers) NewTenantAuthenticator(config map[string]inter
 	return authCh
 }
 
-func (ah *AuthenticatorsHandlers) AuthenticatorMiddlewares(tenant string) (Middleware, bool) {
+func (ah *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
 	ah.mtx.RLock()
 	mw, ok := ah.middlewares[tenant]
 	ah.mtx.RUnlock()
@@ -110,7 +110,7 @@ func (ah *AuthenticatorsHandlers) AuthenticatorMiddlewares(tenant string) (Middl
 	return mw, ok
 }
 
-func (ah *AuthenticatorsHandlers) PatternRoutes(pattern string) http.HandlerFunc {
+func (ah *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := GetTenant(r.Context())
 		const msg = "error finding tenant"
@@ -132,14 +132,14 @@ func (ah *AuthenticatorsHandlers) PatternRoutes(pattern string) http.HandlerFunc
 	})
 }
 
-func getAuthenticatorFactory(authType string) (AuthenticatorFactory, error) {
-	authenticatorsMtx.RLock()
-	defer authenticatorsMtx.RUnlock()
+func getProviderFactory(authType string) (ProviderFactory, error) {
+	providersMtx.RLock()
+	defer providersMtx.RUnlock()
 
-	authenticatorFactory, ok := authenticatorFactories[authType]
+	ProviderFactory, ok := providerFactories[authType]
 	if !ok {
 		return nil, fmt.Errorf("authenticator type %s is not supported", authType)
 	}
 
-	return authenticatorFactory, nil
+	return ProviderFactory, nil
 }

@@ -57,32 +57,32 @@ func TestNewAuthentication(t *testing.T) {
 	l := logger.NewLogger("info", logger.LogFormatLogfmt, "")
 
 	// Register the authenticator factory
-	authenticatorFactories[authenticatorTypeName] = newdummyAuthenticator
+	providerFactories[authenticatorTypeName] = newdummyAuthenticator
 
 	tenant := "test-tenant"
 
 	reg := prometheus.NewRegistry()
 	registrationFailingMetric := RegisterTenantsFailingMetric(reg)
-	ah := NewAuthenticatorsHandlers(l, registrationFailingMetric)
+	ah := NewProviderManager(l, registrationFailingMetric)
 
 	t.Run("Getting an authenticator factory", func(t *testing.T) {
-		_, err := getAuthenticatorFactory(authenticatorTypeName)
+		_, err := getProviderFactory(authenticatorTypeName)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
-		_, err = getAuthenticatorFactory("unregistered-authenticator")
+		_, err = getProviderFactory("unregistered-authenticator")
 		if err == nil {
 			t.Fatalf("getting an authenticator factory of unregistered authenticator should fail")
 		}
 	})
 
 	t.Run("initialize authenticators", func(t *testing.T) {
-		initializedAuthenticator := <-ah.NewTenantAuthenticator(dummyConfig, tenant, authenticatorTypeName, registrationFailingMetric, l)
+		initializedAuthenticator := <-ah.InitializeProvider(dummyConfig, tenant, authenticatorTypeName, registrationFailingMetric, l)
 		if initializedAuthenticator == nil {
 			t.Fatalf("initialized authenticator should not be nil")
 		}
 
-		_, ok := ah.AuthenticatorMiddlewares(tenant)
+		_, ok := ah.Middlewares(tenant)
 		if !ok {
 			t.Fatalf("middleware of the dummy authenticator has not been found")
 		}
@@ -92,7 +92,7 @@ func TestNewAuthentication(t *testing.T) {
 			t.Fatalf("getting undefined handler should be nil")
 		}
 
-		nonExistAuthenticator := <-ah.NewTenantAuthenticator(dummyConfig, tenant, "not-exist", registrationFailingMetric, l)
+		nonExistAuthenticator := <-ah.InitializeProvider(dummyConfig, tenant, "not-exist", registrationFailingMetric, l)
 		if nonExistAuthenticator != nil {
 			t.Fatalf("intializing a non-exist authenticator should return a nil authenticator")
 		}
