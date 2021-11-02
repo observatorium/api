@@ -10,7 +10,7 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
-func TestTenantsRetryOIDCRegistration(t *testing.T) {
+func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 	t.Parallel()
 
 	e, err := e2e.NewDockerEnvironment(envTenantsName)
@@ -31,14 +31,27 @@ func TestTenantsRetryOIDCRegistration(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	t.Run("tenants-oidc-retry", func(t *testing.T) {
+	t.Run("tenants-authenticator-provider-retry", func(t *testing.T) {
 		// Check that retries metric increases eventually.
+		// This is with the new authenticators setup.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
 			e2e.Greater(0),
 			[]string{"observatorium_api_tenants_failed_registrations"},
 			e2e.WaitMissingMetrics(),
 			e2e.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-oidc"),
+				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
+			),
+		))
+
+		// Test a tenant with legacy configuration setup.
+		testutil.Ok(t, api.WaitSumMetricsWithOptions(
+			e2e.Greater(0),
+			[]string{"observatorium_api_tenants_failed_registrations"},
+			e2e.WaitMissingMetrics(),
+			e2e.WithLabelMatchers(
+				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-attacker"),
+				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
 			),
 		))
 
@@ -68,4 +81,5 @@ func TestTenantsRetryOIDCRegistration(t *testing.T) {
 		))
 
 	})
+
 }

@@ -14,10 +14,12 @@ require (
 	github.com/go-kit/kit v0.10.0
 	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/golang/protobuf v1.5.2
+	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/metalmatze/signal v0.0.0-20201002154727-d0c16e42a3cf
+	github.com/mitchellh/mapstructure v1.4.1
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.23.2
 	github.com/pkg/errors v0.9.1
