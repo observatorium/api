@@ -203,8 +203,5 @@ JSONNETFMT_CMD := $(JSONNETFMT) -n 2 --max-blank-lines 2 --string-style s --comm
 jsonnet-fmt: | $(JSONNETFMT)
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i
 
-.PHONY: generate-rules-spec
-generate-rules-spec:
-	@oapi-codegen -generate client -o rules/client.go -package rules rules/spec.yaml
-	@oapi-codegen -generate chi-server -o rules/server/server.go -package rulesserver rules/spec.yaml
-	@oapi-codegen -generate types -o rules/types.go -package rules rules/spec.yaml
+generate-rules-code:
+	@oapi-codegen -generate types,client,chi-server -package rules -o rules/rules.go rules/spec.yaml

@@ -5,6 +5,7 @@ package rules
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,7 +16,85 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
+	"github.com/go-chi/chi/v5"
 )
+
+// Rule defines model for Rule.
+type Rule struct {
+	Expr   string      `json:"expr"`
+	Labels Rule_Labels `json:"labels"`
+	Record string      `json:"record"`
+}
+
+// Rule_Labels defines model for Rule.Labels.
+type Rule_Labels struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
+
+// RuleGroup defines model for RuleGroup.
+type RuleGroup struct {
+	Interval string `json:"interval"`
+	Name     string `json:"name"`
+	Rules    []Rule `json:"rules"`
+}
+
+// Rules defines model for Rules.
+type Rules struct {
+	Groups []RuleGroup `json:"groups"`
+}
+
+// Getter for additional properties for Rule_Labels. Returns the specified
+// element and whether it was found
+func (a Rule_Labels) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for Rule_Labels
+func (a *Rule_Labels) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for Rule_Labels to handle AdditionalProperties
+func (a *Rule_Labels) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for Rule_Labels to handle AdditionalProperties
+func (a Rule_Labels) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -342,4 +421,121 @@ func ParseSetRulesResponse(rsp *http.Response) (*SetRulesResponse, error) {
 	}
 
 	return response, nil
+}
+
+// ServerInterface represents all server handlers.
+type ServerInterface interface {
+	// lists all rules for a tenant
+	// (GET /api/v1/{tenant}/rules)
+	ListRules(w http.ResponseWriter, r *http.Request, tenant string)
+	// set/overwrite the rules for the tenant
+	// (PUT /api/v1/{tenant}/rules)
+	SetRules(w http.ResponseWriter, r *http.Request, tenant string)
+}
+
+// ServerInterfaceWrapper converts contexts to parameters.
+type ServerInterfaceWrapper struct {
+	Handler            ServerInterface
+	HandlerMiddlewares []MiddlewareFunc
+}
+
+type MiddlewareFunc func(http.HandlerFunc) http.HandlerFunc
+
+// ListRules operation middleware
+func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant string
+
+	err = runtime.BindStyledParameter("simple", false, "tenant", chi.URLParam(r, "tenant"), &tenant)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid format for parameter tenant: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	var handler = func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRules(w, r, tenant)
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler(w, r.WithContext(ctx))
+}
+
+// SetRules operation middleware
+func (siw *ServerInterfaceWrapper) SetRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "tenant" -------------
+	var tenant string
+
+	err = runtime.BindStyledParameter("simple", false, "tenant", chi.URLParam(r, "tenant"), &tenant)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid format for parameter tenant: %s", err), http.StatusBadRequest)
+		return
+	}
+
+	var handler = func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRules(w, r, tenant)
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler(w, r.WithContext(ctx))
+}
+
+// Handler creates http.Handler with routing matching OpenAPI spec.
+func Handler(si ServerInterface) http.Handler {
+	return HandlerWithOptions(si, ChiServerOptions{})
+}
+
+type ChiServerOptions struct {
+	BaseURL     string
+	BaseRouter  chi.Router
+	Middlewares []MiddlewareFunc
+}
+
+// HandlerFromMux creates http.Handler with routing matching OpenAPI spec based on the provided mux.
+func HandlerFromMux(si ServerInterface, r chi.Router) http.Handler {
+	return HandlerWithOptions(si, ChiServerOptions{
+		BaseRouter: r,
+	})
+}
+
+func HandlerFromMuxWithBaseURL(si ServerInterface, r chi.Router, baseURL string) http.Handler {
+	return HandlerWithOptions(si, ChiServerOptions{
+		BaseURL:    baseURL,
+		BaseRouter: r,
+	})
+}
+
+// HandlerWithOptions creates http.Handler with additional options
+func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handler {
+	r := options.BaseRouter
+
+	if r == nil {
+		r = chi.NewRouter()
+	}
+	wrapper := ServerInterfaceWrapper{
+		Handler:            si,
+		HandlerMiddlewares: options.Middlewares,
+	}
+
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/{tenant}/rules", wrapper.ListRules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/{tenant}/rules", wrapper.SetRules)
+	})
+
+	return r
 }
