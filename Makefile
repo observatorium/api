@@ -184,7 +184,7 @@ $(PROTOC): $(TMP_DIR) $(BIN_DIR)
 MANIFESTS := examples/manifests
 
 .PHONY: generate
-generate: ${MANIFESTS} README.md
+generate: ${MANIFESTS} generate-rules-code README.md
 
 .PHONY: ${MANIFESTS}
 ${MANIFESTS}: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
@@ -204,4 +204,4 @@ jsonnet-fmt: | $(JSONNETFMT)
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i
 
 generate-rules-code:
-	@oapi-codegen -generate types,client,chi-server -package rules -o rules/rules.go rules/spec.yaml
+	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules -o rules/rules.go rules/spec.yaml

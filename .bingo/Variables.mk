@@ -83,6 +83,12 @@ $(KUBEVAL): $(BINGO_DIR)/kubeval.mod
 	@echo "(re)installing $(GOBIN)/kubeval-v0.0.0-20201005082916-38668c6c5b23"
 	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=kubeval.mod -o=$(GOBIN)/kubeval-v0.0.0-20201005082916-38668c6c5b23 "github.com/instrumenta/kubeval"
 
+OAPI_CODEGEN := $(GOBIN)/oapi-codegen-v1.9.0
+$(OAPI_CODEGEN): $(BINGO_DIR)/oapi-codegen.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/oapi-codegen-v1.9.0"
+	@cd $(BINGO_DIR) && $(GO) build -mod=mod -modfile=oapi-codegen.mod -o=$(GOBIN)/oapi-codegen-v1.9.0 "github.com/deepmap/oapi-codegen/cmd/oapi-codegen"
+
 OPA := $(GOBIN)/opa-v0.23.2
 $(OPA): $(BINGO_DIR)/opa.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
