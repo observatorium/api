@@ -35,7 +35,7 @@ func onboardNewProvider(providerType string, factory ProviderFactory) {
 // authentication provider.
 type ProviderFactory func(config map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error)
 
-// Provider is an interface that should be implemented to onboard a new authentication.
+// Provider is an interface that should be implemented to onboard a new authentication
 // provider.
 type Provider interface {
 	Middleware() Middleware
@@ -63,7 +63,7 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 	}
 }
 
-// NewTenantAuthenticator initializes an authenticator provider and register the created
+// InitializeProvider initializes an authenticator provider and register the created
 // authentication middleware and handler.
 func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 	tenant string, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) chan Provider {
@@ -102,6 +102,7 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 	return authCh
 }
 
+// Middleware returns an authentication middleware for a tenant.
 func (ah *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
 	ah.mtx.RLock()
 	mw, ok := ah.middlewares[tenant]
@@ -110,6 +111,7 @@ func (ah *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
 	return mw, ok
 }
 
+// PatternHandler return an http.HandlerFunc for a corresponding pattern.
 func (ah *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := GetTenant(r.Context())

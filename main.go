@@ -387,7 +387,7 @@ func main() {
 					&http.Client{Transport: t},
 					cfg.server.healthcheckURL,
 					http.MethodGet,
-					http.StatusNotFound,
+					http.StatusOK,
 					time.Second,
 				),
 			)
@@ -602,6 +602,8 @@ func main() {
 				cancel()
 			})
 		}
+
+		r.Get("/", server.PathsHandlerFunc(logger, r.Routes()))
 
 		s := http.Server{
 			Addr:         cfg.server.listen,
