@@ -19,23 +19,42 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// Rule defines model for Rule.
-type Rule struct {
-	Expr   string      `json:"expr"`
-	Labels Rule_Labels `json:"labels"`
-	Record string      `json:"record"`
+// AlertingRule defines model for AlertingRule.
+type AlertingRule struct {
+	Alert       string                   `json:"alert"`
+	Annotations AlertingRule_Annotations `json:"annotations"`
+	Expr        string                   `json:"expr"`
+	For         string                   `json:"for"`
+	Labels      AlertingRule_Labels      `json:"labels"`
 }
 
-// Rule_Labels defines model for Rule.Labels.
-type Rule_Labels struct {
+// AlertingRule_Annotations defines model for AlertingRule.Annotations.
+type AlertingRule_Annotations struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
+
+// AlertingRule_Labels defines model for AlertingRule.Labels.
+type AlertingRule_Labels struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
+
+// RecordingRule defines model for RecordingRule.
+type RecordingRule struct {
+	Expr   string               `json:"expr"`
+	Labels RecordingRule_Labels `json:"labels"`
+	Record string               `json:"record"`
+}
+
+// RecordingRule_Labels defines model for RecordingRule.Labels.
+type RecordingRule_Labels struct {
 	AdditionalProperties map[string]string `json:"-"`
 }
 
 // RuleGroup defines model for RuleGroup.
 type RuleGroup struct {
-	Interval string `json:"interval"`
-	Name     string `json:"name"`
-	Rules    []Rule `json:"rules"`
+	Interval string        `json:"interval"`
+	Name     string        `json:"name"`
+	Rules    []interface{} `json:"rules"`
 }
 
 // Rules defines model for Rules.
@@ -43,25 +62,25 @@ type Rules struct {
 	Groups []RuleGroup `json:"groups"`
 }
 
-// Getter for additional properties for Rule_Labels. Returns the specified
+// Getter for additional properties for AlertingRule_Annotations. Returns the specified
 // element and whether it was found
-func (a Rule_Labels) Get(fieldName string) (value string, found bool) {
+func (a AlertingRule_Annotations) Get(fieldName string) (value string, found bool) {
 	if a.AdditionalProperties != nil {
 		value, found = a.AdditionalProperties[fieldName]
 	}
 	return
 }
 
-// Setter for additional properties for Rule_Labels
-func (a *Rule_Labels) Set(fieldName string, value string) {
+// Setter for additional properties for AlertingRule_Annotations
+func (a *AlertingRule_Annotations) Set(fieldName string, value string) {
 	if a.AdditionalProperties == nil {
 		a.AdditionalProperties = make(map[string]string)
 	}
 	a.AdditionalProperties[fieldName] = value
 }
 
-// Override default JSON handling for Rule_Labels to handle AdditionalProperties
-func (a *Rule_Labels) UnmarshalJSON(b []byte) error {
+// Override default JSON handling for AlertingRule_Annotations to handle AdditionalProperties
+func (a *AlertingRule_Annotations) UnmarshalJSON(b []byte) error {
 	object := make(map[string]json.RawMessage)
 	err := json.Unmarshal(b, &object)
 	if err != nil {
@@ -82,8 +101,114 @@ func (a *Rule_Labels) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Override default JSON handling for Rule_Labels to handle AdditionalProperties
-func (a Rule_Labels) MarshalJSON() ([]byte, error) {
+// Override default JSON handling for AlertingRule_Annotations to handle AdditionalProperties
+func (a AlertingRule_Annotations) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for AlertingRule_Labels. Returns the specified
+// element and whether it was found
+func (a AlertingRule_Labels) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for AlertingRule_Labels
+func (a *AlertingRule_Labels) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for AlertingRule_Labels to handle AdditionalProperties
+func (a *AlertingRule_Labels) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for AlertingRule_Labels to handle AdditionalProperties
+func (a AlertingRule_Labels) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for RecordingRule_Labels. Returns the specified
+// element and whether it was found
+func (a RecordingRule_Labels) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for RecordingRule_Labels
+func (a *RecordingRule_Labels) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for RecordingRule_Labels to handle AdditionalProperties
+func (a *RecordingRule_Labels) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for RecordingRule_Labels to handle AdditionalProperties
+func (a RecordingRule_Labels) MarshalJSON() ([]byte, error) {
 	var err error
 	object := make(map[string]json.RawMessage)
 
