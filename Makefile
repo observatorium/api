@@ -205,4 +205,4 @@ jsonnet-fmt: | $(JSONNETFMT)
 
 .PHONY: rules/rules.go
 rules/rules.go: $(OAPI_CODEGEN)
-	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules -o rules/rules.go rules/spec.yaml
+	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules -o $@ rules/spec.yaml
