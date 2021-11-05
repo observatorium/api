@@ -52,7 +52,7 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 	$(EMBEDMD) -w docs/benchmark.md
 
-$(BIN_NAME): deps main.go $(wildcard *.go) $(wildcard */*.go)
+$(BIN_NAME): deps main.go rules/rules.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
 
 %.y.go: %.y | $(GOYACC)
