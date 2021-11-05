@@ -834,7 +834,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
-		"The endpoint against which to make get requests for listing recording rules and put requests for creating/updating recording rules.")
+		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
