@@ -32,7 +32,7 @@ const (
 	labelNamesRoute  = "/api/v1/labels"
 	labelValuesRoute = "/api/v1/label/{label_name}/values"
 	receiveRoute     = "/api/v1/receive"
-	rulesRoute       = "/api/v1/rules"
+	rulesRoute       = "/rules"
 )
 
 type handlerConfiguration struct {
