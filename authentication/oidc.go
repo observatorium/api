@@ -149,6 +149,7 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		verifier:     verifier,
 		client:       client,
 		cookieName:   fmt.Sprintf("observatorium_%s", tenant),
+		redirectURL:  path.Join("/", tenant),
 	}
 
 	r := chi.NewRouter()
