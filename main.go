@@ -109,6 +109,7 @@ type tlsConfig struct {
 type metricsConfig struct {
 	readEndpoint   *url.URL
 	writeEndpoint  *url.URL
+	rulesEndpoint  *url.URL
 	upstreamCAFile string
 	tenantHeader   string
 	tenantLabel    string
@@ -527,6 +528,7 @@ func main() {
 							metricsv1.NewHandler(
 								cfg.metrics.readEndpoint,
 								cfg.metrics.writeEndpoint,
+								cfg.metrics.rulesEndpoint,
 								metricsUpstreamCACert,
 								metricsv1.WithLogger(logger),
 								metricsv1.WithRegistry(reg),
@@ -738,6 +740,7 @@ func parseFlags() (config, error) {
 		rawTLSCipherSuites      string
 		rawMetricsReadEndpoint  string
 		rawMetricsWriteEndpoint string
+		rawMetricsRulesEndpoint string
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
@@ -788,6 +791,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
+		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
@@ -849,6 +854,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.metrics.writeEndpoint = metricsWriteEndpoint
+	}
+
+	if rawMetricsRulesEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		metricsRulesEndpoint, err := url.ParseRequestURI(rawMetricsRulesEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.rules.endpoint %q is invalid: %w", rawMetricsRulesEndpoint, err)
+		}
+
+		cfg.metrics.rulesEndpoint = metricsRulesEndpoint
 	}
 
 	if rawLogsReadEndpoint != "" {

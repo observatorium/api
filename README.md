@@ -40,6 +40,10 @@ Compatible backends must implement the Prometheus HTTP API, e.g. Prometheus, Tha
 The backend to which to write metrics can be specified with the `--metrics.write.endpoint` flag.
 Compatible backends must implement the Prometheus remote-write API, e.g. Thanos receiver, Cortex, etc.
 
+#### --metrics.rules.endpoint
+
+The rules backend to where rules can be stored can be specified with the `--metrics.rules.endpoint` flag.
+
 ### Logs
 
 The Observatorium API server can serve read and write requests for logs.
@@ -95,6 +99,8 @@ Usage of ./observatorium-api:
     	The endpoint against which to make write requests for logs.
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
+  -metrics.rules.endpoint string
+    	The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.
   -metrics.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.tenant-label string

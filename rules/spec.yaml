@@ -1,0 +1,126 @@
+openapi: 3.0.0
+info:
+  description: The Rules Backend API
+  version: "0.0.1"
+  title: Rules Backend API
+  license:
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+tags:
+  - name: rulesv1
+    description: Calls related to rules
+paths:
+  /api/v1/{tenant}/rules:
+    parameters:
+      - in: path
+        name: tenant
+        description: name of the tenant
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - rulesv1
+      summary: lists all rules for a tenant
+      operationId: listRules
+      description: |
+        You can list all rules for a tenant
+      responses:
+        '200':
+          description: all rules for that tenant
+          content:
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/Rules'
+        '404':
+          description: invalid tenant
+    put:
+      tags:
+        - rulesv1
+      summary: set/overwrite the rules for the tenant
+      operationId: setRules
+      description: Set rules for the tenant
+      responses:
+        '201':
+          description: rule file created
+        '400':
+          description: 'invalid rules object'
+      requestBody:
+        content:
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/Rules'
+        description: Rules to set
+components:
+  schemas:
+    Rules:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleGroup'
+    RuleGroup:
+      type: object
+      required:
+        - interval
+        - name
+        - rules
+      properties:
+        interval:
+          type: string
+          example: '1m'
+        name:
+          type: string
+          example: 'telemeter.rules'
+        rules:
+          type: array
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/RecordingRule'
+              - $ref: '#/components/schemas/AlertingRule'
+    RecordingRule:
+      type: object
+      required:
+        - expr
+        - record
+        - labels
+      properties:
+        expr:
+          type: string
+          example: 'count by (name) (cluster{condition="halted"} == 1)'
+        record:
+          type: string
+          example: 'count:cluster_halted'
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+    AlertingRule:
+      type: object
+      required:
+        - alert
+        - expr
+        - for
+        - labels
+        - annotations
+      properties:
+        alert:
+          type: string
+          example: 'HighRequestLatency'
+        expr:
+          type: string
+          example: 'job:request_latency_seconds:mean5m{job="myjob"} > 0.5'
+        for:
+          type: string
+          example: '10m'
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string

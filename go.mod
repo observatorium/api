@@ -6,10 +6,12 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/cloudflare/cfssl v1.4.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/deepmap/oapi-codegen v1.9.0
 	github.com/efficientgo/e2e v0.11.1
 	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.0+incompatible
+	github.com/go-chi/chi/v5 v5.0.0
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/kit v0.10.0
 	github.com/golang-jwt/jwt/v4 v4.1.0
@@ -37,8 +39,9 @@ require (
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	google.golang.org/genproto v0.0.0-20210604141403-392c879c8b08
 	google.golang.org/grpc v1.38.0
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.21.1
 	k8s.io/apiserver v0.21.1
 	k8s.io/client-go v0.21.1

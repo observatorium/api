@@ -11,10 +11,12 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/rules"
 )
 
 const (
@@ -30,6 +32,7 @@ const (
 	labelNamesRoute  = "/api/v1/labels"
 	labelValuesRoute = "/api/v1/label/{label_name}/values"
 	receiveRoute     = "/api/v1/receive"
+	rulesRoute       = "/api/v1/rules/raw"
 )
 
 type handlerConfiguration struct {
@@ -114,7 +117,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 
 // NewHandler creates the new metrics v1 handler.
 // nolint:funlen
-func NewHandler(read, write *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
+func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -271,6 +274,26 @@ func NewHandler(read, write *url.URL, upstreamCA []byte, opts ...HandlerOption) 
 				prometheus.Labels{"group": "metricsv1", "handler": "receive"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+receiveRoute, proxyWrite),
 			))
+		})
+	}
+
+	if rulesEndpoint != nil {
+		client, err := rules.NewClient(rulesEndpoint.String())
+		if err != nil {
+			level.Warn(c.logger).Log("msg", "could not create rules endpoint client")
+			return r
+		}
+
+		rh := rulesHandler{client: client}
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.uiMiddlewares...)
+			r.Get(rulesRoute, rh.get)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.writeMiddlewares...)
+			r.Put(rulesRoute, rh.put)
 		})
 	}
 

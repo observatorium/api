@@ -52,7 +52,7 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 	$(EMBEDMD) -w docs/benchmark.md
 
-$(BIN_NAME): deps main.go $(wildcard *.go) $(wildcard */*.go)
+$(BIN_NAME): deps main.go rules/rules.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
 
 %.y.go: %.y | $(GOYACC)
@@ -184,7 +184,7 @@ $(PROTOC): $(TMP_DIR) $(BIN_DIR)
 MANIFESTS := examples/manifests
 
 .PHONY: generate
-generate: ${MANIFESTS} README.md
+generate: ${MANIFESTS} rules/rules.go README.md
 
 .PHONY: ${MANIFESTS}
 ${MANIFESTS}: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
@@ -202,3 +202,6 @@ JSONNETFMT_CMD := $(JSONNETFMT) -n 2 --max-blank-lines 2 --string-style s --comm
 .PHONY: jsonnet-fmt
 jsonnet-fmt: | $(JSONNETFMT)
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i
+
+rules/rules.go: $(OAPI_CODEGEN) rules/spec.yaml
+	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules -o $@ rules/spec.yaml
