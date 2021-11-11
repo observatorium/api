@@ -9,7 +9,7 @@ import (
 )
 
 type rulesHandler struct {
-	client *rules.Client
+	client rules.ClientInterface
 }
 
 func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
