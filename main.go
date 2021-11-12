@@ -34,6 +34,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/version"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -217,6 +218,20 @@ func main() {
 
 	otel.SetErrorHandler(otelErrorHandler{logger: logger})
 
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(
+		version.NewCollector("observatorium"),
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
+
+	skippedTenants := promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
+		Namespace: "observatorium",
+		Subsystem: "api",
+		Name:      "tenants_skipped_invalid_configuration",
+		Help:      "The number of tenants which have not been configured due to an invalid configuration.",
+	}, []string{"tenant"})
+
 	type tenantsConfig struct {
 		Tenants []*tenant `json:"tenants"`
 	}
@@ -238,6 +253,7 @@ func main() {
 				oidcConfig, err := unmarshalLegacyAuthenticatorConfig(t.OIDC)
 				if err != nil {
 					skip.Log("msg", "failed to unmarshal legacy OIDC config", "err", err, "tenant", t.Name)
+					skippedTenants.WithLabelValues(t.Name).Inc()
 					tenantsCfg.Tenants[i] = nil
 					continue
 				}
@@ -249,6 +265,7 @@ func main() {
 				mTLSConfig, err := unmarshalLegacyAuthenticatorConfig(t.MTLS)
 				if err != nil {
 					skip.Log("msg", "failed to unmarshal legacy mTLS config", "err", err, "tenant", t.Name)
+					skippedTenants.WithLabelValues(t.Name).Inc()
 					tenantsCfg.Tenants[i] = nil
 					continue
 				}
@@ -259,6 +276,7 @@ func main() {
 				openshiftConfig, err := unmarshalLegacyAuthenticatorConfig(t.OpenShift)
 				if err != nil {
 					skip.Log("msg", "failed to unmarshal legacy openshift config", "err", err, "tenant", t.Name)
+					skippedTenants.WithLabelValues(t.Name).Inc()
 					tenantsCfg.Tenants[i] = nil
 					continue
 				}
@@ -268,6 +286,7 @@ func main() {
 			if t.Authenticator != nil {
 				if t.Authenticator.Config == nil {
 					skip.Log("tenant", t.Name, "err", "failed to find authenticator config")
+					skippedTenants.WithLabelValues(t.Name).Inc()
 					tenantsCfg.Tenants[i] = nil
 					continue
 				}
@@ -278,6 +297,7 @@ func main() {
 					u, err := url.Parse(t.OPA.URL)
 					if err != nil {
 						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse OPA URL: %v", err))
+						skippedTenants.WithLabelValues(t.Name).Inc()
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
@@ -292,6 +312,7 @@ func main() {
 					)
 					if err != nil {
 						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
+						skippedTenants.WithLabelValues(t.Name).Inc()
 						tenantsCfg.Tenants[i] = nil
 						continue
 					}
@@ -312,13 +333,6 @@ func main() {
 			stdlog.Fatalf("unable to read RBAC YAML: %v", err)
 		}
 	}
-
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(
-		version.NewCollector("observatorium"),
-		collectors.NewGoCollector(),
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-	)
 
 	healthchecks := healthcheck.NewMetricsHandler(healthcheck.NewHandler(), reg)
 
