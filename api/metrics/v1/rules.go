@@ -9,7 +9,7 @@ import (
 )
 
 type rulesHandler struct {
-	client *rules.Client
+	client rules.ClientInterface
 }
 
 func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
@@ -26,15 +26,8 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
 
-	if err != nil {
-		http.Error(w, "error reading rules response", http.StatusInternalServerError)
-		return
-	}
-
-	_, err = w.Write(body)
-	if err != nil {
+	if _, err := io.Copy(w, resp.Body); err != nil {
 		http.Error(w, "error writing rules response", http.StatusInternalServerError)
 		return
 	}
@@ -52,15 +45,8 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
 
-	if err != nil {
-		http.Error(w, "error reading rules response", http.StatusInternalServerError)
-		return
-	}
-
-	_, err = w.Write(body)
-	if err != nil {
+	if _, err := io.Copy(w, resp.Body); err != nil {
 		http.Error(w, "error writing rules response", http.StatusInternalServerError)
 		return
 	}
