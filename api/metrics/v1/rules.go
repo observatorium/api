@@ -21,7 +21,13 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := rh.client.ListRules(r.Context(), tenant)
 	if err != nil {
-		http.Error(w, "error listing rules %w", resp.StatusCode)
+		sc := http.StatusInternalServerError
+		if resp != nil {
+			sc = resp.StatusCode
+		}
+
+		http.Error(w, "error listing rules", sc)
+
 		return
 	}
 
@@ -41,7 +47,14 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := rh.client.SetRulesWithBody(r.Context(), tenant, r.Header.Get("Content-type"), r.Body)
 	if err != nil {
-		http.Error(w, "error creating rules %w", resp.StatusCode)
+		sc := http.StatusInternalServerError
+		if resp != nil {
+			sc = resp.StatusCode
+		}
+
+		http.Error(w, "error creating rules", sc)
+
+		return
 	}
 
 	defer resp.Body.Close()
