@@ -224,6 +224,7 @@ func main() {
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
+
 	skippedTenants := promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
 		Namespace: "observatorium",
 		Subsystem: "api",
