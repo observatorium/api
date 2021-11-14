@@ -204,4 +204,4 @@ jsonnet-fmt: | $(JSONNETFMT)
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin echo ${JSONNET_SRC} | xargs -n 1 -- $(JSONNETFMT_CMD) -i
 
 rules/rules.go: $(OAPI_CODEGEN) rules/spec.yaml
-	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules -o $@ rules/spec.yaml
+	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules rules/spec.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
