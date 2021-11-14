@@ -78,7 +78,7 @@ components:
         rules:
           type: array
           items:
-            anyOf:
+            oneOf:
               - $ref: '#/components/schemas/RecordingRule'
               - $ref: '#/components/schemas/AlertingRule'
     RecordingRule:
