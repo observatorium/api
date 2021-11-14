@@ -548,6 +548,7 @@ func main() {
 								metricsv1.WithRegistry(reg),
 								metricsv1.WithHandlerInstrumenter(ins),
 								metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
+								metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
 								metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 								metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
 								metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
