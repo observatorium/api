@@ -123,7 +123,7 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 
 .PHONY: container-test
 container-test: # Use 'shortcut' to build test image if on Linux, otherwise full build.
-ifeq ($(OS)_$(ARCH), linux_x86_64)
+ifeq ($(OS), linux)
 container-test: build
 	@docker build \
 		-f Dockerfile.e2e-test \
