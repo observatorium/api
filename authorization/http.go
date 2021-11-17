@@ -75,7 +75,7 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
 			if !ok {
-				w.WriteHeader(statusCode)
+				http.Error(w, "authorization declined", statusCode)
 
 				return
 			}

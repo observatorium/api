@@ -71,11 +71,13 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 	tenantID, token string) (int, bool, string) {
 	ts, ok := rs[resource]
 	if !ok {
+		fmt.Printf("TODO LOG AT DEBUG authorization resource %q unknown; valid resources are %v\n", resource, rs)
 		return http.StatusForbidden, false, ""
 	}
 
 	t, ok := ts[tenant]
 	if !ok {
+		fmt.Printf("TODO LOG AT DEBUG tenant %q unknown; valid tenants are %v\n", tenant, ts)
 		return http.StatusForbidden, false, ""
 	}
 
@@ -100,6 +102,7 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 		}
 	}
 
+	fmt.Printf("TODO LOG AT DEBUG subject %q unknown; groups %v unknown\n", subject, groups)
 	return http.StatusForbidden, false, ""
 }
 
