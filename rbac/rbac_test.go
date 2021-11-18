@@ -3,6 +3,8 @@ package rbac
 import (
 	"net/http"
 	"testing"
+
+	"github.com/observatorium/api/logger"
 )
 
 // nolint:dupl,funlen,scopelint
@@ -1013,7 +1015,7 @@ func TestNewAuthorizer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := NewAuthorizer(tc.roles, tc.roleBindings)
+			a := NewAuthorizer(tc.roles, tc.roleBindings, logger.NewLogger("info", logger.LogFormatLogfmt, "observatorium"))
 			for i := range tc.ios {
 				sc, out, data := a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource,
 					tc.ios[i].tenant, tc.ios[i].tenantID, "")
