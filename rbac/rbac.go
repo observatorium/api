@@ -190,8 +190,5 @@ func Parse(r io.Reader, logger log.Logger) (Authorizer, error) {
 		return nil, fmt.Errorf("could not parse RBAC data: %w", err)
 	}
 
-	level.Debug(logger).Log("msg",
-		fmt.Sprintf("RBAC roles %#v; role bindings %#v",
-			rbac.Roles, rbac.RoleBindings))
 	return NewAuthorizer(rbac.Roles, rbac.RoleBindings, logger), nil
 }
