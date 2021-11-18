@@ -329,7 +329,7 @@ func main() {
 			stdlog.Fatalf("cannot read RBAC configuration file from path %q: %v", cfg.rbacConfigPath, err)
 		}
 		defer f.Close()
-		if authorizer, err = rbac.Parse(f); err != nil {
+		if authorizer, err = rbac.Parse(f, logger); err != nil {
 			stdlog.Fatalf("unable to read RBAC YAML: %v", err)
 		}
 	}
