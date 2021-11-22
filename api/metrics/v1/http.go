@@ -40,6 +40,7 @@ type handlerConfiguration struct {
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
 	spanRoutePrefix  string
+	tenantLabel      string
 	queryMiddlewares []func(http.Handler) http.Handler
 	readMiddlewares  []func(http.Handler) http.Handler
 	uiMiddlewares    []func(http.Handler) http.Handler
@@ -74,6 +75,13 @@ func WithHandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.spanRoutePrefix = spanRoutePrefix
+	}
+}
+
+// WithTenantLabel adds tenant label for the handler to use.
+func WithTenantLabel(tenantLabel string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.tenantLabel = tenantLabel
 	}
 }
 
@@ -284,7 +292,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 			return r
 		}
 
-		rh := rulesHandler{client: client}
+		rh := rulesHandler{client: client, logger: c.logger, tenantLabel: c.tenantLabel}
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
