@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -24,6 +25,27 @@ const (
 	xForwardedAccessTokenHeader = "X-Forwarded-Access-Token" //nolint:gosec
 )
 
+//nolint:gochecknoglobals
+// regoFunctions map is used for the providers' self-registration.
+var regoFunctions map[string]func(log.Logger) func(*rego.Rego)
+
+//nolint:gochecknoglobals
+// regoFunctionsMtx is used to protect the providerFactories.
+var regoFunctionsMtx sync.RWMutex
+
+//nolint:gochecknoinits
+func init() {
+	regoFunctions = make(map[string]func(log.Logger) func(*rego.Rego))
+}
+
+// onboardNewFunction is used by pluggable custom functions to register theirself.
+func onboardNewFunction(regoFunctionName string, regoFunction func(log.Logger) func(*rego.Rego)) {
+	regoFunctionsMtx.Lock()
+	defer regoFunctionsMtx.Unlock()
+
+	regoFunctions[regoFunctionName] = regoFunction
+}
+
 // Input models the data that is used for OPA input documents.
 type Input struct {
 	Groups     []string        `json:"groups"`
@@ -32,6 +54,7 @@ type Input struct {
 	Subject    string          `json:"subject"`
 	Tenant     string          `json:"tenant"`
 	TenantID   string          `json:"tenantID"`
+	Token      string          `json:"token"`
 }
 
 type config struct {
@@ -235,6 +258,7 @@ func (a *inProcessAuthorizer) Authorize(
 		Subject:    subject,
 		Tenant:     tenant,
 		TenantID:   tenantID,
+		Token:      token,
 	}
 
 	res, err := a.query.Eval(context.Background(), rego.EvalInput(i))
@@ -299,7 +323,17 @@ func NewInProcessAuthorizer(query string, paths []string, opts ...Option) (rbac.
 		o(c)
 	}
 
-	r := rego.New(rego.Query(query), rego.Load(paths, nil))
+	var r *rego.Rego
+
+	regoArgs := make([]func(*rego.Rego), 0, len(regoFunctions)+2)
+	for _, regoFunction := range regoFunctions {
+		regoArgs = append(regoArgs, regoFunction(c.logger))
+	}
+
+	// Register all provided custom built-in functions
+	regoArgs = append(regoArgs, rego.Query(query), rego.Load(paths, nil))
+
+	r = rego.New(regoArgs...)
 
 	q, err := r.PrepareForEval(context.Background())
 	if err != nil {
