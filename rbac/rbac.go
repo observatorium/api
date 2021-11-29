@@ -86,6 +86,7 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 		level.Debug(rs.logger).Log("msg",
 			fmt.Sprintf("authorization: tenant %q unknown (%d valid tenants for resource %q)",
 				tenant, len(ts), resource))
+
 		return http.StatusForbidden, false, ""
 	}
 
@@ -113,6 +114,7 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 	level.Debug(rs.logger).Log("msg",
 		fmt.Sprintf("authorization: %q unknown; groups %v unknown",
 			subject, groups))
+
 	return http.StatusForbidden, false, ""
 }
 
