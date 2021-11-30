@@ -43,6 +43,7 @@ import (
 	logsv1 "github.com/observatorium/api/api/logs/v1"
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
+	tracesv1 "github.com/observatorium/api/api/traces/v1"
 	"github.com/observatorium/api/authentication"
 
 	"github.com/observatorium/api/authorization"
@@ -582,6 +583,30 @@ func main() {
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+							),
+						),
+					)
+				})
+			}
+
+			// Traces.
+			if cfg.traces.enabled {
+				r.Group(func(r chi.Router) {
+					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
+					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
+
+					r.Mount("/api/traces/v1/{tenant}",
+						stripTenantPrefix("/api/traces/v1",
+							tracesv1.NewHandler(
+								cfg.logs.readEndpoint,
+								cfg.logs.writeEndpoint,
+								tracesv1.Logger(logger),
+								tracesv1.WithRegistry(reg),
+								tracesv1.WithHandlerInstrumenter(ins),
+								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
 							),
 						),
 					)
