@@ -75,6 +75,7 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
 			if !ok {
+				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)
 
 				return

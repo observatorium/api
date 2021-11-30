@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 // Permission is an Observatorium RBAC permission.
@@ -64,18 +66,27 @@ type tenant struct {
 type tenants map[string]tenant
 
 // resources is a map of resource names to the permissions on tenants.
-type resources map[string]tenants
+type resources struct {
+	tenants map[string]tenants
+	logger  log.Logger
+}
 
 // Authorize implements the Authorizer interface.
 func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant,
 	tenantID, token string) (int, bool, string) {
-	ts, ok := rs[resource]
+	ts, ok := rs.tenants[resource]
 	if !ok {
+		level.Debug(rs.logger).Log("msg",
+			fmt.Sprintf("authorization: resource %q unknown; valid resources are %v", resource, rs))
 		return http.StatusForbidden, false, ""
 	}
 
 	t, ok := ts[tenant]
 	if !ok {
+		level.Debug(rs.logger).Log("msg",
+			fmt.Sprintf("authorization: tenant %q unknown (%d valid tenants for resource %q)",
+				tenant, len(ts), resource))
+
 		return http.StatusForbidden, false, ""
 	}
 
@@ -100,32 +111,40 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 		}
 	}
 
+	level.Debug(rs.logger).Log("msg",
+		fmt.Sprintf("authorization: %q unknown; groups %v unknown",
+			subject, groups))
+
 	return http.StatusForbidden, false, ""
 }
 
 //nolint:gocognit
 // NewAuthorizer creates a new Authorizer.
-func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
+func NewAuthorizer(roles []Role, roleBindings []RoleBinding, logger log.Logger) Authorizer {
 	rs := make(map[string]Role)
 	for _, role := range roles {
 		rs[role.Name] = role
 	}
 
-	resources := make(resources)
+	resources := resources{
+		tenants: make(map[string]tenants),
+		logger:  logger,
+	}
 
 	for _, rb := range roleBindings {
 		for _, roleName := range rb.Roles {
 			role, ok := rs[roleName]
 			if !ok {
+				level.Warn(logger).Log("msg", fmt.Sprintf("Unexpected role %q", roleName))
 				continue
 			}
 
 			for _, resourceName := range role.Resources {
-				if _, ok := resources[resourceName]; !ok {
-					resources[resourceName] = make(tenants)
+				if _, ok := resources.tenants[resourceName]; !ok {
+					resources.tenants[resourceName] = make(tenants)
 				}
 
-				t := resources[resourceName]
+				t := resources.tenants[resourceName]
 
 				for _, tenantName := range role.Tenants {
 					if _, ok := t[tenantName]; !ok {
@@ -142,6 +161,10 @@ func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
 								t[tenantName].read[s] = struct{}{}
 							case Write:
 								t[tenantName].write[s] = struct{}{}
+							default:
+								level.Warn(logger).Log("msg",
+									fmt.Sprintf("Ignoring unexpected role permission %q for subject %q in tenant %q in role %q", p,
+										s, tenantName, roleName))
 							}
 						}
 					}
@@ -154,7 +177,7 @@ func NewAuthorizer(roles []Role, roleBindings []RoleBinding) Authorizer {
 }
 
 // Parse parses RBAC data from a reader and creates a new Authorizer.
-func Parse(r io.Reader) (Authorizer, error) {
+func Parse(r io.Reader, logger log.Logger) (Authorizer, error) {
 	rbac := struct {
 		Roles        []Role        `json:"roles"`
 		RoleBindings []RoleBinding `json:"roleBindings"`
@@ -169,5 +192,5 @@ func Parse(r io.Reader) (Authorizer, error) {
 		return nil, fmt.Errorf("could not parse RBAC data: %w", err)
 	}
 
-	return NewAuthorizer(rbac.Roles, rbac.RoleBindings), nil
+	return NewAuthorizer(rbac.Roles, rbac.RoleBindings, logger), nil
 }
