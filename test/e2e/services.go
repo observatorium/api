@@ -1,3 +1,4 @@
+//go:build integration || interactive
 // +build integration interactive
 
 package e2e
@@ -197,6 +198,8 @@ type apiOptions struct {
 	logsEndpoint         string
 	metricsReadEndpoint  string
 	metricsWriteEndpoint string
+	tracesReadEndpoint   string
+	tracesWriteEndpoint  string
 	ratelimiterAddr      string
 }
 
@@ -212,6 +215,13 @@ func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+	}
+}
+
+func withTracesEndpoints(readEndpoint string, writeEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.tracesReadEndpoint = readEndpoint
+		o.tracesWriteEndpoint = writeEndpoint
 	}
 }
 
@@ -256,6 +266,11 @@ func newObservatoriumAPIService(
 		args = append(args, "--logs.read.endpoint="+opts.logsEndpoint)
 		args = append(args, "--logs.tail.endpoint="+opts.logsEndpoint)
 		args = append(args, "--logs.write.endpoint="+opts.logsEndpoint)
+	}
+
+	if opts.tracesReadEndpoint != "" && opts.tracesWriteEndpoint != "" {
+		args = append(args, "--traces.read.endpoint="+opts.tracesReadEndpoint)
+		args = append(args, "--traces.write.endpoint="+opts.tracesWriteEndpoint)
 	}
 
 	if opts.ratelimiterAddr != "" {

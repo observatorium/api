@@ -77,6 +77,7 @@ type config struct {
 	tls             tlsConfig
 	metrics         metricsConfig
 	logs            logsConfig
+	traces          tracesConfig
 	middleware      middlewareConfig
 	internalTracing internalTracingConfig
 }
@@ -126,6 +127,14 @@ type logsConfig struct {
 	upstreamCAFile string
 	tenantHeader   string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
+	enabled bool
+}
+
+type tracesConfig struct {
+	readEndpoint  *url.URL
+	writeEndpoint *url.URL
+	tenantHeader  string
+	// enable logs at least one {read,write}Endpoint} is provided.
 	enabled bool
 }
 
@@ -591,22 +600,24 @@ func main() {
 
 			// Traces.
 			if cfg.traces.enabled {
+				level.Info(logger).Log("msg", "@@@ ecs remove setting up traces", "tenant-header", cfg.traces.tenantHeader)
+
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
-					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
+					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
 
 					r.Mount("/api/traces/v1/{tenant}",
 						stripTenantPrefix("/api/traces/v1",
 							tracesv1.NewHandler(
-								cfg.logs.readEndpoint,
-								cfg.logs.writeEndpoint,
+								cfg.traces.readEndpoint,
+								cfg.traces.writeEndpoint,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(ins),
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
-								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")), // TODO should be "traces"
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
+								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")), // TODO should be "traces"
 							),
 						),
 					)
@@ -785,6 +796,8 @@ func parseFlags() (config, error) {
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
 		rawTracingEndpointType  string
+		rawTracesReadEndpoint   string
+		rawTracesWriteEndpoint  string
 	)
 
 	cfg := config{}
@@ -839,6 +852,12 @@ func parseFlags() (config, error) {
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
+	flag.StringVar(&rawTracesReadEndpoint, "traces.read.endpoint", "",
+		"The endpoint against which to make read requests for traces.")
+	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
+		"The endpoint against which to make write requests for traces.")
+	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "JAEGER-TENANT",
+		"The name of the HTTP header containing the tenant ID to forward to the tracing upstreams.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
@@ -942,6 +961,28 @@ func parseFlags() (config, error) {
 
 	if rawTLSCipherSuites != "" {
 		cfg.tls.cipherSuites = strings.Split(rawTLSCipherSuites, ",")
+	}
+
+	if rawTracesReadEndpoint != "" {
+		cfg.traces.enabled = true
+
+		tracesReadEndpoint, err := url.ParseRequestURI(rawTracesReadEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
+		}
+
+		cfg.traces.readEndpoint = tracesReadEndpoint
+	}
+
+	if rawTracesWriteEndpoint != "" {
+		cfg.traces.enabled = true
+
+		tracesWriteEndpoint, err := url.ParseRequestURI(rawTracesWriteEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.write.endpoint %q is invalid: %w", rawTracesWriteEndpoint, err)
+		}
+
+		cfg.traces.writeEndpoint = tracesWriteEndpoint
 	}
 
 	cfg.internalTracing.endpointType = tracing.EndpointType(rawTracingEndpointType)

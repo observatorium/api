@@ -1,3 +1,4 @@
+//go:build interactive
 // +build interactive
 
 package e2e
@@ -22,11 +23,14 @@ func TestInteractiveSetup(t *testing.T) {
 	_, token, rateLimiterAddr := startBaseServices(t, e, interactive)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
+	tracesReadEndpoint := "localhost:16686" // @@@ TODO get dynamic test Jaeger
+	tracesWriteEndpoint := "localhost:4317" // @@@ TODO get dynamic test Jaeger
 
 	api, err := newObservatoriumAPIService(
 		e,
 		withMetricsEndpoints("http://"+readEndpoint, "http://"+writeEndpoint),
 		withLogsEndpoints("http://"+logsEndpoint),
+		withTracesEndpoints("http://"+tracesReadEndpoint, "http://"+tracesWriteEndpoint),
 		withRateLimiter(rateLimiterAddr),
 	)
 	testutil.Ok(t, err)
