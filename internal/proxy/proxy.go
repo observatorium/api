@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
@@ -27,6 +28,16 @@ func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
 		r.URL.Path = path.Join(upstream.Path, r.URL.Path)
+	}
+}
+
+func MiddlewareSetUpMetricsWritestream(upstream *url.URL) Middleware {
+	return func(r *http.Request) {
+		r.URL.Scheme = upstream.Scheme
+		r.URL.Host = upstream.Host
+		if strings.Contains(upstream.Host, "thanos-receive") {
+			r.URL.Path = path.Join(upstream.Path, r.URL.Path)
+		}
 	}
 }
 

@@ -142,7 +142,7 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		var proxyWrite http.Handler
 		{
 			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(write),
+				proxy.MiddlewareSetUpMetricsWritestream(write),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
 			)
