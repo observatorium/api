@@ -25,6 +25,7 @@ const (
 	dexImage        = "dexidp/dex:v2.30.0"
 	opaImage        = "openpolicyagent/opa:0.31.0"
 	gubernatorImage = "thrawn01/gubernator:1.0.0-rc.8"
+	rulesBackendImage = "quay.io/observatorium/rules-objstore:main-2021-11-22-cc68e25"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
@@ -33,6 +34,7 @@ const (
 func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 	metricsReadEndpoint string,
 	metricsWriteEndpoint string,
+	metricsRulesEndpoint string,
 	metricsExtReadEndppoint string,
 ) {
 	thanosReceive := newThanosReceiveService(e)
@@ -42,10 +44,12 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 		[]string{thanosReceive.InternalEndpoint("grpc")},
 		e2edb.WithImage(thanosImage),
 	)
-	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery))
+	rulesBackend := newRulesBackendService(e)
+	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery, rulesBackend))
 
 	return thanosQuery.InternalEndpoint("http"),
 		thanosReceive.InternalEndpoint("remote_write"),
+		rulesBackend.Endpoint("http"),
 		thanosQuery.Endpoint("http")
 }
 
@@ -174,6 +178,23 @@ func newLokiService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	)
 }
 
+func newRulesBackendService(e e2e.Environment) *e2e.InstrumentedRunnable {
+	ports := map[string]int{"http": 8082}
+
+	args := e2e.BuildArgs(map[string]string{
+		"--log.level":   logLevelDebug,
+		"--objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
+	})
+
+	return e2e.NewInstrumentedRunnable(e, "rules", ports, "http").Init(
+		e2e.StartOptions{
+			Image:   rulesBackendImage,
+			Command:   e2e.NewCommand("rules-objstore", args...),
+			Readiness: e2e.NewHTTPReadinessProbe("http", "/v1/HealthCheck", 200, 200),
+		},
+	)
+}
+
 func newOPAService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
@@ -197,6 +218,7 @@ type apiOptions struct {
 	logsEndpoint         string
 	metricsReadEndpoint  string
 	metricsWriteEndpoint string
+	metricsRulesEndpoint string
 	ratelimiterAddr      string
 }
 
@@ -208,10 +230,11 @@ func withLogsEndpoints(endpoint string) apiOption {
 	}
 }
 
-func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
+func withMetricsEndpoints(readEndpoint, writeEndpoint, rulesEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+		o.metricsRulesEndpoint = rulesEndpoint
 	}
 }
 
@@ -250,6 +273,10 @@ func newObservatoriumAPIService(
 	if opts.metricsReadEndpoint != "" && opts.metricsWriteEndpoint != "" {
 		args = append(args, "--metrics.read.endpoint="+opts.metricsReadEndpoint)
 		args = append(args, "--metrics.write.endpoint="+opts.metricsWriteEndpoint)
+	}
+
+	if opts.metricsRulesEndpoint != "" {
+		args = append(args, "--metrics.rules.endpoint="+opts.metricsRulesEndpoint)
 	}
 
 	if opts.logsEndpoint != "" {
