@@ -35,8 +35,10 @@ func MiddlewareSetUpMetricsWritestream(upstream *url.URL) Middleware {
 	return func(r *http.Request) {
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
-		if strings.Contains(upstream.Host, "thanos-receive") {
+		if strings.Contains(upstream.Host, "thanos-receive") || strings.HasPrefix(upstream.Host, "127.0.0.1") {
 			r.URL.Path = path.Join(upstream.Path, r.URL.Path)
+		} else {
+			r.URL.Path = "/"
 		}
 	}
 }
