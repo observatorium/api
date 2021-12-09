@@ -179,17 +179,17 @@ func newLokiService(e e2e.Environment) *e2e.InstrumentedRunnable {
 }
 
 func newRulesBackendService(e e2e.Environment) *e2e.InstrumentedRunnable {
-	ports := map[string]int{"http": 8082}
+	ports := map[string]int{"http": 8080, "internal": 8081}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--log.level":   logLevelDebug,
-		"--objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
+		"-log.level":   logLevelDebug,
+		"-objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
 	})
 
-	return e2e.NewInstrumentedRunnable(e, "rules", ports, "http").Init(
+	return e2e.NewInstrumentedRunnable(e, "rules", ports, "internal").Init(
 		e2e.StartOptions{
 			Image:   rulesBackendImage,
-			Command:   e2e.NewCommand("rules-objstore", args...),
+			Command:   e2e.NewCommand("", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/v1/HealthCheck", 200, 200),
 		},
 	)
