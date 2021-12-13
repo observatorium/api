@@ -50,6 +50,8 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 	m := e2edb.NewMinio(e, "rules-minio", bucket)
 	testutil.Ok(t, e2e.StartAndWaitReady(m))
 
+	createRulesYAML(t, e, bucket, m.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
+
 	rulesBackend := newRulesBackendService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery, rulesBackend))
 

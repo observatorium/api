@@ -166,3 +166,56 @@ func createDexYAML(
 	)
 	testutil.Ok(t, err)
 }
+
+const rulesYAMLTpl = `
+type: S3
+config:
+  bucket: %s
+  endpoint: %s
+  region: ""
+  access_key: %s
+  insecure: false
+  signature_version2: false
+  secret_key: %s
+  put_user_metadata: {}
+  http_config:
+    idle_conn_timeout: 1m30s
+    response_header_timeout: 2m
+    insecure_skip_verify: false
+    tls_handshake_timeout: 10s
+    expect_continue_timeout: 1s
+    max_idle_conns: 100
+    max_idle_conns_per_host: 100
+    max_conns_per_host: 0
+  trace:
+    enable: false
+  list_objects_version: ""
+  part_size: 67108864
+  sse_config:
+    type: ""
+    kms_key_id: ""
+    kms_encryption_context: {}
+    encryption_key: ""
+  sts_endpoint: ""
+`
+
+func createRulesYAML(
+	t *testing.T,
+	e e2e.Environment,
+	bucket, endpoint, accessKey, secretKey string,
+) {
+	yamlContent := []byte(fmt.Sprintf(
+		rulesYAMLTpl,
+		bucket,
+		endpoint,
+		accessKey,
+		secretKey,
+	))
+
+	err := ioutil.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
+		yamlContent,
+		os.FileMode(0755),
+	)
+	testutil.Ok(t, err)
+}
