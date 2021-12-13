@@ -44,6 +44,12 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 		[]string{thanosReceive.InternalEndpoint("grpc")},
 		e2edb.WithImage(thanosImage),
 	)
+
+	// Create S3 replacement for rules backend
+	bucket := "obs_rules_test"
+	m := e2edb.NewMinio(e, "rules-minio", bucket)
+	testutil.Ok(t, e2e.StartAndWaitReady(m))
+
 	rulesBackend := newRulesBackendService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery, rulesBackend))
 
@@ -182,15 +188,19 @@ func newRulesBackendService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{"http": 8080, "internal": 8081}
 
 	args := e2e.BuildArgs(map[string]string{
-		"-log.level":   logLevelDebug,
+		"-log.level":            logLevelDebug,
+		"-web.listen":           ":" + strconv.Itoa(ports["http"]),
+		"-web.internal.listen":  ":" + strconv.Itoa(ports["internal"]),
+		"-web.healthchecks.url": "http://127.0.0.1:" + strconv.Itoa(ports["http"]),
 		"-objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
 	})
 
-	return e2e.NewInstrumentedRunnable(e, "rules", ports, "internal").Init(
+	return e2e.NewInstrumentedRunnable(e, "rules_objstore", ports, "internal").Init(
 		e2e.StartOptions{
-			Image:   rulesBackendImage,
+			Image:     rulesBackendImage,
 			Command:   e2e.NewCommand("", args...),
-			Readiness: e2e.NewHTTPReadinessProbe("http", "/v1/HealthCheck", 200, 200),
+			Readiness: e2e.NewHTTPReadinessProbe("internal", "/ready", 200, 200),
+			User:      strconv.Itoa(os.Getuid()),
 		},
 	)
 }
