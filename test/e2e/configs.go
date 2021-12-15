@@ -219,3 +219,11 @@ func createRulesYAML(
 	)
 	testutil.Ok(t, err)
 }
+
+const recordingRuleYamlTpl = `
+groups:
+  - name: example
+    rules:
+      - record: job:http_inprogress_requests:sum
+        expr: sum by (job) (http_inprogress_requests)
+`
