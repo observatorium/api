@@ -197,7 +197,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	// Test Rules API
 	t.Run("rules", func(t *testing.T) {
 		tenant := "test-oidc"
-		client, err := rules.NewClient("http://"+rulesEndpoint+"/api/metrics/v1/test-oidc/api/v1/rules/raw")
+		client, err := rules.NewClient("http://"+rulesEndpoint)
 		testutil.Ok(t, err)
 
 		res, err := client.ListRules(context.Background(), tenant)
