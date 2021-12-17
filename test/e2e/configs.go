@@ -207,3 +207,16 @@ groups:
       - record: job:http_inprogress_requests:sum
         expr: sum by (job) (http_inprogress_requests)
 `
+
+const alertingRuleYamlTpl = `
+groups:
+- name: example
+  rules:
+  - alert: HighRequestLatency
+    expr: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: High request latency
+`

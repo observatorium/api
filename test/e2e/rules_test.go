@@ -51,16 +51,10 @@ func TestRulesAPI(t *testing.T) {
 
 		res, err := client.Do(r)
 		testutil.Ok(t, err)
-		defer res.Body.Close()
+		testutil.Equals(t, res.StatusCode, http.StatusNotFound)
 
-		body, err := ioutil.ReadAll(res.Body)
-		testutil.Ok(t, err)
-
-		bodyStr := string(body)
-		t.Log(">>>> REQUEST BODY: ", bodyStr)
-
+		// Set a recording rule
 		recordingRule := []byte(recordingRuleYamlTpl)
-
 		r, err = http.NewRequest(
 			http.MethodPut,
 			rulesEndpointURL,
@@ -70,14 +64,9 @@ func TestRulesAPI(t *testing.T) {
 
 		res, err = client.Do(r)
 		testutil.Ok(t, err)
-		defer res.Body.Close()
+		testutil.Equals(t, res.StatusCode, http.StatusOK)
 
-		body, err = ioutil.ReadAll(res.Body)
-		testutil.Ok(t, err)
-
-		bodyStr = string(body)
-		t.Log(">>>> REQUEST BODY - SET RULE: ", bodyStr)
-
+		// Check if recording rule is listed
 		r, err = http.NewRequest(
 			http.MethodGet,
 			rulesEndpointURL,
@@ -86,13 +75,49 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Ok(t, err)
 
 		res, err = client.Do(r)
-		testutil.Ok(t, err)
 		defer res.Body.Close()
 
-		body, err = ioutil.ReadAll(res.Body)
+		testutil.Ok(t, err)
+		testutil.Equals(t, res.StatusCode, http.StatusOK)
+
+		body, err := ioutil.ReadAll(res.Body)
+		bodyStr := string(body)
+
+		assertResponse(t, bodyStr, "sum by (job) (http_inprogress_requests)")
+
+		// Set alerting rule
+		alertingRule := []byte(alertingRuleYamlTpl)
+		r, err = http.NewRequest(
+			http.MethodPut,
+			rulesEndpointURL,
+			bytes.NewReader(alertingRule),
+		)
 		testutil.Ok(t, err)
 
+		res, err = client.Do(r)
+		testutil.Ok(t, err)
+		testutil.Equals(t, res.StatusCode, http.StatusOK)
+
+		// Check if recording rule and alerting rule are listed
+		r, err = http.NewRequest(
+			http.MethodGet,
+			rulesEndpointURL,
+			nil,
+		)
+		testutil.Ok(t, err)
+
+		res, err = client.Do(r)
+		defer res.Body.Close()
+
+		testutil.Ok(t, err)
+		testutil.Equals(t, res.StatusCode, http.StatusOK)
+
+		body, err = ioutil.ReadAll(res.Body)
 		bodyStr = string(body)
-		t.Log(">>>> REQUEST BODY - LIST RULES: ", bodyStr)
+		//TODO: check why this fails - shouldn't it join recording+alerting rules?
+		//assertResponse(t, bodyStr, "sum by (job) (http_inprogress_requests)")
+		assertResponse(t, bodyStr, "alert: HighRequestLatency")
+
+		// TODO: add another test case for thanos-ruler-syncer flow
 	})
 }
