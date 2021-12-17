@@ -57,7 +57,7 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 
 	return thanosQuery.InternalEndpoint("http"),
 		thanosReceive.InternalEndpoint("remote_write"),
-		rulesBackend.Endpoint("http"),
+		rulesBackend.InternalEndpoint("http"),
 		thanosQuery.Endpoint("http")
 }
 

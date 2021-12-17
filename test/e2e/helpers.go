@@ -87,6 +87,8 @@ func getContainerName(t *testing.T, tt testType, serviceName string) string {
 		return envLogsName + "-" + serviceName
 	case metrics:
 		return envMetricsName + "-" + serviceName
+	case rules:
+		return envRulesAPIName + "-" + serviceName
 	case tenants:
 		return envTenantsName + "-" + serviceName
 	case interactive:
@@ -115,4 +117,14 @@ func assertResponse(t *testing.T, response string, expected string) {
 		strings.Contains(response, expected),
 		fmt.Sprintf("failed to assert that the response '%s' contains '%s'", response, expected),
 	)
+}
+
+type tokenRoundTripper struct {
+	rt    http.RoundTripper
+	token string
+}
+
+func (rt *tokenRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	r.Header.Add("Authorization", "bearer "+rt.token)
+	return rt.rt.RoundTrip(r)
 }

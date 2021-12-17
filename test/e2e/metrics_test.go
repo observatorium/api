@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -16,8 +15,6 @@ import (
 	promapi "github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-
-	"github.com/observatorium/api/rules"
 )
 
 func TestMetricsReadAndWrite(t *testing.T) {
@@ -193,32 +190,4 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			testutil.Equals(t, 0, len(v), "%v", v)
 		})
 	})
-
-	// Test Rules API
-	t.Run("rules", func(t *testing.T) {
-		tenant := "test-oidc"
-		client, err := rules.NewClient("http://"+rulesEndpoint)
-		testutil.Ok(t, err)
-
-		res, err := client.ListRules(context.Background(), tenant)
-		testutil.Ok(t, err)
-		buf := new(bytes.Buffer)
-		buf.ReadFrom(res.Body)
-		t.Log("BODY: ", buf.String())
-
-		recordingRule := []byte(recordingRuleYamlTpl)
-		_, err = client.SetRulesWithBody(
-			context.Background(), tenant, "application/yaml", bytes.NewReader(recordingRule))
-		testutil.Ok(t, err)
-	})
-}
-
-type tokenRoundTripper struct {
-	rt    http.RoundTripper
-	token string
-}
-
-func (rt *tokenRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	r.Header.Add("Authorization", "bearer "+rt.token)
-	return rt.rt.RoundTrip(r)
 }

@@ -18,6 +18,7 @@ type testType string
 
 const (
 	metrics     testType = "metrics"
+	rules 		testType = "rules"
 	logs        testType = "logs"
 	tenants     testType = "tenants"
 	interactive testType = "interactive"
@@ -30,6 +31,7 @@ const (
 	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
 
 	envMetricsName = "e2e_metrics_read_write"
+	envRulesAPIName    = "e2e_rules_api"
 	envLogsName    = "e2e_logs_read_write_tail"
 	envTenantsName = "e2e_tenants"
 	envInteractive = "e2e_interactive"
@@ -172,31 +174,9 @@ type: S3
 config:
   bucket: %s
   endpoint: %s
-  region: ""
   access_key: %s
-  insecure: false
-  signature_version2: false
+  insecure: true
   secret_key: %s
-  put_user_metadata: {}
-  http_config:
-    idle_conn_timeout: 1m30s
-    response_header_timeout: 2m
-    insecure_skip_verify: false
-    tls_handshake_timeout: 10s
-    expect_continue_timeout: 1s
-    max_idle_conns: 100
-    max_idle_conns_per_host: 100
-    max_conns_per_host: 0
-  trace:
-    enable: false
-  list_objects_version: ""
-  part_size: 67108864
-  sse_config:
-    type: ""
-    kms_key_id: ""
-    kms_encryption_context: {}
-    encryption_key: ""
-  sts_endpoint: ""
 `
 
 func createRulesYAML(
