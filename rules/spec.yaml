@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   description: The Rules Backend API
-  version: "0.0.1"
+  version: "0.0.2"
   title: Rules Backend API
   license:
     name: Apache 2.0
@@ -10,7 +10,7 @@ tags:
   - name: rulesv1
     description: Calls related to rules
 paths:
-  /api/v1/{tenant}/rules:
+  /api/v1/rules/{tenant}:
     parameters:
       - in: path
         name: tenant
@@ -51,6 +51,21 @@ paths:
             schema:
               $ref: '#/components/schemas/Rules'
         description: Rules to set
+  /api/v1/rules:
+    get:
+      tags:
+        - rulesv1
+      summary: lists all rules for all tenants
+      operationId: listAllRules
+      description: |
+        You can list all rules for all tenants
+      responses:
+        '200':
+          description: rules for all tenants
+          content:
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/Rules'
 components:
   schemas:
     Rules:
