@@ -30,11 +30,12 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.29.0
 	github.com/prometheus/prometheus v1.8.2-0.20210621150501-ff58416a0b02
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.16.0
-	go.opentelemetry.io/contrib/propagators v0.16.0
-	go.opentelemetry.io/otel v0.16.0
-	go.opentelemetry.io/otel/exporters/trace/jaeger v0.16.0
-	go.opentelemetry.io/otel/sdk v0.16.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.18.0
+	go.opentelemetry.io/contrib/propagators v0.18.0
+	go.opentelemetry.io/otel v0.18.0
+	go.opentelemetry.io/otel/exporters/trace/jaeger v0.18.0
+	go.opentelemetry.io/otel/sdk v0.18.0
+	go.opentelemetry.io/otel/trace v0.18.0
 	go.uber.org/automaxprocs v1.2.0
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	google.golang.org/genproto v0.0.0-20210604141403-392c879c8b08
