@@ -23,6 +23,8 @@ require (
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/oklog/run v1.1.0
+	github.com/onsi/ginkgo v1.16.3 // indirect
+	github.com/onsi/gomega v1.13.0 // indirect
 	github.com/open-policy-agent/opa v0.23.2
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect

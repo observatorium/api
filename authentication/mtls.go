@@ -19,7 +19,6 @@ const MTLSAuthenticatorType = "mtls"
 
 //nolint:gochecknoinits
 func init() {
-	// authenticatorFactories[MTLSAuthenticatorType] = newMTLSAuthenticator
 	onboardNewProvider(MTLSAuthenticatorType, newMTLSAuthenticator)
 }
 
