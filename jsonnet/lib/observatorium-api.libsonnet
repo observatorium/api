@@ -7,6 +7,7 @@ local defaults = {
   namespace: error 'must provide namespace',
   version: error 'must provide version',
   image: error 'must provide image',
+  imagePullPolicy: 'IfNotPresent',
   replicas: error 'must provide replicas',
   ports: {
     public: 8080,
@@ -102,6 +103,7 @@ function(params) {
             {
               name: 'observatorium-api',
               image: api.config.image,
+              imagePullPolicy: api.config.imagePullPolicy,
               args: [
                 '--web.listen=0.0.0.0:%s' % api.config.ports.public,
                 '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
