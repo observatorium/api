@@ -4,6 +4,7 @@ local config = {
   namespace: 'observatorium',
   version: 'master-2020-09-04-v0.1.1-131-ga4c5a9c',
   image: 'quay.io/observatorium/api:' + cfg.version,
+  imagePullPolicy: 'IfNotPresent',
   replicas: 3,
   metrics: {
     readEndpoint: 'http://127.0.0.1:9091',
