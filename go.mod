@@ -13,7 +13,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.0
 	github.com/go-chi/httprate v0.4.0
-	github.com/go-kit/kit v0.10.0
+	github.com/go-kit/kit v0.12.0
 	github.com/golang-jwt/jwt/v4 v4.1.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
@@ -21,10 +21,9 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
-	github.com/mitchellh/mapstructure v1.4.1
+	github.com/mitchellh/mapstructure v1.4.2
 	github.com/oklog/run v1.1.0
 	github.com/onsi/ginkgo v1.16.3 // indirect
-	github.com/onsi/gomega v1.13.0 // indirect
 	github.com/open-policy-agent/opa v0.23.2
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
@@ -40,8 +39,8 @@ require (
 	go.opentelemetry.io/otel/trace v0.18.0
 	go.uber.org/automaxprocs v1.2.0
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
-	google.golang.org/genproto v0.0.0-20210604141403-392c879c8b08
-	google.golang.org/grpc v1.38.0
+	google.golang.org/genproto v0.0.0-20210917145530-b395a37504d4
+	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	k8s.io/apimachinery v0.21.1
