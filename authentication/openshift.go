@@ -41,7 +41,6 @@ const (
 
 //nolint:gochecknoinits
 func init() {
-	// authenticatorFactories[OpenShiftAuthenticatorType] = newOpenshiftAuthenticator
 	onboardNewProvider(OpenShiftAuthenticatorType, newOpenshiftAuthenticator)
 }
 

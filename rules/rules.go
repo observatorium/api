@@ -294,11 +294,26 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListAllRules request
+	ListAllRules(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListRules request
 	ListRules(ctx context.Context, tenant string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetRules request with any body
 	SetRulesWithBody(ctx context.Context, tenant string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListAllRules(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAllRulesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListRules(ctx context.Context, tenant string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -325,6 +340,33 @@ func (c *Client) SetRulesWithBody(ctx context.Context, tenant string, contentTyp
 	return c.Client.Do(req)
 }
 
+// NewListAllRulesRequest generates requests for ListAllRules
+func NewListAllRulesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/rules")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListRulesRequest generates requests for ListRules
 func NewListRulesRequest(server string, tenant string) (*http.Request, error) {
 	var err error
@@ -341,7 +383,7 @@ func NewListRulesRequest(server string, tenant string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/%s/rules", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/rules/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -375,7 +417,7 @@ func NewSetRulesRequestWithBody(server string, tenant string, contentType string
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/%s/rules", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/rules/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -438,11 +480,36 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListAllRules request
+	ListAllRulesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAllRulesResponse, error)
+
 	// ListRules request
 	ListRulesWithResponse(ctx context.Context, tenant string, reqEditors ...RequestEditorFn) (*ListRulesResponse, error)
 
 	// SetRules request with any body
 	SetRulesWithBodyWithResponse(ctx context.Context, tenant string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRulesResponse, error)
+}
+
+type ListAllRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	YAML200      *Rules
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAllRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAllRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListRulesResponse struct {
@@ -488,6 +555,15 @@ func (r SetRulesResponse) StatusCode() int {
 	return 0
 }
 
+// ListAllRulesWithResponse request returning *ListAllRulesResponse
+func (c *ClientWithResponses) ListAllRulesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListAllRulesResponse, error) {
+	rsp, err := c.ListAllRules(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAllRulesResponse(rsp)
+}
+
 // ListRulesWithResponse request returning *ListRulesResponse
 func (c *ClientWithResponses) ListRulesWithResponse(ctx context.Context, tenant string, reqEditors ...RequestEditorFn) (*ListRulesResponse, error) {
 	rsp, err := c.ListRules(ctx, tenant, reqEditors...)
@@ -504,6 +580,32 @@ func (c *ClientWithResponses) SetRulesWithBodyWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseSetRulesResponse(rsp)
+}
+
+// ParseListAllRulesResponse parses an HTTP response from a ListAllRulesWithResponse call
+func ParseListAllRulesResponse(rsp *http.Response) (*ListAllRulesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAllRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
+		var dest Rules
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML200 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListRulesResponse parses an HTTP response from a ListRulesWithResponse call
@@ -550,11 +652,14 @@ func ParseSetRulesResponse(rsp *http.Response) (*SetRulesResponse, error) {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// lists all rules for all tenants
+	// (GET /api/v1/rules)
+	ListAllRules(w http.ResponseWriter, r *http.Request)
 	// lists all rules for a tenant
-	// (GET /api/v1/{tenant}/rules)
+	// (GET /api/v1/rules/{tenant})
 	ListRules(w http.ResponseWriter, r *http.Request, tenant string)
 	// set/overwrite the rules for the tenant
-	// (PUT /api/v1/{tenant}/rules)
+	// (PUT /api/v1/rules/{tenant})
 	SetRules(w http.ResponseWriter, r *http.Request, tenant string)
 }
 
@@ -566,6 +671,21 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.HandlerFunc) http.HandlerFunc
+
+// ListAllRules operation middleware
+func (siw *ServerInterfaceWrapper) ListAllRules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var handler = func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAllRules(w, r)
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler(w, r.WithContext(ctx))
+}
 
 // ListRules operation middleware
 func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Request) {
@@ -733,10 +853,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/{tenant}/rules", wrapper.ListRules)
+		r.Get(options.BaseURL+"/api/v1/rules", wrapper.ListAllRules)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/v1/{tenant}/rules", wrapper.SetRules)
+		r.Get(options.BaseURL+"/api/v1/rules/{tenant}", wrapper.ListRules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/rules/{tenant}", wrapper.SetRules)
 	})
 
 	return r

@@ -40,6 +40,7 @@ spec:
         - --rbac.config=/etc/observatorium/rbac.yaml
         - --tenants.config=/etc/observatorium/tenants.yaml
         image: quay.io/observatorium/api:master-2020-09-04-v0.1.1-131-ga4c5a9c
+        imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 10
           httpGet:
