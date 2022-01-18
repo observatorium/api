@@ -10,7 +10,7 @@ require (
 	github.com/efficientgo/e2e v0.11.1
 	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-chi/chi v4.1.0+incompatible
+	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.0
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/kit v0.10.0
