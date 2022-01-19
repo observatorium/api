@@ -25,7 +25,7 @@ const (
 	dexImage        = "dexidp/dex:v2.30.0"
 	opaImage        = "openpolicyagent/opa:0.31.0"
 	gubernatorImage = "thrawn01/gubernator:1.0.0-rc.8"
-	rulesBackendImage = "quay.io/observatorium/rules-objstore:main-2021-11-22-cc68e25"
+	rulesBackendImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"

@@ -220,3 +220,22 @@ groups:
     annotations:
       summary: High request latency
 `
+const recordAndAlertingRulesYamlTpl = `
+groups:
+- name: node_rules
+  rules:
+  - record: job:up:avg
+    expr: avg without(instance)(up{job="node"})
+  - alert: ManyInstancesDown
+    expr: job:up:avg{job="node"} < 0.5
+`
+
+const invalidRulesYamlTpl = `
+invalid:
+- name: testing
+ invalid_rules:
+ - rule1: job:up:avg
+   expr: avg without(instance)(up{job="node"})
+ - rule2: ManyInstancesDown
+   expr: job:up:avg{job="node"} < 0.5
+`
