@@ -14,8 +14,8 @@ import (
 
 	"github.com/efficientgo/tools/core/pkg/backoff"
 	"github.com/go-chi/chi"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/mitchellh/mapstructure"
 	"github.com/observatorium/api/authentication/openshift"

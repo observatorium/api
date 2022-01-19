@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/observatorium/api/logger"
 	"github.com/prometheus/client_golang/prometheus"
