@@ -192,11 +192,11 @@ func newRulesBackendService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{"http": 8080, "internal": 8081}
 
 	args := e2e.BuildArgs(map[string]string{
-		"-log.level":            logLevelDebug,
-		"-web.listen":           ":" + strconv.Itoa(ports["http"]),
-		"-web.internal.listen":  ":" + strconv.Itoa(ports["internal"]),
-		"-web.healthchecks.url": "http://127.0.0.1:" + strconv.Itoa(ports["http"]),
-		"-objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
+		"--log.level":            logLevelDebug,
+		"--web.listen":           ":" + strconv.Itoa(ports["http"]),
+		"--web.internal.listen":  ":" + strconv.Itoa(ports["internal"]),
+		"--web.healthchecks.url": "http://127.0.0.1:" + strconv.Itoa(ports["http"]),
+		"--objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
 	})
 
 	return e2e.NewInstrumentedRunnable(e, "rules_objstore", ports, "internal").Init(
