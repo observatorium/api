@@ -3,7 +3,9 @@ module github.com/observatorium/api
 go 1.16
 
 require (
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/brancz/kube-rbac-proxy v0.5.0
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cloudflare/cfssl v1.4.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.9.0
@@ -13,8 +15,9 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.0
 	github.com/go-chi/httprate v0.4.0
-	github.com/go-kit/kit v0.10.0
+	github.com/go-kit/log v0.2.0
 	github.com/golang-jwt/jwt/v4 v4.1.0
+	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2
@@ -31,6 +34,7 @@ require (
 	github.com/prometheus-community/prom-label-proxy v0.3.1-0.20210623095334-9d425172d7bb
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.32.1
+	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/prometheus/prometheus v1.8.2-0.20210621150501-ff58416a0b02
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.18.0
 	go.opentelemetry.io/contrib/propagators v0.18.0
@@ -38,10 +42,14 @@ require (
 	go.opentelemetry.io/otel/exporters/trace/jaeger v0.18.0
 	go.opentelemetry.io/otel/sdk v0.18.0
 	go.opentelemetry.io/otel/trace v0.18.0
+	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/automaxprocs v1.2.0
+	go.uber.org/goleak v1.1.11-0.20210813005559-691160354723 // indirect
+	golang.org/x/net v0.0.0-20210917221730-978cfadd31cf // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
-	google.golang.org/genproto v0.0.0-20210604141403-392c879c8b08
-	google.golang.org/grpc v1.38.0
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
+	google.golang.org/genproto v0.0.0-20210917145530-b395a37504d4
+	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	k8s.io/apimachinery v0.21.1

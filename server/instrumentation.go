@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/middleware"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
 // Logger returns a middleware to log HTTP requests.
