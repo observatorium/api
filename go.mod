@@ -17,7 +17,6 @@ require (
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/log v0.2.0
 	github.com/golang-jwt/jwt/v4 v4.1.0
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2
@@ -45,15 +44,13 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/goleak v1.1.11-0.20210813005559-691160354723 // indirect
-	golang.org/x/net v0.0.0-20210917221730-978cfadd31cf // indirect
-	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
-	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
+	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	google.golang.org/genproto v0.0.0-20210917145530-b395a37504d4
 	google.golang.org/grpc v1.40.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
-	k8s.io/apimachinery v0.21.1
+	k8s.io/apimachinery v0.23.1
 	k8s.io/apiserver v0.21.1
-	k8s.io/client-go v0.21.1
+	k8s.io/client-go v0.23.1
 	k8s.io/component-base v0.21.1
 )
