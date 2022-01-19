@@ -21,11 +21,11 @@ func TestRulesAPI(t *testing.T) {
 
 	prepareConfigsAndCerts(t, rules, e)
 	_, token, rateLimiterAddr := startBaseServices(t, e, rules)
-	_, _, rulesEndpoint, _ := startServicesForMetrics(t, e) // TODO: create another function just for rules?
+	rulesEndpoint := startServicesForRules(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
-		withMetricsEndpoints("", "", "http://"+rulesEndpoint),
+		withRulesEndpoint("http://"+rulesEndpoint),
 		withRateLimiter(rateLimiterAddr),
 	)
 	testutil.Ok(t, err)

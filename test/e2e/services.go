@@ -25,7 +25,7 @@ const (
 	dexImage        = "dexidp/dex:v2.30.0"
 	opaImage        = "openpolicyagent/opa:0.31.0"
 	gubernatorImage = "thrawn01/gubernator:1.0.0-rc.8"
-	rulesBackendImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
+	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
@@ -34,7 +34,6 @@ const (
 func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 	metricsReadEndpoint string,
 	metricsWriteEndpoint string,
-	metricsRulesEndpoint string,
 	metricsExtReadEndppoint string,
 ) {
 	thanosReceive := newThanosReceiveService(e)
@@ -44,21 +43,24 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 		[]string{thanosReceive.InternalEndpoint("grpc")},
 		e2edb.WithImage(thanosImage),
 	)
+	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery))
 
+	return thanosQuery.InternalEndpoint("http"),
+		thanosReceive.InternalEndpoint("remote_write"),
+		thanosQuery.Endpoint("http")
+}
+
+func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
 	// Create S3 replacement for rules backend
 	bucket := "obs_rules_test"
 	m := e2edb.NewMinio(e, "rules-minio", bucket)
 	testutil.Ok(t, e2e.StartAndWaitReady(m))
 
 	createRulesYAML(t, e, bucket, m.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
-
 	rulesBackend := newRulesBackendService(e)
-	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery, rulesBackend))
+	testutil.Ok(t, e2e.StartAndWaitReady(rulesBackend))
 
-	return thanosQuery.InternalEndpoint("http"),
-		thanosReceive.InternalEndpoint("remote_write"),
-		rulesBackend.InternalEndpoint("http"),
-		thanosQuery.Endpoint("http")
+	return rulesBackend.InternalEndpoint("http")
 }
 
 func startServicesForLogs(t *testing.T, e e2e.Environment) (
@@ -199,7 +201,7 @@ func newRulesBackendService(e e2e.Environment) *e2e.InstrumentedRunnable {
 
 	return e2e.NewInstrumentedRunnable(e, "rules_objstore", ports, "internal").Init(
 		e2e.StartOptions{
-			Image:     rulesBackendImage,
+			Image:     rulesObjectStoreImage,
 			Command:   e2e.NewCommand("", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("internal", "/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
@@ -242,10 +244,15 @@ func withLogsEndpoints(endpoint string) apiOption {
 	}
 }
 
-func withMetricsEndpoints(readEndpoint, writeEndpoint, rulesEndpoint string) apiOption {
+func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+	}
+}
+
+func withRulesEndpoint(rulesEndpoint string) apiOption {
+	return func(o *apiOptions) {
 		o.metricsRulesEndpoint = rulesEndpoint
 	}
 }
