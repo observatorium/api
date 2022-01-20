@@ -40,7 +40,7 @@ func TestRulesAPI(t *testing.T) {
 		Transport: &tokenRoundTripper{rt: tr, token: token},
 	}
 
-	t.Run("get-put-recording-rules", func(t *testing.T) {
+	t.Run("read-write-recording-rules", func(t *testing.T) {
 		// Try to list rules
 		r, err := http.NewRequest(
 			http.MethodGet,
@@ -86,7 +86,7 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "sum by (job) (http_inprogress_requests)")
 	})
 
-	t.Run("get-put-alerting-rules", func(t *testing.T) {
+	t.Run("read-write-alerting-rules", func(t *testing.T) {
 		// Set a file containing an alerting rule
 		alertingRule := []byte(alertingRuleYamlTpl)
 		r, err := http.NewRequest(
@@ -119,7 +119,7 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "alert: HighRequestLatency")
 	})
 
-	t.Run("get-put-recording-alerting-rules", func(t *testing.T) {
+	t.Run("read-write-recording-and-alerting-rules", func(t *testing.T) {
 		// Set a file containing both recording and alerting rules
 		recordAndAlertingRules := []byte(recordAndAlertingRulesYamlTpl)
 		r, err := http.NewRequest(
@@ -153,7 +153,7 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
 	})
 
-	t.Run("put-invalid-rules", func(t *testing.T) {
+	t.Run("write-invalid-rules", func(t *testing.T) {
 		// Set an invalid rules file
 		invalidRules := []byte(invalidRulesYamlTpl)
 		r, err := http.NewRequest(
