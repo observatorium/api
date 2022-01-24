@@ -84,6 +84,7 @@ func TestRulesAPI(t *testing.T) {
 		bodyStr := string(body)
 
 		assertResponse(t, bodyStr, "sum by (job) (http_inprogress_requests)")
+		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
 	t.Run("read-write-alerting-rules", func(t *testing.T) {
@@ -117,6 +118,7 @@ func TestRulesAPI(t *testing.T) {
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
 		assertResponse(t, bodyStr, "alert: HighRequestLatency")
+		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
 	t.Run("read-write-recording-and-alerting-rules", func(t *testing.T) {
@@ -151,6 +153,7 @@ func TestRulesAPI(t *testing.T) {
 		bodyStr := string(body)
 		assertResponse(t, bodyStr, "record: job:up:avg")
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
+		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
 	t.Run("write-invalid-rules", func(t *testing.T) {
