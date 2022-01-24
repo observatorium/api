@@ -40,7 +40,7 @@ func TestRulesAPI(t *testing.T) {
 		Transport: &tokenRoundTripper{rt: tr, token: token},
 	}
 
-	t.Run("read-write-recording-rules", func(t *testing.T) {
+	t.Run("write-then-read-recording-rules", func(t *testing.T) {
 		// Try to list rules
 		r, err := http.NewRequest(
 			http.MethodGet,
@@ -87,7 +87,7 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
-	t.Run("read-write-alerting-rules", func(t *testing.T) {
+	t.Run("write-then-read-alerting-rules", func(t *testing.T) {
 		// Set a file containing an alerting rule
 		alertingRule := []byte(alertingRuleYamlTpl)
 		r, err := http.NewRequest(
@@ -121,7 +121,7 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
-	t.Run("read-write-recording-and-alerting-rules", func(t *testing.T) {
+	t.Run("write-then-read-recording-and-alerting-rules", func(t *testing.T) {
 		// Set a file containing both recording and alerting rules
 		recordAndAlertingRules := []byte(recordAndAlertingRulesYamlTpl)
 		r, err := http.NewRequest(
@@ -154,20 +154,5 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "record: job:up:avg")
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
-	})
-
-	t.Run("write-invalid-rules", func(t *testing.T) {
-		// Set an invalid rules file
-		invalidRules := []byte(invalidRulesYamlTpl)
-		r, err := http.NewRequest(
-			http.MethodPut,
-			rulesEndpointURL,
-			bytes.NewReader(invalidRules),
-		)
-		testutil.Ok(t, err)
-		res, err := client.Do(r)
-		//TODO: an error/http status code is not being returned to the API
-		//testutil.NotOk(t, err)
-		testutil.Equals(t, http.StatusOK, res.StatusCode) // should this be http.StatusBadRequest instead? (from: https://github.com/observatorium/rules-objstore/blob/main/pkg/server/server.go#L80)
 	})
 }
