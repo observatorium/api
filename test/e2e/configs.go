@@ -38,6 +38,8 @@ const (
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
+
+	defaultTenantName = "test-oidc"
 )
 
 const tenantsYamlTpl = `

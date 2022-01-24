@@ -39,8 +39,8 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	t.Run("metrics-read-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-metrics-read-write", metrics,
-			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/query",
-			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/receive",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/receive",
 			withToken(token),
 			withRunParameters(&runParams{period: "500ms", threshold: "1", latency: "10s", duration: "0"}),
 		)
@@ -106,7 +106,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		}
 
 		apiTest, err := promapi.NewClient(promapi.Config{
-			Address:      "https://" + api.Endpoint("https") + "/api/metrics/v1/test-oidc",
+			Address:      "https://" + api.Endpoint("https") + "/api/metrics/v1/"+defaultTenantName,
 			RoundTripper: &tokenRoundTripper{rt: tr, token: token},
 		})
 		testutil.Ok(t, err)

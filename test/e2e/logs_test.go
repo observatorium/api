@@ -93,8 +93,8 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 	t.Run("logs-tail", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-logs-tail", logs,
-			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-oidc/loki/api/v1/query",
-			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-oidc/loki/api/v1/push",
+			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/"+defaultTenantName+"/loki/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/"+defaultTenantName+"/loki/api/v1/push",
 			withToken(token),
 			withRunParameters(&runParams{initialDelay: "0s", period: "250ms", threshold: "1", latency: "10s", duration: "0"}),
 		)
@@ -112,7 +112,7 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 
 		d := websocket.Dialer{TLSClientConfig: getTLSClientConfig(t, e)}
 		conn, _, err := d.Dial(
-			"wss://"+api.Endpoint("https")+"/api/logs/v1/test-oidc/loki/api/v1/tail?query=%7B_id%3D%22test%22%7D",
+			"wss://"+api.Endpoint("https")+"/api/logs/v1/"+defaultTenantName+"/loki/api/v1/tail?query=%7B_id%3D%22test%22%7D",
 			http.Header{
 				"Authorization": []string{"Bearer " + token},
 				"X-Scope-OrgID": []string{defaultTenantID},

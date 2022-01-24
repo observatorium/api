@@ -31,7 +31,7 @@ func TestRulesAPI(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	rulesEndpointURL := "https://" + api.Endpoint("https") + "/api/metrics/v1/test-oidc/api/v1/rules/raw"
+	rulesEndpointURL := "https://" + api.Endpoint("https") + "/api/metrics/v1/"+defaultTenantName+"/api/v1/rules/raw"
 	tr := &http.Transport{
 		TLSClientConfig: getTLSClientConfig(t, e),
 	}

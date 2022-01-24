@@ -39,7 +39,7 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 			[]string{"observatorium_api_tenants_failed_registrations"},
 			e2e.WaitMissingMetrics(),
 			e2e.WithLabelMatchers(
-				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-oidc"),
+				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", defaultTenantName),
 				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
 			),
 		))
@@ -62,8 +62,8 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 
 		up, err := newUpRun(
 			e, "up-tenants", metrics,
-			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/query",
-			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/receive",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/receive",
 			withToken(token),
 			withRunParameters(&runParams{initialDelay: "100ms", period: "300ms", threshold: "1", latency: "5s", duration: "0"}),
 		)
