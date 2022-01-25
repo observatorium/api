@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
-	github.com/brancz/kube-rbac-proxy v0.5.0
+	github.com/brancz/kube-rbac-proxy v0.11.0
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cloudflare/cfssl v1.6.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
