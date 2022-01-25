@@ -170,3 +170,4 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
 	})
 }
+
