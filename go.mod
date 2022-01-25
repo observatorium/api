@@ -6,7 +6,7 @@ require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/brancz/kube-rbac-proxy v0.5.0
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/cloudflare/cfssl v1.4.1
+	github.com/cloudflare/cfssl v1.6.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.9.0
 	github.com/efficientgo/e2e v0.11.1
@@ -17,11 +17,9 @@ require (
 	github.com/go-chi/httprate v0.4.0
 	github.com/go-kit/log v0.2.0
 	github.com/golang-jwt/jwt/v4 v4.1.0
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2
-	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/websocket v1.4.2
-	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4
+	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/mitchellh/mapstructure v1.4.1
