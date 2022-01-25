@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/rules"
 )
@@ -121,6 +121,8 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer resp.Body.Close()
+
+	w.WriteHeader(resp.StatusCode)
 
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		http.Error(w, "error writing rules response", http.StatusInternalServerError)

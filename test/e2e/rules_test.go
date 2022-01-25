@@ -155,4 +155,18 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
+	t.Run("write-invalid-rules", func(t *testing.T) {
+		// Set an invalid rules file
+		invalidRules := []byte(invalidRulesYamlTpl)
+		r, err := http.NewRequest(
+			http.MethodPut,
+			rulesEndpointURL,
+			bytes.NewReader(invalidRules),
+		)
+		testutil.Ok(t, err)
+
+		res, err := client.Do(r)
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
+	})
 }

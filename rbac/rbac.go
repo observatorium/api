@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
 // Permission is an Observatorium RBAC permission.

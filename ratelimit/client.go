@@ -9,6 +9,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/observatorium/api/ratelimit/gubernator"
 )
@@ -43,7 +44,7 @@ func NewClient(reg prometheus.Registerer) *Client {
 		grpc.WithStreamInterceptor(
 			grpc_middleware.ChainStreamClient(grpcMetrics.StreamClientInterceptor()),
 		),
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 
 	if reg != nil {
