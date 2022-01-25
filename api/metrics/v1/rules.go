@@ -122,6 +122,8 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	defer resp.Body.Close()
 
+	w.WriteHeader(resp.StatusCode)
+
 	if _, err := io.Copy(w, resp.Body); err != nil {
 		http.Error(w, "error writing rules response", http.StatusInternalServerError)
 		return
