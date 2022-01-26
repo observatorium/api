@@ -13,6 +13,29 @@ import (
 	"github.com/observatorium/api/rules"
 )
 
+func marshalRules(rawRules rules.Rules) ([]byte, error) {
+	body, err := yaml.Marshal(rawRules)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func unmarshalRules(r io.Reader) (rules.Rules, error) {
+	body, err := ioutil.ReadAll(r)
+	if err != nil {
+		return rules.Rules{}, err
+	}
+
+	var rawRules rules.Rules
+	if err := yaml.Unmarshal(body, &rawRules); err != nil {
+		return rules.Rules{}, err
+	}
+
+	return rawRules, nil
+}
+
 type rulesHandler struct {
 	client      rules.ClientInterface
 	logger      log.Logger
@@ -53,16 +76,10 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	rawRules, err := unmarshalRules(resp.Body)
 	if err != nil {
-		http.Error(w, "error listing rules", http.StatusInternalServerError)
-		return
-	}
-
-	var rawRules rules.Rules
-	if err := yaml.Unmarshal(body, &rawRules); err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
+		http.Error(w, "error unmarshalling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -94,10 +111,10 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	body, err = yaml.Marshal(rawRules)
+	body, err := marshalRules(rawRules)
 	if err != nil {
-		level.Error(rh.logger).Log("msg", "could not marshal YAML", "err", err.Error())
-		http.Error(w, "error marshaling YAML", http.StatusInternalServerError)
+		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
+		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
 
 		return
 	}
@@ -120,16 +137,10 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	rawRules, err := unmarshalRules(r.Body)
 	if err != nil {
-		http.Error(w, "error reading request body", http.StatusInternalServerError)
-		return
-	}
-
-	var rawRules rules.Rules
-	if err := yaml.Unmarshal(body, &rawRules); err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
+		http.Error(w, "error unmarshalling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -155,10 +166,10 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	body, err = yaml.Marshal(rawRules)
+	body, err := marshalRules(rawRules)
 	if err != nil {
-		level.Error(rh.logger).Log("msg", "could not marshal YAML", "err", err.Error())
-		http.Error(w, "error marshaling YAML", http.StatusInternalServerError)
+		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
+		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
 
 		return
 	}
