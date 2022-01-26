@@ -25,6 +25,7 @@ const (
 	dexImage        = "dexidp/dex:v2.30.0"
 	opaImage        = "openpolicyagent/opa:0.31.0"
 	gubernatorImage = "thrawn01/gubernator:1.0.0-rc.8"
+	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
@@ -47,6 +48,19 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 	return thanosQuery.InternalEndpoint("http"),
 		thanosReceive.InternalEndpoint("remote_write"),
 		thanosQuery.Endpoint("http")
+}
+
+func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
+	// Create S3 replacement for rules backend
+	bucket := "obs_rules_test"
+	m := e2edb.NewMinio(e, "rules-minio", bucket)
+	testutil.Ok(t, e2e.StartAndWaitReady(m))
+
+	createRulesYAML(t, e, bucket, m.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
+	rulesBackend := newRulesBackendService(e)
+	testutil.Ok(t, e2e.StartAndWaitReady(rulesBackend))
+
+	return rulesBackend.InternalEndpoint("http")
 }
 
 func startServicesForLogs(t *testing.T, e e2e.Environment) (
@@ -174,6 +188,27 @@ func newLokiService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	)
 }
 
+func newRulesBackendService(e e2e.Environment) *e2e.InstrumentedRunnable {
+	ports := map[string]int{"http": 8080, "internal": 8081}
+
+	args := e2e.BuildArgs(map[string]string{
+		"--log.level":            logLevelDebug,
+		"--web.listen":           ":" + strconv.Itoa(ports["http"]),
+		"--web.internal.listen":  ":" + strconv.Itoa(ports["internal"]),
+		"--web.healthchecks.url": "http://127.0.0.1:" + strconv.Itoa(ports["http"]),
+		"--objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
+	})
+
+	return e2e.NewInstrumentedRunnable(e, "rules_objstore", ports, "internal").Init(
+		e2e.StartOptions{
+			Image:     rulesObjectStoreImage,
+			Command:   e2e.NewCommand("", args...),
+			Readiness: e2e.NewHTTPReadinessProbe("internal", "/ready", 200, 200),
+			User:      strconv.Itoa(os.Getuid()),
+		},
+	)
+}
+
 func newOPAService(e e2e.Environment) *e2e.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
@@ -197,6 +232,7 @@ type apiOptions struct {
 	logsEndpoint         string
 	metricsReadEndpoint  string
 	metricsWriteEndpoint string
+	metricsRulesEndpoint string
 	ratelimiterAddr      string
 }
 
@@ -212,6 +248,12 @@ func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+	}
+}
+
+func withRulesEndpoint(rulesEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.metricsRulesEndpoint = rulesEndpoint
 	}
 }
 
@@ -250,6 +292,10 @@ func newObservatoriumAPIService(
 	if opts.metricsReadEndpoint != "" && opts.metricsWriteEndpoint != "" {
 		args = append(args, "--metrics.read.endpoint="+opts.metricsReadEndpoint)
 		args = append(args, "--metrics.write.endpoint="+opts.metricsWriteEndpoint)
+	}
+
+	if opts.metricsRulesEndpoint != "" {
+		args = append(args, "--metrics.rules.endpoint="+opts.metricsRulesEndpoint)
 	}
 
 	if opts.logsEndpoint != "" {

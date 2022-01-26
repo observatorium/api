@@ -18,6 +18,7 @@ type testType string
 
 const (
 	metrics     testType = "metrics"
+	rules       testType = "rules"
 	logs        testType = "logs"
 	tenants     testType = "tenants"
 	interactive testType = "interactive"
@@ -29,13 +30,16 @@ const (
 	certsContainerPath   = dockerLocalSharedDir + "/" + certsSharedDir
 	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
 
-	envMetricsName = "e2e_metrics_read_write"
-	envLogsName    = "e2e_logs_read_write_tail"
-	envTenantsName = "e2e_tenants"
-	envInteractive = "e2e_interactive"
+	envMetricsName  = "e2e_metrics_read_write"
+	envRulesAPIName = "e2e_rules_api"
+	envLogsName     = "e2e_logs_read_write_tail"
+	envTenantsName  = "e2e_tenants"
+	envInteractive  = "e2e_interactive"
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
+
+	defaultTenantName = "test-oidc"
 )
 
 const tenantsYamlTpl = `
@@ -166,3 +170,74 @@ func createDexYAML(
 	)
 	testutil.Ok(t, err)
 }
+
+const rulesYAMLTpl = `
+type: S3
+config:
+  bucket: %s
+  endpoint: %s
+  access_key: %s
+  insecure: true
+  secret_key: %s
+`
+
+func createRulesYAML(
+	t *testing.T,
+	e e2e.Environment,
+	bucket, endpoint, accessKey, secretKey string,
+) {
+	yamlContent := []byte(fmt.Sprintf(
+		rulesYAMLTpl,
+		bucket,
+		endpoint,
+		accessKey,
+		secretKey,
+	))
+
+	err := ioutil.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
+		yamlContent,
+		os.FileMode(0755),
+	)
+	testutil.Ok(t, err)
+}
+
+const recordingRuleYamlTpl = `
+groups:
+  - name: example
+    rules:
+      - record: job:http_inprogress_requests:sum
+        expr: sum by (job) (http_inprogress_requests)
+`
+
+const alertingRuleYamlTpl = `
+groups:
+- name: example
+  rules:
+  - alert: HighRequestLatency
+    expr: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: High request latency
+`
+const recordAndAlertingRulesYamlTpl = `
+groups:
+- name: node_rules
+  rules:
+  - record: job:up:avg
+    expr: avg without(instance)(up{job="node"})
+  - alert: ManyInstancesDown
+    expr: job:up:avg{job="node"} < 0.5
+`
+
+const invalidRulesYamlTpl = `
+invalid:
+- name: testing
+ invalid_rules:
+ - rule1: job:up:avg
+   expr: avg without(instance)(up{job="node"})
+ - rule2: ManyInstancesDown
+   expr: job:up:avg{job="node"} < 0.5
+`

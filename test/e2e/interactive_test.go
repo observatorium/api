@@ -34,8 +34,8 @@ func TestInteractiveSetup(t *testing.T) {
 
 	up, err := newUpRun(
 		e, "up-metrics-read-write", metrics,
-		"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/query",
-		"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/test-oidc/api/v1/receive",
+		"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/query",
+		"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/receive",
 		withToken(token),
 		withRunParameters(&runParams{period: "5000ms", threshold: "1", latency: "10s", duration: "0"}),
 	)
