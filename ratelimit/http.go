@@ -47,7 +47,6 @@ func WithLocalRateLimiter(configs ...Config) Middleware {
 		middlewares[c.Tenant] = append(middlewares[c.Tenant], middleware{c.Matcher, httprate.NewRateLimiter(
 			c.Limit,
 			c.Window,
-			nil,
 		).Handler})
 	}
 
