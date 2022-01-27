@@ -80,24 +80,18 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 			switch r := rawRules.Groups[i].Rules[j].(type) {
 			case rules.RecordingRule:
 				if r.Labels.AdditionalProperties == nil {
-					http.Error(w, "rule has no label", http.StatusInternalServerError)
-					return
+					r.Labels.AdditionalProperties = make(map[string]string)
 				}
 
-				if v, ok := r.Labels.AdditionalProperties[rh.tenantLabel]; !ok || v != id {
-					http.Error(w, "rule has invalid or no tenant label", http.StatusInternalServerError)
-					return
-				}
+				r.Labels.AdditionalProperties[rh.tenantLabel] = id
+				rawRules.Groups[i].Rules[j] = r
 			case rules.AlertingRule:
 				if r.Labels.AdditionalProperties == nil {
-					http.Error(w, "rule has no label", http.StatusInternalServerError)
-					return
+					r.Labels.AdditionalProperties = make(map[string]string)
 				}
 
-				if v, ok := r.Labels.AdditionalProperties[rh.tenantLabel]; !ok || v != id {
-					http.Error(w, "rule has invalid or no tenant label", http.StatusInternalServerError)
-					return
-				}
+				r.Labels.AdditionalProperties[rh.tenantLabel] = id
+				rawRules.Groups[i].Rules[j] = r
 			}
 		}
 	}
