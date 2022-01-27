@@ -13,6 +13,29 @@ import (
 	"github.com/observatorium/api/rules"
 )
 
+func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) {
+	for i := range rawRules.Groups {
+		for j := range rawRules.Groups[i].Rules {
+			switch r := rawRules.Groups[i].Rules[j].(type) {
+			case rules.RecordingRule:
+				if r.Labels.AdditionalProperties == nil {
+					r.Labels.AdditionalProperties = make(map[string]string)
+				}
+
+				r.Labels.AdditionalProperties[tenantLabel] = tenantID
+				rawRules.Groups[i].Rules[j] = r
+			case rules.AlertingRule:
+				if r.Labels.AdditionalProperties == nil {
+					r.Labels.AdditionalProperties = make(map[string]string)
+				}
+
+				r.Labels.AdditionalProperties[tenantLabel] = tenantID
+				rawRules.Groups[i].Rules[j] = r
+			}
+		}
+	}
+}
+
 func unmarshalRules(r io.Reader) (rules.Rules, error) {
 	body, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -75,26 +98,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := range rawRules.Groups {
-		for j := range rawRules.Groups[i].Rules {
-			switch r := rawRules.Groups[i].Rules[j].(type) {
-			case rules.RecordingRule:
-				if r.Labels.AdditionalProperties == nil {
-					r.Labels.AdditionalProperties = make(map[string]string)
-				}
-
-				r.Labels.AdditionalProperties[rh.tenantLabel] = id
-				rawRules.Groups[i].Rules[j] = r
-			case rules.AlertingRule:
-				if r.Labels.AdditionalProperties == nil {
-					r.Labels.AdditionalProperties = make(map[string]string)
-				}
-
-				r.Labels.AdditionalProperties[rh.tenantLabel] = id
-				rawRules.Groups[i].Rules[j] = r
-			}
-		}
-	}
+	enforceLabelsInRules(rawRules, rh.tenantLabel, id)
 
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
@@ -130,26 +134,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := range rawRules.Groups {
-		for j := range rawRules.Groups[i].Rules {
-			switch r := rawRules.Groups[i].Rules[j].(type) {
-			case rules.RecordingRule:
-				if r.Labels.AdditionalProperties == nil {
-					r.Labels.AdditionalProperties = make(map[string]string)
-				}
-
-				r.Labels.AdditionalProperties[rh.tenantLabel] = id
-				rawRules.Groups[i].Rules[j] = r
-			case rules.AlertingRule:
-				if r.Labels.AdditionalProperties == nil {
-					r.Labels.AdditionalProperties = make(map[string]string)
-				}
-
-				r.Labels.AdditionalProperties[rh.tenantLabel] = id
-				rawRules.Groups[i].Rules[j] = r
-			}
-		}
-	}
+	enforceLabelsInRules(rawRules, rh.tenantLabel, id)
 
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
