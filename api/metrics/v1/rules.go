@@ -13,15 +13,6 @@ import (
 	"github.com/observatorium/api/rules"
 )
 
-func marshalRules(rawRules rules.Rules) ([]byte, error) {
-	body, err := yaml.Marshal(rawRules)
-	if err != nil {
-		return nil, err
-	}
-
-	return body, nil
-}
-
 func unmarshalRules(r io.Reader) (rules.Rules, error) {
 	body, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -79,7 +70,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	rawRules, err := unmarshalRules(resp.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshalling rules", http.StatusInternalServerError)
+		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -111,7 +102,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	body, err := marshalRules(rawRules)
+	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
 		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
@@ -140,7 +131,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	rawRules, err := unmarshalRules(r.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshalling rules", http.StatusInternalServerError)
+		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -166,7 +157,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	body, err := marshalRules(rawRules)
+	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
 		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
