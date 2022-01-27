@@ -31,7 +31,7 @@ func TestRulesAPI(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	rulesEndpointURL := "https://" + api.Endpoint("https") + "/api/metrics/v1/"+defaultTenantName+"/api/v1/rules/raw"
+	rulesEndpointURL := "https://" + api.Endpoint("https") + "/api/metrics/v1/" + defaultTenantName + "/api/v1/rules/raw"
 	tr := &http.Transport{
 		TLSClientConfig: getTLSClientConfig(t, e),
 	}
@@ -155,6 +155,7 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
+
 	t.Run("write-invalid-rules", func(t *testing.T) {
 		// Set an invalid rules file
 		invalidRules := []byte(invalidRulesYamlTpl)
@@ -167,7 +168,22 @@ func TestRulesAPI(t *testing.T) {
 
 		res, err := client.Do(r)
 		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusInternalServerError, res.StatusCode)
+	})
+
+	t.Run("write-valid-yaml-with-invalid-rules", func(t *testing.T) {
+		// set valid YAML with invalid rules
+		validYamlWithinvalidRules := []byte(validYamlWithInvalidRulesYamlTpl)
+		r, err := http.NewRequest(
+			http.MethodPut,
+			rulesEndpointURL,
+			bytes.NewReader(validYamlWithinvalidRules),
+		)
+		testutil.Ok(t, err)
+
+		res, err := client.Do(r)
+		testutil.Ok(t, err)
 		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
 	})
-}
 
+}
