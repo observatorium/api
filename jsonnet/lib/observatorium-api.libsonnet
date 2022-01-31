@@ -113,7 +113,13 @@ function(params) {
                   [
                     '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
                     '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
-                  ] else []
+                  ] + (
+                    if std.objectHas(api.config.metrics, 'rulesEndpoint') then [
+                      '--metrics.rules.endpoint=' +  api.config.metrics.rulesEndpoint,
+                    ]
+                    else []
+                  )
+                else []
               ) + (
                 if api.config.logs != {} then
                   [
