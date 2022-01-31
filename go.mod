@@ -12,7 +12,7 @@ require (
 	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/go-chi/chi/v5 v5.0.0
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-chi/httprate v0.5.2
 	github.com/go-kit/log v0.2.0
 	github.com/golang-jwt/jwt/v4 v4.2.0
