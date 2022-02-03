@@ -22,11 +22,13 @@ func TestInteractiveSetup(t *testing.T) {
 	_, token, rateLimiterAddr := startBaseServices(t, e, interactive)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
+	rulesEndpoint := startServicesForRules(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
 		withMetricsEndpoints("http://"+readEndpoint, "http://"+writeEndpoint),
 		withLogsEndpoints("http://"+logsEndpoint),
+		withRulesEndpoint("http://"+rulesEndpoint),
 		withRateLimiter(rateLimiterAddr),
 	)
 	testutil.Ok(t, err)
