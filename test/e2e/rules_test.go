@@ -75,9 +75,9 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Ok(t, err)
 
 		res, err = client.Do(r)
+		testutil.Ok(t, err)
 		defer res.Body.Close()
 
-		testutil.Ok(t, err)
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		body, err := ioutil.ReadAll(res.Body)
@@ -110,9 +110,9 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Ok(t, err)
 
 		res, err = client.Do(r)
+		testutil.Ok(t, err)
 		defer res.Body.Close()
 
-		testutil.Ok(t, err)
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		body, err := ioutil.ReadAll(res.Body)
@@ -144,9 +144,9 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Ok(t, err)
 
 		res, err = client.Do(r)
+		testutil.Ok(t, err)
 		defer res.Body.Close()
 
-		testutil.Ok(t, err)
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		body, err := ioutil.ReadAll(res.Body)
