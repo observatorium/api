@@ -1063,7 +1063,7 @@ func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, p
 		// Note that CustomCodec() is deprecated.  The fix for this isn't calling RegisterCodec() as suggested,
 		// because the codec we need to register is also deprecated.  A better fix, if Google removes
 		// the deprecated type, is https://github.com/mwitkow/grpc-proxy/pull/48
-		grpc.CustomCodec(grpcproxy.Codec()),
+		grpc.CustomCodec(grpcproxy.Codec()), // nolint: staticcheck
 		grpc.UnknownServiceHandler(grpcproxy.TransparentHandler(director)),
 		// Authorization (tenant)
 		grpc.ChainStreamInterceptor(

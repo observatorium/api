@@ -61,7 +61,7 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 					// because the codec we need to register is also deprecated.  A better fix, if Google removes
 					// the deprecated type, is https://github.com/mwitkow/grpc-proxy/pull/48
 					grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
-					grpc.WithInsecure(),
+					grpc.WithInsecure(),               // nolint: staticcheck
 					grpc.WithBlock())
 
 				if err == nil {
