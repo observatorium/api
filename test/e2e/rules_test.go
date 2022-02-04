@@ -83,7 +83,7 @@ func TestRulesAPI(t *testing.T) {
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
 
-		assertResponse(t, bodyStr, "sum by (job) (http_inprogress_requests)")
+		assertResponse(t, bodyStr, "sum by(job) (http_inprogress_requests{tenant_id=\""+defaultTenantID+"\"})")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
@@ -117,7 +117,9 @@ func TestRulesAPI(t *testing.T) {
 
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
+
 		assertResponse(t, bodyStr, "alert: HighRequestLatency")
+		assertResponse(t, bodyStr, "job:request_latency_seconds:mean5m{job=\"myjob\",tenant_id=\""+defaultTenantID+"\"}")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
@@ -151,8 +153,11 @@ func TestRulesAPI(t *testing.T) {
 
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
+
 		assertResponse(t, bodyStr, "record: job:up:avg")
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
+		assertResponse(t, bodyStr, "up{job=\"node\",tenant_id=\""+defaultTenantID+"\"}")
+		assertResponse(t, bodyStr, "job:up:avg{job=\"node\",tenant_id=\""+defaultTenantID+"\"}")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
