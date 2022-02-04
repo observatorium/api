@@ -18,10 +18,15 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // OIDCAuthenticatorType represents the oidc authentication provider type.
@@ -366,4 +371,98 @@ func (a oidcAuthenticator) Middleware() Middleware {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+//nolint:gocognit
+func (a oidcAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
+	return grpc_middleware_auth.StreamServerInterceptor(func(ctx context.Context) (context.Context, error) {
+		var token string
+
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return ctx, status.Error(codes.Internal, "metadata error")
+		}
+
+		authorizationHeader := ""
+		authorizationHeaders := md["authorization"]
+		if len(authorizationHeaders) > 0 {
+			authorizationHeader = authorizationHeaders[0]
+		}
+
+		if authorizationHeader != "" {
+			authorization := strings.Split(authorizationHeader, " ")
+			if len(authorization) != 2 {
+				const msg = "invalid Authorization header"
+				level.Debug(a.logger).Log("msg", msg)
+				return ctx, status.Error(codes.InvalidArgument, msg)
+			}
+
+			token = authorization[1]
+		}
+
+		idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
+		if err != nil {
+			const msg = "failed to authenticate"
+			level.Info(a.logger).Log("msg", msg, "err", err)
+			// We tell the user what went wrong.  This is more than the HTTP version does, but
+			// it lets the caller see messages such as
+			// "failed to authenticate: oidc: token is expired (Token Expiry: 2022-02-03 14:05:36 -0500 EST)"
+			// which are super-helpful in troubleshooting.
+			return ctx, status.Error(codes.InvalidArgument, fmt.Sprintf("%s: %v", msg, err))
+		}
+
+		sub := idToken.Subject
+		if a.config.UsernameClaim != "" {
+			claims := map[string]interface{}{}
+			if err := idToken.Claims(&claims); err != nil {
+				const msg = "failed to read claims"
+				level.Warn(a.logger).Log("msg", msg, "err", err)
+				return ctx, status.Error(codes.Internal, msg)
+			}
+			rawUsername, ok := claims[a.config.UsernameClaim]
+			if !ok {
+				const msg = "username cannot be empty"
+				level.Debug(a.logger).Log("msg", msg)
+				return ctx, status.Error(codes.PermissionDenied, msg)
+			}
+			username, ok := rawUsername.(string)
+			if !ok || username == "" {
+				const msg = "invalid username claim value"
+				level.Debug(a.logger).Log("msg", msg)
+				return ctx, status.Error(codes.PermissionDenied, msg)
+			}
+			sub = username
+		}
+		ctx = context.WithValue(ctx, subjectKey, sub)
+
+		if a.config.GroupClaim != "" {
+			var groups []string
+			claims := map[string]interface{}{}
+			if err := idToken.Claims(&claims); err != nil {
+				const msg = "failed to read claims"
+				level.Warn(a.logger).Log("msg", msg, "err", err)
+				return ctx, status.Error(codes.Internal, msg)
+			}
+			rawGroup, ok := claims[a.config.GroupClaim]
+			if !ok {
+				const msg = "group cannot be empty"
+				level.Debug(a.logger).Log("msg", msg)
+				return ctx, status.Error(codes.PermissionDenied, msg)
+			}
+			switch v := rawGroup.(type) {
+			case string:
+				groups = append(groups, v)
+			case []string:
+				groups = v
+			case []interface{}:
+				groups = make([]string, 0, len(v))
+				for i := range v {
+					groups = append(groups, fmt.Sprintf("%v", v[i]))
+				}
+			}
+			ctx = context.WithValue(ctx, groupsKey, groups)
+		}
+
+		return ctx, nil
+	})
 }

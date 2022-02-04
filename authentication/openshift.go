@@ -17,12 +17,16 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/golang-jwt/jwt/v4"
+	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/observatorium/api/authentication/openshift"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 )
@@ -492,6 +496,12 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func (a OpenShiftAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
+	return grpc_middleware_auth.StreamServerInterceptor(func(ctx context.Context) (context.Context, error) {
+		return ctx, status.Error(codes.Unimplemented, "internal error")
+	})
 }
 
 func (a OpenShiftAuthenticator) Handler() (string, http.Handler) {

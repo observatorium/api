@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	stdlog "log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -28,9 +29,11 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/metalmatze/signal/healthcheck"
 	"github.com/metalmatze/signal/internalserver"
 	"github.com/metalmatze/signal/server/signalhttp"
+	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -39,10 +42,13 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/automaxprocs/maxprocs"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	logsv1 "github.com/observatorium/api/api/logs/v1"
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
+	tracesv1 "github.com/observatorium/api/api/traces/v1"
 	"github.com/observatorium/api/authentication"
 
 	"github.com/observatorium/api/authorization"
@@ -76,6 +82,7 @@ type config struct {
 	tls             tlsConfig
 	metrics         metricsConfig
 	logs            logsConfig
+	traces          tracesConfig
 	middleware      middlewareConfig
 	internalTracing internalTracingConfig
 }
@@ -90,6 +97,7 @@ type serverConfig struct {
 	listen         string
 	listenInternal string
 	healthcheckURL string
+	grpcListen     string
 }
 
 type tlsConfig struct {
@@ -125,6 +133,14 @@ type logsConfig struct {
 	upstreamCAFile string
 	tenantHeader   string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
+	enabled bool
+}
+
+type tracesConfig struct {
+	writeEndpoint  string
+	upstreamCAFile string
+	tenantHeader   string
+	// enable traces if writeEndpoint is provided.
 	enabled bool
 }
 
@@ -440,15 +456,15 @@ func main() {
 
 		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
 
-		r.Group(func(r chi.Router) {
-			tenantIDs := map[string]string{}
-			authorizers := map[string]rbac.Authorizer{}
-			var rateLimits []ratelimit.Config
-			// registrationRetryCount used by authenticator providers to count
-			// registration failures per tenant.
-			registerTenantsFailingMetric := authentication.RegisterTenantsFailingMetric(reg)
-			pm := authentication.NewProviderManager(logger, registerTenantsFailingMetric)
+		tenantIDs := map[string]string{}
+		authorizers := map[string]rbac.Authorizer{}
+		var rateLimits []ratelimit.Config
+		// registrationRetryCount used by authenticator providers to count
+		// registration failures per tenant.
+		registerTenantsFailingMetric := authentication.RegisterTenantsFailingMetric(reg)
+		pm := authentication.NewProviderManager(logger, registerTenantsFailingMetric)
 
+		r.Group(func(r chi.Router) {
 			// registeredAuthNRoutes is used to avoid double register the same pattern.
 			var regMtx sync.RWMutex
 			registeredAuthNRoutes := make(map[string]struct{})
@@ -650,6 +666,31 @@ func main() {
 			level.Info(logger).Log("msg", "shutting down the HTTP server")
 			_ = s.Shutdown(ctx)
 		})
+
+		if cfg.server.grpcListen != "" {
+			gs, err := gRPCServer(&cfg, cfg.traces.tenantHeader, tenantIDs, pm, authorizers, logger)
+			if err != nil {
+				stdlog.Fatalf("failed to initialize gRPC server: %v", err)
+			}
+
+			var lis net.Listener
+
+			g.Add(func() error {
+				level.Info(logger).Log("msg", "starting the gRPC server", "address", cfg.server.grpcListen)
+
+				var err error
+				lis, err = net.Listen("tcp", cfg.server.grpcListen)
+				if err != nil {
+					return err
+				}
+
+				return gs.Serve(lis)
+			}, func(err error) {
+				level.Info(logger).Log("msg", "shutting down the gRPC server")
+				gs.GracefulStop()
+				_ = lis.Close()
+			})
+		}
 	}
 	{
 		h := internalserver.NewHandler(
@@ -760,6 +801,7 @@ func parseFlags() (config, error) {
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
+		rawTracesWriteEndpoint  string
 		rawTracingEndpointType  string
 	)
 
@@ -789,6 +831,8 @@ func parseFlags() (config, error) {
 		"The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
 		"The address on which the public server listens.")
+	flag.StringVar(&cfg.server.grpcListen, "grpc.listen", "",
+		"The address on which the public gRPC server listens.")
 	flag.StringVar(&cfg.server.listenInternal, "web.internal.listen", ":8081",
 		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
@@ -815,6 +859,12 @@ func parseFlags() (config, error) {
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
+	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
+		"The endpoint against which to make gRPC write requests for traces.")
+	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream OTLP trace servers. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
+		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
@@ -916,6 +966,25 @@ func parseFlags() (config, error) {
 		cfg.logs.writeEndpoint = logsWriteEndpoint
 	}
 
+	if rawTracesWriteEndpoint != "" {
+		cfg.traces.enabled = true
+
+		_, _, err := net.SplitHostPort(rawTracesWriteEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.write.endpoint %q is invalid: %w", rawTracesWriteEndpoint, err)
+		}
+
+		cfg.traces.writeEndpoint = rawTracesWriteEndpoint
+	}
+
+	if cfg.traces.enabled && cfg.server.grpcListen == "" {
+		return cfg, fmt.Errorf("-traces.write.endpoint is set to %q but -grpc.listen is not set", cfg.traces.writeEndpoint)
+	}
+
+	if !cfg.traces.enabled && cfg.server.grpcListen != "" {
+		return cfg, fmt.Errorf("-traces.write.endpoint is not set but -grpc.listen is set to %q", cfg.server.grpcListen)
+	}
+
 	if rawTLSCipherSuites != "" {
 		cfg.tls.cipherSuites = strings.Split(rawTLSCipherSuites, ",")
 	}
@@ -982,4 +1051,41 @@ func blockNonDefinedMethods() http.HandlerFunc {
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+//nolint:lll
+func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pm *authentication.ProviderManager, authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
+	director := tracesv1.NewHandler(cfg.traces.writeEndpoint,
+		tracesv1.WithLogger(logger),
+	)
+
+	opts := []grpc.ServerOption{
+		// Note that CustomCodec() is deprecated.  The fix for this isn't calling RegisterCodec() as suggested,
+		// because the codec we need to register is also deprecated.  A better fix, if Google removes
+		// the deprecated type, is https://github.com/mwitkow/grpc-proxy/pull/48
+		grpc.CustomCodec(grpcproxy.Codec()),
+		grpc.UnknownServiceHandler(grpcproxy.TransparentHandler(director)),
+		// Authorization (tenant)
+		grpc.ChainStreamInterceptor(
+			authentication.WithGRPCTenantHeader(tenantHeader, tenantIDs),
+			authentication.WithGRPCAccessToken(),
+			authentication.WithGRPCTenantInterceptors(pm.GRPCMiddlewares),
+			auth.StreamServerInterceptor(
+				authorization.WithGRPCAuthorizers(authorizers, rbac.Write, "traces", logger)),
+		),
+	}
+
+	if cfg.tls.serverCertFile != "" {
+		serverCert, err := credentials.NewServerTLSFromFile(cfg.tls.serverCertFile, cfg.tls.serverKeyFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to create gRPC cert: %v\n", err)
+			return nil, err
+		}
+
+		opts = append(opts, grpc.Creds(serverCert))
+	}
+
+	gs := grpc.NewServer(opts...)
+
+	return gs, nil
 }
