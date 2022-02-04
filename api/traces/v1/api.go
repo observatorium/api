@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -44,17 +43,11 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 	var conn *grpc.ClientConn
 
 	director := func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
-		fmt.Printf("@@@ ecs REACHED NewHandler/director\n")
 		// example method name is /opentelemetry.proto.collector.trace.v1.TraceService/Export
 		// md will include headers and also pseudo-headers such as ":authority"
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			return ctx, nil, status.Error(codes.Internal, "metadata failure")
-		}
+		md, _ := metadata.FromIncomingContext(ctx)
 
-		outCtx, _ := context.WithCancel(ctx) // TODO call cancel function
-		outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
-		// @@@ outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
+		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
 
 		if fullMethodName == traceRoute {
 			var err error
