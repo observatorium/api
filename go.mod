@@ -7,7 +7,7 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.11.0
 	github.com/cloudflare/cfssl v1.6.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/deepmap/oapi-codegen v1.9.0
+	github.com/deepmap/oapi-codegen v1.9.1
 	github.com/efficientgo/e2e v0.11.1
 	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
