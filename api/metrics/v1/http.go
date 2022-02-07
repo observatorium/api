@@ -32,7 +32,8 @@ const (
 	labelNamesRoute  = "/api/v1/labels"
 	labelValuesRoute = "/api/v1/label/{label_name}/values"
 	receiveRoute     = "/api/v1/receive"
-	rulesRoute       = "/api/v1/rules/raw"
+	rulesRoute       = "/api/v1/rules"
+	rulesRawRoute    = "/api/v1/rules/raw"
 )
 
 type handlerConfiguration struct {
@@ -214,6 +215,12 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 				prometheus.Labels{"group": "metricsv1", "handler": "label_values"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+labelValuesRoute, proxyRead),
 			))
+			// Thanos Query Rules API supports matchers from v0.25 so the WithEnforceTenancyOnMatchers
+			// middleware will not work here if prior versions are used.
+			r.Handle(rulesRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyRead),
+			))
 		})
 
 		var uiProxy http.Handler
@@ -296,12 +303,12 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
-			r.Get(rulesRoute, rh.get)
+			r.Get(rulesRawRoute, rh.get)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			r.Put(rulesRoute, rh.put)
+			r.Put(rulesRawRoute, rh.put)
 		})
 	}
 
