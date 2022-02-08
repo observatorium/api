@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -86,14 +87,20 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
-		http.Error(w, "error listing rules", resp.StatusCode)
+		switch resp.StatusCode {
+		case http.StatusNotFound:
+			http.Error(w, "no rules found", resp.StatusCode)
+		default:
+			http.Error(w, "error listing rules", resp.StatusCode)
+		}
+
 		return
 	}
 
 	rawRules, err := unmarshalRules(resp.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("error unmarshaling rules: %v", err), http.StatusInternalServerError)
 
 		return
 	}
@@ -103,7 +110,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
-		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("error marshaling rules YAML: %v", err), http.StatusInternalServerError)
 
 		return
 	}
@@ -129,7 +136,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	rawRules, err := unmarshalRules(r.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("error unmarshaling rules: %v", err), http.StatusInternalServerError)
 
 		return
 	}
@@ -139,7 +146,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
-		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("error marshaling rules YAML: %v", err), http.StatusInternalServerError)
 
 		return
 	}

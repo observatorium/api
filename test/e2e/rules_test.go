@@ -12,6 +12,65 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
+const recordingRuleYamlTpl = `
+groups:
+  - name: example
+    interval: 30s
+    rules:
+      - record: job:http_inprogress_requests:sum
+        expr: sum by (job) (http_inprogress_requests)
+`
+
+const alertingRuleYamlTpl = `
+groups:
+- name: example
+  interval: 30s
+  rules:
+  - alert: HighRequestLatency
+    expr: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
+    for: 10m
+    labels:
+      severity: page
+    annotations:
+      summary: High request latency
+`
+const recordAndAlertingRulesYamlTpl = `
+groups:
+- name: node_rules
+  interval: 30s
+  rules:
+  - record: job:up:avg
+    expr: avg without(instance)(up{job="node"})
+  - alert: ManyInstancesDown
+    expr: job:up:avg{job="node"} < 0.5
+    for: 10m
+    annotations:
+      Summary: Many instances down
+`
+
+const invalidRulesYamlTpl = `
+invalid:
+- name: testing
+ invalid_rules:
+ - rule1: job:up:avg
+   expr: avg without(instance)(up{job="node"})
+ - rule2: ManyInstancesDown
+   expr: job:up:avg{job="node"} < 0.5
+`
+
+const validYamlWithInvalidRulesYamlTpl = `
+groups:
+  - name: example
+    interval: 30TB
+    rules:
+      - record: job:http_inprogress_requests:sum
+        expr: sum by (job) (http_inprogress_requests)
+      - alert: ManyInstancesDown
+        expr: job:up:avg{job="node"} < 0.5
+        for: 10GB
+        annotations: {}
+`
+
 func TestRulesAPI(t *testing.T) {
 	t.Parallel()
 
