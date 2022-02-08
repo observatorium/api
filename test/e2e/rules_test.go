@@ -83,7 +83,12 @@ func TestRulesAPI(t *testing.T) {
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
 
-		assertResponse(t, bodyStr, "sum by(job) (http_inprogress_requests{tenant_id=\""+defaultTenantID+"\"})")
+		assertResponse(t, bodyStr, "subscription_labels{email_domain=\"domain1.com\",tenant_id=\""+defaultTenantID+"\"}")
+		assertResponse(t, bodyStr, "subscription_labels{class!=\"Customer\",email_domain=~\"(.*\\\\.|^)domain2.com\",tenant_id=\""+defaultTenantID+"\"}")
+		assertResponse(t, bodyStr, "subscription_labels{class=\"Customer\",tenant_id=\""+defaultTenantID+"\"")
+		assertResponse(t, bodyStr, "subscription_labels{class=\"Partner\",tenant_id=\""+defaultTenantID+"\"")
+		assertResponse(t, bodyStr, "subscription_labels{class=\"Evaluation\",tenant_id=\""+defaultTenantID+"\"")
+		assertResponse(t, bodyStr, "subscription_labels{class!~\"Evaluation|Customer|Partner\",tenant_id=\""+defaultTenantID+"\"}")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
