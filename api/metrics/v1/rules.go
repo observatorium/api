@@ -12,9 +12,9 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/rules"
+	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
-	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 )
 
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
