@@ -3,7 +3,6 @@ package v1
 import (
 	"bytes"
 	"fmt"
-	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,8 +12,9 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/rules"
-	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/promql/parser"
+	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 )
 
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
@@ -59,17 +59,20 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID str
 			}
 		}
 	}
+
 	return nil
 }
 
-func enforceLabelsInExpr(e *injectproxy.Enforcer, expr string) (string, error){
+func enforceLabelsInExpr(e *injectproxy.Enforcer, expr string) (string, error) {
 	parsedExpr, err := parser.ParseExpr(expr)
 	if err != nil {
 		return "", fmt.Errorf("parse expr error: %w", err)
 	}
+
 	if err := e.EnforceNode(parsedExpr); err != nil {
 		return "", fmt.Errorf("enforce node error: %w", err)
 	}
+
 	return parsedExpr.String(), nil
 }
 
@@ -142,7 +145,6 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-
 
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
