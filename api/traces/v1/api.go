@@ -8,6 +8,7 @@ import (
 	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -58,7 +59,7 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 					// because the codec we need to register is also deprecated.  A better fix, if Google removes
 					// the deprecated type, is https://github.com/mwitkow/grpc-proxy/pull/48
 					grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
-					grpc.WithInsecure(),               // nolint: staticcheck
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
 					grpc.WithBlock())
 
 				if err == nil {

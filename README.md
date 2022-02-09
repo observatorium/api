@@ -75,6 +75,8 @@ Usage of ./observatorium-api:
     	The percentage of mutex contention events that are reported in the mutex profile. (default 10)
   -debug.name string
     	A name to add as a prefix to log lines. (default "observatorium")
+  -grpc.listen string
+    	The address on which the public gRPC server listens.
   -internal.tracing.endpoint string
     	The full URL of the trace agent or collector. If it's not set, tracing will be disabled.
   -internal.tracing.endpoint-type string
@@ -139,6 +141,12 @@ Usage of ./observatorium-api:
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls.server.key-file string
     	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
+  -traces.tenant-header string
+    	The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Tenant")
+  -traces.tls.ca-file string
+    	File containing the TLS CA against which to upstream OTLP trace servers. Leave blank to disable TLS.
+  -traces.write.endpoint string
+    	The endpoint against which to make gRPC write requests for traces.
   -web.healthchecks.url string
     	The URL against which to run healthchecks. (default "http://localhost:8080")
   -web.internal.listen string
