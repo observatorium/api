@@ -204,11 +204,11 @@ func createRulesYAML(
 
 const recordingRuleYamlTpl = `
 groups:
-  - name: example
-    interval: 30s
-    rules:
-      - record: job:http_inprogress_requests:sum
-        expr: sum by (job) (http_inprogress_requests)
+ - name: example
+   interval: 30s
+   rules:
+     - record: id_network_type
+       expr: 0 * topk by (ebs_account) (1, max by (ebs_account,account_type,internal,email_domain) (label_replace(label_replace(label_replace(subscription_labels{email_domain="domain1.com"}*0+5, "class", "Internal", "class", ".*") or label_replace(subscription_labels{class!="Customer",email_domain=~"(.*\\.|^)domain2.com"}*0+4, "class", "Internal", "class", ".*") or (subscription_labels{class="Customer"}*0+3) or (subscription_labels{class="Partner"}*0+2) or (subscription_labels{class="Evaluation"}*0+1) or label_replace(subscription_labels{class!~"Evaluation|Customer|Partner"}*0+0, "class", "", "class", ".*"), "account_type", "$1", "class", "(.+)"), "internal", "true", "email_domain", "domain1.com|(.*\\.|^)domain2.com") ))
 `
 
 const alertingRuleYamlTpl = `

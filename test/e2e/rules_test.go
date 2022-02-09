@@ -83,7 +83,12 @@ func TestRulesAPI(t *testing.T) {
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
 
-		assertResponse(t, bodyStr, "sum by (job) (http_inprogress_requests)")
+		assertResponse(t, bodyStr, "subscription_labels{email_domain=\"domain1.com\",tenant_id=\""+defaultTenantID+"\"}")
+		assertResponse(t, bodyStr, "subscription_labels{class!=\"Customer\",email_domain=~\"(.*\\\\.|^)domain2.com\",tenant_id=\""+defaultTenantID+"\"}")
+		assertResponse(t, bodyStr, "subscription_labels{class=\"Customer\",tenant_id=\""+defaultTenantID+"\"")
+		assertResponse(t, bodyStr, "subscription_labels{class=\"Partner\",tenant_id=\""+defaultTenantID+"\"")
+		assertResponse(t, bodyStr, "subscription_labels{class=\"Evaluation\",tenant_id=\""+defaultTenantID+"\"")
+		assertResponse(t, bodyStr, "subscription_labels{class!~\"Evaluation|Customer|Partner\",tenant_id=\""+defaultTenantID+"\"}")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
@@ -117,7 +122,9 @@ func TestRulesAPI(t *testing.T) {
 
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
+
 		assertResponse(t, bodyStr, "alert: HighRequestLatency")
+		assertResponse(t, bodyStr, "job:request_latency_seconds:mean5m{job=\"myjob\",tenant_id=\""+defaultTenantID+"\"}")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
@@ -151,8 +158,11 @@ func TestRulesAPI(t *testing.T) {
 
 		body, err := ioutil.ReadAll(res.Body)
 		bodyStr := string(body)
+
 		assertResponse(t, bodyStr, "record: job:up:avg")
 		assertResponse(t, bodyStr, "alert: ManyInstancesDown")
+		assertResponse(t, bodyStr, "up{job=\"node\",tenant_id=\""+defaultTenantID+"\"}")
+		assertResponse(t, bodyStr, "job:up:avg{job=\"node\",tenant_id=\""+defaultTenantID+"\"}")
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
