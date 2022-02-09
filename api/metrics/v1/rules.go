@@ -141,7 +141,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	err = enforceLabelsInRules(rawRules, rh.tenantLabel, id)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not enforce labels in rules", "err", err.Error())
-		http.Error(w, "error enforcing labels in rules", http.StatusInternalServerError)
+		http.Error(w, "failed to process rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -183,7 +183,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	err = enforceLabelsInRules(rawRules, rh.tenantLabel, id)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not enforce labels in rules", "err", err.Error())
-		http.Error(w, "error enforcing labels in rules", http.StatusInternalServerError)
+		http.Error(w, "failed to process rules", http.StatusInternalServerError)
 
 		return
 	}
