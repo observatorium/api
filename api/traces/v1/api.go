@@ -12,9 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const (
-	traceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
-)
+const traceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
 
 type handlerConfiguration struct {
 	logger log.Logger
@@ -43,8 +41,6 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 	var conn *grpc.ClientConn
 
 	director := func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
-		// example method name is /opentelemetry.proto.collector.trace.v1.TraceService/Export
-		// md will include headers and also pseudo-headers such as ":authority"
 		md, _ := metadata.FromIncomingContext(ctx)
 
 		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
@@ -56,6 +52,7 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 				// Create the connection lazily, when we first receive a trace to forward
 				level.Info(c.logger).Log("msg", "gRPC dialing OTel collector")
 
+				// TODO test where the keep-alive fails and the connection closes
 				conn, err = grpc.DialContext(ctx, write,
 					// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
 					// because the codec we need to register is also deprecated.  A better fix, if Google removes
@@ -67,6 +64,7 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 				if err == nil {
 					level.Info(c.logger).Log("msg", "gRPC connected to OTel collector")
 				} else {
+					conn = nil
 					level.Warn(c.logger).Log("msg", "gRPC did not connect to OTel collector")
 				}
 			}

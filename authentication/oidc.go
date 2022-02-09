@@ -303,69 +303,10 @@ func (a oidcAuthenticator) Middleware() Middleware {
 				token = cookie.Value
 			}
 
-			idToken, err := a.verifier.Verify(oidc.ClientContext(r.Context(), a.client), token)
-			if err != nil {
-				const msg = "failed to authenticate"
-				level.Debug(a.logger).Log("msg", msg, "err", err)
-				http.Error(w, msg, http.StatusBadRequest)
+			ctx, msg, code, _ := a.checkAuth(r.Context(), token)
+			if code != http.StatusOK {
+				http.Error(w, msg, code)
 				return
-			}
-
-			sub := idToken.Subject
-			if a.config.UsernameClaim != "" {
-				claims := map[string]interface{}{}
-				if err := idToken.Claims(&claims); err != nil {
-					const msg = "failed to read claims"
-					level.Warn(a.logger).Log("msg", msg, "err", err)
-					http.Error(w, msg, http.StatusInternalServerError)
-					return
-				}
-				rawUsername, ok := claims[a.config.UsernameClaim]
-				if !ok {
-					const msg = "username cannot be empty"
-					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusBadRequest)
-					return
-				}
-				username, ok := rawUsername.(string)
-				if !ok || username == "" {
-					const msg = "invalid username claim value"
-					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusBadRequest)
-					return
-				}
-				sub = username
-			}
-			ctx := context.WithValue(r.Context(), subjectKey, sub)
-
-			if a.config.GroupClaim != "" {
-				var groups []string
-				claims := map[string]interface{}{}
-				if err := idToken.Claims(&claims); err != nil {
-					const msg = "failed to read claims"
-					level.Warn(a.logger).Log("msg", msg, "err", err)
-					http.Error(w, msg, http.StatusInternalServerError)
-					return
-				}
-				rawGroup, ok := claims[a.config.GroupClaim]
-				if !ok {
-					const msg = "group cannot be empty"
-					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusBadRequest)
-					return
-				}
-				switch v := rawGroup.(type) {
-				case string:
-					groups = append(groups, v)
-				case []string:
-					groups = v
-				case []interface{}:
-					groups = make([]string, 0, len(v))
-					for i := range v {
-						groups = append(groups, fmt.Sprintf("%v", v[i]))
-					}
-				}
-				ctx = context.WithValue(ctx, groupsKey, groups)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -383,86 +324,92 @@ func (a oidcAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 			return ctx, status.Error(codes.Internal, "metadata error")
 		}
 
-		authorizationHeader := ""
-		authorizationHeaders := md["authorization"]
+		authorizationHeaders := md.Get("Authorization")
 		if len(authorizationHeaders) > 0 {
-			authorizationHeader = authorizationHeaders[0]
-		}
-
-		if authorizationHeader != "" {
-			authorization := strings.Split(authorizationHeader, " ")
-			if len(authorization) != 2 {
-				const msg = "invalid Authorization header"
-				level.Debug(a.logger).Log("msg", msg)
-				return ctx, status.Error(codes.InvalidArgument, msg)
-			}
-
-			token = authorization[1]
-		}
-
-		idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
-		if err != nil {
-			const msg = "failed to authenticate"
-			level.Info(a.logger).Log("msg", msg, "err", err)
-			// We tell the user what went wrong.  This is more than the HTTP version does, but
-			// it lets the caller see messages such as
-			// "failed to authenticate: oidc: token is expired (Token Expiry: 2022-02-03 14:05:36 -0500 EST)"
-			// which are super-helpful in troubleshooting.
-			return ctx, status.Error(codes.InvalidArgument, fmt.Sprintf("%s: %v", msg, err))
-		}
-
-		sub := idToken.Subject
-		if a.config.UsernameClaim != "" {
-			claims := map[string]interface{}{}
-			if err := idToken.Claims(&claims); err != nil {
-				const msg = "failed to read claims"
-				level.Warn(a.logger).Log("msg", msg, "err", err)
-				return ctx, status.Error(codes.Internal, msg)
-			}
-			rawUsername, ok := claims[a.config.UsernameClaim]
-			if !ok {
-				const msg = "username cannot be empty"
-				level.Debug(a.logger).Log("msg", msg)
-				return ctx, status.Error(codes.PermissionDenied, msg)
-			}
-			username, ok := rawUsername.(string)
-			if !ok || username == "" {
-				const msg = "invalid username claim value"
-				level.Debug(a.logger).Log("msg", msg)
-				return ctx, status.Error(codes.PermissionDenied, msg)
-			}
-			sub = username
-		}
-		ctx = context.WithValue(ctx, subjectKey, sub)
-
-		if a.config.GroupClaim != "" {
-			var groups []string
-			claims := map[string]interface{}{}
-			if err := idToken.Claims(&claims); err != nil {
-				const msg = "failed to read claims"
-				level.Warn(a.logger).Log("msg", msg, "err", err)
-				return ctx, status.Error(codes.Internal, msg)
-			}
-			rawGroup, ok := claims[a.config.GroupClaim]
-			if !ok {
-				const msg = "group cannot be empty"
-				level.Debug(a.logger).Log("msg", msg)
-				return ctx, status.Error(codes.PermissionDenied, msg)
-			}
-			switch v := rawGroup.(type) {
-			case string:
-				groups = append(groups, v)
-			case []string:
-				groups = v
-			case []interface{}:
-				groups = make([]string, 0, len(v))
-				for i := range v {
-					groups = append(groups, fmt.Sprintf("%v", v[i]))
+			if authorizationHeaders[0] != "" {
+				authorization := strings.Split(authorizationHeaders[0], " ")
+				if len(authorization) != 2 {
+					const msg = "invalid Authorization header"
+					level.Debug(a.logger).Log("msg", msg)
+					return ctx, status.Error(codes.InvalidArgument, msg)
 				}
+
+				token = authorization[1]
 			}
-			ctx = context.WithValue(ctx, groupsKey, groups)
+		}
+
+		ctx, msg, _, code := a.checkAuth(ctx, token)
+		if code != codes.OK {
+			return ctx, status.Error(code, msg)
 		}
 
 		return ctx, nil
 	})
+}
+
+func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context.Context, string, int, codes.Code) {
+	idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
+	if err != nil {
+		const msg = "failed to authenticate"
+		level.Info(a.logger).Log("msg", msg, "err", err)
+		// We tell the user what went wrong.  This is more than the HTTP version does, but
+		// it lets the caller see messages such as
+		// "failed to authenticate: oidc: token is expired (Token Expiry: 2022-02-03 14:05:36 -0500 EST)"
+		// which are super-helpful in troubleshooting.
+		return ctx, fmt.Sprintf("%s: %v", msg, err), http.StatusBadRequest, codes.InvalidArgument
+	}
+
+	sub := idToken.Subject
+	if a.config.UsernameClaim != "" {
+		claims := map[string]interface{}{}
+		if err := idToken.Claims(&claims); err != nil {
+			const msg = "failed to read claims"
+			level.Warn(a.logger).Log("msg", msg, "err", err)
+			return ctx, msg, http.StatusInternalServerError, codes.Internal
+		}
+		rawUsername, ok := claims[a.config.UsernameClaim]
+		if !ok {
+			const msg = "username cannot be empty"
+			level.Debug(a.logger).Log("msg", msg)
+			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
+		}
+		username, ok := rawUsername.(string)
+		if !ok || username == "" {
+			const msg = "invalid username claim value"
+			level.Debug(a.logger).Log("msg", msg)
+			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
+		}
+		sub = username
+	}
+	ctx = context.WithValue(ctx, subjectKey, sub)
+
+	if a.config.GroupClaim != "" {
+		var groups []string
+		claims := map[string]interface{}{}
+		if err := idToken.Claims(&claims); err != nil {
+			const msg = "failed to read claims"
+			level.Warn(a.logger).Log("msg", msg, "err", err)
+			return ctx, msg, http.StatusInternalServerError, codes.Internal
+		}
+		rawGroup, ok := claims[a.config.GroupClaim]
+		if !ok {
+			const msg = "group cannot be empty"
+			level.Debug(a.logger).Log("msg", msg)
+			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
+		}
+		switch v := rawGroup.(type) {
+		case string:
+			groups = append(groups, v)
+		case []string:
+			groups = v
+		case []interface{}:
+			groups = make([]string, 0, len(v))
+			for i := range v {
+				groups = append(groups, fmt.Sprintf("%v", v[i]))
+			}
+		}
+		ctx = context.WithValue(ctx, groupsKey, groups)
+	}
+
+	return ctx, "", http.StatusOK, codes.OK
 }

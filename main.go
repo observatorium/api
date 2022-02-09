@@ -668,7 +668,7 @@ func main() {
 		})
 
 		if cfg.server.grpcListen != "" {
-			gs, err := gRPCServer(&cfg, cfg.traces.tenantHeader, tenantIDs, pm, authorizers, logger)
+			gs, err := gRPCServer(&cfg, cfg.traces.tenantHeader, tenantIDs, pm.GRPCMiddlewares, authorizers, logger)
 			if err != nil {
 				stdlog.Fatalf("failed to initialize gRPC server: %v", err)
 			}
@@ -1054,7 +1054,7 @@ func blockNonDefinedMethods() http.HandlerFunc {
 }
 
 //nolint:lll
-func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pm *authentication.ProviderManager, authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
+func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc, authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
 	director := tracesv1.NewHandler(cfg.traces.writeEndpoint,
 		tracesv1.WithLogger(logger),
 	)
@@ -1069,7 +1069,7 @@ func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, p
 		grpc.ChainStreamInterceptor(
 			authentication.WithGRPCTenantHeader(tenantHeader, tenantIDs),
 			authentication.WithGRPCAccessToken(),
-			authentication.WithGRPCTenantInterceptors(pm.GRPCMiddlewares),
+			authentication.WithGRPCTenantInterceptors(pmis),
 			auth.StreamServerInterceptor(
 				authorization.WithGRPCAuthorizers(authorizers, rbac.Write, "traces", logger)),
 		),
