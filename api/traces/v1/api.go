@@ -53,7 +53,6 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 				// Create the connection lazily, when we first receive a trace to forward
 				level.Info(c.logger).Log("msg", "gRPC dialing OTel collector")
 
-				// TODO test where the keep-alive fails and the connection closes
 				conn, err = grpc.DialContext(ctx, write,
 					// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
 					// because the codec we need to register is also deprecated.  A better fix, if Google removes

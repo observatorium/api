@@ -351,8 +351,10 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 	idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
 	if err != nil {
 		const msg = "failed to authenticate"
+
 		level.Info(a.logger).Log("msg", msg, "err", err)
-		// We tell the user what went wrong.  This is more than the HTTP version does, but
+
+		// We tell the user what went wrong.  This is more than the HTTP version did, but
 		// it lets the caller see messages such as
 		// "failed to authenticate: oidc: token is expired (Token Expiry: 2022-02-03 14:05:36 -0500 EST)"
 		// which are super-helpful in troubleshooting.
@@ -360,43 +362,61 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 	}
 
 	sub := idToken.Subject
+
 	if a.config.UsernameClaim != "" {
 		claims := map[string]interface{}{}
 		if err := idToken.Claims(&claims); err != nil {
 			const msg = "failed to read claims"
+
 			level.Warn(a.logger).Log("msg", msg, "err", err)
+
 			return ctx, msg, http.StatusInternalServerError, codes.Internal
 		}
+
 		rawUsername, ok := claims[a.config.UsernameClaim]
 		if !ok {
 			const msg = "username cannot be empty"
+
 			level.Debug(a.logger).Log("msg", msg)
+
 			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
 		}
+
 		username, ok := rawUsername.(string)
 		if !ok || username == "" {
 			const msg = "invalid username claim value"
+
 			level.Debug(a.logger).Log("msg", msg)
+
 			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
 		}
+
 		sub = username
 	}
+
 	ctx = context.WithValue(ctx, subjectKey, sub)
 
 	if a.config.GroupClaim != "" {
 		var groups []string
+
 		claims := map[string]interface{}{}
 		if err := idToken.Claims(&claims); err != nil {
 			const msg = "failed to read claims"
+
 			level.Warn(a.logger).Log("msg", msg, "err", err)
+
 			return ctx, msg, http.StatusInternalServerError, codes.Internal
 		}
+
 		rawGroup, ok := claims[a.config.GroupClaim]
 		if !ok {
 			const msg = "group cannot be empty"
+
 			level.Debug(a.logger).Log("msg", msg)
+
 			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
 		}
+
 		switch v := rawGroup.(type) {
 		case string:
 			groups = append(groups, v)
@@ -408,6 +428,7 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 				groups = append(groups, fmt.Sprintf("%v", v[i]))
 			}
 		}
+
 		ctx = context.WithValue(ctx, groupsKey, groups)
 	}
 
