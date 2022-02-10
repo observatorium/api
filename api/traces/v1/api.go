@@ -2,18 +2,16 @@ package v1
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
-const traceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
+const TraceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
 
 type handlerConfiguration struct {
 	logger log.Logger
@@ -30,7 +28,7 @@ func WithLogger(logger log.Logger) HandlerOption {
 }
 
 // NewHandler creates the new traces v1 handler.
-func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
+func NewOTelConnection(write string, opts ...HandlerOption) (*grpc.ClientConn, error) {
 	c := &handlerConfiguration{
 		logger: log.NewNopLogger(),
 	}
@@ -39,43 +37,23 @@ func NewHandler(write string, opts ...HandlerOption) grpcproxy.StreamDirector {
 		o(c)
 	}
 
-	var conn *grpc.ClientConn
+	level.Info(c.logger).Log("msg", "gRPC dialing OTel collector")
 
-	director := func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
-		md, _ := metadata.FromIncomingContext(ctx)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
-		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
+	connOtel, err := grpc.DialContext(ctx, write,
+		// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
+		// because the codec we need to register is also deprecated.  A better fix, is the newer
+		// version of mwitkow/grpc-proxy, but that version doesn't (currently) work with OTel protocol.
+		grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-		if fullMethodName == traceRoute {
-			var err error
-
-			if conn == nil {
-				// Create the connection lazily, when we first receive a trace to forward
-				level.Info(c.logger).Log("msg", "gRPC dialing OTel collector")
-
-				conn, err = grpc.DialContext(ctx, write,
-					// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
-					// because the codec we need to register is also deprecated.  A better fix, if Google removes
-					// the deprecated type, is https://github.com/mwitkow/grpc-proxy/pull/48
-					grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
-					grpc.WithBlock())
-
-				if err == nil {
-					level.Info(c.logger).Log("msg", "gRPC connected to OTel collector")
-				} else {
-					conn = nil
-					level.Warn(c.logger).Log("msg", "gRPC did not connect to OTel collector")
-				}
-			}
-
-			return outCtx, conn, err
-		}
-
-		level.Info(c.logger).Log("msg", "gRPC reverse proxy director caught unknown method", "methodName", fullMethodName)
-
-		return outCtx, nil, status.Errorf(codes.Unimplemented, "Unknown method")
+	// Note that err == nil does not mean connected; this is a non-blocking ClientConn.
+	if err != nil {
+		level.Warn(c.logger).Log("msg", "gRPC did not dial to OTel collector", "target", write)
+		return nil, err
 	}
 
-	return director
+	return connOtel, nil
 }

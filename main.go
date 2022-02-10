@@ -43,7 +43,10 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.uber.org/automaxprocs/maxprocs"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	logsv1 "github.com/observatorium/api/api/logs/v1"
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
@@ -864,7 +867,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream OTLP trace servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
-		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
+		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
@@ -1053,11 +1056,48 @@ func blockNonDefinedMethods() http.HandlerFunc {
 	return http.HandlerFunc(fn)
 }
 
+// Permissions required for each gRPC method
+//nolint:gochecknoglobals (this would be a const if Golang allowed const maps)
+var gRPCRBAC = authorization.GRPCRBac{
+	// opentelemetry.proto.collector.trace.v1.TraceService/Export requires trace write perm
+	tracesv1.TraceRoute: {
+		Permission: rbac.Write,
+		Resource:   "traces",
+	},
+	// in the future we will add trace read permission for Jaeger queries, etc.
+}
+
 //nolint:lll
 func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc, authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
-	director := tracesv1.NewHandler(cfg.traces.writeEndpoint,
+	connOtel, err := tracesv1.NewOTelConnection(cfg.traces.writeEndpoint,
 		tracesv1.WithLogger(logger),
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Currently we only proxy TraceService/Export to OTel collectors.
+	// In the future we will pass queries to Jaeger, and possibly other
+	// gRPC methods for logs and metrics to different connections
+	proxiedServers := map[string]*grpc.ClientConn{
+		tracesv1.TraceRoute: connOtel,
+	}
+
+	director := func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
+		md, _ := metadata.FromIncomingContext(ctx)
+		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
+
+		// Observatorium API isn't providing a generic pass-through to any methods;
+		// we only pass the methods we want to expose; currently this is just TraceService/Export
+		proxiedServer, ok := proxiedServers[fullMethodName]
+		if ok {
+			return outCtx, proxiedServer, nil
+		}
+
+		level.Debug(logger).Log("msg", "gRPC reverse proxy director caught unknown method", "methodName", fullMethodName)
+
+		return outCtx, nil, status.Errorf(codes.Unimplemented, "Unknown method")
+	}
 
 	opts := []grpc.ServerOption{
 		// Note that CustomCodec() is deprecated.  The fix for this isn't calling RegisterCodec() as suggested,
@@ -1067,11 +1107,19 @@ func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, p
 		grpc.UnknownServiceHandler(grpcproxy.TransparentHandler(director)),
 		// Authorization (tenant)
 		grpc.ChainStreamInterceptor(
-			authentication.WithGRPCTenantHeader(tenantHeader, tenantIDs),
+			authentication.WithGRPCTenantHeader(tenantHeader, tenantIDs, logger),
 			authentication.WithGRPCAccessToken(),
-			authentication.WithGRPCTenantInterceptors(pmis),
+			authentication.WithGRPCTenantInterceptors(logger, pmis),
 			auth.StreamServerInterceptor(
-				authorization.WithGRPCAuthorizers(authorizers, rbac.Write, "traces", logger)),
+				authorization.WithGRPCAuthorizers(authorizers, gRPCRBAC, logger)),
+			// Log when a trace cannot be forwarded
+			func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+				err := handler(srv, ss)
+				if err != nil {
+					level.Debug(logger).Log("msg", "send failure", "error", err)
+				}
+				return err
+			},
 		),
 	}
 

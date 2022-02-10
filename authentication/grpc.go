@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware/v2"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"google.golang.org/grpc"
@@ -19,22 +21,26 @@ type GRPCMiddlewareFunc func(tenant string) (grpc.StreamServerInterceptor, bool)
 
 // WithGRPCTenantHeader returns a new StreamServerInterceptor that adds the tenant and tenantid
 // to the stream Context.
-func WithGRPCTenantHeader(header string, tenantIDs map[string]string) grpc.StreamServerInterceptor {
+func WithGRPCTenantHeader(header string, tenantIDs map[string]string, logger log.Logger) grpc.StreamServerInterceptor {
 	header = strings.ToLower(header)
 
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
-			return fmt.Errorf("gRPC tenant header interceptor: metadata not found")
+			level.Warn(logger).Log("msg", "metadata not found")
+			return status.Errorf(codes.Internal, "metadata not found")
 		}
 
 		headerTenants := md[header]
 		if len(headerTenants) == 0 {
-			return fmt.Errorf("header %q not set", header)
+			level.Debug(logger).Log("msg", "header not set", "expected-header", header)
+			return status.Errorf(codes.InvalidArgument, fmt.Sprintf("header %q not set", header))
 		}
 		if len(headerTenants) > 1 {
-			return fmt.Errorf("header %q requested multiple tenants", header)
+			level.Debug(logger).Log("msg", "multiple tenant header values",
+				"header", header, "tenants", fmt.Sprintf("%v", headerTenants))
+			return status.Errorf(codes.InvalidArgument, fmt.Sprintf("header %q requested multiple tenants", header))
 		}
 
 		tenant := headerTenants[0]
@@ -42,6 +48,7 @@ func WithGRPCTenantHeader(header string, tenantIDs map[string]string) grpc.Strea
 
 		id, ok := tenantIDs[tenant]
 		if !ok {
+			level.Debug(logger).Log("msg", "unknown tenant", "tenant", tenant)
 			return status.Error(codes.InvalidArgument, "unknown tenant")
 		}
 		ctx = context.WithValue(ctx, tenantIDKey, id)
@@ -72,10 +79,11 @@ func WithGRPCAccessToken() grpc.StreamServerInterceptor {
 
 // WithGRPCTenantInterceptors creates a single Middleware for all
 // provided tenant-middleware sets.
-func WithGRPCTenantInterceptors(mwFns ...GRPCMiddlewareFunc) grpc.StreamServerInterceptor {
+func WithGRPCTenantInterceptors(logger log.Logger, mwFns ...GRPCMiddlewareFunc) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		tenant, ok := GetTenant(ss.Context())
 		if !ok {
+			level.Debug(logger).Log("msg", "error finding tenant")
 			return status.Error(codes.InvalidArgument, "error finding tenant")
 		}
 
@@ -85,6 +93,7 @@ func WithGRPCTenantInterceptors(mwFns ...GRPCMiddlewareFunc) grpc.StreamServerIn
 			}
 		}
 
+		level.Debug(logger).Log("msg", "tenant not found, have you registered it?", "tenant", tenant)
 		return status.Error(codes.PermissionDenied, "tenant not found, have you registered it?")
 	}
 }
