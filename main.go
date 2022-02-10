@@ -568,6 +568,12 @@ func main() {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs))
 
+					if rateLimitClient != nil {
+						r.Use(ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...))
+					} else {
+						r.Use(ratelimit.WithLocalRateLimiter(rateLimits...))
+					}
+
 					r.Mount("/api/logs/v1/{tenant}",
 						stripTenantPrefix("/api/logs/v1",
 							logsv1.NewHandler(
