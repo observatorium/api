@@ -2,7 +2,6 @@ package v1
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -100,7 +99,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	rawRules, err := unmarshalRules(resp.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, fmt.Sprintf("error unmarshaling rules: %v", err), http.StatusInternalServerError)
+		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -110,7 +109,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
-		http.Error(w, fmt.Sprintf("error marshaling rules YAML: %v", err), http.StatusInternalServerError)
+		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
 
 		return
 	}
@@ -136,7 +135,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	rawRules, err := unmarshalRules(r.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, fmt.Sprintf("error unmarshaling rules: %v", err), http.StatusInternalServerError)
+		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -146,7 +145,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
-		http.Error(w, fmt.Sprintf("error marshaling rules YAML: %v", err), http.StatusInternalServerError)
+		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
 
 		return
 	}
