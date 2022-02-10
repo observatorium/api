@@ -140,9 +140,8 @@ type logsConfig struct {
 }
 
 type tracesConfig struct {
-	writeEndpoint  string
-	upstreamCAFile string
-	tenantHeader   string
+	writeEndpoint string
+	tenantHeader  string
 	// enable traces if writeEndpoint is provided.
 	enabled bool
 }

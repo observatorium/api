@@ -37,7 +37,7 @@ func NewOTelConnection(write string, opts ...HandlerOption) (*grpc.ClientConn, e
 		o(c)
 	}
 
-	level.Info(c.logger).Log("msg", "gRPC dialing OTel collector")
+	level.Info(c.logger).Log("msg", "gRPC dialing OTel collector", "endpoint", write)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
