@@ -143,8 +143,6 @@ Usage of ./observatorium-api:
     	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
   -traces.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector. (default "X-Tenant")
-  -traces.tls.ca-file string
-    	File containing the TLS CA against which to upstream OTLP trace servers. Leave blank to disable TLS.
   -traces.write.endpoint string
     	The endpoint against which to make gRPC write requests for traces.
   -web.healthchecks.url string

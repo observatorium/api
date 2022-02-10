@@ -864,8 +864,6 @@ func parseFlags() (config, error) {
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
 		"The endpoint against which to make gRPC write requests for traces.")
-	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
-		"File containing the TLS CA against which to upstream OTLP trace servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
 		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
