@@ -7,7 +7,7 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.11.0
 	github.com/cloudflare/cfssl v1.6.1
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/deepmap/oapi-codegen v1.9.0
+	github.com/deepmap/oapi-codegen v1.9.1
 	github.com/efficientgo/e2e v0.11.1
 	github.com/efficientgo/tools/core v0.0.0-20210731122119-5d4a0645ce9a
 	github.com/ghodss/yaml v1.0.0
@@ -45,7 +45,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	google.golang.org/genproto v0.0.0-20210917145530-b395a37504d4
-	google.golang.org/grpc v1.43.0
+	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	k8s.io/apimachinery v0.21.1
