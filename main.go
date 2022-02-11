@@ -978,7 +978,8 @@ func (oh otelErrorHandler) Handle(err error) {
 
 func blockNonDefinedMethods() http.HandlerFunc {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(405)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
+
 	return http.HandlerFunc(fn)
 }
