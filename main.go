@@ -501,6 +501,7 @@ func main() {
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
+			r.MethodNotAllowed(blockNonDefinedMethods())
 
 			// Metrics.
 			if cfg.metrics.enabled {
@@ -973,4 +974,12 @@ type otelErrorHandler struct {
 
 func (oh otelErrorHandler) Handle(err error) {
 	level.Error(oh.logger).Log("msg", "opentelemetry", "err", err.Error())
+}
+
+func blockNonDefinedMethods() http.HandlerFunc {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+
+	return http.HandlerFunc(fn)
 }
