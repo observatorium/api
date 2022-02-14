@@ -126,7 +126,13 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode/100 != 2 {
-		http.Error(w, "error listing rules", resp.StatusCode)
+		switch resp.StatusCode {
+		case http.StatusNotFound:
+			http.Error(w, "no rules found", resp.StatusCode)
+		default:
+			http.Error(w, "error listing rules", resp.StatusCode)
+		}
+
 		return
 	}
 

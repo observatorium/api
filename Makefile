@@ -90,10 +90,12 @@ test-unit:
 
 .PHONY: test-e2e
 test-e2e: container-test
-	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short --tags integration ./test/e2e
+	@rm -rf test/e2e/e2e_*
+	CGO_ENABLED=1 GO111MODULE=on go test -v -race -short -tags integration ./test/e2e
 
 .PHONY: test-interactive
 test-interactive: container-test
+	@rm -rf test/e2e/e2e_*
 	CGO_ENABLED=1 GO111MODULE=on go test -v -tags interactive -test.timeout=9999m ./test/e2e
 
 .PHONY: test-load
