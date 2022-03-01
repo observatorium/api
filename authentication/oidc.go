@@ -329,9 +329,7 @@ func (a oidcAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 			if authorizationHeaders[0] != "" {
 				authorization := strings.Split(authorizationHeaders[0], " ")
 				if len(authorization) != 2 {
-					const msg = "invalid Authorization header"
-					level.Debug(a.logger).Log("msg", msg)
-					return ctx, status.Error(codes.InvalidArgument, msg)
+					return ctx, status.Error(codes.InvalidArgument, "invalid Authorization header")
 				}
 
 				token = authorization[1]
@@ -350,15 +348,12 @@ func (a oidcAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context.Context, string, int, codes.Code) {
 	idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
 	if err != nil {
-		const msg = "failed to authenticate"
-
-		level.Info(a.logger).Log("msg", msg, "err", err)
-
 		// We tell the user what went wrong.  This is more than the HTTP version did, but
 		// it lets the caller see messages such as
 		// "failed to authenticate: oidc: token is expired (Token Expiry: 2022-02-03 14:05:36 -0500 EST)"
 		// which are super-helpful in troubleshooting.
-		return ctx, fmt.Sprintf("%s: %v", msg, err), http.StatusBadRequest, codes.InvalidArgument
+		return ctx, fmt.Sprintf("%s: %v", "failed to authenticate", err),
+			http.StatusBadRequest, codes.InvalidArgument
 	}
 
 	sub := idToken.Subject

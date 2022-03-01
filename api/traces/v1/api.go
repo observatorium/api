@@ -11,25 +11,26 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// TraceRoute represents the fully-qualified gRPC method name for exporting a trace
 const TraceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
 
-type handlerConfiguration struct {
+type connOptions struct {
 	logger log.Logger
 }
 
-// HandlerOption modifies the handler's configuration.
-type HandlerOption func(h *handlerConfiguration)
+// ClientOption modifies the connection's configuration.
+type ClientOption func(h *connOptions)
 
 // WithLogger add a custom logger for the handler to use.
-func WithLogger(logger log.Logger) HandlerOption {
-	return func(h *handlerConfiguration) {
+func WithLogger(logger log.Logger) ClientOption {
+	return func(h *connOptions) {
 		h.logger = logger
 	}
 }
 
-// NewHandler creates the new traces v1 handler.
-func NewOTelConnection(write string, opts ...HandlerOption) (*grpc.ClientConn, error) {
-	c := &handlerConfiguration{
+// NewOTelConnection creates new GRPC connection to OTel handler.
+func NewOTelConnection(write string, opts ...ClientOption) (*grpc.ClientConn, error) {
+	c := &connOptions{
 		logger: log.NewNopLogger(),
 	}
 
@@ -37,23 +38,17 @@ func NewOTelConnection(write string, opts ...HandlerOption) (*grpc.ClientConn, e
 		o(c)
 	}
 
-	level.Info(c.logger).Log("msg", "gRPC dialing OTel collector", "endpoint", write)
+	// The endpoint is typically an OTel collector, but can be any gRPC
+	// service supporting opentelemetry.proto.collector.trace.v1.TraceService
+	level.Info(c.logger).Log("msg", "gRPC dialing OTel", "endpoint", write)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	connOtel, err := grpc.DialContext(ctx, write,
+	return grpc.DialContext(ctx, write,
 		// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
 		// because the codec we need to register is also deprecated.  A better fix, is the newer
 		// version of mwitkow/grpc-proxy, but that version doesn't (currently) work with OTel protocol.
 		grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
-
-	// Note that err == nil does not mean connected; this is a non-blocking ClientConn.
-	if err != nil {
-		level.Warn(c.logger).Log("msg", "gRPC did not dial to OTel collector", "target", write)
-		return nil, err
-	}
-
-	return connOtel, nil
 }

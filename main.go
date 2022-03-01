@@ -670,7 +670,7 @@ func main() {
 		})
 
 		if cfg.server.grpcListen != "" {
-			gs, err := gRPCServer(&cfg, cfg.traces.tenantHeader, tenantIDs, pm.GRPCMiddlewares, authorizers, logger)
+			gs, err := newGRPCServer(&cfg, cfg.traces.tenantHeader, tenantIDs, pm.GRPCMiddlewares, authorizers, logger)
 			if err != nil {
 				stdlog.Fatalf("failed to initialize gRPC server: %v", err)
 			}
@@ -680,7 +680,6 @@ func main() {
 			g.Add(func() error {
 				level.Info(logger).Log("msg", "starting the gRPC server", "address", cfg.server.grpcListen)
 
-				var err error
 				lis, err = net.Listen("tcp", cfg.server.grpcListen)
 				if err != nil {
 					return err
@@ -1053,20 +1052,22 @@ func blockNonDefinedMethods() http.HandlerFunc {
 	return http.HandlerFunc(fn)
 }
 
-// Permissions required for each gRPC method
+// Permissions required for each gRPC method.
 //nolint:gochecknoglobals (this would be a const if Golang allowed const maps)
 var gRPCRBAC = authorization.GRPCRBac{
-	// opentelemetry.proto.collector.trace.v1.TraceService/Export requires trace write perm
+	// "opentelemetry.proto.collector.trace.v1.TraceService/Export" requires "traces" "write" perm.
 	tracesv1.TraceRoute: {
 		Permission: rbac.Write,
 		Resource:   "traces",
 	},
-	// in the future we will add trace read permission for Jaeger queries, etc.
+	// TODO(...): Add add trace read permission for Jaeger queries, etc.
+	// TODO(...): Add Loki gRPC methods, etc.
 }
 
-//nolint:lll
-func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc, authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
-	connOtel, err := tracesv1.NewOTelConnection(cfg.traces.writeEndpoint,
+func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
+	authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
+	connOtel, err := tracesv1.NewOTelConnection(
+		cfg.traces.writeEndpoint,
 		tracesv1.WithLogger(logger),
 	)
 	if err != nil {
@@ -1075,7 +1076,7 @@ func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, p
 
 	// Currently we only proxy TraceService/Export to OTel collectors.
 	// In the future we will pass queries to Jaeger, and possibly other
-	// gRPC methods for logs and metrics to different connections
+	// gRPC methods for logs and metrics to different connections.
 	proxiedServers := map[string]*grpc.ClientConn{
 		tracesv1.TraceRoute: connOtel,
 	}
@@ -1091,32 +1092,23 @@ func gRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, p
 			return outCtx, proxiedServer, nil
 		}
 
-		level.Debug(logger).Log("msg", "gRPC reverse proxy director caught unknown method", "methodName", fullMethodName)
-
 		return outCtx, nil, status.Errorf(codes.Unimplemented, "Unknown method")
 	}
 
 	opts := []grpc.ServerOption{
 		// Note that CustomCodec() is deprecated.  The fix for this isn't calling RegisterCodec() as suggested,
 		// because the codec we need to register is also deprecated.  A better fix, if Google removes
-		// the deprecated type, is https://github.com/mwitkow/grpc-proxy/pull/48
+		// the deprecated type, is to move up to the lastest https://github.com/mwitkow/grpc-proxy
+		// (but see https://github.com/mwitkow/grpc-proxy/issues/55 )
 		grpc.CustomCodec(grpcproxy.Codec()), // nolint: staticcheck
+
 		grpc.UnknownServiceHandler(grpcproxy.TransparentHandler(director)),
-		// Authorization (tenant)
 		grpc.ChainStreamInterceptor(
 			authentication.WithGRPCTenantHeader(tenantHeader, tenantIDs, logger),
 			authentication.WithGRPCAccessToken(),
 			authentication.WithGRPCTenantInterceptors(logger, pmis),
 			auth.StreamServerInterceptor(
 				authorization.WithGRPCAuthorizers(authorizers, gRPCRBAC, logger)),
-			// Log when a trace cannot be forwarded
-			func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-				err := handler(srv, ss)
-				if err != nil {
-					level.Debug(logger).Log("msg", "send failure", "error", err)
-				}
-				return err
-			},
 		),
 	}
 
