@@ -8,6 +8,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
 )
 
 //nolint:gochecknoglobals
@@ -39,6 +40,7 @@ type ProviderFactory func(config map[string]interface{}, tenant string, registra
 // provider.
 type Provider interface {
 	Middleware() Middleware
+	GRPCMiddleware() grpc.StreamServerInterceptor
 	Handler() (string, http.Handler)
 }
 
@@ -49,6 +51,7 @@ type ProviderManager struct {
 	mtx                    sync.RWMutex
 	patternHandlers        map[string]tenantHandlers
 	middlewares            map[string]Middleware
+	gRPCInterceptors       map[string]grpc.StreamServerInterceptor
 	logger                 log.Logger
 	registrationRetryCount *prometheus.CounterVec
 }
@@ -59,6 +62,7 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 		registrationRetryCount: registrationRetryCount,
 		patternHandlers:        make(map[string]tenantHandlers),
 		middlewares:            make(map[string]Middleware),
+		gRPCInterceptors:       make(map[string]grpc.StreamServerInterceptor),
 		logger:                 l,
 	}
 }
@@ -86,6 +90,7 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 
 		ah.mtx.Lock()
 		ah.middlewares[tenant] = authenticator.Middleware()
+		ah.gRPCInterceptors[tenant] = authenticator.GRPCMiddleware()
 		pattern, handler := authenticator.Handler()
 		if pattern != "" && handler != nil {
 			if ah.patternHandlers[pattern] == nil {
@@ -106,6 +111,15 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 func (ah *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
 	ah.mtx.RLock()
 	mw, ok := ah.middlewares[tenant]
+	ah.mtx.RUnlock()
+
+	return mw, ok
+}
+
+// GRPCMiddlewares returns an authentication interceptor for a tenant.
+func (ah *ProviderManager) GRPCMiddlewares(tenant string) (grpc.StreamServerInterceptor, bool) {
+	ah.mtx.RLock()
+	mw, ok := ah.gRPCInterceptors[tenant]
 	ah.mtx.RUnlock()
 
 	return mw, ok

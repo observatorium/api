@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"github.com/go-kit/log"
+	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/observatorium/api/logger"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
 )
 
 type dummyAuthenticator struct {
@@ -30,6 +32,14 @@ func (a dummyAuthenticator) Middleware() Middleware {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func (a dummyAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
+	return grpc_middleware_auth.StreamServerInterceptor(func(ctx context.Context) (context.Context, error) {
+		type key string
+		const authenticatedKey key = "authenticated"
+		return context.WithValue(ctx, authenticatedKey, true), nil
+	})
 }
 
 func (a dummyAuthenticator) Handler() (string, http.Handler) {

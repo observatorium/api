@@ -115,7 +115,7 @@ function(params) {
                     '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
                   ] + (
                     if std.objectHas(api.config.metrics, 'rulesEndpoint') then [
-                      '--metrics.rules.endpoint=' +  api.config.metrics.rulesEndpoint,
+                      '--metrics.rules.endpoint=' + api.config.metrics.rulesEndpoint,
                     ]
                     else []
                   )

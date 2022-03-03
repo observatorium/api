@@ -10,8 +10,12 @@ import (
 	"net/http"
 
 	"github.com/go-kit/log"
+	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // MTLSAuthenticatorType represents the mTLS authentication provider type.
@@ -141,6 +145,12 @@ func (a MTLSAuthenticator) Middleware() Middleware {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func (a MTLSAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
+	return grpc_middleware_auth.StreamServerInterceptor(func(ctx context.Context) (context.Context, error) {
+		return ctx, status.Error(codes.Unimplemented, "internal error")
+	})
 }
 
 func (a MTLSAuthenticator) Handler() (string, http.Handler) {

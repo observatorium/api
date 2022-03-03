@@ -18,10 +18,15 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // OIDCAuthenticatorType represents the oidc authentication provider type.
@@ -298,72 +303,134 @@ func (a oidcAuthenticator) Middleware() Middleware {
 				token = cookie.Value
 			}
 
-			idToken, err := a.verifier.Verify(oidc.ClientContext(r.Context(), a.client), token)
-			if err != nil {
-				const msg = "failed to authenticate"
-				level.Debug(a.logger).Log("msg", msg, "err", err)
-				http.Error(w, msg, http.StatusBadRequest)
+			ctx, msg, code, _ := a.checkAuth(r.Context(), token)
+			if code != http.StatusOK {
+				http.Error(w, msg, code)
 				return
-			}
-
-			sub := idToken.Subject
-			if a.config.UsernameClaim != "" {
-				claims := map[string]interface{}{}
-				if err := idToken.Claims(&claims); err != nil {
-					const msg = "failed to read claims"
-					level.Warn(a.logger).Log("msg", msg, "err", err)
-					http.Error(w, msg, http.StatusInternalServerError)
-					return
-				}
-				rawUsername, ok := claims[a.config.UsernameClaim]
-				if !ok {
-					const msg = "username cannot be empty"
-					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusBadRequest)
-					return
-				}
-				username, ok := rawUsername.(string)
-				if !ok || username == "" {
-					const msg = "invalid username claim value"
-					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusBadRequest)
-					return
-				}
-				sub = username
-			}
-			ctx := context.WithValue(r.Context(), subjectKey, sub)
-
-			if a.config.GroupClaim != "" {
-				var groups []string
-				claims := map[string]interface{}{}
-				if err := idToken.Claims(&claims); err != nil {
-					const msg = "failed to read claims"
-					level.Warn(a.logger).Log("msg", msg, "err", err)
-					http.Error(w, msg, http.StatusInternalServerError)
-					return
-				}
-				rawGroup, ok := claims[a.config.GroupClaim]
-				if !ok {
-					const msg = "group cannot be empty"
-					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusBadRequest)
-					return
-				}
-				switch v := rawGroup.(type) {
-				case string:
-					groups = append(groups, v)
-				case []string:
-					groups = v
-				case []interface{}:
-					groups = make([]string, 0, len(v))
-					for i := range v {
-						groups = append(groups, fmt.Sprintf("%v", v[i]))
-					}
-				}
-				ctx = context.WithValue(ctx, groupsKey, groups)
 			}
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+//nolint:gocognit
+func (a oidcAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
+	return grpc_middleware_auth.StreamServerInterceptor(func(ctx context.Context) (context.Context, error) {
+		var token string
+
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return ctx, status.Error(codes.Internal, "metadata error")
+		}
+
+		authorizationHeaders := md.Get("Authorization")
+		if len(authorizationHeaders) > 0 {
+			if authorizationHeaders[0] != "" {
+				authorization := strings.Split(authorizationHeaders[0], " ")
+				if len(authorization) != 2 {
+					return ctx, status.Error(codes.InvalidArgument, "invalid Authorization header")
+				}
+
+				token = authorization[1]
+			}
+		}
+
+		ctx, msg, _, code := a.checkAuth(ctx, token)
+		if code != codes.OK {
+			return ctx, status.Error(code, msg)
+		}
+
+		return ctx, nil
+	})
+}
+
+func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context.Context, string, int, codes.Code) {
+	idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
+	if err != nil {
+		const msg = "failed to verify ID token"
+
+		// Verification failure can be anything from an OIDC connection problem, bogus bearer token,
+		// or expired token.  The HTTP version surfaced this to the user, which we don't want to do.
+		// We log it to allow the possibility of debugging this.
+		level.Debug(a.logger).Log("msg", msg, "err", err)
+
+		// The original HTTP implementation returned StatusInternalServerError.
+		// For gRPC we return Unknown, as we can't really
+		// be sure the problem is internal and not deserving Unauthenticated or InvalidArgument.
+		return ctx, msg, http.StatusInternalServerError, codes.Unknown
+	}
+
+	sub := idToken.Subject
+
+	if a.config.UsernameClaim != "" {
+		claims := map[string]interface{}{}
+		if err := idToken.Claims(&claims); err != nil {
+			const msg = "failed to read claims"
+
+			level.Warn(a.logger).Log("msg", msg, "err", err)
+
+			return ctx, msg, http.StatusInternalServerError, codes.Internal
+		}
+
+		rawUsername, ok := claims[a.config.UsernameClaim]
+		if !ok {
+			const msg = "username cannot be empty"
+
+			level.Debug(a.logger).Log("msg", msg)
+
+			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
+		}
+
+		username, ok := rawUsername.(string)
+		if !ok || username == "" {
+			const msg = "invalid username claim value"
+
+			level.Debug(a.logger).Log("msg", msg)
+
+			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
+		}
+
+		sub = username
+	}
+
+	ctx = context.WithValue(ctx, subjectKey, sub)
+
+	if a.config.GroupClaim != "" {
+		var groups []string
+
+		claims := map[string]interface{}{}
+		if err := idToken.Claims(&claims); err != nil {
+			const msg = "failed to read claims"
+
+			level.Warn(a.logger).Log("msg", msg, "err", err)
+
+			return ctx, msg, http.StatusInternalServerError, codes.Internal
+		}
+
+		rawGroup, ok := claims[a.config.GroupClaim]
+		if !ok {
+			const msg = "group cannot be empty"
+
+			level.Debug(a.logger).Log("msg", msg)
+
+			return ctx, msg, http.StatusBadRequest, codes.PermissionDenied
+		}
+
+		switch v := rawGroup.(type) {
+		case string:
+			groups = append(groups, v)
+		case []string:
+			groups = v
+		case []interface{}:
+			groups = make([]string, 0, len(v))
+			for i := range v {
+				groups = append(groups, fmt.Sprintf("%v", v[i]))
+			}
+		}
+
+		ctx = context.WithValue(ctx, groupsKey, groups)
+	}
+
+	return ctx, "", http.StatusOK, codes.OK
 }
