@@ -348,12 +348,17 @@ func (a oidcAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context.Context, string, int, codes.Code) {
 	idToken, err := a.verifier.Verify(oidc.ClientContext(ctx, a.client), token)
 	if err != nil {
-		// We tell the user what went wrong.  This is more than the HTTP version did, but
-		// it lets the caller see messages such as
-		// "failed to authenticate: oidc: token is expired (Token Expiry: 2022-02-03 14:05:36 -0500 EST)"
-		// which are super-helpful in troubleshooting.
-		return ctx, fmt.Sprintf("%s: %v", "failed to authenticate", err),
-			http.StatusBadRequest, codes.InvalidArgument
+		const msg = "failed to verify ID token"
+
+		// Verification failure can be anything from an OIDC connection problem, bogus bearer token,
+		// or expired token.  The HTTP version surfaced this to the user, which we don't want to do.
+		// We log it to allow the possibility of debugging this.
+		level.Debug(a.logger).Log("msg", msg, "err", err)
+
+		// The original HTTP implementation returned StatusInternalServerError.
+		// For gRPC we return Unknown, as we can't really
+		// be sure the problem is internal and not deserving Unauthenticated or InvalidArgument.
+		return ctx, msg, http.StatusInternalServerError, codes.Unknown
 	}
 
 	sub := idToken.Subject

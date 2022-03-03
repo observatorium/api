@@ -18,7 +18,7 @@ import (
 // a given tenant. If no middleware is found, the second return value should be false.
 type GRPCMiddlewareFunc func(tenant string) (grpc.StreamServerInterceptor, bool)
 
-// WithGRPCTenantHeader returns a new StreamServerInterceptor that adds the tenant and tenantid
+// WithGRPCTenantHeader returns a new StreamServerInterceptor that adds the tenant and tenantID
 // to the stream Context.
 func WithGRPCTenantHeader(header string, tenantIDs map[string]string, logger log.Logger) grpc.StreamServerInterceptor {
 	header = strings.ToLower(header)
@@ -43,8 +43,10 @@ func WithGRPCTenantHeader(header string, tenantIDs map[string]string, logger log
 
 		id, ok := tenantIDs[tenant]
 		if !ok {
-			// Rather than letting the caller know their tenant was invalid, just record that it was invalid
-			id = "__no_tenant_id"
+			// This lets unauthenticated users know the tenant is invalid, but can't be helped, as we
+			// can't validate the bearer token until we know the tenant.  (An alternative is to return
+			// codes.Unauthenticated and not explain about the tenant if this is a concern.)
+			return status.Error(codes.InvalidArgument, "unknown tenant")
 		}
 		ctx = context.WithValue(ctx, tenantIDKey, id)
 

@@ -42,7 +42,7 @@ func NewOTelConnection(write string, opts ...ClientOption) (*grpc.ClientConn, er
 	// service supporting opentelemetry.proto.collector.trace.v1.TraceService
 	level.Info(c.logger).Log("msg", "gRPC dialing OTel", "endpoint", write)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	return grpc.DialContext(ctx, write,

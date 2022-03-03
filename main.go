@@ -215,6 +215,7 @@ func main() {
 	}
 
 	if !cfg.metrics.enabled && !cfg.logs.enabled {
+		// Currently we don't support the case where only the gRPC trace endpoint is enabled
 		stdlog.Fatal("Neither logging nor metrics endpoints are enabled. " +
 			"Specifying at least a logging or a metrics endpoint is mandatory")
 	}
@@ -1060,8 +1061,8 @@ var gRPCRBAC = authorization.GRPCRBac{
 		Permission: rbac.Write,
 		Resource:   "traces",
 	},
-	// TODO(...): Add add trace read permission for Jaeger queries, etc.
-	// TODO(...): Add Loki gRPC methods, etc.
+	// Add trace read permission for Jaeger queries, etc.
+	// Add Loki gRPC methods, etc.
 }
 
 func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
