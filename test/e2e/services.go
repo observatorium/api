@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -32,6 +33,39 @@ const (
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
+
+	otelConfig = `
+receivers:
+    otlp/http:
+      protocols:
+        http:
+            endpoint: "localhost:4318"
+    otlp/grpc:
+      protocols:
+        grpc:
+            endpoint: "localhost:4317"
+  
+exporters:
+    logging:
+        logLevel: debug
+    jaeger:
+        endpoint: {{JAEGER_GRPC_ENDPOINT}}
+  
+service:
+    telemetry:
+        metrics:
+            address: localhost:8888
+        logs:
+            level: "debug"
+
+    pipelines:
+        traces/http:
+            receivers: [otlp/http]
+            exporters: [logging,jaeger]
+        traces/grpc:
+            receivers: [otlp/grpc]
+            exporters: [logging,jaeger]
+`
 )
 
 func startServicesForMetrics(t *testing.T, e e2e.Environment) (
@@ -104,6 +138,72 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	testutil.Ok(t, e2e.StartAndWaitReady(loki))
 
 	return loki.InternalEndpoint("http"), loki.Endpoint("http")
+}
+
+func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint string, jaegerHttpEndpoint string) {
+	jaeger := e.Runnable("jaeger").
+		WithPorts(
+			map[string]int{
+				"jaeger.grpc": 14250, // Receives traces
+				"grpc.query":  16685, // Query
+				"http.query":  16686, // Query
+			}).
+		Init(e2e.StartOptions{Image: "jaegertracing/all-in-one:1.31"})
+
+	// In theory this can be checked at compile time, but many editors will screw this up
+	// and the test prevents confusion.
+	if strings.ContainsRune(otelConfig, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	config := strings.Replace(otelConfig,
+		"{{JAEGER_GRPC_ENDPOINT}}",
+		jaeger.Endpoint("jaeger.grpc"), -1)
+
+	dir, err := ioutil.TempDir(".", "observatorium-tests")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	defer os.RemoveAll(dir)
+
+	otelFile, err := ioutil.TempFile(dir, "collector.yaml")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	defer os.Remove(otelFile.Name())
+
+	_, err = otelFile.Write([]byte(config))
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+
+	// otelFile.Name() will give relative pathname to temp file.  Docker will complain with
+	// "If you intended to pass a host directory, use absolute path.""
+	otelFileName, err := filepath.Abs(otelFile.Name())
+	if err != nil {
+		t.Fatalf("unexpected Abs() error: %s", err)
+	}
+
+	otel := e.Runnable("otel-collector").
+		WithPorts(
+			map[string]int{
+				"grpc": 4317,
+				"http": 4318,
+			}).
+		Init(e2e.StartOptions{
+			Image:   "otel/opentelemetry-collector:0.45.0",
+			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
+			Command: e2e.Command{
+				Args: []string{"--config=/conf/collector.yaml"},
+			},
+		})
+
+	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))
+	testutil.Ok(t, e2e.StartAndWaitReady(otel))
+
+	return otel.Endpoint("grpc"), jaeger.Endpoint("http.query")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
@@ -267,6 +367,8 @@ type apiOptions struct {
 	metricsWriteEndpoint string
 	metricsRulesEndpoint string
 	ratelimiterAddr      string
+	tracesWriteEndpoint  string
+	gRPCListenEndpoint   string
 }
 
 type apiOption func(*apiOptions)
@@ -281,6 +383,18 @@ func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+	}
+}
+
+func withOtelTraceEndpoint(exportEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.tracesWriteEndpoint = exportEndpoint
+	}
+}
+
+func withGRPCListenEndpoint(listenEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.gRPCListenEndpoint = listenEndpoint
 	}
 }
 
@@ -339,6 +453,24 @@ func newObservatoriumAPIService(
 
 	if opts.ratelimiterAddr != "" {
 		args = append(args, "--middleware.rate-limiter.grpc-address="+opts.ratelimiterAddr)
+	}
+
+	if opts.tracesWriteEndpoint != "" {
+		args = append(args, "--traces.write.endpoint="+opts.tracesWriteEndpoint)
+	}
+
+	if opts.gRPCListenEndpoint != "" {
+		gRPCChunks := strings.SplitN(opts.gRPCListenEndpoint, ":", 2)
+		if len(gRPCChunks) != 2 {
+			return nil, fmt.Errorf("Invalid gRPC Listen Endpoint: %q", opts.gRPCListenEndpoint)
+		}
+		gRPCPort, err := strconv.Atoi(gRPCChunks[1])
+		if err != nil {
+			return nil, err
+		}
+		ports["grpc"] = gRPCPort
+
+		args = append(args, "--grpc.listen="+opts.gRPCListenEndpoint)
 	}
 
 	return e2e.NewInstrumentedRunnable(e, "observatorium_api", ports, "http-internal").Init(

@@ -1,4 +1,5 @@
-// +build integration interactive
+//go:build integration || interactive || experimentalintegration
+// +build integration interactive experimentalintegration
 
 package e2e
 
@@ -20,6 +21,7 @@ const (
 	metrics     testType = "metrics"
 	rules       testType = "rules"
 	logs        testType = "logs"
+	traces      testType = "traces"
 	tenants     testType = "tenants"
 	interactive testType = "interactive"
 
@@ -33,6 +35,7 @@ const (
 	envMetricsName  = "e2e_metrics_read_write"
 	envRulesAPIName = "e2e_rules_api"
 	envLogsName     = "e2e_logs_read_write_tail"
+	envTracesName   = "e2e_traces_read_export"
 	envTenantsName  = "e2e_tenants"
 	envInteractive  = "e2e_interactive"
 

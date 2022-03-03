@@ -1,4 +1,5 @@
-// +build integration interactive
+//go:build integration || interactive || experimentalintegration
+// +build integration interactive experimentalintegration
 
 package e2e
 
@@ -93,6 +94,8 @@ func getContainerName(t *testing.T, tt testType, serviceName string) string {
 		return envTenantsName + "-" + serviceName
 	case interactive:
 		return envInteractive + "-" + serviceName
+	case traces:
+		return envTracesName + "-" + serviceName
 	default:
 		t.Fatal("invalid test type provided")
 		return ""
