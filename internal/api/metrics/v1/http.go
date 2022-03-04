@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/observatorium/observatorium/internal/proxy"
+	"github.com/observatorium/observatorium/internal/remotewrite"
 )
 
 const (
@@ -25,6 +26,7 @@ type handlerConfiguration struct {
 	instrument       handlerInstrumenter
 	readMiddlewares  []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
+	endpoints        []remotewrite.Endpoint
 }
 
 // HandlerOption modifies the handler's configuration
@@ -41,6 +43,13 @@ func Logger(logger log.Logger) HandlerOption {
 func Registry(r *prometheus.Registry) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.registry = r
+	}
+}
+
+// RemoteWriteEndpoints adds the remote write endpoint list for the handler to use.
+func RemoteWriteEndpoints(e []remotewrite.Endpoint) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.endpoints = e
 	}
 }
 
@@ -138,30 +147,13 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		})
 	}
 
-	if write != nil {
-		var proxyWrite http.Handler
-		{
-			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpMetricsWritestream(write),
-				proxy.MiddlewareLogger(c.logger),
-				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
-			)
-
-			proxyWrite = &httputil.ReverseProxy{
-				Director: middlewares,
-				ErrorLog: proxy.Logger(c.logger),
-				Transport: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout: writeTimeout,
-					}).DialContext,
-				},
-			}
-		}
+	if write != nil || c.endpoints != nil {
+		proxyRemoteWrite := remotewrite.Proxy(write, c.endpoints, c.logger, c.registry)
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			r.Handle("/api/v1/receive", c.instrument.NewHandler(
 				prometheus.Labels{"group": "metricsv1", "handler": "receive"},
-				proxyWrite,
+				proxyRemoteWrite,
 			))
 		})
 	}

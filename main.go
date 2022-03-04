@@ -31,6 +31,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/version"
 	"go.uber.org/automaxprocs/maxprocs"
+	yamlv2 "gopkg.in/yaml.v2"
 
 	"github.com/observatorium/observatorium/internal"
 	logsv1 "github.com/observatorium/observatorium/internal/api/logs/v1"
@@ -38,6 +39,7 @@ import (
 	metricsv1 "github.com/observatorium/observatorium/internal/api/metrics/v1"
 	"github.com/observatorium/observatorium/internal/authentication"
 	"github.com/observatorium/observatorium/internal/authorization"
+	"github.com/observatorium/observatorium/internal/remotewrite"
 	"github.com/observatorium/observatorium/internal/server"
 	"github.com/observatorium/observatorium/internal/tls"
 	"github.com/observatorium/observatorium/rbac"
@@ -82,9 +84,10 @@ type tlsConfig struct {
 }
 
 type metricsConfig struct {
-	readEndpoint  *url.URL
-	writeEndpoint *url.URL
-	tenantHeader  string
+	readEndpoint             *url.URL
+	writeEndpoint            *url.URL
+	additionalWriteEndpoints []remotewrite.Endpoint
+	tenantHeader             string
 }
 
 type logsConfig struct {
@@ -363,9 +366,11 @@ func main() {
 							metricsv1.HandlerInstrumenter(ins),
 							metricsv1.ReadMiddleware(authorization.WithAuthorizer(authorizer, rbac.Read, "metrics")),
 							metricsv1.WriteMiddleware(authorization.WithAuthorizer(authorizer, rbac.Write, "metrics")),
+							metricsv1.RemoteWriteEndpoints(cfg.metrics.additionalWriteEndpoints),
 						),
 					),
 				)
+
 			})
 
 			// Logs
@@ -479,12 +484,13 @@ func main() {
 
 func parseFlags() (config, error) {
 	var (
-		rawTLSCipherSuites      string
-		rawMetricsReadEndpoint  string
-		rawMetricsWriteEndpoint string
-		rawLogsReadEndpoint     string
-		rawLogsTailEndpoint     string
-		rawLogsWriteEndpoint    string
+		additionalMetricsWriteEndpointCfg string
+		rawTLSCipherSuites                string
+		rawMetricsReadEndpoint            string
+		rawMetricsWriteEndpoint           string
+		rawLogsReadEndpoint               string
+		rawLogsTailEndpoint               string
+		rawLogsWriteEndpoint              string
 	)
 
 	cfg := config{}
@@ -521,6 +527,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&additionalMetricsWriteEndpointCfg, "metrics.additional.write.endpoint.config", "",
+		"The config file for additional write endpoints.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
@@ -557,6 +565,19 @@ func parseFlags() (config, error) {
 	}
 
 	cfg.metrics.writeEndpoint = metricsWriteEndpoint
+
+	if additionalMetricsWriteEndpointCfg != "" {
+		cfgFile, err := ioutil.ReadFile(additionalMetricsWriteEndpointCfg)
+		if err != nil {
+			return cfg, fmt.Errorf("Failed to read additional write endpoint config file %s: %w", additionalMetricsWriteEndpointCfg, err)
+		}
+		endpoints := []remotewrite.Endpoint{}
+		err = yamlv2.Unmarshal(cfgFile, &endpoints)
+		if err != nil {
+			return cfg, fmt.Errorf("Invalid content in additional write endpoint config file %s: %v", additionalMetricsWriteEndpointCfg, err)
+		}
+		cfg.metrics.additionalWriteEndpoints = endpoints
+	}
 
 	if rawLogsReadEndpoint != "" {
 		cfg.logs.enabled = true
