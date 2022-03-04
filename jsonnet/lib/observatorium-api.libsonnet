@@ -282,7 +282,7 @@ function(params) {
                     if std.objectHas(api.config.additionalWriteEndpoints, 'mountSecrets') then [
                       {
                         name: name,
-                        mountPath: '/var/run/secrets/' + name,
+                        mountPath: api.config.additionalWriteEndpoints.mountPath + name,
                         readOnly: true,
                       }
                       for name in api.config.additionalWriteEndpoints.mountSecrets
