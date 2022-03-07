@@ -36,21 +36,19 @@ const (
 
 	otelConfig = `
 receivers:
-    otlp/http:
-      protocols:
-        http:
-            endpoint: "localhost:4318"
     otlp/grpc:
       protocols:
         grpc:
-            endpoint: "localhost:4317"
-  
+            endpoint: "0.0.0.0:4317"
+
 exporters:
     logging:
         logLevel: debug
     jaeger:
         endpoint: {{JAEGER_GRPC_ENDPOINT}}
-  
+        tls:
+          insecure: true
+
 service:
     telemetry:
         metrics:
@@ -59,9 +57,6 @@ service:
             level: "debug"
 
     pipelines:
-        traces/http:
-            receivers: [otlp/http]
-            exporters: [logging,jaeger]
         traces/grpc:
             receivers: [otlp/grpc]
             exporters: [logging,jaeger]
@@ -150,24 +145,16 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 			}).
 		Init(e2e.StartOptions{Image: "jaegertracing/all-in-one:1.31"})
 
-	// In theory this can be checked at compile time, but many editors will screw this up
-	// and the test prevents confusion.
+	// Warn if a YAML change introduced a tab character
 	if strings.ContainsRune(otelConfig, '\t') {
 		t.Errorf("Tab in the YAML")
 	}
 
 	config := strings.Replace(otelConfig,
 		"{{JAEGER_GRPC_ENDPOINT}}",
-		jaeger.Endpoint("jaeger.grpc"), -1)
+		jaeger.InternalEndpoint("jaeger.grpc"), -1)
 
-	dir, err := ioutil.TempDir(".", "observatorium-tests")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	defer os.RemoveAll(dir)
-
-	otelFile, err := ioutil.TempFile(dir, "collector.yaml")
+	otelFile, err := ioutil.TempFile(e.SharedDir(), "collector.yaml")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -203,7 +190,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))
 	testutil.Ok(t, e2e.StartAndWaitReady(otel))
 
-	return otel.Endpoint("grpc"), jaeger.Endpoint("http.query")
+	return otel.InternalEndpoint("grpc"), jaeger.Endpoint("http.query")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.

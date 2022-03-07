@@ -10,6 +10,7 @@ import (
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	_ "google.golang.org/grpc/encoding/gzip" // Allow GRPC to handle GZipped streams
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )

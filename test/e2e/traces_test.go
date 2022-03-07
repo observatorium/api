@@ -1,24 +1,26 @@
-//go:build interactive
-// +build interactive
-
-// (TODO switch above back to experimentalintegration)
+//go:build experimentalintegration
+// +build experimentalintegration
 
 package e2e
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/efficientgo/e2e"
-	e2einteractive "github.com/efficientgo/e2e/interactive"
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 // OTel trace collector that receives in HTTP w/o security, but exports in gRPC with security.
-const otelForwardingConfig = `
+const (
+	otelForwardingConfig = `
 receivers:
     otlp:
       protocols:
@@ -27,34 +29,75 @@ receivers:
         grpc:
             endpoint: 0.0.0.0:4317
 
-extensions:
-    oauth2client:
-      client_id: {{OBS_CLIENT_ID}}
-      client_secret: {{OBS_CLIENT_SECRET}}
-      token_url: {{OIDC_TOKEN_URL}}
+# extensions:
+#     oauth2client:
+#       client_id: {{OBS_CLIENT_ID}}
+#       client_secret: {{OBS_CLIENT_SECRET}}
+#       token_url: {{OIDC_TOKEN_URL}}
+#      # The test dex's certs are signed for localhost, not 'e2e_traces_read_export-dex'
+#      tls:
+#        insecure_skip_verify: true
   
 exporters:
     logging:
       logLevel: debug
     otlp:
       endpoint: {{OBS_GRPC_ENDPOINT}}
-      auth:
-        authenticator: oauth2client
+      # auth:
+      #   authenticator: oauth2client
       tls:
         insecure_skip_verify: true
       headers:
         x-tenant: test-oidc
-      
+        # (Use hard-coded auth header, because this forwarding collector
+        # is unable to do OIDC password grant.)
+        authorization: bearer {{DEX_TOKEN}}
+
 service:
     telemetry:
       metrics:
         address: localhost:8889
-    extensions: [oauth2client]
+    # extensions: [oauth2client]
     pipelines:
       traces:
         receivers: [otlp]
         exporters: [logging,otlp]
 `
+	traceJSON = `
+{
+	"resource_spans": [
+	{
+		"resource": {
+		"attributes": [
+			{
+			"key": "host.name",
+			"value": { "stringValue": "testHost" }
+			}
+		]
+		},
+		"instrumentation_library_spans": [
+		{
+			"spans": [
+			{
+				"trace_id": "5B8EFFF798038103D269B633813FC60C",
+				"span_id": "EEE19B7EC3C1B173",
+				"name": "testSpan",
+				"start_time_unix_nano": 1544712660000000000,
+				"end_time_unix_nano": 1544712661000000000,
+				"attributes": [
+				{
+					"key": "attr1",
+					"value": { "intValue": 55 }
+				}
+				]
+			}
+			]
+		}
+		]
+	}
+	]
+}`
+)
 
 func TestTracesExport(t *testing.T) {
 	t.Parallel()
@@ -65,17 +108,18 @@ func TestTracesExport(t *testing.T) {
 
 	prepareConfigsAndCerts(t, traces, e)
 	dex, token, _ := startBaseServices(t, e, traces)
-	otlpEndpoint, httpQueryEndpoint := startServicesForTraces(t, e)
+	internalOtlpEndpoint, httpQueryEndpoint := startServicesForTraces(t, e)
 
-	oidcEndpoint := dex.Endpoint("https")
+	// oidcEndpoint := dex.Endpoint("https")
+	oidcEndpoint := dex.InternalEndpoint("https")
 	tokenUrl := fmt.Sprintf("https://%s/dex/token", oidcEndpoint)
 	clientId := "test"                         // TODO Refactor this to a const shared with _helpers.go_
 	clientSecret := "ZXhhbXBsZS1hcHAtc2VjcmV0" // TODO Refactor this to a const shared with _helpers.go_
 
 	api, err := newObservatoriumAPIService(
 		e,
-		withGRPCListenEndpoint("localhost:8317"),
-		withOtelTraceEndpoint(otlpEndpoint),
+		withGRPCListenEndpoint(":8317"),
+		withOtelTraceEndpoint(internalOtlpEndpoint),
 
 		// This test doesn't actually write logs, but we need
 		// this because Observatorium currently MUST see a logs or metrics endpoints
@@ -84,10 +128,9 @@ func TestTracesExport(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	// In theory this can be checked at compile time, but many editors will screw this up
-	// and the test prevents confusion.
+	// Warn if a YAML change introduced a tab character
 	if strings.ContainsRune(otelForwardingConfig, '\t') {
-		t.Errorf("Tab in the YAML")
+		t.Fatalf("Tab in the YAML")
 	}
 
 	forwardingConfig := strings.Replace(otelForwardingConfig,
@@ -101,21 +144,17 @@ func TestTracesExport(t *testing.T) {
 		tokenUrl, -1)
 	forwardingConfig = strings.Replace(forwardingConfig,
 		"{{OBS_GRPC_ENDPOINT}}",
-		api.Endpoint("grpc"), -1)
+		api.InternalEndpoint("grpc"), -1)
+	forwardingConfig = strings.Replace(forwardingConfig,
+		"{{DEX_TOKEN}}",
+		token, -1)
 
-	dir, err := ioutil.TempDir(".", "observatorium-tests")
+	otelFile, err := ioutil.TempFile(e.SharedDir(), "fwd-coll.yaml")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 
-	// @@@ ecs TODO RESTORE defer os.RemoveAll(dir)
-
-	otelFile, err := ioutil.TempFile(dir, "fwd-coll.yaml")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	// @@@ ecs TODO RESTORE defer os.Remove(otelFile.Name())
+	defer os.Remove(otelFile.Name())
 
 	_, err = otelFile.Write([]byte(forwardingConfig))
 	if err != nil {
@@ -136,7 +175,9 @@ func TestTracesExport(t *testing.T) {
 				"grpc": 4317,
 			}).
 		Init(e2e.StartOptions{
-			Image:   "otel/opentelemetry-collector-contrib:0.45.0",
+			// Note that if the forwarding collector was OIDC flow we would need
+			// "otel/opentelemetry-collector-contrib:0.45.0" instead.
+			Image:   "otel/opentelemetry-collector:0.45.0",
 			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
 			Command: e2e.Command{
 				Args: []string{"--config=/conf/collector.yaml"},
@@ -145,21 +186,59 @@ func TestTracesExport(t *testing.T) {
 
 	testutil.Ok(t, e2e.StartAndWaitReady(otel))
 
-	// TODO Actually test writing traces
-	// TODO Actually test reading traces
+	// Send trace insecurly to forwarding OTel collector for forwarding through Observatorium
+	// (This code could be refactored to observatorium/up, the test client)
 
-	// TODO Remove interactive stuff
-	fmt.Printf("\n")
-	fmt.Printf("You're all set up!\n")
-	fmt.Printf("========================================\n")
-	fmt.Printf("Observatorium API on host machine:                %s\n", api.Endpoint("https"))
-	fmt.Printf("Observatorium internal server on host machine:    %s\n", api.Endpoint("http-internal"))
-	fmt.Printf("Observatorium gRPC API on host machine:           %s\n", api.Endpoint("grpc"))
-	fmt.Printf("Jaeger Query on host machine (HTTP):              %s\n", httpQueryEndpoint)
-	fmt.Printf("OTel Collector on host machine (GRPC):            %s\n", otlpEndpoint)
-	fmt.Printf("OTel Forwarding Collector on host machine (HTTP): %s\n", otel.Endpoint("http"))
-	fmt.Printf("OTel Forwarding Collector on host machine (gRPC): %s\n", otel.Endpoint("grpc"))
-	fmt.Printf("API Token:                                        %s\n\n", token)
+	client := &http.Client{}
+	request, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://%s/v1/traces", otel.Endpoint("http")),
+		bytes.NewBuffer([]byte(traceJSON)))
+	testutil.Ok(t, err)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	testutil.Ok(t, err)
+	defer response.Body.Close()
 
-	testutil.Ok(t, e2einteractive.RunUntilEndpointHit())
+	if response.StatusCode != http.StatusOK {
+		responseBytes, _ := io.ReadAll(response.Body)
+		t.Fatalf("forwarding trace to OTel collector not OK: %d\n%s", response.StatusCode, responseBytes)
+	}
+
+	request, err = http.NewRequest(
+		"GET",
+		fmt.Sprintf("http://%s/api/v3/traces/%s", httpQueryEndpoint, "5B8EFFF798038103D269B633813FC60C"),
+		nil)
+	testutil.Ok(t, err)
+
+	// Note that we don't wait for the trace to be committed to storage.
+	// (If we were using a buffered Jaeger storage backend we would
+	// not give up on the first fetch attempt.)
+	response, err = client.Do(request)
+	testutil.Ok(t, err)
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		responseBytes, _ := io.ReadAll(response.Body)
+		t.Fatalf("reading trace from Jaeger not OK: %d\n%s", response.StatusCode, responseBytes)
+	}
+	// Parse and verify the trace is the same?
+	// responseBytes, _ := io.ReadAll(response.Body)
+	// ...
+
+	// Uncomment for interactive test
+	/*
+		fmt.Printf("\n")
+		fmt.Printf("You're all set up!\n")
+		fmt.Printf("========================================\n")
+		fmt.Printf("Observatorium API on host machine:                %s\n", api.Endpoint("https"))
+		fmt.Printf("Observatorium internal server on host machine:    %s\n", api.Endpoint("http-internal"))
+		fmt.Printf("Observatorium gRPC API on host machine:           %s\n", api.Endpoint("grpc"))
+		fmt.Printf("Jaeger Query on host machine (HTTP):              %s\n", httpQueryEndpoint)
+		fmt.Printf("OTel Forwarding Collector on host machine (HTTP): %s\n", otel.Endpoint("http"))
+		fmt.Printf("OTel Forwarding Collector on host machine (gRPC): %s\n", otel.Endpoint("grpc"))
+		fmt.Printf("API Token:                                        %s\n\n", token)
+
+		testutil.Ok(t, e2einteractive.RunUntilEndpointHit())
+	*/
 }

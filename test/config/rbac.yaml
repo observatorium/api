@@ -3,6 +3,7 @@ roles:
   resources:
   - metrics
   - logs
+  - traces
   tenants:
   - test-oidc
   permissions:
@@ -19,6 +20,7 @@ roles:
   resources:
   - metrics
   - logs
+  - traces
   tenants:
   - test-mtls
   permissions:
