@@ -140,9 +140,10 @@ type logsConfig struct {
 }
 
 type tracesConfig struct {
+	readEndpoint  *url.URL
 	writeEndpoint string
 	tenantHeader  string
-	// enable traces if writeEndpoint is provided.
+	// enable traces if readEndpoint or writeEndpoint is provided.
 	enabled bool
 }
 
@@ -521,6 +522,7 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
+				fmt.Printf("@@@ ecs metrics are enabled")
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
@@ -533,6 +535,7 @@ func main() {
 					r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 						tenant, ok := authentication.GetTenant(r.Context())
 						if !ok {
+							fmt.Printf("@@@ ecs returning notfound for request %#v\n", r)
 							w.WriteHeader(http.StatusNotFound)
 							return
 						}
@@ -604,6 +607,60 @@ func main() {
 					)
 				})
 			}
+
+			// Traces.
+			if cfg.traces.enabled {
+				r.Group(func(r chi.Router) {
+					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
+					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
+
+					/* @@@
+					// V2 query API
+					fmt.Printf("@@@ ecs about to mount trace handling on r, a %T\n", r)
+					// r.Mount("/api/traces/v1/{tenant}/api",
+					r.Mount("/api/traces/v1/{tenant}",
+						stripTenantPrefix("/api/traces/v1",
+							tracesv1.NewV2APIHandler(
+								cfg.traces.readEndpoint,
+								tracesv1.Logger(logger),
+								tracesv1.WithRegistry(reg),
+								tracesv1.WithHandlerInstrumenter(ins),
+								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")), // TODO should be "traces"
+								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")), // TODO should be "traces"
+							),
+						),
+					)
+					*/
+
+					// @@@ r.Mount("/api/traces/v1/{tenant}/search",
+					r.Mount("/api/traces/v1/{tenant}",
+						//stripTenantPrefix("/api/traces/v1",
+						tracesv1.NewUIHandler(
+							cfg.traces.readEndpoint,
+							tracesv1.Logger(logger),
+							tracesv1.WithRegistry(reg),
+							tracesv1.WithHandlerInstrumenter(ins),
+						),
+						//),
+					)
+
+					/*
+						r.Mount("/api/traces/v1/{tenant}/static",
+							stripTenantPrefix("/api/traces/v1",
+								tracesv1.NewUIHandler(
+									cfg.traces.readEndpoint,
+									tracesv1.Logger(logger),
+									tracesv1.WithRegistry(reg),
+									tracesv1.WithHandlerInstrumenter(ins),
+								),
+							),
+						)
+					*/
+				})
+			}
+
 		})
 
 		tlsConfig, err := tls.NewServerConfig(
@@ -801,6 +858,7 @@ func parseFlags() (config, error) {
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
+		rawTracesReadEndpoint   string
 		rawTracesWriteEndpoint  string
 		rawTracingEndpointType  string
 	)
@@ -859,6 +917,8 @@ func parseFlags() (config, error) {
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
+	flag.StringVar(&rawTracesReadEndpoint, "traces.read.endpoint", "",
+		"The endpoint against which to make HTTP read requests for traces.")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
 		"The endpoint against which to make gRPC write requests for traces.")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
@@ -967,6 +1027,17 @@ func parseFlags() (config, error) {
 	if rawTracesWriteEndpoint != "" {
 		cfg.traces.enabled = true
 
+		tracesReadEndpoint, err := url.ParseRequestURI(rawTracesReadEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.read.endpoint is invalid, raw %s: %w", rawTracesReadEndpoint, err)
+		}
+
+		cfg.traces.readEndpoint = tracesReadEndpoint
+	}
+
+	if rawTracesReadEndpoint != "" {
+		cfg.traces.enabled = true
+
 		_, _, err := net.SplitHostPort(rawTracesWriteEndpoint)
 		if err != nil {
 			return cfg, fmt.Errorf("--traces.write.endpoint %q is invalid: %w", rawTracesWriteEndpoint, err)
@@ -1001,6 +1072,7 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 		}
 
 		tenantPrefix := path.Join("/", prefix, tenant)
+		fmt.Printf("@@@ ecs in stripTenantPrefix anonymous handler, tenantPrefix=%q, prefix=%q, next is a %T\n", tenantPrefix, prefix, next)
 		http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
 	})
 }
