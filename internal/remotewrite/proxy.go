@@ -3,10 +3,12 @@ package remotewrite
 import (
 	"bytes"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/kit/log"
@@ -57,41 +59,72 @@ func remoteWrite(write *url.URL, endpoints []Endpoint, logger log.Logger) http.H
 		}
 
 		rlogger := log.With(logger, "request", middleware.GetReqID(r.Context()))
-		for _, endpoint := range endpoints {
+		for i, endpoint := range endpoints {
 			var client *http.Client
 			var err error
 			if endpoint.ClientConfig == nil {
 				client = &http.Client{}
 			} else {
-				client, err = promconfig.NewClientFromConfig(*endpoint.ClientConfig, endpoint.Name, true)
+				client, err = promconfig.NewClientFromConfig(*endpoint.ClientConfig, endpoint.Name,
+					promconfig.WithDialContextFunc((&net.Dialer{
+						Timeout:   30 * time.Second,
+						KeepAlive: 30 * time.Second,
+					}).DialContext))
 				if err != nil {
-					level.Error(rlogger).Log("failed to create a new HTTP client", "err", err)
+					//level.Error(rlogger).Log("msg", "failed to create a new HTTP client", "err", err)
+					LogChannels[i] <- logMessage{
+						messageKey: "failed to create a new HTTP client",
+						keyvals: []interface{}{
+							"msg", "failed to create a new HTTP client", "err", err,
+						}}
 				}
 			}
 
 			req, err := http.NewRequest(http.MethodPost, endpoint.URL, bytes.NewReader(body))
 			req.Header = r.Header
 			if err != nil {
-				level.Error(rlogger).Log("msg", "Failed to create the forward request", "err", err, "url", endpoint.URL)
+				//level.Error(rlogger).Log("msg", "Failed to create the forward request", "err", err, "url", endpoint.URL)
+				LogChannels[i] <- logMessage{
+					messageKey: "failed to create the forward request",
+					keyvals: []interface{}{
+						"msg", "failed to create the forward request", "err", err,
+					}}
 			} else {
 				ep := endpoint
+				j := i
 				go func() {
 					resp, err := client.Do(req)
 					if err != nil {
 						remotewriteRequests.With(prometheus.Labels{"code": "<error>", "name": ep.Name}).Inc()
-						level.Error(rlogger).Log("msg", "Failed to send request to the server", "err", err)
+						//level.Error(rlogger).Log("msg", "Failed to send request to the server", "err", err)
+						LogChannels[j] <- logMessage{
+							messageKey: "failed to send request to the server",
+							keyvals: []interface{}{
+								"msg", "failed to send request to the server", "err", err,
+							}}
 					} else {
 						defer resp.Body.Close()
 						remotewriteRequests.With(prometheus.Labels{"code": strconv.Itoa(resp.StatusCode), "name": ep.Name}).Inc()
 						if resp.StatusCode >= 300 || resp.StatusCode < 200 {
 							responseBody, err := ioutil.ReadAll(resp.Body)
 							if err != nil {
-								level.Error(rlogger).Log("msg", "Failed to read response of the forward request", "err", err, "return code", resp.Status, "url", ep.URL)
+								//level.Error(rlogger).Log("msg", "Failed to read response of the forward request", "err", err, "return code", resp.Status, "url", ep.URL)
+								LogChannels[j] <- logMessage{
+									messageKey: "failed to forward metrics" + resp.Status,
+									keyvals: []interface{}{
+										"msg", "failed to forward metrics", "return code", resp.Status, "url", ep.URL,
+									}}
 							} else {
-								level.Error(rlogger).Log("msg", "Failed to forward metrics", "return code", resp.Status, "response", string(responseBody), "url", ep.URL)
+								LogChannels[j] <- logMessage{
+									messageKey: "Failed to forward metrics" + resp.Status,
+									keyvals: []interface{}{
+										"msg", "failed to forward metrics", "return code", resp.Status, "response", string(responseBody), "url", ep.URL}}
 							}
 						} else {
-							level.Debug(rlogger).Log("msg", "Metrics forwarded successfully", "url", ep.URL)
+							level.Debug(rlogger).Log("msg", successWrite, "url", ep.URL)
+							LogChannels[j] <- logMessage{
+								messageKey: successWrite,
+							}
 						}
 					}
 				}()
@@ -115,6 +148,8 @@ func Proxy(write *url.URL, endpoints []Endpoint, logger log.Logger, r *prometheu
 			Name: THANOS_ENDPOINT_NAME,
 		})
 	}
+
+	InitChannels(logger, len(endpoints))
 
 	return remoteWrite(write, endpoints, logger)
 }
