@@ -18,6 +18,7 @@ local defaults = {
   serviceMonitor: false,
   logs: {},
   metrics: {},
+  traces: {},
   rbac: {},
   tenants: {},
   tls: {},
@@ -128,7 +129,6 @@ function(params) {
                     '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
                     '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
                   ] else []
-              ) + (
               ) + (
                 if api.config.traces != {} then
                   [

@@ -54,6 +54,8 @@ spec:
           name: internal
         - containerPort: 8080
           name: public
+        - containerPort: 8090
+          name: publicGrpc
         readinessProbe:
           failureThreshold: 12
           httpGet:
