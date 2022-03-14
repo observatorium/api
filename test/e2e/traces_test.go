@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -137,8 +136,6 @@ func TestTracesExport(t *testing.T) {
 
 		otelFile, err := ioutil.TempFile(e.SharedDir(), "fwd-coll.yaml")
 		testutil.Ok(t, err)
-
-		defer os.Remove(otelFile.Name())
 
 		_, err = otelFile.Write([]byte(forwardingConfig))
 		testutil.Ok(t, err)

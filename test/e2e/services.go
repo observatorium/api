@@ -122,10 +122,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
 	args := e2e.BuildArgs(map[string]string{
-		// I'd rather use `configsContainerPath` instead of "/conf" but
-		// configsContainerPath might not have the r-x permission for reading
-		// by the Open Telemetry user.  We explicitly add the config file as a Volume.
-		"--config": "/conf/collector.yaml",
+		"--config": filepath.Join(configsContainerPath, "collector.yaml"),
 	})
 
 	otel := e.Runnable("otel-collector").
@@ -135,14 +132,9 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 				"http": 4318,
 			}).
 		Init(e2e.StartOptions{
-			// @@@ ecs TODO RESTORE Image: otelCollectorImage,
-			Image: "ubuntu:18.04", // @@@ ecs TODO REMOVE
-			// Add explicit alternate location for _collector.yaml_
-			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"))},
-			// @@@ ecs TODO RESTORE Command: e2e.NewCommand("", args...),
-			Command: e2e.NewCommand("bash", "-c", "ls -l /shared/config/collector.yaml && cat /shared/config/collector.yaml && ls -l /shared && ls -l /conf && ls -l /shared/config && false"), // @@@ ecs TODO REMOVE
+			Image:   otelCollectorImage,
+			Command: e2e.NewCommand("", args...),
 		})
-	_ = args // @@@ ecs TODO REMOVE
 
 	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))
 	testutil.Ok(t, e2e.StartAndWaitReady(otel))

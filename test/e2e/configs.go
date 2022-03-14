@@ -251,7 +251,7 @@ func createOtelCollectorConfigYAML(
 	err := ioutil.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"),
 		[]byte(config),
-		os.FileMode(0755),
+		os.FileMode(0644),
 	)
 	testutil.Ok(t, err)
 }
