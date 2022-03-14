@@ -130,7 +130,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 		Init(e2e.StartOptions{
 			Image: otelCollectorImage,
 			Command: e2e.Command{
-				Args: []string{"--config=/shared/config/collector.yaml"},
+				Args: []string{"--config=/shared/collector.yaml"},
 			},
 		})
 
