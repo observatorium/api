@@ -1,5 +1,5 @@
-//go:build integration || interactive || experimentalintegration
-// +build integration interactive experimentalintegration
+//go:build integration || interactive
+// +build integration interactive
 
 package e2e
 
@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/efficientgo/e2e"
@@ -200,6 +201,56 @@ func createRulesYAML(
 	err := ioutil.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
 		yamlContent,
+		os.FileMode(0755),
+	)
+	testutil.Ok(t, err)
+}
+
+const otelConfig = `
+receivers:
+    otlp/grpc:
+      protocols:
+        grpc:
+            endpoint: "0.0.0.0:4317"
+
+exporters:
+    logging:
+        logLevel: debug
+    jaeger:
+        endpoint: {{JAEGER_GRPC_ENDPOINT}}
+        tls:
+          insecure: true
+
+service:
+    telemetry:
+        metrics:
+            address: localhost:8888
+        logs:
+            level: "debug"
+
+    pipelines:
+        traces/grpc:
+            receivers: [otlp/grpc]
+            exporters: [logging,jaeger]
+`
+
+func createOtelCollectorConfigYAML(
+	t *testing.T,
+	e e2e.Environment,
+	jaegerGRPCEndpoint string,
+) {
+	// Warn if a YAML change introduced a tab character
+	if strings.ContainsRune(otelConfig, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	config := strings.Replace(otelConfig,
+		"{{JAEGER_GRPC_ENDPOINT}}",
+		jaegerGRPCEndpoint, -1)
+
+	err := ioutil.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"),
+		[]byte(config),
 		os.FileMode(0755),
 	)
 	testutil.Ok(t, err)

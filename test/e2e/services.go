@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +25,9 @@ const (
 	lokiImage   = "grafana/loki:2.3.0"
 	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
 
+	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
+	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
+
 	dexImage              = "dexidp/dex:v2.30.0"
 	opaImage              = "openpolicyagent/opa:0.31.0"
 	gubernatorImage       = "thrawn01/gubernator:1.0.0-rc.8"
@@ -33,34 +35,6 @@ const (
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
-
-	otelConfig = `
-receivers:
-    otlp/grpc:
-      protocols:
-        grpc:
-            endpoint: "0.0.0.0:4317"
-
-exporters:
-    logging:
-        logLevel: debug
-    jaeger:
-        endpoint: {{JAEGER_GRPC_ENDPOINT}}
-        tls:
-          insecure: true
-
-service:
-    telemetry:
-        metrics:
-            address: localhost:8888
-        logs:
-            level: "debug"
-
-    pipelines:
-        traces/grpc:
-            receivers: [otlp/grpc]
-            exporters: [logging,jaeger]
-`
 )
 
 func startServicesForMetrics(t *testing.T, e e2e.Environment) (
@@ -143,35 +117,13 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 				"grpc.query":  16685, // Query
 				"http.query":  16686, // Query
 			}).
-		Init(e2e.StartOptions{Image: "jaegertracing/all-in-one:1.31"})
+		Init(e2e.StartOptions{Image: jaegerAllInOneImage})
 
-	// Warn if a YAML change introduced a tab character
-	if strings.ContainsRune(otelConfig, '\t') {
-		t.Errorf("Tab in the YAML")
-	}
+	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
-	config := strings.Replace(otelConfig,
-		"{{JAEGER_GRPC_ENDPOINT}}",
-		jaeger.InternalEndpoint("jaeger.grpc"), -1)
-
-	otelFile, err := ioutil.TempFile(e.SharedDir(), "collector.yaml")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	defer os.Remove(otelFile.Name())
-
-	_, err = otelFile.Write([]byte(config))
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	// otelFile.Name() will give relative pathname to temp file.  Docker will complain with
-	// "If you intended to pass a host directory, use absolute path.""
-	otelFileName, err := filepath.Abs(otelFile.Name())
-	if err != nil {
-		t.Fatalf("unexpected Abs() error: %s", err)
-	}
+	args := e2e.BuildArgs(map[string]string{
+		"--config": filepath.Join(configsContainerPath, "collector.yaml"),
+	})
 
 	otel := e.Runnable("otel-collector").
 		WithPorts(
@@ -180,11 +132,8 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 				"http": 4318,
 			}).
 		Init(e2e.StartOptions{
-			Image:   "otel/opentelemetry-collector:0.45.0",
-			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
-			Command: e2e.Command{
-				Args: []string{"--config=/conf/collector.yaml"},
-			},
+			Image:   otelCollectorImage,
+			Command: e2e.NewCommand("", args...),
 		})
 
 	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))

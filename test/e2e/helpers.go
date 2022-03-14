@@ -1,5 +1,5 @@
-//go:build integration || interactive || experimentalintegration
-// +build integration interactive experimentalintegration
+//go:build integration || interactive
+// +build integration interactive
 
 package e2e
 

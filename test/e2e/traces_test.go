@@ -1,5 +1,5 @@
-//go:build experimentalintegration
-// +build experimentalintegration
+//go:build integration
+// +build integration
 
 package e2e
 
@@ -28,15 +28,6 @@ receivers:
         grpc:
             endpoint: 0.0.0.0:4317
 
-# extensions:
-#     oauth2client:
-#       client_id: {{OBS_CLIENT_ID}}
-#       client_secret: {{OBS_CLIENT_SECRET}}
-#       token_url: {{OIDC_TOKEN_URL}}
-#      # The test dex's certs are signed for localhost, not 'e2e_traces_read_export-dex'
-#      tls:
-#        insecure_skip_verify: true
-  
 exporters:
     logging:
       logLevel: debug
@@ -112,14 +103,8 @@ func TestTracesExport(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	prepareConfigsAndCerts(t, traces, e)
-	dex, token, _ := startBaseServices(t, e, traces)
+	_, token, _ := startBaseServices(t, e, traces)
 	internalOtlpEndpoint, httpQueryEndpoint := startServicesForTraces(t, e)
-
-	// oidcEndpoint := dex.Endpoint("https")
-	oidcEndpoint := dex.InternalEndpoint("https")
-	tokenUrl := fmt.Sprintf("https://%s/dex/token", oidcEndpoint)
-	clientId := "test"                         // TODO Refactor this to a const shared with _helpers.go_
-	clientSecret := "ZXhhbXBsZS1hcHAtc2VjcmV0" // TODO Refactor this to a const shared with _helpers.go_
 
 	api, err := newObservatoriumAPIService(
 		e,
@@ -136,15 +121,6 @@ func TestTracesExport(t *testing.T) {
 	t.Run("write-then-query-single-trace", func(t *testing.T) {
 
 		forwardingConfig := strings.Replace(otelForwardingConfig,
-			"{{OBS_CLIENT_ID}}",
-			clientId, -1)
-		forwardingConfig = strings.Replace(forwardingConfig,
-			"{{OBS_CLIENT_SECRET}}",
-			clientSecret, -1)
-		forwardingConfig = strings.Replace(forwardingConfig,
-			"{{OIDC_TOKEN_URL}}",
-			tokenUrl, -1)
-		forwardingConfig = strings.Replace(forwardingConfig,
 			"{{OBS_GRPC_ENDPOINT}}",
 			api.InternalEndpoint("grpc"), -1)
 		forwardingConfig = strings.Replace(forwardingConfig,
@@ -225,21 +201,5 @@ func TestTracesExport(t *testing.T) {
 		assertResponse(t, bodyStr, `{"result":{"resourceSpans":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"instrumentationLibrarySpans":[{"instrumentationLibrary":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","parentSpanId":"AAAAAAAAAAA=","name":"testSpan","kind":"SPAN_KIND_INTERNAL","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}},{"key":"internal.span.format","value":{"stringValue":"proto"}}]}]}]}]}}`)
 
 		testutil.Equals(t, http.StatusOK, response.StatusCode)
-
-		// Uncomment for interactive test
-		/*
-			fmt.Printf("\n")
-			fmt.Printf("You're all set up!\n")
-			fmt.Printf("========================================\n")
-			fmt.Printf("Observatorium API on host machine:                %s\n", api.Endpoint("https"))
-			fmt.Printf("Observatorium internal server on host machine:    %s\n", api.Endpoint("http-internal"))
-			fmt.Printf("Observatorium gRPC API on host machine:           %s\n", api.Endpoint("grpc"))
-			fmt.Printf("Jaeger Query on host machine (HTTP):              %s\n", httpQueryEndpoint)
-			fmt.Printf("OTel Forwarding Collector on host machine (HTTP): %s\n", otel.Endpoint("http"))
-			fmt.Printf("OTel Forwarding Collector on host machine (gRPC): %s\n", otel.Endpoint("grpc"))
-			fmt.Printf("API Token:                                        %s\n\n", token)
-
-			testutil.Ok(t, e2einteractive.RunUntilEndpointHit())
-		*/
 	})
 }
