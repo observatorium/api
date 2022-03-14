@@ -202,11 +202,19 @@ func TestTracesExport(t *testing.T) {
 		})
 		for b.Reset(); b.Ongoing(); {
 			response, err = client.Do(request)
+			// Retry if we have a connection problem (timeout, etc)
 			if err != nil {
 				b.Wait()
 				continue
 			}
 
+			// Jaeger might give a 404 or 500 before the trace is there.  Retry.
+			if response.StatusCode != http.StatusOK {
+				b.Wait()
+				continue
+			}
+
+			// We got a 200 response.  Verify the trace appears as expected.
 			defer response.Body.Close()
 
 			body, err = ioutil.ReadAll(response.Body)
@@ -215,8 +223,6 @@ func TestTracesExport(t *testing.T) {
 			bodyStr = string(body)
 			//nolint:lll
 			assertResponse(t, bodyStr, `{"result":{"resourceSpans":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"instrumentationLibrarySpans":[{"instrumentationLibrary":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","parentSpanId":"AAAAAAAAAAA=","name":"testSpan","kind":"SPAN_KIND_INTERNAL","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}},{"key":"internal.span.format","value":{"stringValue":"proto"}}]}]}]}]}}`)
-
-			testutil.Equals(t, http.StatusOK, response.StatusCode)
 
 			break
 		}

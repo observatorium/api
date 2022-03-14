@@ -122,7 +122,10 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
 	args := e2e.BuildArgs(map[string]string{
-		"--config": filepath.Join(configsContainerPath, "collector.yaml"),
+		// I'd rather use `configsContainerPath` instead of "/conf" but
+		// configsContainerPath might not have the r-x permission for reading
+		// by the Open Telemetry user.  We explicitly add the config file as a Volume.
+		"--config": "/conf/collector.yaml",
 	})
 
 	otel := e.Runnable("otel-collector").
@@ -132,7 +135,9 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 				"http": 4318,
 			}).
 		Init(e2e.StartOptions{
-			Image:   otelCollectorImage,
+			Image: otelCollectorImage,
+			// Add explicit alternate location for _collector.yaml_
+			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"))},
 			Command: e2e.NewCommand("", args...),
 		})
 
