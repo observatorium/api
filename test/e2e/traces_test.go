@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,13 +13,20 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/efficientgo/e2e"
+	"github.com/efficientgo/tools/core/pkg/backoff"
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
-// OTel trace collector that receives in HTTP w/o security, but exports in gRPC with security.
 const (
+	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
+	// the bearer token we would need
+	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
+	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
+
+	// OTel trace collector that receives in HTTP w/o security, but exports in gRPC with security.
 	otelForwardingConfig = `
 receivers:
     otlp:
@@ -147,9 +155,7 @@ func TestTracesExport(t *testing.T) {
 					"grpc": 4317,
 				}).
 			Init(e2e.StartOptions{
-				// Note that if the forwarding collector was OIDC flow we would need
-				// "otel/opentelemetry-collector-contrib:0.45.0" instead.
-				Image:   "otel/opentelemetry-collector:0.45.0",
+				Image:   otelFwdCollectorImage,
 				Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
 				Command: e2e.Command{
 					Args: []string{"--config=/conf/collector.yaml"},
@@ -186,20 +192,33 @@ func TestTracesExport(t *testing.T) {
 			nil)
 		testutil.Ok(t, err)
 
-		// Note that we don't wait for the trace to be committed to storage.
-		// (If we were using a buffered Jaeger storage backend we would
-		// not give up on the first fetch attempt.)
-		response, err = client.Do(request)
-		testutil.Ok(t, err)
-		defer response.Body.Close()
+		// Read from Jaeger to verify the trace is there.  Retry in case
+		// there is a short delay with trace storage.
+		ctx := context.Background()
+		b := backoff.New(ctx, backoff.Config{
+			Min:        500 * time.Millisecond,
+			Max:        5 * time.Second,
+			MaxRetries: 10,
+		})
+		for b.Reset(); b.Ongoing(); {
+			response, err = client.Do(request)
+			if err != nil {
+				b.Wait()
+				continue
+			}
 
-		body, err = ioutil.ReadAll(response.Body)
-		testutil.Ok(t, err)
+			defer response.Body.Close()
 
-		bodyStr = string(body)
-		//nolint:lll
-		assertResponse(t, bodyStr, `{"result":{"resourceSpans":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"instrumentationLibrarySpans":[{"instrumentationLibrary":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","parentSpanId":"AAAAAAAAAAA=","name":"testSpan","kind":"SPAN_KIND_INTERNAL","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}},{"key":"internal.span.format","value":{"stringValue":"proto"}}]}]}]}]}}`)
+			body, err = ioutil.ReadAll(response.Body)
+			testutil.Ok(t, err)
 
-		testutil.Equals(t, http.StatusOK, response.StatusCode)
+			bodyStr = string(body)
+			//nolint:lll
+			assertResponse(t, bodyStr, `{"result":{"resourceSpans":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"instrumentationLibrarySpans":[{"instrumentationLibrary":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","parentSpanId":"AAAAAAAAAAA=","name":"testSpan","kind":"SPAN_KIND_INTERNAL","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}},{"key":"internal.span.format","value":{"stringValue":"proto"}}]}]}]}]}}`)
+
+			testutil.Equals(t, http.StatusOK, response.StatusCode)
+
+			break
+		}
 	})
 }
