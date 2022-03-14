@@ -238,7 +238,7 @@ func createOtelCollectorConfigYAML(
 	t *testing.T,
 	e e2e.Environment,
 	jaegerGRPCEndpoint string,
-) {
+) string {
 	// Warn if a YAML change introduced a tab character
 	if strings.ContainsRune(otelConfig, '\t') {
 		t.Errorf("Tab in the YAML")
@@ -254,4 +254,16 @@ func createOtelCollectorConfigYAML(
 		os.FileMode(0644),
 	)
 	testutil.Ok(t, err)
+
+	// TODO Remove this second tempfile version, and returning the abs temp name
+	otelFile, err := ioutil.TempFile(e.SharedDir(), "collector.yaml")
+	testutil.Ok(t, err)
+
+	_, err = otelFile.Write([]byte(config))
+	testutil.Ok(t, err)
+
+	otelFileName, err := filepath.Abs(otelFile.Name())
+	testutil.Ok(t, err)
+
+	return otelFileName
 }

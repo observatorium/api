@@ -119,7 +119,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 			}).
 		Init(e2e.StartOptions{Image: jaegerAllInOneImage})
 
-	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
+	otelFileName := createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
 	otel := e.Runnable("otel-collector").
 		WithPorts(
@@ -128,9 +128,10 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 				"http": 4318,
 			}).
 		Init(e2e.StartOptions{
-			Image: otelCollectorImage,
+			Image:   otelCollectorImage,
+			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
 			Command: e2e.Command{
-				Args: []string{"--config=/shared/collector.yaml"},
+				Args: []string{"--config=/conf/collector.yaml"},
 			},
 		})
 
