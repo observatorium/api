@@ -1,3 +1,4 @@
+//go:build integration || interactive
 // +build integration interactive
 
 package e2e
@@ -22,9 +23,9 @@ const (
 	lokiImage   = "grafana/loki:2.3.0"
 	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
 
-	dexImage        = "dexidp/dex:v2.30.0"
-	opaImage        = "openpolicyagent/opa:0.31.0"
-	gubernatorImage = "thrawn01/gubernator:1.0.0-rc.8"
+	dexImage              = "dexidp/dex:v2.30.0"
+	opaImage              = "openpolicyagent/opa:0.31.0"
+	gubernatorImage       = "thrawn01/gubernator:1.0.0-rc.8"
 	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
 
 	logLevelError = "error"
@@ -53,7 +54,9 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
 	// Create S3 replacement for rules backend
 	bucket := "obs_rules_test"
-	m := e2edb.NewMinio(e, "rules-minio", bucket)
+	opts := e2edb.WithImage("minio/minio:RELEASE.2022-03-03T21-21-16Z")
+	m := e2edb.NewMinio(e, "rules-minio", bucket, opts)
+
 	testutil.Ok(t, e2e.StartAndWaitReady(m))
 
 	createRulesYAML(t, e, bucket, m.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
