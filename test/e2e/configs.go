@@ -249,7 +249,7 @@ func createOtelCollectorConfigYAML(
 		jaegerGRPCEndpoint, -1)
 
 	err := ioutil.WriteFile(
-		filepath.Join(e.SharedDir(), "collector.yaml"),
+		filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"),
 		[]byte(config),
 		os.FileMode(0644),
 	)
