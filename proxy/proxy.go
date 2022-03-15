@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"fmt"
 	stdlog "log"
 	"net/http"
 	"net/url"
@@ -37,7 +36,7 @@ func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
 		r.URL.Path = path.Join(upstream.Path, r.URL.Path)
-		fmt.Printf("@@@ ecs after MiddlewareSetUpstream anon middleware, r.URL=%#v\n", r.URL)
+		// fmt.Printf("@@@ ecs after MiddlewareSetUpstream anon middleware, r.URL=%#v\n", r.URL)
 	}
 }
 

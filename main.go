@@ -636,14 +636,14 @@ func main() {
 
 					// @@@ r.Mount("/api/traces/v1/{tenant}/search",
 					r.Mount("/api/traces/v1/{tenant}",
-						//stripTenantPrefix("/api/traces/v1",
-						tracesv1.NewUIHandler(
-							cfg.traces.readEndpoint,
-							tracesv1.Logger(logger),
-							tracesv1.WithRegistry(reg),
-							tracesv1.WithHandlerInstrumenter(ins),
+						stripTenantPrefix("/api/traces/v1",
+							tracesv1.NewUIHandler(
+								cfg.traces.readEndpoint,
+								tracesv1.Logger(logger),
+								tracesv1.WithRegistry(reg),
+								tracesv1.WithHandlerInstrumenter(ins),
+							),
 						),
-						//),
 					)
 
 					/*
