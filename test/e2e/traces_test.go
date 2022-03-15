@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -134,7 +135,10 @@ func TestTracesExport(t *testing.T) {
 			"{{DEX_TOKEN}}",
 			token, -1)
 
-		otelFile, err := ioutil.TempFile(e.SharedDir(), "fwd-coll.yaml")
+		otelFile, err := ioutil.TempFile(e.SharedDir(), "fwd-coll***.yaml")
+		testutil.Ok(t, err)
+
+		err = os.Chmod(otelFile.Name(), 0644)
 		testutil.Ok(t, err)
 
 		_, err = otelFile.Write([]byte(forwardingConfig))
