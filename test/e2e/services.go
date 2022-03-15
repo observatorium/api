@@ -119,22 +119,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 			}).
 		Init(e2e.StartOptions{Image: jaegerAllInOneImage})
 
-	otelFileName := createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
-
-	// @@@ ecs TODO REMOVE
-	fmt.Printf("@@@ ecs created OTel config file file %q\n", otelFileName)
-	debug := e.Runnable("otel-perm-debug").
-		Init(e2e.StartOptions{
-			Image: "ubuntu:18.04",
-			Volumes: []string{
-				fmt.Sprintf("%s:/conf/collector.yaml", otelFileName),
-				fmt.Sprintf("%s:/conf/collector2.yaml", filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"))),
-			},
-			// Command: e2e.NewCommand("bash", "-c", "ls -al /conf && ls -al /conf/collector.yaml && cat /conf/collector.yaml && sleep 999999999"),
-			// Command: e2e.NewCommand("bash", "-c", "ls -al /shared && ls -al /shared/config && ls -al /shared/config/collector.yaml && cat /shared/config/collector.yaml && sleep 999999999"),
-			Command: e2e.NewCommand("bash", "-c", "ls -al /conf && cat /conf/collector2.yaml && sleep 999999999"),
-		})
-	testutil.Ok(t, e2e.StartAndWaitReady(debug))
+	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
 	otel := e.Runnable("otel-collector").
 		WithPorts(
@@ -143,8 +128,13 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 				"http": 4318,
 			}).
 		Init(e2e.StartOptions{
-			Image:   otelCollectorImage,
-			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
+			Image: otelCollectorImage,
+			Volumes: []string{
+				// We do an explicit bind mount, because the OTel user
+				// may not have permission to view files using /shared/config
+				fmt.Sprintf("%s:/conf/collector.yaml",
+					filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"))),
+			},
 			Command: e2e.Command{
 				Args: []string{"--config=/conf/collector.yaml"},
 			},
