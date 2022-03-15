@@ -121,6 +121,16 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 
 	otelFileName := createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
+	// @@@ ecs TODO REMOVE
+	fmt.Printf("@@@ ecs created OTel config file file %q\n", otelFileName)
+	debug := e.Runnable("otel-perm-debug").
+		Init(e2e.StartOptions{
+			Image:   "ubuntu:18.04",
+			Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
+			Command: e2e.NewCommand("bash", "-c", "ls -al /conf && ls -al /conf/collector.yaml && cat /conf/collector.yaml && sleep 999999999"),
+		})
+	testutil.Ok(t, e2e.StartAndWaitReady(debug))
+
 	otel := e.Runnable("otel-collector").
 		WithPorts(
 			map[string]int{

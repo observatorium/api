@@ -256,7 +256,8 @@ func createOtelCollectorConfigYAML(
 	testutil.Ok(t, err)
 
 	// TODO Remove this second tempfile version, and returning the abs temp name
-	otelFile, err := ioutil.TempFile(e.SharedDir(), "collector.yaml")
+	otelFile, err := ioutil.TempFile(e.SharedDir(), "collector*.yaml")
+	os.Chmod(otelFile.Name(), 0644)
 	testutil.Ok(t, err)
 
 	_, err = otelFile.Write([]byte(config))
