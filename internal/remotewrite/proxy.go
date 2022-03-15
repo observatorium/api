@@ -63,7 +63,16 @@ func remoteWrite(write *url.URL, endpoints []Endpoint, logger log.Logger) http.H
 			var client *http.Client
 			var err error
 			if endpoint.ClientConfig == nil {
-				client = &http.Client{}
+				client = &http.Client{
+					Transport: &http.Transport{
+						DisableKeepAlives: true,
+						IdleConnTimeout:   30 * time.Second,
+						DialContext: (&net.Dialer{
+							Timeout:   30 * time.Second,
+							KeepAlive: 30 * time.Second,
+						}).DialContext,
+					},
+				}
 			} else {
 				client, err = promconfig.NewClientFromConfig(*endpoint.ClientConfig, endpoint.Name,
 					promconfig.WithDialContextFunc((&net.Dialer{
