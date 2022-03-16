@@ -94,7 +94,6 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 
 // NewV2APIHandler creates a trace query handler for Jaeger V2 HTTP queries
 func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
-	fmt.Printf("@@@ ecs REACHED NewV2APIHandler()\n")
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -114,7 +113,7 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 			proxy.MiddlewareSetUpstream(read),
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
-			// @@@ TODO restore? proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
+			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
 		)
 
 		t := &http.Transport{
@@ -123,7 +122,6 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 			}).DialContext,
 		}
 
-		fmt.Printf("@@@ ecs constructing reverse proxy for traces\n")
 		proxyRead = &httputil.ReverseProxy{
 			Director:     middlewares,
 			ErrorLog:     proxy.Logger(c.logger),
@@ -133,28 +131,64 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 	}
 	r.Group(func(r chi.Router) {
 		r.Use(c.readMiddlewares...)
-		const (
-			queryRoute      = "/api/traces"
-			servicesRoute   = "/api/services"
-			operationsRoute = "/api/operations"
-		)
-		r.Handle(queryRoute, c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1", "handler": "query"},
-			otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, proxyRead)))
-		r.Handle(servicesRoute, c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1", "handler": "query_range"},
-			otelhttp.WithRouteTag(c.spanRoutePrefix+servicesRoute, proxyRead)))
-		r.Handle(operationsRoute, c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1", "handler": "query_range"},
-			otelhttp.WithRouteTag(c.spanRoutePrefix+operationsRoute, proxyRead)))
+		r.Handle("/*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
+			proxyRead))
 	})
 
 	return r
 }
 
-// NewUIHandler creates a trace handler for Jaeger UI
+// NewUIStaticHandler creates a trace handler for Jaeger UI static assets (.js and .css)
+func NewUIStaticHandler(read *url.URL, opts ...HandlerOption) http.Handler {
+	c := &handlerConfiguration{
+		logger:     log.NewNopLogger(),
+		registry:   prometheus.NewRegistry(),
+		instrument: nopInstrumentHandler{},
+	}
+
+	for _, o := range opts {
+		o(c)
+	}
+
+	r := chi.NewRouter()
+
+	var proxyRead http.Handler
+	{
+		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger UI static", "ui", read)
+		middlewares := proxy.Middlewares(
+			proxy.MiddlewareSetUpstream(read),
+			proxy.MiddlewareSetPrefixHeader(),
+			proxy.MiddlewareLogger(c.logger),
+			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-ui-static"}),
+		)
+
+		t := &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: ReadTimeout,
+			}).DialContext,
+		}
+
+		proxyRead = &httputil.ReverseProxy{
+			Director:  middlewares,
+			ErrorLog:  proxy.Logger(c.logger),
+			Transport: otelhttp.NewTransport(t),
+		}
+	}
+	r.Group(func(r chi.Router) {
+		r.Use(c.readMiddlewares...)
+		r.Handle("/*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
+			proxyRead))
+	})
+
+	return r
+}
+
+// NewUIHandler creates a trace handler for Jaeger UI that is able to re-write
+// HTML to change the <base> attribute so that it works with the Observatorium-style
+// "/api/v1/traces/{tenant}/" URLs.
 func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
-	fmt.Printf("@@@ ecs REACHED NewUIHandler()\n")
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -174,7 +208,7 @@ func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 			proxy.MiddlewareSetUpstream(read),
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
-			// @@@ TODO restore? proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
+			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-ui"}),
 		)
 
 		t := &http.Transport{
@@ -187,30 +221,14 @@ func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 			Director:  middlewares,
 			ErrorLog:  proxy.Logger(c.logger),
 			Transport: otelhttp.NewTransport(t),
-			ErrorHandler: func(rw http.ResponseWriter, r *http.Request, e error) {
-				fmt.Printf("@@@ ecs in NewUIHandler anon ErrorHandler for request %q: %v\n", r.URL.String(), e)
-			},
+
+			// This is the key piece, it changes <base href=> tags
 			ModifyResponse: jaegerUIResponseModifier,
 		}
 	}
+
 	r.Group(func(r chi.Router) {
 		r.Use(c.readMiddlewares...)
-		/*
-			const (
-				searchRoute  = "/search"
-				staticRoute  = "/static/*"
-				faviconRoute = "/favicon.ico"
-			)
-			r.Handle(searchRoute, c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+searchRoute, proxyRead)))
-			r.Handle(staticRoute, c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1ui", "handler": "static"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+staticRoute, proxyRead)))
-			r.Handle(faviconRoute, c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1ui", "handler": "static"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+faviconRoute, proxyRead)))
-		*/
 		r.Handle("/*", c.instrument.NewHandler(
 			prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
 			proxyRead))
@@ -220,18 +238,15 @@ func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 }
 
 func jaegerUIResponseModifier(response *http.Response) error {
-	// fmt.Printf("@@@ ecs REACHED jaegerUIResponseModifier(), content type is %q\n", response.Header.Get("Content-Type"))
-	// @@@ md, err := metadata.FromIncomingContext(response.Request.Context())
-	// fmt.Printf("@@@ ecs REACHED jaegerUIResponseModifier, request tenant was %v\n", response.Request.Context().Value("tenant"))
-	// fmt.Printf("@@@ ecs REACHED jaegerUIResponseModifier, request tenantID was %v\n", response.Request.Context().Value("tenantID"))
-	// fmt.Printf("@@@ ecs REACHED jaegerUIResponseModifier, request context is %#v, a %T\n", response.Request.Context(), response.Request.Context())
-	// fmt.Printf("@@@ ecs REACHED jaegerUIResponseModifier, request header is %#v, a %T\n", response.Request.Header, response.Request.Header)
-
-	// if response.StatusCode == http.StatusOK && response.Header.Get("Content-Type") == "text/html; charset=utf-8" {
-	if response.StatusCode == http.StatusOK && response.Header.Get("Content-Type") == "text/html; charset=utf-8" {
-		fmt.Printf("@@@ ecs in jaegerUIResponseModifier() for %v\n", response.Request.URL)
-		var reader io.ReadCloser
+	// Only modify successful HTTP
+	if response.StatusCode == http.StatusOK && strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
+		// Do man-in-the-middle rewriting of the UI HTML.
 		var err error
+
+		// Uncompressed reader
+		var reader io.ReadCloser
+
+		// Read what Jaeger UI sent back (which might be compressed)
 		switch response.Header.Get("Content-Encoding") {
 		case "gzip":
 			reader, err = gzip.NewReader(response.Body)
@@ -240,11 +255,9 @@ func jaegerUIResponseModifier(response *http.Response) error {
 			}
 			defer reader.Close()
 		case "deflate":
-			fmt.Printf("@@@ ecs jaegerUIResponseModifier got deflated data for %v\n", response.Request.URL.String())
 			reader = flate.NewReader(response.Body)
 			defer reader.Close()
 		default:
-			fmt.Printf("@@@ ecs jaegerUIResponseModifier got content encoding %q for %v\n", response.Header.Get("Content-Encoding"), response.Request.URL.String())
 			reader = response.Body
 		}
 
@@ -253,56 +266,25 @@ func jaegerUIResponseModifier(response *http.Response) error {
 			return err
 		}
 
-		fmt.Printf("@@@ ecs jaegerUIResponseModifier() decoded body\n")
+		// At this point we have read the body.  Even if it didn't have a <body href=>
+		// to modify, we need to create a new Reader.  This code thus executes all the time.
 
 		// JaegerUI insists on a <base>, so create one but use Observatorium's
 		// opinion of the base href, not Jaeger Query's opinion.
-		// TODO Use github.com/observatorium/api/proxy/prefixHeader
-		forwardedPrefix := response.Request.Header.Get("X-Forwarded-Prefix")
-		if forwardedPrefix == "" {
-			// TODO Log the first time this happens?  It should never happen.
-			forwardedPrefix = "/api/traces/v1/dummy"
-		}
+		forwardedPrefix := response.Request.Header.Get(proxy.PrefixHeader)
 
-		// fmt.Printf("@@@ ecs in jaegerUIResponseModifier, b is %q\n", b)
-		strResponse := string(b)
+		// The <base href=> tag generated by Jaeger to tell the UI where to fetch static
+		// assets and query /api
 		const expectedBaseTag = `<base href="/" data-inject-target="BASE_URL"/>`
+
 		replacementBaseTag := fmt.Sprintf(`<base href="%s/" data-inject-target="BASE_URL"/>`, forwardedPrefix)
-		if strings.Contains(strResponse, expectedBaseTag) {
-			fmt.Printf("@@@ ecs found <base> tag, removing\n")
-			strResponse = strings.Replace(strResponse, expectedBaseTag, replacementBaseTag, 1)
+		strResponse := strings.Replace(string(b), expectedBaseTag, replacementBaseTag, 1)
 
-			// En-encode the body to match the promised content-encoding
-
-			switch response.Header.Get("Content-Encoding") {
-			case "gzip":
-				var buf bytes.Buffer
-				writer := gzip.NewWriter(&buf)
-				writer.Write([]byte(strResponse))
-				writer.Close()
-				response.Header["Content-Length"] = []string{fmt.Sprint(buf.Len())}
-				fmt.Printf("@@@ ecs replying with gzipped data of length %v\n", buf.Len())
-				response.Body = ioutil.NopCloser(&buf)
-			case "deflate":
-				var buf bytes.Buffer
-				writer, _ := flate.NewWriter(&buf, 1)
-				writer.Write([]byte(strResponse))
-				writer.Close()
-				response.Header["Content-Length"] = []string{fmt.Sprint(buf.Len())}
-				fmt.Printf("@@@ ecs replying with deflated data of length %v\n", buf.Len())
-				response.Body = ioutil.NopCloser(&buf)
-			default:
-				buf := bytes.NewBufferString(strResponse)
-				response.Header["Content-Length"] = []string{fmt.Sprint(buf.Len())}
-				fmt.Printf("@@@ ecs replying with uncompressed data of length %v\n", buf.Len())
-				response.Body = ioutil.NopCloser(buf)
-			}
-
-		} else {
-			fmt.Printf("@@@ ecs jaegerUIResponseModifier() did not find <base> tag in %v\n", response.Header)
-		}
-	} else {
-		fmt.Printf("@@@ ecs jaegerUIResponseModifier() ignored %v\n", response.Request.URL)
+		// We could re-encode in gzip/deflate, but there is no need, so send it raw
+		response.Header["Content-Encoding"] = []string{}
+		buf := bytes.NewBufferString(strResponse)
+		response.Header["Content-Length"] = []string{fmt.Sprint(buf.Len())}
+		response.Body = ioutil.NopCloser(buf)
 	}
 
 	return nil

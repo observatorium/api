@@ -522,7 +522,6 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
-				fmt.Printf("@@@ ecs metrics are enabled")
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
@@ -535,7 +534,6 @@ func main() {
 					r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 						tenant, ok := authentication.GetTenant(r.Context())
 						if !ok {
-							fmt.Printf("@@@ ecs returning notfound for request %#v\n", r)
 							w.WriteHeader(http.StatusNotFound)
 							return
 						}
@@ -614,11 +612,8 @@ func main() {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
 
-					/* @@@
-					// V2 query API
-					fmt.Printf("@@@ ecs about to mount trace handling on r, a %T\n", r)
-					// r.Mount("/api/traces/v1/{tenant}/api",
-					r.Mount("/api/traces/v1/{tenant}",
+					// V2 query API, protected by RBAC
+					r.Mount("/api/traces/v1/{tenant}/api",
 						stripTenantPrefix("/api/traces/v1",
 							tracesv1.NewV2APIHandler(
 								cfg.traces.readEndpoint,
@@ -626,18 +621,17 @@ func main() {
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(ins),
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
-								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")), // TODO should be "traces"
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")), // TODO should be "traces"
+								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
 							),
 						),
 					)
-					*/
 
-					// @@@ r.Mount("/api/traces/v1/{tenant}/search",
-					r.Mount("/api/traces/v1/{tenant}",
+					// Static UI (.js and .css), not protected by RBAC -- any user can see UI
+					r.Mount("/api/traces/v1/{tenant}/static",
 						stripTenantPrefix("/api/traces/v1",
-							tracesv1.NewUIHandler(
+							tracesv1.NewUIStaticHandler(
 								cfg.traces.readEndpoint,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
@@ -646,21 +640,28 @@ func main() {
 						),
 					)
 
-					/*
-						r.Mount("/api/traces/v1/{tenant}/static",
-							stripTenantPrefix("/api/traces/v1",
-								tracesv1.NewUIHandler(
-									cfg.traces.readEndpoint,
-									tracesv1.Logger(logger),
-									tracesv1.WithRegistry(reg),
-									tracesv1.WithHandlerInstrumenter(ins),
-								),
-							),
-						)
-					*/
+					// Single page app, not protected by RBAC -- any user can see UI
+					uiHandler := tracesv1.NewUIHandler(
+						cfg.traces.readEndpoint,
+						tracesv1.Logger(logger),
+						tracesv1.WithRegistry(reg),
+						tracesv1.WithHandlerInstrumenter(ins),
+					)
+					// Jaeger's main page
+					r.Mount("/api/traces/v1/{tenant}/search",
+						stripTenantPrefix("/api/traces/v1",
+							uiHandler,
+						),
+					)
+					// (This URL is exercised if a user clicks "reload" when the
+					// single-page Jaeger app is showing a trace)
+					r.Mount("/api/traces/v1/{tenant}/trace",
+						stripTenantPrefix("/api/traces/v1",
+							uiHandler,
+						),
+					)
 				})
 			}
-
 		})
 
 		tlsConfig, err := tls.NewServerConfig(
@@ -1072,7 +1073,6 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 		}
 
 		tenantPrefix := path.Join("/", prefix, tenant)
-		fmt.Printf("@@@ ecs in stripTenantPrefix anonymous handler, tenantPrefix=%q, prefix=%q, next is a %T\n", tenantPrefix, prefix, next)
 		http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
 	})
 }
