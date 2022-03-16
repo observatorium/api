@@ -849,7 +849,7 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
-//nolint:funlen
+//nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
 		rawTLSCipherSuites      string
