@@ -1,4 +1,3 @@
-//go:build integration || interactive
 // +build integration interactive
 
 package e2e

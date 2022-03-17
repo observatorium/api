@@ -1,4 +1,3 @@
-//go:build integration || interactive
 // +build integration interactive
 
 package e2e
@@ -27,6 +26,10 @@ const (
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
+	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
+	// the bearer token we would need
+	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
+	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
 
 	dexImage              = "dexidp/dex:v2.30.0"
 	opaImage              = "openpolicyagent/opa:0.31.0"

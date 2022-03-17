@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -21,47 +19,6 @@ import (
 )
 
 const (
-	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
-	// the bearer token we would need
-	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
-	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
-
-	// OTel trace collector that receives in HTTP w/o security, but exports in gRPC with security.
-	otelForwardingConfig = `
-receivers:
-    otlp:
-      protocols:
-        http:
-            endpoint: 0.0.0.0:4318
-        grpc:
-            endpoint: 0.0.0.0:4317
-
-exporters:
-    logging:
-      logLevel: debug
-    otlp:
-      endpoint: {{OBS_GRPC_ENDPOINT}}
-      # auth:
-      #   authenticator: oauth2client
-      tls:
-        insecure_skip_verify: true
-      compression: none
-      headers:
-        x-tenant: test-oidc
-        # (Use hard-coded auth header, because this forwarding collector
-        # is unable to do OIDC password grant.)
-        authorization: bearer {{DEX_TOKEN}}
-
-service:
-    telemetry:
-      metrics:
-        address: localhost:8889
-    # extensions: [oauth2client]
-    pipelines:
-      traces:
-        receivers: [otlp]
-        exporters: [logging,otlp]
-`
 	traceJSON = `
 {
 	"resource_spans": [
@@ -101,11 +58,6 @@ service:
 func TestTracesExport(t *testing.T) {
 	t.Parallel()
 
-	// Warn if a YAML change introduced a tab character
-	if strings.ContainsRune(otelForwardingConfig, '\t') {
-		t.Fatalf("Tab in the YAML")
-	}
-
 	e, err := e2e.NewDockerEnvironment(envTracesName)
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
@@ -128,26 +80,9 @@ func TestTracesExport(t *testing.T) {
 
 	t.Run("write-then-query-single-trace", func(t *testing.T) {
 
-		forwardingConfig := strings.Replace(otelForwardingConfig,
-			"{{OBS_GRPC_ENDPOINT}}",
-			api.InternalEndpoint("grpc"), -1)
-		forwardingConfig = strings.Replace(forwardingConfig,
-			"{{DEX_TOKEN}}",
-			token, -1)
-
-		otelFile, err := ioutil.TempFile(e.SharedDir(), "fwd-coll***.yaml")
-		testutil.Ok(t, err)
-
-		err = os.Chmod(otelFile.Name(), 0644)
-		testutil.Ok(t, err)
-
-		_, err = otelFile.Write([]byte(forwardingConfig))
-		testutil.Ok(t, err)
-
-		// otelFile.Name() will give relative pathname to temp file.  Docker will complain with
-		// "If you intended to pass a host directory, use absolute path.""
-		otelFileName, err := filepath.Abs(otelFile.Name())
-		testutil.Ok(t, err)
+		createOtelForwardingCollectorConfigYAML(t, e,
+			api.InternalEndpoint("grpc"),
+			token)
 
 		otel := e.Runnable("otel-fwd-coll").
 			WithPorts(
@@ -156,10 +91,13 @@ func TestTracesExport(t *testing.T) {
 					"grpc": 4317,
 				}).
 			Init(e2e.StartOptions{
-				Image:   otelFwdCollectorImage,
-				Volumes: []string{fmt.Sprintf("%s:/conf/collector.yaml", otelFileName)},
+				Image: otelFwdCollectorImage,
+				Volumes: []string{
+					fmt.Sprintf("%s:/conf/forwarding-collector.yaml",
+						filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"))),
+				},
 				Command: e2e.Command{
-					Args: []string{"--config=/conf/collector.yaml"},
+					Args: []string{"--config=/conf/forwarding-collector.yaml"},
 				},
 			})
 
