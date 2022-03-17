@@ -12,7 +12,7 @@ local defaults = {
   ports: {
     public: 8080,
     internal: 8081,
-    publicGrpc: 8090,
+    'grpc-public': 8090,
   },
   resources: {},
   serviceMonitor: false,
@@ -133,7 +133,7 @@ function(params) {
                 if api.config.traces != {} then
                   [
                     '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
-                    '--grpc.listen=' + api.config.ports.publicGrpc,
+                    '--grpc.listen=' + api.config.ports['grpc-public'],
                   ] else []
               ) + (
                 if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []
