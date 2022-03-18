@@ -133,7 +133,7 @@ function(params) {
                 if api.config.traces != {} then
                   [
                     '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
-                    '--grpc.listen=' + api.config.ports['grpc-public'],
+                    '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'],
                   ] else []
               ) + (
                 if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []
