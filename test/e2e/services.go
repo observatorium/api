@@ -1,4 +1,3 @@
-//go:build integration || interactive
 // +build integration interactive
 
 package e2e
@@ -24,6 +23,13 @@ const (
 	thanosImage = "quay.io/thanos/thanos:main-2021-09-23-177b4f23"
 	lokiImage   = "grafana/loki:2.3.0"
 	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
+
+	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
+	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
+	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
+	// the bearer token we would need
+	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
+	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
 
 	dexImage              = "dexidp/dex:v2.30.0"
 	opaImage              = "openpolicyagent/opa:0.31.0"
@@ -104,6 +110,43 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	testutil.Ok(t, e2e.StartAndWaitReady(loki))
 
 	return loki.InternalEndpoint("http"), loki.Endpoint("http")
+}
+
+func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint string, jaegerHttpEndpoint string) {
+	jaeger := e.Runnable("jaeger").
+		WithPorts(
+			map[string]int{
+				"jaeger.grpc": 14250, // Receives traces
+				"grpc.query":  16685, // Query
+				"http.query":  16686, // Query
+			}).
+		Init(e2e.StartOptions{Image: jaegerAllInOneImage})
+
+	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
+
+	otel := e.Runnable("otel-collector").
+		WithPorts(
+			map[string]int{
+				"grpc": 4317,
+				"http": 4318,
+			}).
+		Init(e2e.StartOptions{
+			Image: otelCollectorImage,
+			Volumes: []string{
+				// We do an explicit bind mount, because the OTel user
+				// may not have permission to view files using /shared/config
+				fmt.Sprintf("%s:/conf/collector.yaml",
+					filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"))),
+			},
+			Command: e2e.Command{
+				Args: []string{"--config=/conf/collector.yaml"},
+			},
+		})
+
+	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))
+	testutil.Ok(t, e2e.StartAndWaitReady(otel))
+
+	return otel.InternalEndpoint("grpc"), jaeger.Endpoint("http.query")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
@@ -267,6 +310,8 @@ type apiOptions struct {
 	metricsWriteEndpoint string
 	metricsRulesEndpoint string
 	ratelimiterAddr      string
+	tracesWriteEndpoint  string
+	gRPCListenEndpoint   string
 }
 
 type apiOption func(*apiOptions)
@@ -281,6 +326,18 @@ func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+	}
+}
+
+func withOtelTraceEndpoint(exportEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.tracesWriteEndpoint = exportEndpoint
+	}
+}
+
+func withGRPCListenEndpoint(listenEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.gRPCListenEndpoint = listenEndpoint
 	}
 }
 
@@ -339,6 +396,24 @@ func newObservatoriumAPIService(
 
 	if opts.ratelimiterAddr != "" {
 		args = append(args, "--middleware.rate-limiter.grpc-address="+opts.ratelimiterAddr)
+	}
+
+	if opts.tracesWriteEndpoint != "" {
+		args = append(args, "--traces.write.endpoint="+opts.tracesWriteEndpoint)
+	}
+
+	if opts.gRPCListenEndpoint != "" {
+		gRPCChunks := strings.SplitN(opts.gRPCListenEndpoint, ":", 2)
+		if len(gRPCChunks) != 2 {
+			return nil, fmt.Errorf("Invalid gRPC Listen Endpoint: %q", opts.gRPCListenEndpoint)
+		}
+		gRPCPort, err := strconv.Atoi(gRPCChunks[1])
+		if err != nil {
+			return nil, err
+		}
+		ports["grpc"] = gRPCPort
+
+		args = append(args, "--grpc.listen="+opts.gRPCListenEndpoint)
 	}
 
 	return e2e.NewInstrumentedRunnable(e, "observatorium_api", ports, "http-internal").Init(

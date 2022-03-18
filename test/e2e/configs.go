@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/efficientgo/e2e"
@@ -20,6 +21,7 @@ const (
 	metrics     testType = "metrics"
 	rules       testType = "rules"
 	logs        testType = "logs"
+	traces      testType = "traces"
 	tenants     testType = "tenants"
 	interactive testType = "interactive"
 
@@ -33,6 +35,7 @@ const (
 	envMetricsName  = "e2e_metrics_read_write"
 	envRulesAPIName = "e2e_rules_api"
 	envLogsName     = "e2e_logs_read_write_tail"
+	envTracesName   = "e2e_traces_read_export"
 	envTenantsName  = "e2e_tenants"
 	envInteractive  = "e2e_interactive"
 
@@ -198,6 +201,120 @@ func createRulesYAML(
 		filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
 		yamlContent,
 		os.FileMode(0755),
+	)
+	testutil.Ok(t, err)
+}
+
+const otelConfigTpl = `
+receivers:
+    otlp/grpc:
+      protocols:
+        grpc:
+            endpoint: "0.0.0.0:4317"
+
+exporters:
+    logging:
+        logLevel: debug
+    jaeger:
+        endpoint: %[1]s
+        tls:
+          insecure: true
+
+service:
+    telemetry:
+        metrics:
+            address: localhost:8888
+        logs:
+            level: "debug"
+
+    pipelines:
+        traces/grpc:
+            receivers: [otlp/grpc]
+            exporters: [logging,jaeger]
+`
+
+// createOtelCollectorConfigYAML() creates YAML for an Open Telemetry collector inside the Observatorium API boundary
+func createOtelCollectorConfigYAML(
+	t *testing.T,
+	e e2e.Environment,
+	jaegerGRPCEndpoint string,
+) {
+	// Warn if a YAML change introduced a tab character
+	if strings.ContainsRune(otelConfigTpl, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	yamlContent := []byte(fmt.Sprintf(
+		otelConfigTpl,
+		jaegerGRPCEndpoint))
+
+	err := ioutil.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"),
+		yamlContent,
+		os.FileMode(0644),
+	)
+	testutil.Ok(t, err)
+}
+
+// OTel trace collector that receives in HTTP w/o security, but exports in gRPC with security.
+const otelForwardingConfigTpl = `
+receivers:
+    otlp:
+      protocols:
+        http:
+            endpoint: 0.0.0.0:4318
+        grpc:
+            endpoint: 0.0.0.0:4317
+
+exporters:
+    logging:
+      logLevel: debug
+    otlp:
+      endpoint: %[1]s
+      # auth:
+      #   authenticator: oauth2client
+      tls:
+        insecure_skip_verify: true
+      compression: none
+      headers:
+        x-tenant: test-oidc
+        # (Use hard-coded auth header, because this forwarding collector
+        # is unable to do OIDC password grant.)
+        authorization: bearer %[2]s
+
+service:
+    telemetry:
+      metrics:
+        address: localhost:8889
+    # extensions: [oauth2client]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        exporters: [logging,otlp]
+`
+
+// createOtelForwardingCollectorConfigYAML() creates YAML for an Open Telemetry collector outside the
+// Observatorium API boundary that forwards traces via GRPC to Observatorium.
+func createOtelForwardingCollectorConfigYAML(
+	t *testing.T,
+	e e2e.Environment,
+	observatoriumGRPCEndpoint string,
+	dexToken string,
+) {
+	// Warn if a YAML change introduced a tab character
+	if strings.ContainsRune(otelForwardingConfigTpl, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	yamlContent := []byte(fmt.Sprintf(
+		otelForwardingConfigTpl,
+		observatoriumGRPCEndpoint,
+		dexToken))
+
+	err := ioutil.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"),
+		yamlContent,
+		os.FileMode(0644),
 	)
 	testutil.Ok(t, err)
 }
