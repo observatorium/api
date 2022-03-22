@@ -1,3 +1,4 @@
+//go:build interactive
 // +build interactive
 
 package e2e
@@ -23,7 +24,7 @@ func TestInteractiveSetup(t *testing.T) {
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 	rulesEndpoint := startServicesForRules(t, e)
-	internalOtlpEndpoint, httpQueryEndpoint := startServicesForTraces(t, e)
+	internalOtlpEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
@@ -33,6 +34,7 @@ func TestInteractiveSetup(t *testing.T) {
 		withRateLimiter(rateLimiterAddr),
 		withGRPCListenEndpoint(":8317"),
 		withOtelTraceEndpoint(internalOtlpEndpoint),
+		withJaegerEndpoint("http://"+httpInternalQueryEndpoint),
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
@@ -57,7 +59,7 @@ func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Thanos Query on host machine: 			%s \n", readExtEndpoint)
 	fmt.Printf("Loki on host machine: 				%s \n", logsExtEndpoint)
 	fmt.Printf("Observatorium gRPC API on host machine:           %s\n", api.Endpoint("grpc"))
-	fmt.Printf("Jaeger Query on host machine (HTTP):              %s\n", httpQueryEndpoint)
+	fmt.Printf("Jaeger Query on host machine (HTTP):              %s\n", httpExternalQueryEndpoint)
 
 	fmt.Printf("API Token: 					%s \n\n", token)
 

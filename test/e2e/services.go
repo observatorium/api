@@ -1,3 +1,4 @@
+//go:build integration || interactive
 // +build integration interactive
 
 package e2e
@@ -112,7 +113,7 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	return loki.InternalEndpoint("http"), loki.Endpoint("http")
 }
 
-func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint string, jaegerHttpEndpoint string) {
+func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, jaegerExternalHttpEndpoint, jaegerInternalHttpEndpoint string) {
 	jaeger := e.Runnable("jaeger").
 		WithPorts(
 			map[string]int{
@@ -146,7 +147,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint s
 	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))
 	testutil.Ok(t, e2e.StartAndWaitReady(otel))
 
-	return otel.InternalEndpoint("grpc"), jaeger.Endpoint("http.query")
+	return otel.InternalEndpoint("grpc"), jaeger.Endpoint("http.query"), jaeger.InternalEndpoint("http.query")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
@@ -312,6 +313,7 @@ type apiOptions struct {
 	ratelimiterAddr      string
 	tracesWriteEndpoint  string
 	gRPCListenEndpoint   string
+	jaegerQueryEndpoint  string
 }
 
 type apiOption func(*apiOptions)
@@ -338,6 +340,12 @@ func withOtelTraceEndpoint(exportEndpoint string) apiOption {
 func withGRPCListenEndpoint(listenEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.gRPCListenEndpoint = listenEndpoint
+	}
+}
+
+func withJaegerEndpoint(jaegerQueryEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.jaegerQueryEndpoint = jaegerQueryEndpoint
 	}
 }
 
@@ -400,6 +408,10 @@ func newObservatoriumAPIService(
 
 	if opts.tracesWriteEndpoint != "" {
 		args = append(args, "--traces.write.endpoint="+opts.tracesWriteEndpoint)
+	}
+
+	if opts.jaegerQueryEndpoint != "" {
+		args = append(args, "--traces.read.endpoint="+opts.jaegerQueryEndpoint)
 	}
 
 	if opts.gRPCListenEndpoint != "" {

@@ -607,7 +607,7 @@ func main() {
 			}
 
 			// Traces.
-			if cfg.traces.enabled {
+			if cfg.traces.enabled && cfg.traces.readEndpoint != nil {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
@@ -1025,18 +1025,18 @@ func parseFlags() (config, error) {
 		cfg.logs.writeEndpoint = logsWriteEndpoint
 	}
 
-	if rawTracesWriteEndpoint != "" {
+	if rawTracesReadEndpoint != "" {
 		cfg.traces.enabled = true
 
 		tracesReadEndpoint, err := url.ParseRequestURI(rawTracesReadEndpoint)
 		if err != nil {
-			return cfg, fmt.Errorf("--traces.read.endpoint is invalid, raw %s: %w", rawTracesReadEndpoint, err)
+			return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
 		}
 
 		cfg.traces.readEndpoint = tracesReadEndpoint
 	}
 
-	if rawTracesReadEndpoint != "" {
+	if rawTracesWriteEndpoint != "" {
 		cfg.traces.enabled = true
 
 		_, _, err := net.SplitHostPort(rawTracesWriteEndpoint)

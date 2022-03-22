@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	ReadTimeout  = 15 * time.Minute
-	WriteTimeout = time.Minute
+	ReadTimeout = 15 * time.Minute
 )
 
 type handlerConfiguration struct {
@@ -47,7 +46,7 @@ func Logger(logger log.Logger) HandlerOption {
 	}
 }
 
-// WithJaegerQueryV3 adds a custom Jaeger query for the handler to use.
+// WithRegistry adds a custom Jaeger query for the handler to use.
 func WithRegistry(r *prometheus.Registry) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.registry = r
@@ -94,6 +93,10 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 
 // NewV2APIHandler creates a trace query handler for Jaeger V2 HTTP queries
 func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
+	if read == nil {
+		panic("missing Jaeger read url")
+	}
+
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -123,10 +126,9 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 		}
 
 		proxyRead = &httputil.ReverseProxy{
-			Director:     middlewares,
-			ErrorLog:     proxy.Logger(c.logger),
-			Transport:    otelhttp.NewTransport(t),
-			ErrorHandler: func(rw http.ResponseWriter, r *http.Request, e error) {},
+			Director:  middlewares,
+			ErrorLog:  proxy.Logger(c.logger),
+			Transport: otelhttp.NewTransport(t),
 		}
 	}
 	r.Group(func(r chi.Router) {
