@@ -139,18 +139,23 @@ func TestTracesExport(t *testing.T) {
 			httpExternalQueryEndpoint, "5B8EFFF798038103D269B633813FC60C")
 		assertResponse(t, returnedTrace, queriedV3Trace)
 
-		returnedTrace = queryForTraceV2(t,
+		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
 			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
-			false, "")
+			false, "", http.StatusOK)
 		assertResponse(t, returnedTrace, queriedV2Trace)
 
 		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api/traces", api.Endpoint("https"))
 		// We skip TLS verification because Observatorium will present a cert for "e2e_traces_read_export-api",
 		// but we contact it using "localhost"
-		returnedTrace = queryForTraceV2(t,
+		returnedTrace, _ = queryForTraceV2(t, "valid Observatorium trace v2 query",
 			httpObservatoriumQueryEndpoint, "5B8EFFF798038103D269B633813FC60C",
-			true, fmt.Sprintf("bearer %s", token))
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		assertResponse(t, returnedTrace, queriedV2Trace)
+
+		_, returnedStatus := queryForTraceV2(t, "invalid Observatorium trace v2 query",
+			httpObservatoriumQueryEndpoint, "5B8EFFF798038103D269B633813FC60C",
+			true, fmt.Sprintf("bearer invalid-token"), 500)
+		testutil.Equals(t, returnedStatus, 500)
 	})
 }
 
@@ -163,10 +168,12 @@ func queryForTraceDirectV3(t *testing.T, httpQueryEndpoint, traceID string) stri
 		nil)
 	testutil.Ok(t, err)
 
-	return requestWithRetry(t, &http.Client{}, request)
+	s, _ := requestWithRetry(t, "jaeger V3 get trace", &http.Client{}, request, http.StatusOK)
+	return s
 }
 
-func queryForTraceV2(t *testing.T, httpQueryURL, traceID string, insecureSkipVerify bool, authHeader string) string {
+func queryForTraceV2(t *testing.T, testLabel, httpQueryURL, traceID string, insecureSkipVerify bool, authHeader string,
+	expectedResponse int) (string, int) {
 	t.Helper()
 
 	request, err := http.NewRequest(
@@ -182,10 +189,10 @@ func queryForTraceV2(t *testing.T, httpQueryURL, traceID string, insecureSkipVer
 		},
 	}
 
-	return requestWithRetry(t, client, request)
+	return requestWithRetry(t, testLabel, client, request, expectedResponse)
 }
 
-func requestWithRetry(t *testing.T, client *http.Client, request *http.Request) string {
+func requestWithRetry(t *testing.T, testLabel string, client *http.Client, request *http.Request, expectedResponse int) (string, int) {
 	t.Helper()
 
 	// Read to verify the trace is there.  Retry in case
@@ -205,7 +212,7 @@ func requestWithRetry(t *testing.T, client *http.Client, request *http.Request) 
 		}
 
 		// Jaeger might give a 404 or 500 before the trace is there.  Retry.
-		if response.StatusCode != http.StatusOK {
+		if response.StatusCode != expectedResponse {
 			b.Wait()
 			continue
 		}
@@ -216,9 +223,9 @@ func requestWithRetry(t *testing.T, client *http.Client, request *http.Request) 
 		body, err := ioutil.ReadAll(response.Body)
 		testutil.Ok(t, err)
 
-		return string(body)
+		return string(body), response.StatusCode
 	}
 
-	testutil.Assert(t, false, "HTTP 200 response not received within time limit")
-	return ""
+	testutil.Assert(t, false, fmt.Sprintf("%s: HTTP %d response not received within time limit", testLabel, expectedResponse))
+	return "", -1
 }
