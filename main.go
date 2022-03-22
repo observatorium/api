@@ -223,17 +223,14 @@ func main() {
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)
 	defer level.Info(logger).Log("msg", "exiting")
 
-	tp, closer, err := tracing.InitTracer(
+	if err := tracing.InitTracer(
 		cfg.internalTracing.serviceName,
 		cfg.internalTracing.endpoint,
 		cfg.internalTracing.endpointType,
 		cfg.internalTracing.samplingFraction,
-	)
-	if err != nil {
+	); err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
 	}
-
-	defer closer()
 
 	otel.SetErrorHandler(otelErrorHandler{logger: logger})
 
@@ -643,8 +640,9 @@ func main() {
 		r.Get("/", server.PathsHandlerFunc(logger, r.Routes()))
 
 		s := http.Server{
-			Addr:         cfg.server.listen,
-			Handler:      otelhttp.NewHandler(r, "api", otelhttp.WithTracerProvider(tp)),
+			Addr: cfg.server.listen,
+			// otel HTTP handler with global trace provider
+			Handler:      otelhttp.NewHandler(r, "api"),
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
