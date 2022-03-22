@@ -32,11 +32,6 @@ func Middlewares(middlewares ...Middleware) func(r *http.Request) {
 }
 
 func MiddlewareSetUpstream(upstream *url.URL) Middleware {
-	// Verify that the middleware upstream is valid now; rather than failing during processing
-	if upstream == nil {
-		panic("no upstream")
-	}
-
 	return func(r *http.Request) {
 		r.URL.Scheme = upstream.Scheme
 		r.URL.Host = upstream.Host
