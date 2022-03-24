@@ -636,18 +636,21 @@ func main() {
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(ins),
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 							),
 						),
 					)
 
-					// Single page app, not protected by RBAC -- any user can see UI
 					uiHandler := tracesv1.NewUIHandler(
 						cfg.traces.readEndpoint,
 						tracesv1.Logger(logger),
 						tracesv1.WithRegistry(reg),
 						tracesv1.WithHandlerInstrumenter(ins),
+						tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+						tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 					)
-					// Jaeger's main page
+					// Jaeger's main page (single page app)
 					r.Mount("/api/traces/v1/{tenant}/search",
 						stripTenantPrefix("/api/traces/v1",
 							uiHandler,
