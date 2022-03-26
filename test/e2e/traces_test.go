@@ -61,6 +61,12 @@ const (
 	//nolint:lll
 	// queriedV2Trace is traceJSON returned through Jaeger's V2 API
 	queriedV2Trace = `{"data":[{"traceID":"5b8efff798038103d269b633813fc60c","spans":[{"traceID":"5b8efff798038103d269b633813fc60c","spanID":"eee19b7ec3c1b173","operationName":"testSpan","references":[],"startTime":1544712660000000,"duration":1000000,"tags":[{"key":"attr1","type":"int64","value":55},{"key":"internal.span.format","type":"string","value":"proto"}],"logs":[],"processID":"p1","warnings":null}],"processes":{"p1":{"serviceName":"","tags":[{"key":"host.name","type":"string","value":"testHost"}]}},"warnings":null}],"total":0,"limit":0,"offset":0,"errors":null}`
+
+	// queriedV2Trace is service description JSON returned through Jaeger's V2 API
+	queriedV2Services = `{"data":[""],"total":1,"limit":0,"offset":0,"errors":null}`
+
+	// queriedV2Dependencies is dependencies JSON returned through Jaeger's V2 API
+	queriedV2Dependencies = `{"data":[],"total":0,"limit":0,"offset":0,"errors":null}`
 )
 
 func TestTracesExport(t *testing.T) {
@@ -143,18 +149,34 @@ func TestTracesExport(t *testing.T) {
 			false, "", http.StatusOK)
 		assertResponse(t, returnedTrace, queriedV2Trace)
 
-		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api/traces", api.Endpoint("https"))
+		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api", api.Endpoint("https"))
+		httpObservatoriumQueryTraceEndpoint := fmt.Sprintf("%s/traces", httpObservatoriumQueryEndpoint)
 		// We skip TLS verification because Observatorium will present a cert for "e2e_traces_read_export-api",
 		// but we contact it using "localhost"
 		returnedTrace, _ = queryForTraceV2(t, "valid Observatorium trace v2 query",
-			httpObservatoriumQueryEndpoint, "5B8EFFF798038103D269B633813FC60C",
+			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		assertResponse(t, returnedTrace, queriedV2Trace)
 
 		_, returnedStatus := queryForTraceV2(t, "invalid Observatorium trace v2 query",
-			httpObservatoriumQueryEndpoint, "5B8EFFF798038103D269B633813FC60C",
+			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer invalid-token"), 500)
 		testutil.Equals(t, returnedStatus, 500)
+
+		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
+			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
+			false, "", http.StatusOK)
+		assertResponse(t, returnedTrace, queriedV2Trace)
+
+		returnedServices, _ := queryJaeger(t, "Observatorium services v2 query",
+			fmt.Sprintf("%s/services", httpObservatoriumQueryEndpoint),
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedServices, queriedV2Services)
+
+		returnedDependencies, _ := queryJaeger(t, "Observatorium dependencies v2 query",
+			fmt.Sprintf("%s/dependencies", httpObservatoriumQueryEndpoint),
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedDependencies, queriedV2Dependencies)
 	})
 }
 
@@ -174,10 +196,17 @@ func queryForTraceDirectV3(t *testing.T, httpQueryEndpoint, traceID string) stri
 func queryForTraceV2(t *testing.T, testLabel, httpQueryURL, traceID string, insecureSkipVerify bool, authHeader string,
 	expectedResponse int) (string, int) {
 	t.Helper()
+	return queryJaeger(t, testLabel, fmt.Sprintf("%s/%s", httpQueryURL, traceID),
+		insecureSkipVerify, authHeader, expectedResponse)
+}
+
+func queryJaeger(t *testing.T, testLabel, httpQueryURL string, insecureSkipVerify bool, authHeader string,
+	expectedResponse int) (string, int) {
+	t.Helper()
 
 	request, err := http.NewRequest(
 		"GET",
-		fmt.Sprintf("%s/%s", httpQueryURL, traceID),
+		httpQueryURL,
 		nil)
 	testutil.Ok(t, err)
 	request.Header.Set("authorization", authHeader)

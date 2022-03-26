@@ -131,9 +131,16 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 			Transport: otelhttp.NewTransport(t),
 		}
 	}
+
 	r.Group(func(r chi.Router) {
 		r.Use(c.readMiddlewares...)
-		r.Handle("/*", c.instrument.NewHandler(
+		r.Get("/traces*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
+			proxyRead))
+		r.Get("/services*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
+			proxyRead))
+		r.Get("/dependencies*", c.instrument.NewHandler(
 			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
 			proxyRead))
 	})
@@ -179,7 +186,7 @@ func NewUIStaticHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 	}
 	r.Group(func(r chi.Router) {
 		r.Use(c.readMiddlewares...)
-		r.Handle("/*", c.instrument.NewHandler(
+		r.Get("/*", c.instrument.NewHandler(
 			prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
 			proxyRead))
 	})
@@ -231,7 +238,7 @@ func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 
 	r.Group(func(r chi.Router) {
 		r.Use(c.readMiddlewares...)
-		r.Handle("/*", c.instrument.NewHandler(
+		r.Get("/*", c.instrument.NewHandler(
 			prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
 			proxyRead))
 	})

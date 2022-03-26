@@ -749,7 +749,9 @@ func main() {
 			}, func(err error) {
 				level.Info(logger).Log("msg", "shutting down the gRPC server")
 				gs.GracefulStop()
-				_ = lis.Close()
+				if lis != nil {
+					_ = lis.Close()
+				}
 			})
 		}
 	}
