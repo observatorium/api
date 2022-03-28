@@ -612,10 +612,22 @@ func main() {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
 
-					// V2 query API, protected by RBAC
-					r.Mount("/api/traces/v1/{tenant}/api",
+					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
+					if !cfg.metrics.enabled {
+						r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
+							tenant, ok := authentication.GetTenant(r.Context())
+							if !ok {
+								w.WriteHeader(http.StatusNotFound)
+								return
+							}
+
+							http.Redirect(w, r, path.Join("/api/traces/v1/", tenant, "search"), http.StatusMovedPermanently)
+						})
+					}
+
+					r.Mount("/api/traces/v1/{tenant}",
 						stripTenantPrefix("/api/traces/v1",
-							tracesv1.NewV2APIHandler(
+							tracesv1.NewV2Handler(
 								cfg.traces.readEndpoint,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
@@ -625,42 +637,6 @@ func main() {
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
 							),
-						),
-					)
-
-					// Static UI (.js and .css), not protected by RBAC -- any user can see UI
-					r.Mount("/api/traces/v1/{tenant}/static",
-						stripTenantPrefix("/api/traces/v1",
-							tracesv1.NewUIStaticHandler(
-								cfg.traces.readEndpoint,
-								tracesv1.Logger(logger),
-								tracesv1.WithRegistry(reg),
-								tracesv1.WithHandlerInstrumenter(ins),
-								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
-								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-							),
-						),
-					)
-
-					uiHandler := tracesv1.NewUIHandler(
-						cfg.traces.readEndpoint,
-						tracesv1.Logger(logger),
-						tracesv1.WithRegistry(reg),
-						tracesv1.WithHandlerInstrumenter(ins),
-						tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
-						tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-					)
-					// Jaeger's main page (single page app)
-					r.Mount("/api/traces/v1/{tenant}/search",
-						stripTenantPrefix("/api/traces/v1",
-							uiHandler,
-						),
-					)
-					// (This URL is exercised if a user clicks "reload" when the
-					// single-page Jaeger app is showing a trace)
-					r.Mount("/api/traces/v1/{tenant}/trace",
-						stripTenantPrefix("/api/traces/v1",
-							uiHandler,
 						),
 					)
 				})

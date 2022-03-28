@@ -91,8 +91,11 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-// NewV2APIHandler creates a trace query handler for Jaeger V2 HTTP queries
-func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
+// NewV2Handler creates a trace handler for Jaeger V2 API, web UI, and web UI static content
+// The web UI handler is able to rewrite
+// HTML to change the <base> attribute so that it works with the Observatorium-style
+// "/api/v1/traces/{tenant}/" URLs.
+func NewV2Handler(read *url.URL, opts ...HandlerOption) http.Handler {
 	if read == nil {
 		panic("missing Jaeger read url")
 	}
@@ -111,7 +114,7 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 
 	var proxyRead http.Handler
 	{
-		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger query v2", "queryv2", read)
+		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
 		middlewares := proxy.Middlewares(
 			proxy.MiddlewareSetUpstream(read),
 			proxy.MiddlewareSetPrefixHeader(),
@@ -129,117 +132,31 @@ func NewV2APIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 			Director:  middlewares,
 			ErrorLog:  proxy.Logger(c.logger),
 			Transport: otelhttp.NewTransport(t),
-		}
-	}
 
-	r.Group(func(r chi.Router) {
-		r.Use(c.readMiddlewares...)
-		r.Get("/traces*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
-			proxyRead))
-		r.Get("/services*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
-			proxyRead))
-		r.Get("/dependencies*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1api", "handler": "api"},
-			proxyRead))
-	})
-
-	return r
-}
-
-// NewUIStaticHandler creates a trace handler for Jaeger UI static assets (.js and .css)
-func NewUIStaticHandler(read *url.URL, opts ...HandlerOption) http.Handler {
-	c := &handlerConfiguration{
-		logger:     log.NewNopLogger(),
-		registry:   prometheus.NewRegistry(),
-		instrument: nopInstrumentHandler{},
-	}
-
-	for _, o := range opts {
-		o(c)
-	}
-
-	r := chi.NewRouter()
-
-	var proxyRead http.Handler
-	{
-		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger UI static", "ui", read)
-		middlewares := proxy.Middlewares(
-			proxy.MiddlewareSetUpstream(read),
-			proxy.MiddlewareSetPrefixHeader(),
-			proxy.MiddlewareLogger(c.logger),
-			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-ui-static"}),
-		)
-
-		t := &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: ReadTimeout,
-			}).DialContext,
-		}
-
-		proxyRead = &httputil.ReverseProxy{
-			Director:  middlewares,
-			ErrorLog:  proxy.Logger(c.logger),
-			Transport: otelhttp.NewTransport(t),
-		}
-	}
-	r.Group(func(r chi.Router) {
-		r.Use(c.readMiddlewares...)
-		r.Get("/*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
-			proxyRead))
-	})
-
-	return r
-}
-
-// NewUIHandler creates a trace handler for Jaeger UI that is able to re-write
-// HTML to change the <base> attribute so that it works with the Observatorium-style
-// "/api/v1/traces/{tenant}/" URLs.
-func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
-	c := &handlerConfiguration{
-		logger:     log.NewNopLogger(),
-		registry:   prometheus.NewRegistry(),
-		instrument: nopInstrumentHandler{},
-	}
-
-	for _, o := range opts {
-		o(c)
-	}
-
-	r := chi.NewRouter()
-
-	var proxyRead http.Handler
-	{
-		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger UI", "ui", read)
-		middlewares := proxy.Middlewares(
-			proxy.MiddlewareSetUpstream(read),
-			proxy.MiddlewareSetPrefixHeader(),
-			proxy.MiddlewareLogger(c.logger),
-			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-ui"}),
-		)
-
-		t := &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: ReadTimeout,
-			}).DialContext,
-		}
-
-		proxyRead = &httputil.ReverseProxy{
-			Director:  middlewares,
-			ErrorLog:  proxy.Logger(c.logger),
-			Transport: otelhttp.NewTransport(t),
-
-			// This is the key piece, it changes <base href=> tags
+			// This is a key piece, it changes <base href=> tags on text/html content
 			ModifyResponse: jaegerUIResponseModifier,
 		}
 	}
 
 	r.Group(func(r chi.Router) {
 		r.Use(c.readMiddlewares...)
-		r.Get("/*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1ui", "handler": "search"},
+		r.Get("/api/traces*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
+			proxyRead))
+		r.Get("/api/services*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1api", "handler": "services"},
+			proxyRead))
+		r.Get("/api/dependencies*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1api", "handler": "dependencies"},
+			proxyRead))
+		r.Get("/static/*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1static", "handler": "ui"},
+			proxyRead))
+		r.Get("/search*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+			proxyRead))
+		r.Get("/favicon.ico", c.instrument.NewHandler(
+			prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
 			proxyRead))
 	})
 
@@ -247,7 +164,7 @@ func NewUIHandler(read *url.URL, opts ...HandlerOption) http.Handler {
 }
 
 func jaegerUIResponseModifier(response *http.Response) error {
-	// Only modify successful HTTP
+	// Only modify successful HTTP with HTML content
 	if response.StatusCode == http.StatusOK && strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
 		// Do man-in-the-middle rewriting of the UI HTML.
 		var err error
