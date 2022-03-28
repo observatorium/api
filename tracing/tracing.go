@@ -2,12 +2,15 @@ package tracing
 
 import (
 	"fmt"
+	"net"
 
 	propjaeger "go.opentelemetry.io/contrib/propagators/jaeger"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/trace/jaeger"
+	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.5.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,23 +28,40 @@ func InitTracer(
 	endpoint string,
 	endpointType EndpointType,
 	samplingFraction float64,
-) (tp trace.TracerProvider, closer func(), err error) {
-	endpointOption := jaeger.WithAgentEndpoint(endpoint)
-	if endpointType == EndpointTypeCollector {
-		endpointOption = jaeger.WithCollectorEndpoint(endpoint)
+) (err error) {
+	if endpoint == "" {
+		otel.SetTracerProvider(trace.NewNoopTracerProvider())
+		return nil
 	}
 
-	tp, closer, err = jaeger.NewExportPipeline(
-		endpointOption,
-		jaeger.WithProcess(jaeger.Process{
-			ServiceName: serviceName,
-		}),
-		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.ParentBased(sdktrace.TraceIDRatioBased(samplingFraction))}),
-		jaeger.WithDisabled(endpoint == ""),
-	)
-	if err != nil {
-		return tp, closer, fmt.Errorf("create jaeger export pipeline: %w", err)
+	endpointOption := jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(endpoint))
+
+	if endpointType == EndpointTypeAgent {
+		host, port, err := net.SplitHostPort(endpoint)
+		if err != nil {
+			return fmt.Errorf("initialising tracer failed for agent endpoint type: %w", err)
+		}
+
+		endpointOption = jaeger.WithAgentEndpoint(
+			jaeger.WithAgentHost(host),
+			jaeger.WithAgentPort(port),
+		)
 	}
+
+	exp, err := jaeger.New(endpointOption)
+	if err != nil {
+		return fmt.Errorf("failed to create Jaeger exporter: %w", err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(samplingFraction))),
+		sdktrace.WithBatcher(exp),
+		sdktrace.WithResource(
+			resource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceNameKey.String(serviceName),
+			)),
+	)
 
 	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
@@ -50,5 +70,5 @@ func InitTracer(
 		propagation.Baggage{},
 	))
 
-	return tp, closer, nil
+	return nil
 }
