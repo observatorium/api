@@ -141,6 +141,8 @@ Usage of ./observatorium-api:
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls.server.key-file string
     	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
+  -traces.read.endpoint string
+    	The endpoint against which to make HTTP read requests for traces.
   -traces.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector. (default "X-Tenant")
   -traces.write.endpoint string

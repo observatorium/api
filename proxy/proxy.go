@@ -18,7 +18,7 @@ type contextKey string
 const (
 	prefixKey contextKey = "prefix"
 
-	prefixHeader string = "X-Forwarded-Prefix"
+	PrefixHeader string = "X-Forwarded-Prefix"
 )
 
 type Middleware func(r *http.Request)
@@ -47,11 +47,11 @@ func MiddlewareSetPrefixHeader() Middleware {
 		}
 
 		// Do not override the prefix header if it is already set.
-		if r.Header.Get(prefixHeader) != "" {
+		if r.Header.Get(PrefixHeader) != "" {
 			return
 		}
 
-		r.Header.Set(prefixHeader, prefix)
+		r.Header.Set(PrefixHeader, prefix)
 	}
 }
 

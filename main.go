@@ -140,9 +140,10 @@ type logsConfig struct {
 }
 
 type tracesConfig struct {
+	readEndpoint  *url.URL
 	writeEndpoint string
 	tenantHeader  string
-	// enable traces if writeEndpoint is provided.
+	// enable traces if readEndpoint or writeEndpoint is provided.
 	enabled bool
 }
 
@@ -604,6 +605,42 @@ func main() {
 					)
 				})
 			}
+
+			// Traces.
+			if cfg.traces.enabled && cfg.traces.readEndpoint != nil {
+				r.Group(func(r chi.Router) {
+					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
+					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
+
+					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
+					if !cfg.metrics.enabled {
+						r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
+							tenant, ok := authentication.GetTenant(r.Context())
+							if !ok {
+								w.WriteHeader(http.StatusNotFound)
+								return
+							}
+
+							http.Redirect(w, r, path.Join("/api/traces/v1/", tenant, "search"), http.StatusMovedPermanently)
+						})
+					}
+
+					r.Mount("/api/traces/v1/{tenant}",
+						stripTenantPrefix("/api/traces/v1",
+							tracesv1.NewV2Handler(
+								cfg.traces.readEndpoint,
+								tracesv1.Logger(logger),
+								tracesv1.WithRegistry(reg),
+								tracesv1.WithHandlerInstrumenter(ins),
+								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
+							),
+						),
+					)
+				})
+			}
 		})
 
 		tlsConfig, err := tls.NewServerConfig(
@@ -688,7 +725,9 @@ func main() {
 			}, func(err error) {
 				level.Info(logger).Log("msg", "shutting down the gRPC server")
 				gs.GracefulStop()
-				_ = lis.Close()
+				if lis != nil {
+					_ = lis.Close()
+				}
 			})
 		}
 	}
@@ -791,7 +830,7 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
-//nolint:funlen
+//nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
 		rawTLSCipherSuites      string
@@ -801,6 +840,7 @@ func parseFlags() (config, error) {
 		rawLogsReadEndpoint     string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
+		rawTracesReadEndpoint   string
 		rawTracesWriteEndpoint  string
 		rawTracingEndpointType  string
 	)
@@ -859,6 +899,8 @@ func parseFlags() (config, error) {
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
+	flag.StringVar(&rawTracesReadEndpoint, "traces.read.endpoint", "",
+		"The endpoint against which to make HTTP read requests for traces.")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
 		"The endpoint against which to make gRPC write requests for traces.")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
@@ -962,6 +1004,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.writeEndpoint = logsWriteEndpoint
+	}
+
+	if rawTracesReadEndpoint != "" {
+		cfg.traces.enabled = true
+
+		tracesReadEndpoint, err := url.ParseRequestURI(rawTracesReadEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
+		}
+
+		cfg.traces.readEndpoint = tracesReadEndpoint
 	}
 
 	if rawTracesWriteEndpoint != "" {
