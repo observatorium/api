@@ -187,7 +187,7 @@ func (a *restAuthorizer) Authorize(
 	switch res := (*dres.Result).(type) {
 	case bool:
 		allowed = res
-	case map[string]string:
+	case map[string]interface{}:
 		allow, ok := res["allowed"]
 		if !ok {
 			level.Error(a.logger).Log("msg", "received a malformed OPA response")
@@ -195,14 +195,14 @@ func (a *restAuthorizer) Authorize(
 			return http.StatusForbidden, false, ""
 		}
 
-		allowed, err = strconv.ParseBool(allow)
+		allowed, err = strconv.ParseBool(allow.(string))
 		if err != nil {
 			level.Error(a.logger).Log("msg", "received a malformed OPA response")
 
 			return http.StatusForbidden, false, ""
 		}
 
-		data = res["data"]
+		data = res["data"].(string)
 
 	default:
 		level.Error(a.logger).Log("msg", "received a malformed OPA response")

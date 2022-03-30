@@ -33,7 +33,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 			var lm []*labels.Matcher
 			if err := json.Unmarshal([]byte(data), &lm); err != nil {
-				http.Error(w, "error parsing authorization label matcher", http.StatusInternalServerError)
+				http.Error(w, "error parsing authorization label matchers", http.StatusInternalServerError)
 
 				return
 			}
