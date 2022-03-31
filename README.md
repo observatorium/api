@@ -100,4 +100,3 @@ Usage of ./observatorium:
   -web.listen string
     	The address on which the public server listens. (default ":8080")
 ```
-
