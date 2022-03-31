@@ -1,0 +1,45 @@
+# This should ideally be in a parameters directory, but oapi-codegen can't seem to import package with just parameters.
+# TODO(saswatamcode): Explore other way of doing this.
+components:
+  parameters:
+    tenant:
+      in: path
+      name: tenant
+      description: name of the tenant
+      required: true
+      schema:
+        type: string
+    seriesMatcher:
+      in: query
+      name: match[]
+      description: Repeated series selector argument
+      schema:
+        type: array
+        items:
+          type: string
+    startTS:
+      in: query
+      name: start
+      description: Start timestamp
+      schema:
+        type: string
+        format: rfc3339 | unix_timestamp
+    endTS:
+      in: query
+      name: end
+      description: End timestamp
+      schema:
+        type: string
+        format: rfc3339 | unix_timestamp
+    query:
+      in: query
+      name: query
+      description: query to fetch result for
+      schema:
+        type: string
+    queryTimeout:
+      in: query
+      name: timeout
+      description: Evaluation timeout
+      schema:
+        type: string

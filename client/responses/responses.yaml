@@ -1,0 +1,123 @@
+components:
+  schemas:
+    SeriesResponse:
+      type: object
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+    QueryResponse:
+      type: object
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          $ref: "../models/models.yaml#/components/schemas/InstantQueryResponse"
+    QueryRangeResponse:
+      type: object
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          $ref: "../models/models.yaml#/components/schemas/RangeQueryResponse"
+    LabelsResponse:
+      type: object
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            type: string
+            example: "__name__"
+    LabelValuesResponse:
+      type: object
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            type: string
+            example: "node"
+    RulesResponse:
+      type: object
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          $ref: "../models/models.yaml#/components/schemas/Rules"
