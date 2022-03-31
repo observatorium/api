@@ -134,7 +134,10 @@ function(params) {
                   [
                     '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
                     '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'],
-                  ] else []
+                  ] + (if std.objectHas(api.config.traces, 'readEndpoint') then [
+                         '--traces.read.endpoint=' + api.config.traces.readEndpoint,
+                       ] else [])
+                else []
               ) + (
                 if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []
               ) + (

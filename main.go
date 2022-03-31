@@ -140,10 +140,13 @@ type logsConfig struct {
 }
 
 type tracesConfig struct {
-	readEndpoint  *url.URL
+	// readTemplateEndpoint is of the form "http://jaeger-{tenant}:16686"
+	// or "http://jaeger:16686"
+	readTemplateEndpoint string
+
 	writeEndpoint string
 	tenantHeader  string
-	// enable traces if readEndpoint or writeEndpoint is provided.
+	// enable traces if readTemplateEndpoint or writeEndpoint is provided.
 	enabled bool
 }
 
@@ -362,7 +365,11 @@ func main() {
 	// Running in container with limits but with empty/wrong value of GOMAXPROCS env var could lead to throttling by cpu
 	// maxprocs will automate adjustment by using cgroups info about cpu limit if it set as value for runtime.GOMAXPROCS
 	undo, err := maxprocs.Set(maxprocs.Logger(func(template string, args ...interface{}) {
-		level.Debug(logger).Log("msg", fmt.Sprintf(template, args))
+		if len(args) == 0 {
+			level.Debug(logger).Log("msg", template)
+		} else {
+			level.Debug(logger).Log("msg", fmt.Sprintf(template, args))
+		}
 	}))
 	if err != nil {
 		level.Error(logger).Log("msg", "failed to set GOMAXPROCS:", "err", err)
@@ -607,7 +614,7 @@ func main() {
 			}
 
 			// Traces.
-			if cfg.traces.enabled && cfg.traces.readEndpoint != nil {
+			if cfg.traces.enabled && cfg.traces.readTemplateEndpoint != "" {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
@@ -628,7 +635,7 @@ func main() {
 					r.Mount("/api/traces/v1/{tenant}",
 						stripTenantPrefix("/api/traces/v1",
 							tracesv1.NewV2Handler(
-								cfg.traces.readEndpoint,
+								cfg.traces.readTemplateEndpoint,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(ins),
@@ -1009,12 +1016,15 @@ func parseFlags() (config, error) {
 	if rawTracesReadEndpoint != "" {
 		cfg.traces.enabled = true
 
-		tracesReadEndpoint, err := url.ParseRequestURI(rawTracesReadEndpoint)
+		_, err := url.ParseRequestURI(rawTracesReadEndpoint)
 		if err != nil {
-			return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
+			_, err2 := tracesv1.ExpandTemplatedUpstream(rawTracesReadEndpoint, "dummy")
+			if err2 != nil {
+				return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
+			}
 		}
 
-		cfg.traces.readEndpoint = tracesReadEndpoint
+		cfg.traces.readTemplateEndpoint = rawTracesReadEndpoint
 	}
 
 	if rawTracesWriteEndpoint != "" {
