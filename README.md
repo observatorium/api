@@ -75,6 +75,8 @@ Usage of ./observatorium-api:
     	The percentage of mutex contention events that are reported in the mutex profile. (default 10)
   -debug.name string
     	A name to add as a prefix to log lines. (default "observatorium")
+  -experimental.traces.read.endpoint-template string
+    	A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686
   -grpc.listen string
     	The address on which the public gRPC server listens.
   -internal.tracing.endpoint string
