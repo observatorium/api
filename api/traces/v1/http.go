@@ -97,8 +97,8 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read string, opts ...HandlerOption) http.Handler {
-	if read == "" {
+func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) http.Handler {
+	if read == nil && readTemplate == "" {
 		panic("missing Jaeger read url")
 	}
 
@@ -118,7 +118,7 @@ func NewV2Handler(read string, opts ...HandlerOption) http.Handler {
 	{
 		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
 		middlewares := proxy.Middlewares(
-			middlewareSetTemplatedUpstream(c.logger, read),
+			middlewareSetUpstream(c.logger, read, readTemplate),
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
 			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
@@ -173,19 +173,10 @@ func ExpandTemplatedUpstream(templateUpstream, tenant string) (*url.URL, error) 
 
 // middlewareSetTemplatedUpstream is a variation of proxy.MiddlewareSetUpstream()
 // with additional processing if the upstream includes "{tenant}"
-func middlewareSetTemplatedUpstream(logger log.Logger, upstreamTemplate string) proxy.Middleware {
-	// If the upstream is a URL, parse it once
-	upstream, err := url.ParseRequestURI(upstreamTemplate)
-	if err == nil {
-		return func(r *http.Request) {
-			r.URL.Scheme = upstream.Scheme
-			r.URL.Host = upstream.Host
-			r.URL.Path = path.Join(upstream.Path, r.URL.Path)
-		}
+func middlewareSetUpstream(logger log.Logger, read *url.URL, readTemplate string) proxy.Middleware {
+	if read != nil {
+		return proxy.MiddlewareSetUpstream(read)
 	}
-
-	// The upstream is not a URL.  We checked at startup that `-traces.read.endpoint`
-	// was either a URL or a templated URL, so we must have a templated URL.
 
 	// Cache upstream URLs to avoid re-parse on every read
 	templateToURL := map[string]*url.URL{}
@@ -199,7 +190,7 @@ func middlewareSetTemplatedUpstream(logger log.Logger, upstreamTemplate string) 
 
 		upstream, ok := templateToURL[tenant]
 		if !ok {
-			upstream, err = ExpandTemplatedUpstream(upstreamTemplate, tenant)
+			upstream, err := ExpandTemplatedUpstream(readTemplate, tenant)
 			if err != nil {
 				// Log if the tenant label includes characters that can't appear in a hostname (such as punctuation)
 				level.Debug(logger).Log("msg", "Internal error; tenant contains characters that cannot appear in hostname")
