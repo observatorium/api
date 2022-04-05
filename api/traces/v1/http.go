@@ -190,7 +190,8 @@ func middlewareSetUpstream(logger log.Logger, read *url.URL, readTemplate string
 
 		upstream, ok := templateToURL[tenant]
 		if !ok {
-			upstream, err := ExpandTemplatedUpstream(readTemplate, tenant)
+			var err error
+			upstream, err = ExpandTemplatedUpstream(readTemplate, tenant)
 			if err != nil {
 				// Log if the tenant label includes characters that can't appear in a hostname (such as punctuation)
 				level.Debug(logger).Log("msg", "Internal error; tenant contains characters that cannot appear in hostname")

@@ -313,6 +313,9 @@ type apiOptions struct {
 	tracesWriteEndpoint  string
 	gRPCListenEndpoint   string
 	jaegerQueryEndpoint  string
+
+	// "experimental.traces.read.endpoint-template" value
+	tracesExperimentalTemplateReadEndpoint string
 }
 
 type apiOption func(*apiOptions)
@@ -345,6 +348,12 @@ func withGRPCListenEndpoint(listenEndpoint string) apiOption {
 func withJaegerEndpoint(jaegerQueryEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.jaegerQueryEndpoint = jaegerQueryEndpoint
+	}
+}
+
+func withExperimentalJaegerTemplateEndpoint(jaegerQueryEndpointTemplate string) apiOption {
+	return func(o *apiOptions) {
+		o.tracesExperimentalTemplateReadEndpoint = jaegerQueryEndpointTemplate
 	}
 }
 
@@ -407,6 +416,10 @@ func newObservatoriumAPIService(
 
 	if opts.tracesWriteEndpoint != "" {
 		args = append(args, "--traces.write.endpoint="+opts.tracesWriteEndpoint)
+	}
+
+	if opts.tracesExperimentalTemplateReadEndpoint != "" {
+		args = append(args, "--experimental.traces.read.endpoint-template="+opts.tracesExperimentalTemplateReadEndpoint)
 	}
 
 	if opts.jaegerQueryEndpoint != "" {

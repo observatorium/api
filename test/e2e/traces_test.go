@@ -257,3 +257,115 @@ func requestWithRetry(t *testing.T, testLabel string, client *http.Client, reque
 	testutil.Assert(t, false, fmt.Sprintf("%s: HTTP %d response not received within time limit", testLabel, expectedResponse))
 	return "", -1
 }
+
+func TestTraceTemplateQuery(t *testing.T) {
+	t.Parallel()
+
+	e, err := e2e.NewDockerEnvironment(envTracesName)
+	testutil.Ok(t, err)
+	t.Cleanup(e.Close)
+
+	prepareConfigsAndCerts(t, traces, e)
+	_, token, _ := startBaseServices(t, e, traces)
+	internalOtlpEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
+
+	api, err := newObservatoriumAPIService(
+		e,
+		withGRPCListenEndpoint(":8317"),
+		// Note that we don't include `{tenant}`, because we can't easily do this with DNS on Docker
+		withOtelTraceEndpoint(internalOtlpEndpoint),
+		withExperimentalJaegerTemplateEndpoint("http://"+httpInternalQueryEndpoint),
+
+		// This test doesn't actually write logs, but we need
+		// this because Observatorium currently MUST see a logs or metrics endpoints
+		withLogsEndpoints("http://localhost:8080"),
+	)
+	testutil.Ok(t, err)
+	testutil.Ok(t, e2e.StartAndWaitReady(api))
+
+	t.Run("write-then-query-single-trace", func(t *testing.T) {
+
+		createOtelForwardingCollectorConfigYAML(t, e,
+			api.InternalEndpoint("grpc"),
+			token)
+
+		otel := e.Runnable("otel-fwd-coll").
+			WithPorts(
+				map[string]int{
+					"http": 4318,
+					"grpc": 4317,
+				}).
+			Init(e2e.StartOptions{
+				Image: otelFwdCollectorImage,
+				Volumes: []string{
+					fmt.Sprintf("%s:/conf/forwarding-collector.yaml",
+						filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"))),
+				},
+				Command: e2e.Command{
+					Args: []string{"--config=/conf/forwarding-collector.yaml"},
+				},
+			})
+
+		testutil.Ok(t, e2e.StartAndWaitReady(otel))
+
+		// Send trace insecurly to forwarding OTel collector for forwarding through Observatorium
+		// (This code could be refactored to observatorium/up, the test client)
+
+		client := &http.Client{}
+		request, err := http.NewRequest(
+			"POST",
+			fmt.Sprintf("http://%s/v1/traces", otel.Endpoint("http")),
+			bytes.NewBuffer([]byte(traceJSON)))
+		testutil.Ok(t, err)
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		testutil.Ok(t, err)
+		defer response.Body.Close()
+
+		body, err := ioutil.ReadAll(response.Body)
+		testutil.Ok(t, err)
+
+		bodyStr := string(body)
+		assertResponse(t, bodyStr, "{}")
+
+		testutil.Equals(t, http.StatusOK, response.StatusCode)
+
+		returnedTrace := queryForTraceDirectV3(t,
+			httpExternalQueryEndpoint, "5B8EFFF798038103D269B633813FC60C")
+		assertResponse(t, returnedTrace, queriedV3Trace)
+
+		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
+			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
+			false, "", http.StatusOK)
+		assertResponse(t, returnedTrace, queriedV2Trace)
+
+		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api", api.Endpoint("https"))
+		httpObservatoriumQueryTraceEndpoint := fmt.Sprintf("%s/traces", httpObservatoriumQueryEndpoint)
+		// We skip TLS verification because Observatorium will present a cert for "e2e_traces_read_export-api",
+		// but we contact it using "localhost"
+		returnedTrace, _ = queryForTraceV2(t, "valid Observatorium trace v2 query",
+			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedTrace, queriedV2Trace)
+
+		_, returnedStatus := queryForTraceV2(t, "invalid Observatorium trace v2 query",
+			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
+			true, fmt.Sprintf("bearer invalid-token"), 500)
+		testutil.Equals(t, returnedStatus, 500)
+
+		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
+			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
+			false, "", http.StatusOK)
+		assertResponse(t, returnedTrace, queriedV2Trace)
+
+		returnedServices, _ := queryJaeger(t, "Observatorium services v2 query",
+			fmt.Sprintf("%s/services", httpObservatoriumQueryEndpoint),
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedServices, queriedV2Services)
+
+		returnedDependencies, _ := queryJaeger(t, "Observatorium dependencies v2 query",
+			fmt.Sprintf("%s/dependencies", httpObservatoriumQueryEndpoint),
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedDependencies, queriedV2Dependencies)
+	})
+}
