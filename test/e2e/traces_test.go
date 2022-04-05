@@ -261,12 +261,12 @@ func requestWithRetry(t *testing.T, testLabel string, client *http.Client, reque
 func TestTraceTemplateQuery(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envTracesName)
+	e, err := e2e.NewDockerEnvironment(envTTemplsName)
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, traces, e)
-	_, token, _ := startBaseServices(t, e, traces)
+	prepareConfigsAndCerts(t, tracetempls, e)
+	_, token, _ := startBaseServices(t, e, tracetempls)
 	internalOtlpEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(

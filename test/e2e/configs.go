@@ -22,6 +22,7 @@ const (
 	rules       testType = "rules"
 	logs        testType = "logs"
 	traces      testType = "traces"
+	tracetempls testType = "tracetempls"
 	tenants     testType = "tenants"
 	interactive testType = "interactive"
 
@@ -36,6 +37,7 @@ const (
 	envRulesAPIName = "e2e_rules_api"
 	envLogsName     = "e2e_logs_read_write_tail"
 	envTracesName   = "e2e_traces_read_export"
+	envTTemplsName  = "e2e_traces2_templ_query"
 	envTenantsName  = "e2e_tenants"
 	envInteractive  = "e2e_interactive"
 

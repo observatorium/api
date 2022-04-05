@@ -95,6 +95,8 @@ func getContainerName(t *testing.T, tt testType, serviceName string) string {
 		return envInteractive + "-" + serviceName
 	case traces:
 		return envTracesName + "-" + serviceName
+	case tracetempls:
+		return envTTemplsName + "-" + serviceName
 	default:
 		t.Fatal("invalid test type provided")
 		return ""
