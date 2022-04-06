@@ -507,3 +507,7 @@ func (a OpenShiftAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a OpenShiftAuthenticator) Handler() (string, http.Handler) {
 	return "/openshift/{tenant}", a.handler
 }
+
+func (a OpenShiftAuthenticator) LoginPath(tenant string) string {
+	return strings.ReplaceAll("/openshift/{tenant}/login", "{tenant}", tenant)
+}

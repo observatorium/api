@@ -42,6 +42,7 @@ type Provider interface {
 	Middleware() Middleware
 	GRPCMiddleware() grpc.StreamServerInterceptor
 	Handler() (string, http.Handler)
+	LoginPath(tenant string) string
 }
 
 type tenantHandlers map[string]http.Handler
@@ -52,6 +53,7 @@ type ProviderManager struct {
 	patternHandlers        map[string]tenantHandlers
 	middlewares            map[string]Middleware
 	gRPCInterceptors       map[string]grpc.StreamServerInterceptor
+	authenticator          map[string]Provider
 	logger                 log.Logger
 	registrationRetryCount *prometheus.CounterVec
 }
@@ -63,6 +65,7 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 		patternHandlers:        make(map[string]tenantHandlers),
 		middlewares:            make(map[string]Middleware),
 		gRPCInterceptors:       make(map[string]grpc.StreamServerInterceptor),
+		authenticator:          make(map[string]Provider),
 		logger:                 l,
 	}
 }
@@ -91,6 +94,7 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 		ah.mtx.Lock()
 		ah.middlewares[tenant] = authenticator.Middleware()
 		ah.gRPCInterceptors[tenant] = authenticator.GRPCMiddleware()
+		ah.authenticator[tenant] = authenticator
 		pattern, handler := authenticator.Handler()
 		if pattern != "" && handler != nil {
 			if ah.patternHandlers[pattern] == nil {
@@ -146,6 +150,18 @@ func (ah *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
 		}
 		h.ServeHTTP(w, r)
 	})
+}
+
+func (ah *ProviderManager) GetLoginPath(tenant string) (string, bool) {
+	ah.mtx.RLock()
+	provider, ok := ah.authenticator[tenant]
+	ah.mtx.RUnlock()
+
+	if !ok {
+		return "", false
+	}
+
+	return provider.LoginPath(tenant), true
 }
 
 func getProviderFactory(authType string) (ProviderFactory, error) {

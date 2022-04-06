@@ -46,6 +46,10 @@ func (a dummyAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
 
+func (a dummyAuthenticator) LoginPath(tenant string) string {
+	return ""
+}
+
 func newdummyAuthenticator(c map[string]interface{}, tenant string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
 	var config dummyAuthenticatorConfig
 

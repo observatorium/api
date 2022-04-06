@@ -434,3 +434,7 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 
 	return ctx, "", http.StatusOK, codes.OK
 }
+
+func (a oidcAuthenticator) LoginPath(tenant string) string {
+	return strings.ReplaceAll("/oidc/{tenant}/login", "{tenant}", tenant)
+}

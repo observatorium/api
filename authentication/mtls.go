@@ -156,3 +156,7 @@ func (a MTLSAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a MTLSAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
+
+func (a MTLSAuthenticator) LoginPath(tenant string) string {
+	return ""
+}

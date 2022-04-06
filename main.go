@@ -625,6 +625,24 @@ func main() {
 						})
 					}
 
+					// Redirect "/api/traces/v1/{tenant}/login" to e.g. "/oidc/{tenant}/login".
+					r.Get("/api/traces/v1/{tenant}/login", func(w http.ResponseWriter, r *http.Request) {
+						tenant, ok := authentication.GetTenant(r.Context())
+						if !ok {
+							w.WriteHeader(http.StatusNotFound)
+							return
+						}
+
+						// Skip providers without login URLs.
+						loginPath, ok := pm.GetLoginPath(tenant)
+						if !ok || loginPath == "" {
+							w.WriteHeader(http.StatusNotFound)
+							return
+						}
+
+						http.Redirect(w, r, loginPath, http.StatusMovedPermanently)
+					})
+
 					r.Mount("/api/traces/v1/{tenant}",
 						stripTenantPrefix("/api/traces/v1",
 							tracesv1.NewV2Handler(
