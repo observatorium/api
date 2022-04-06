@@ -137,6 +137,9 @@ function(params) {
                   ] + (if std.objectHas(api.config.traces, 'readEndpoint') then [
                          '--traces.read.endpoint=' + api.config.traces.readEndpoint,
                        ] else [])
+                  + (if std.objectHas(api.config.traces, 'templateEndpoint') then [
+                       '--experimental.traces.read.endpoint-template=' + api.config.traces.templateEndpoint,
+                     ] else [])
                 else []
               ) + (
                 if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []

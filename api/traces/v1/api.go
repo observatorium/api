@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// TraceRoute represents the fully-qualified gRPC method name for exporting a trace
+// TraceRoute represents the fully-qualified gRPC method name for exporting a trace.
 const TraceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
 
 type connOptions struct {

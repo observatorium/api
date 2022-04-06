@@ -118,7 +118,7 @@ func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) htt
 	{
 		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
 		middlewares := proxy.Middlewares(
-			middlewareSetUpstream(c.logger, read, readTemplate),
+			middlewareSetTemplatedUpstream(c.logger, read, readTemplate),
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
 			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
@@ -165,26 +165,26 @@ func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) htt
 	return r
 }
 
-// Parse a URL; if the URL includes `{tenant}` that portion will be replaced by the tenant
+// Parse a URL; if the URL includes `{tenant}` that portion will be replaced by the tenant.
 func ExpandTemplatedUpstream(templateUpstream, tenant string) (*url.URL, error) {
 	rawTracesReadEndpoint := strings.Replace(templateUpstream, "{tenant}", tenant, 1)
 	return url.ParseRequestURI(rawTracesReadEndpoint)
 }
 
 // middlewareSetTemplatedUpstream is a variation of proxy.MiddlewareSetUpstream()
-// with additional processing if the upstream includes "{tenant}"
-func middlewareSetUpstream(logger log.Logger, read *url.URL, readTemplate string) proxy.Middleware {
+// with additional processing if the upstream includes "{tenant}".
+func middlewareSetTemplatedUpstream(logger log.Logger, read *url.URL, readTemplate string) proxy.Middleware {
 	if read != nil {
 		return proxy.MiddlewareSetUpstream(read)
 	}
 
-	// Cache upstream URLs to avoid re-parse on every read
+	// Cache upstream URLs to avoid re-parse on every read.
 	templateToURL := map[string]*url.URL{}
 
 	return func(r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
-			// At this point another middleware must have put the tenant into the context
+			// At this point another middleware must have put the tenant into the context.
 			level.Debug(logger).Log("msg", "Internal error; expected tenant in request context")
 		}
 
@@ -193,7 +193,7 @@ func middlewareSetUpstream(logger log.Logger, read *url.URL, readTemplate string
 			var err error
 			upstream, err = ExpandTemplatedUpstream(readTemplate, tenant)
 			if err != nil {
-				// Log if the tenant label includes characters that can't appear in a hostname (such as punctuation)
+				// Log if the tenant label includes characters that can't appear in a hostname (such as punctuation).
 				level.Debug(logger).Log("msg", "Internal error; tenant contains characters that cannot appear in hostname")
 			}
 

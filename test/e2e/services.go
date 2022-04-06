@@ -314,7 +314,7 @@ type apiOptions struct {
 	gRPCListenEndpoint   string
 	jaegerQueryEndpoint  string
 
-	// "experimental.traces.read.endpoint-template" value
+	// "experimental.traces.read.endpoint-template" value.
 	tracesExperimentalTemplateReadEndpoint string
 }
 

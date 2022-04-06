@@ -140,7 +140,7 @@ type logsConfig struct {
 }
 
 type tracesConfig struct {
-	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686"
+	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686".
 	readTemplateEndpoint string
 
 	readEndpoint  *url.URL
