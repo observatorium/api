@@ -117,8 +117,16 @@ func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) htt
 	var proxyRead http.Handler
 	{
 		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
+
+		var upstreamMiddleware proxy.Middleware
+		if read != nil {
+			upstreamMiddleware = proxy.MiddlewareSetUpstream(read)
+		} else {
+			upstreamMiddleware = middlewareSetTemplatedUpstream(c.logger, readTemplate)
+		}
+
 		middlewares := proxy.Middlewares(
-			middlewareSetTemplatedUpstream(c.logger, read, readTemplate),
+			upstreamMiddleware,
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
 			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
@@ -173,11 +181,7 @@ func ExpandTemplatedUpstream(templateUpstream, tenant string) (*url.URL, error) 
 
 // middlewareSetTemplatedUpstream is a variation of proxy.MiddlewareSetUpstream()
 // with additional processing if the upstream includes "{tenant}".
-func middlewareSetTemplatedUpstream(logger log.Logger, read *url.URL, readTemplate string) proxy.Middleware {
-	if read != nil {
-		return proxy.MiddlewareSetUpstream(read)
-	}
-
+func middlewareSetTemplatedUpstream(logger log.Logger, readTemplate string) proxy.Middleware {
 	// Cache upstream URLs to avoid re-parse on every read.
 	templateToURL := map[string]*url.URL{}
 

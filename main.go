@@ -1039,6 +1039,12 @@ func parseFlags() (config, error) {
 			return cfg, fmt.Errorf("only one of --traces.read.endpoint and --experimental.traces.read.endpoint-template allowed")
 		}
 
+		if !strings.Contains(cfg.traces.readTemplateEndpoint, "{tenant}") {
+			fmt.Fprintf(os.Stderr,
+				"--experimental.traces.read.endpoint-template does not contain '{tenant}', all tenants will use %q\n",
+				cfg.traces.readTemplateEndpoint)
+		}
+
 		// After the template is expanded, will it yield a valid URL?
 		_, err := tracesv1.ExpandTemplatedUpstream(cfg.traces.readTemplateEndpoint, "dummy")
 		if err != nil {
