@@ -1012,6 +1012,26 @@ func parseFlags() (config, error) {
 		cfg.logs.writeEndpoint = logsWriteEndpoint
 	}
 
+	if cfg.traces.readTemplateEndpoint != "" {
+		if rawTracesReadEndpoint != "" {
+			return cfg, fmt.Errorf("only one of --traces.read.endpoint and --experimental.traces.read.endpoint-template allowed")
+		}
+
+		if !strings.Contains(cfg.traces.readTemplateEndpoint, "{tenant}") {
+			fmt.Fprintf(os.Stderr,
+				"--experimental.traces.read.endpoint-template does not contain '{tenant}', all tenants will use %q\n",
+				cfg.traces.readTemplateEndpoint)
+		}
+
+		// After the template is expanded, will it yield a valid URL?
+		_, err := tracesv1.ExpandTemplatedUpstream(cfg.traces.readTemplateEndpoint, "dummy")
+		if err != nil {
+			return cfg, fmt.Errorf("--experimental.traces.read.endpoint-template %q is invalid: %w", rawTracesReadEndpoint, err)
+		}
+
+		cfg.traces.enabled = true
+	}
+
 	if rawTracesReadEndpoint != "" {
 		cfg.traces.enabled = true
 
@@ -1032,26 +1052,6 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.traces.writeEndpoint = rawTracesWriteEndpoint
-	}
-
-	if cfg.traces.readTemplateEndpoint != "" {
-		if cfg.traces.readEndpoint != nil {
-			return cfg, fmt.Errorf("only one of --traces.read.endpoint and --experimental.traces.read.endpoint-template allowed")
-		}
-
-		if !strings.Contains(cfg.traces.readTemplateEndpoint, "{tenant}") {
-			fmt.Fprintf(os.Stderr,
-				"--experimental.traces.read.endpoint-template does not contain '{tenant}', all tenants will use %q\n",
-				cfg.traces.readTemplateEndpoint)
-		}
-
-		// After the template is expanded, will it yield a valid URL?
-		_, err := tracesv1.ExpandTemplatedUpstream(cfg.traces.readTemplateEndpoint, "dummy")
-		if err != nil {
-			return cfg, fmt.Errorf("--experimental.traces.read.endpoint-template %q is invalid: %w", rawTracesReadEndpoint, err)
-		}
-
-		cfg.traces.enabled = true
 	}
 
 	if cfg.traces.enabled && cfg.server.grpcListen == "" {
