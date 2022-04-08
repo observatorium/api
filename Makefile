@@ -194,7 +194,7 @@ $(PROTOC): $(TMP_DIR) $(BIN_DIR)
 MANIFESTS := examples/manifests
 
 .PHONY: generate
-generate: ${MANIFESTS} rules/rules.go README.md
+generate: ${MANIFESTS} rules/rules.go gen-oapi-client README.md
 
 .PHONY: ${MANIFESTS}
 ${MANIFESTS}: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
