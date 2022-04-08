@@ -1,5 +1,3 @@
-# This should ideally be in a parameters directory, but oapi-codegen can't seem to import package with just parameters.
-# TODO(saswatamcode): Explore other way of doing this.
 components:
   parameters:
     tenant:

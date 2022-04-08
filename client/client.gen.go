@@ -16,80 +16,42 @@ import (
 	"github.com/ghodss/yaml"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
-	externalRef1 "github.com/observatorium/api/client/models"
+	externalRef0 "github.com/observatorium/api/client/models"
+	externalRef1 "github.com/observatorium/api/client/parameters"
 	externalRef2 "github.com/observatorium/api/client/responses"
 )
-
-// LabelValuesResponse defines model for LabelValuesResponse.
-type LabelValuesResponse externalRef2.LabelValuesResponse
-
-// LabelsResponse defines model for LabelsResponse.
-type LabelsResponse externalRef2.LabelsResponse
-
-// QueryRangeResponse defines model for QueryRangeResponse.
-type QueryRangeResponse externalRef2.QueryRangeResponse
-
-// QueryResponse defines model for QueryResponse.
-type QueryResponse externalRef2.QueryResponse
-
-// RulesRaw defines model for RulesRaw.
-type RulesRaw externalRef1.RulesRaw
-
-// RulesResponse defines model for RulesResponse.
-type RulesResponse externalRef2.RulesResponse
-
-// SeriesResponse defines model for SeriesResponse.
-type SeriesResponse externalRef2.SeriesResponse
-
-// ExternalRef0EndTS defines model for endTS.
-type ExternalRef0EndTS string
-
-// ExternalRef0Query defines model for query.
-type ExternalRef0Query string
-
-// ExternalRef0QueryTimeout defines model for queryTimeout.
-type ExternalRef0QueryTimeout string
-
-// ExternalRef0SeriesMatcher defines model for seriesMatcher.
-type ExternalRef0SeriesMatcher []string
-
-// ExternalRef0StartTS defines model for startTS.
-type ExternalRef0StartTS string
-
-// ExternalRef0Tenant defines model for tenant.
-type ExternalRef0Tenant string
 
 // GetLabelValuesParams defines parameters for GetLabelValues.
 type GetLabelValuesParams struct {
 	// Repeated series selector argument
-	Match *SeriesMatcher `json:"match[],omitempty"`
+	Match *externalRef1.SeriesMatcher `json:"match[],omitempty"`
 
 	// Start timestamp
-	Start *StartTS `json:"start,omitempty"`
+	Start *externalRef1.StartTS `json:"start,omitempty"`
 
 	// End timestamp
-	End *EndTS `json:"end,omitempty"`
+	End *externalRef1.EndTS `json:"end,omitempty"`
 }
 
 // GetLabelsParams defines parameters for GetLabels.
 type GetLabelsParams struct {
 	// Repeated series selector argument
-	Match *SeriesMatcher `json:"match[],omitempty"`
+	Match *externalRef1.SeriesMatcher `json:"match[],omitempty"`
 
 	// Start timestamp
-	Start *StartTS `json:"start,omitempty"`
+	Start *externalRef1.StartTS `json:"start,omitempty"`
 
 	// End timestamp
-	End *EndTS `json:"end,omitempty"`
+	End *externalRef1.EndTS `json:"end,omitempty"`
 }
 
 // GetInstantQueryParams defines parameters for GetInstantQuery.
 type GetInstantQueryParams struct {
 	// query to fetch result for
-	Query *Query `json:"query,omitempty"`
+	Query *externalRef1.Query `json:"query,omitempty"`
 
 	// Evaluation timeout
-	Timeout *QueryTimeout `json:"timeout,omitempty"`
+	Timeout *externalRef1.QueryTimeout `json:"timeout,omitempty"`
 
 	// Evaluation timestamp
 	Time *string `json:"time,omitempty"`
@@ -98,16 +60,16 @@ type GetInstantQueryParams struct {
 // GetRangeQueryParams defines parameters for GetRangeQuery.
 type GetRangeQueryParams struct {
 	// query to fetch result for
-	Query *Query `json:"query,omitempty"`
+	Query *externalRef1.Query `json:"query,omitempty"`
 
 	// Start timestamp
-	Start *StartTS `json:"start,omitempty"`
+	Start *externalRef1.StartTS `json:"start,omitempty"`
 
 	// End timestamp
-	End *EndTS `json:"end,omitempty"`
+	End *externalRef1.EndTS `json:"end,omitempty"`
 
 	// Evaluation timeout
-	Timeout *QueryTimeout `json:"timeout,omitempty"`
+	Timeout *externalRef1.QueryTimeout `json:"timeout,omitempty"`
 
 	// Query resolution step width
 	Step *string `json:"step,omitempty"`
@@ -125,13 +87,13 @@ type GetRulesParams struct {
 // GetSeriesParams defines parameters for GetSeries.
 type GetSeriesParams struct {
 	// Repeated series selector argument
-	Match *SeriesMatcher `json:"match[],omitempty"`
+	Match *externalRef1.SeriesMatcher `json:"match[],omitempty"`
 
 	// Start timestamp
-	Start *StartTS `json:"start,omitempty"`
+	Start *externalRef1.StartTS `json:"start,omitempty"`
 
 	// End timestamp
-	End *EndTS `json:"end,omitempty"`
+	End *externalRef1.EndTS `json:"end,omitempty"`
 }
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
@@ -208,31 +170,31 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// GetLabelValues request
-	GetLabelValues(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabels request
-	GetLabels(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetInstantQuery request
-	GetInstantQuery(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRangeQuery request
-	GetRangeQuery(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRules request
-	GetRules(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRules(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRawRules request
-	GetRawRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRawRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetRawRules request with any body
-	SetRawRulesWithBody(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SetRawRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSeries request
-	GetSeries(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetLabelValues(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLabelValuesRequest(c.Server, tenant, labelName, params)
 	if err != nil {
 		return nil, err
@@ -244,7 +206,7 @@ func (c *Client) GetLabelValues(ctx context.Context, tenant Tenant, labelName st
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLabels(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLabelsRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -256,7 +218,7 @@ func (c *Client) GetLabels(ctx context.Context, tenant Tenant, params *GetLabels
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetInstantQuery(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetInstantQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -268,7 +230,7 @@ func (c *Client) GetInstantQuery(ctx context.Context, tenant Tenant, params *Get
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRangeQuery(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRangeQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -280,7 +242,7 @@ func (c *Client) GetRangeQuery(ctx context.Context, tenant Tenant, params *GetRa
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRules(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetRules(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRulesRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -292,7 +254,7 @@ func (c *Client) GetRules(ctx context.Context, tenant Tenant, params *GetRulesPa
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRawRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetRawRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRawRulesRequest(c.Server, tenant)
 	if err != nil {
 		return nil, err
@@ -304,7 +266,7 @@ func (c *Client) GetRawRules(ctx context.Context, tenant Tenant, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) SetRawRulesWithBody(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) SetRawRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetRawRulesRequestWithBody(c.Server, tenant, contentType, body)
 	if err != nil {
 		return nil, err
@@ -316,7 +278,7 @@ func (c *Client) SetRawRulesWithBody(ctx context.Context, tenant Tenant, content
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetSeries(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetSeriesRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -329,7 +291,7 @@ func (c *Client) GetSeries(ctx context.Context, tenant Tenant, params *GetSeries
 }
 
 // NewGetLabelValuesRequest generates requests for GetLabelValues
-func NewGetLabelValuesRequest(server string, tenant Tenant, labelName string, params *GetLabelValuesParams) (*http.Request, error) {
+func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -422,7 +384,7 @@ func NewGetLabelValuesRequest(server string, tenant Tenant, labelName string, pa
 }
 
 // NewGetLabelsRequest generates requests for GetLabels
-func NewGetLabelsRequest(server string, tenant Tenant, params *GetLabelsParams) (*http.Request, error) {
+func NewGetLabelsRequest(server string, tenant externalRef1.Tenant, params *GetLabelsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -508,7 +470,7 @@ func NewGetLabelsRequest(server string, tenant Tenant, params *GetLabelsParams) 
 }
 
 // NewGetInstantQueryRequest generates requests for GetInstantQuery
-func NewGetInstantQueryRequest(server string, tenant Tenant, params *GetInstantQueryParams) (*http.Request, error) {
+func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params *GetInstantQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -594,7 +556,7 @@ func NewGetInstantQueryRequest(server string, tenant Tenant, params *GetInstantQ
 }
 
 // NewGetRangeQueryRequest generates requests for GetRangeQuery
-func NewGetRangeQueryRequest(server string, tenant Tenant, params *GetRangeQueryParams) (*http.Request, error) {
+func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *GetRangeQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -712,7 +674,7 @@ func NewGetRangeQueryRequest(server string, tenant Tenant, params *GetRangeQuery
 }
 
 // NewGetRulesRequest generates requests for GetRules
-func NewGetRulesRequest(server string, tenant Tenant, params *GetRulesParams) (*http.Request, error) {
+func NewGetRulesRequest(server string, tenant externalRef1.Tenant, params *GetRulesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -782,7 +744,7 @@ func NewGetRulesRequest(server string, tenant Tenant, params *GetRulesParams) (*
 }
 
 // NewGetRawRulesRequest generates requests for GetRawRules
-func NewGetRawRulesRequest(server string, tenant Tenant) (*http.Request, error) {
+func NewGetRawRulesRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -816,7 +778,7 @@ func NewGetRawRulesRequest(server string, tenant Tenant) (*http.Request, error) 
 }
 
 // NewSetRawRulesRequestWithBody generates requests for SetRawRules with any type of body
-func NewSetRawRulesRequestWithBody(server string, tenant Tenant, contentType string, body io.Reader) (*http.Request, error) {
+func NewSetRawRulesRequestWithBody(server string, tenant externalRef1.Tenant, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -852,7 +814,7 @@ func NewSetRawRulesRequestWithBody(server string, tenant Tenant, contentType str
 }
 
 // NewGetSeriesRequest generates requests for GetSeries
-func NewGetSeriesRequest(server string, tenant Tenant, params *GetSeriesParams) (*http.Request, error) {
+func NewGetSeriesRequest(server string, tenant externalRef1.Tenant, params *GetSeriesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -981,34 +943,34 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// GetLabelValues request
-	GetLabelValuesWithResponse(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
+	GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
 
 	// GetLabels request
-	GetLabelsWithResponse(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error)
+	GetLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error)
 
 	// GetInstantQuery request
-	GetInstantQueryWithResponse(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error)
+	GetInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error)
 
 	// GetRangeQuery request
-	GetRangeQueryWithResponse(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error)
+	GetRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error)
 
 	// GetRules request
-	GetRulesWithResponse(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error)
+	GetRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error)
 
 	// GetRawRules request
-	GetRawRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error)
+	GetRawRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error)
 
 	// SetRawRules request with any body
-	SetRawRulesWithBodyWithResponse(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error)
+	SetRawRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error)
 
 	// GetSeries request
-	GetSeriesWithResponse(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error)
+	GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error)
 }
 
 type GetLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *LabelValuesResponse
+	JSON2XX      *externalRef2.LabelValuesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1030,7 +992,7 @@ func (r GetLabelValuesResponse) StatusCode() int {
 type GetLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *LabelsResponse
+	JSON2XX      *externalRef2.LabelsResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1052,7 +1014,7 @@ func (r GetLabelsResponse) StatusCode() int {
 type GetInstantQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *QueryResponse
+	JSON2XX      *externalRef2.QueryResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1074,7 +1036,7 @@ func (r GetInstantQueryResponse) StatusCode() int {
 type GetRangeQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *QueryRangeResponse
+	JSON2XX      *externalRef2.QueryRangeResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1096,7 +1058,7 @@ func (r GetRangeQueryResponse) StatusCode() int {
 type GetRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *RulesResponse
+	JSON2XX      *externalRef2.RulesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1118,7 +1080,7 @@ func (r GetRulesResponse) StatusCode() int {
 type GetRawRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	YAML200      *RulesRaw
+	YAML200      *externalRef0.RulesRaw
 }
 
 // Status returns HTTPResponse.Status
@@ -1161,7 +1123,7 @@ func (r SetRawRulesResponse) StatusCode() int {
 type GetSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *SeriesResponse
+	JSON2XX      *externalRef2.SeriesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1181,7 +1143,7 @@ func (r GetSeriesResponse) StatusCode() int {
 }
 
 // GetLabelValuesWithResponse request returning *GetLabelValuesResponse
-func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error) {
+func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error) {
 	rsp, err := c.GetLabelValues(ctx, tenant, labelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1190,7 +1152,7 @@ func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, te
 }
 
 // GetLabelsWithResponse request returning *GetLabelsResponse
-func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error) {
+func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error) {
 	rsp, err := c.GetLabels(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1199,7 +1161,7 @@ func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant 
 }
 
 // GetInstantQueryWithResponse request returning *GetInstantQueryResponse
-func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error) {
+func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error) {
 	rsp, err := c.GetInstantQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1208,7 +1170,7 @@ func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, t
 }
 
 // GetRangeQueryWithResponse request returning *GetRangeQueryResponse
-func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error) {
+func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error) {
 	rsp, err := c.GetRangeQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1217,7 +1179,7 @@ func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, ten
 }
 
 // GetRulesWithResponse request returning *GetRulesResponse
-func (c *ClientWithResponses) GetRulesWithResponse(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error) {
+func (c *ClientWithResponses) GetRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error) {
 	rsp, err := c.GetRules(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1226,7 +1188,7 @@ func (c *ClientWithResponses) GetRulesWithResponse(ctx context.Context, tenant T
 }
 
 // GetRawRulesWithResponse request returning *GetRawRulesResponse
-func (c *ClientWithResponses) GetRawRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error) {
+func (c *ClientWithResponses) GetRawRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error) {
 	rsp, err := c.GetRawRules(ctx, tenant, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1235,7 +1197,7 @@ func (c *ClientWithResponses) GetRawRulesWithResponse(ctx context.Context, tenan
 }
 
 // SetRawRulesWithBodyWithResponse request with arbitrary body returning *SetRawRulesResponse
-func (c *ClientWithResponses) SetRawRulesWithBodyWithResponse(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error) {
+func (c *ClientWithResponses) SetRawRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error) {
 	rsp, err := c.SetRawRulesWithBody(ctx, tenant, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1244,7 +1206,7 @@ func (c *ClientWithResponses) SetRawRulesWithBodyWithResponse(ctx context.Contex
 }
 
 // GetSeriesWithResponse request returning *GetSeriesResponse
-func (c *ClientWithResponses) GetSeriesWithResponse(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error) {
+func (c *ClientWithResponses) GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error) {
 	rsp, err := c.GetSeries(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -1267,7 +1229,7 @@ func ParseGetLabelValuesResponse(rsp *http.Response) (*GetLabelValuesResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest LabelValuesResponse
+		var dest externalRef2.LabelValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1293,7 +1255,7 @@ func ParseGetLabelsResponse(rsp *http.Response) (*GetLabelsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest LabelsResponse
+		var dest externalRef2.LabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1319,7 +1281,7 @@ func ParseGetInstantQueryResponse(rsp *http.Response) (*GetInstantQueryResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest QueryResponse
+		var dest externalRef2.QueryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1345,7 +1307,7 @@ func ParseGetRangeQueryResponse(rsp *http.Response) (*GetRangeQueryResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest QueryRangeResponse
+		var dest externalRef2.QueryRangeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1371,7 +1333,7 @@ func ParseGetRulesResponse(rsp *http.Response) (*GetRulesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest RulesResponse
+		var dest externalRef2.RulesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1397,7 +1359,7 @@ func ParseGetRawRulesResponse(rsp *http.Response) (*GetRawRulesResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
-		var dest RulesRaw
+		var dest externalRef0.RulesRaw
 		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1439,7 +1401,7 @@ func ParseGetSeriesResponse(rsp *http.Response) (*GetSeriesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest SeriesResponse
+		var dest externalRef2.SeriesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -14,7 +14,7 @@ tags:
 paths:
   /api/metrics/v1/{tenant}/api/v1/rules/raw:
     parameters:
-      - $ref: "#/components/parameters/tenant"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
     get:
       tags:
         - rulesrawv1
@@ -28,7 +28,7 @@ paths:
           content:
             application/yaml:
               schema:
-                $ref: "#/components/schemas/RulesRaw"
+                $ref: ./models/models.yaml#/components/schemas/RulesRaw
         "401":
           description: error finding tenant ID
         "500":
@@ -50,11 +50,11 @@ paths:
         content:
           application/yaml:
             schema:
-              $ref: "#/components/schemas/RulesRaw"
+              $ref: ./models/models.yaml#/components/schemas/RulesRaw
         description: Rules to set for a tenant
   /api/metrics/v1/{tenant}/api/v1/rules:
     parameters:
-      - $ref: "#/components/parameters/tenant"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
       - in: query
         name: type
         description: type of Rules
@@ -83,17 +83,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RulesResponse"
+                $ref: ./responses/responses.yaml#/components/schemas/RulesResponse
         "4XX":
           description: Bad request
         "5XX":
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/labels:
     parameters:
-      - $ref: "#/components/parameters/tenant"
-      - $ref: "#/components/parameters/seriesMatcher"
-      - $ref: "#/components/parameters/startTS"
-      - $ref: "#/components/parameters/endTS"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
         - labelsv1
@@ -107,23 +107,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LabelsResponse"
+                $ref: ./responses/responses.yaml#/components/schemas/LabelsResponse
         "4XX":
           description: Bad request
         "5XX":
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/label/{label_name}/values:
     parameters:
-      - $ref: "#/components/parameters/tenant"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
       - in: path
         name: label_name
         description: label name to get values for
         required: true
         schema:
           type: string
-      - $ref: "#/components/parameters/seriesMatcher"
-      - $ref: "#/components/parameters/startTS"
-      - $ref: "#/components/parameters/endTS"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
         - labelvaluesv1
@@ -137,16 +137,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LabelValuesResponse"
+                $ref: ./responses/responses.yaml#/components/schemas/LabelValuesResponse
         "4XX":
           description: Bad request
         "5XX":
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/query:
     parameters:
-      - $ref: "#/components/parameters/tenant"
-      - $ref: "#/components/parameters/query"
-      - $ref: "#/components/parameters/queryTimeout"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
       - in: query
         name: time
         description: Evaluation timestamp
@@ -166,18 +166,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryResponse"
+                $ref: ./responses/responses.yaml#/components/schemas/QueryResponse
         "4XX":
           description: Bad request
         "5XX":
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/query_range:
     parameters:
-      - $ref: "#/components/parameters/tenant"
-      - $ref: "#/components/parameters/query"
-      - $ref: "#/components/parameters/startTS"
-      - $ref: "#/components/parameters/endTS"
-      - $ref: "#/components/parameters/queryTimeout"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
       - in: query
         name: step
         description: Query resolution step width
@@ -196,19 +196,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QueryRangeResponse"
+                $ref: ./responses/responses.yaml#/components/schemas/QueryRangeResponse
         "4XX":
           description: Bad request
         "5XX":
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/series:
     parameters:
-      - $ref: "#/components/parameters/tenant"
-      - $ref: "#/components/parameters/seriesMatcher"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
       # While matchers are required, in case of Observatorium, due to enforcing
       # of tenant matchers, that requirement is fulfilled, so match[] is optional here.
-      - $ref: "#/components/parameters/startTS"
-      - $ref: "#/components/parameters/endTS"
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
         - seriesv1
@@ -222,65 +222,8 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SeriesResponse"
+                $ref: ./responses/responses.yaml#/components/schemas/SeriesResponse
         "4XX":
           description: Bad request
         "5XX":
           description: Server side error
-components:
-  parameters:
-    tenant:
-      $ref: ./parameters.yaml#/components/parameters/tenant
-    seriesMatcher:
-      $ref: ./parameters.yaml#/components/parameters/seriesMatcher
-    startTS:
-      $ref: ./parameters.yaml#/components/parameters/startTS
-    endTS:
-      $ref: ./parameters.yaml#/components/parameters/endTS
-    query:
-      $ref: ./parameters.yaml#/components/parameters/query
-    queryTimeout:
-      $ref: ./parameters.yaml#/components/parameters/queryTimeout
-  schemas:
-    # Responses from API.
-    SeriesResponse:
-      $ref: ./responses/responses.yaml#/components/schemas/SeriesResponse
-    QueryResponse:
-      $ref: ./responses/responses.yaml#/components/schemas/QueryResponse
-    QueryRangeResponse:
-      $ref: ./responses/responses.yaml#/components/schemas/QueryRangeResponse
-    LabelsResponse:
-      $ref: ./responses/responses.yaml#/components/schemas/LabelsResponse
-    LabelValuesResponse:
-      $ref: ./responses/responses.yaml#/components/schemas/LabelValuesResponse
-    RulesResponse:
-      $ref: ./responses/responses.yaml#/components/schemas/RulesResponse
-    # Prometheus/Thanos data model.
-    Rules:
-      $ref: ./models/models.yaml#/components/schemas/Rules
-    RulesRaw:
-      $ref: ./models/models.yaml#/components/schemas/RulesRaw
-    RuleGroup:
-      $ref: ./models/models.yaml#/components/schemas/RuleGroup
-    RuleGroupEvaluated:
-      $ref: ./models/models.yaml#/components/schemas/RuleGroupEvaluated
-    RecordingRule:
-      $ref: ./models/models.yaml#/components/schemas/RecordingRule
-    RecordingRuleEvaluated:
-      $ref: ./models/models.yaml#/components/schemas/RecordingRuleEvaluated
-    AlertingRule:
-      $ref: ./models/models.yaml#/components/schemas/AlertingRule
-    AlertingRuleEvaluated:
-      $ref: ./models/models.yaml#/components/schemas/AlertingRuleEvaluated
-    ActiveAlert:
-      $ref: ./models/models.yaml#/components/schemas/ActiveAlert
-    InstantQueryResponse:
-      $ref: ./models/models.yaml#/components/schemas/InstantQueryResponse
-    RangeQueryResponse:
-      $ref: ./models/models.yaml#/components/schemas/RangeQueryResponse
-    RangeVectors:
-      $ref: ./models/models.yaml#/components/schemas/RangeVectors
-    InstantVectors:
-      $ref: ./models/models.yaml#/components/schemas/InstantVectors
-    ScalarOrString:
-      $ref: ./models/models.yaml#/components/schemas/ScalarOrString
