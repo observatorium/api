@@ -205,8 +205,6 @@ paths:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
       - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
-      # While matchers are required, in case of Observatorium, due to enforcing
-      # of tenant matchers, that requirement is fulfilled, so match[] is optional here.
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:

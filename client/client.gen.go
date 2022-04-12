@@ -24,7 +24,7 @@ import (
 // GetLabelValuesParams defines parameters for GetLabelValues.
 type GetLabelValuesParams struct {
 	// Repeated series selector argument
-	Match *externalRef1.SeriesMatcher `json:"match[],omitempty"`
+	Match externalRef1.SeriesMatcher `json:"match[]"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -36,7 +36,7 @@ type GetLabelValuesParams struct {
 // GetLabelsParams defines parameters for GetLabels.
 type GetLabelsParams struct {
 	// Repeated series selector argument
-	Match *externalRef1.SeriesMatcher `json:"match[],omitempty"`
+	Match externalRef1.SeriesMatcher `json:"match[]"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -87,7 +87,7 @@ type GetRulesParams struct {
 // GetSeriesParams defines parameters for GetSeries.
 type GetSeriesParams struct {
 	// Repeated series selector argument
-	Match *externalRef1.SeriesMatcher `json:"match[],omitempty"`
+	Match externalRef1.SeriesMatcher `json:"match[]"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -325,20 +325,16 @@ func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, labelNa
 
 	queryValues := queryURL.Query()
 
-	if params.Match != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, *params.Match); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
+	if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, params.Match); err != nil {
+		return nil, err
+	} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+		return nil, err
+	} else {
+		for k, v := range parsed {
+			for _, v2 := range v {
+				queryValues.Add(k, v2)
 			}
 		}
-
 	}
 
 	if params.Start != nil {
@@ -411,20 +407,16 @@ func NewGetLabelsRequest(server string, tenant externalRef1.Tenant, params *GetL
 
 	queryValues := queryURL.Query()
 
-	if params.Match != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, *params.Match); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
+	if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, params.Match); err != nil {
+		return nil, err
+	} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+		return nil, err
+	} else {
+		for k, v := range parsed {
+			for _, v2 := range v {
+				queryValues.Add(k, v2)
 			}
 		}
-
 	}
 
 	if params.Start != nil {
@@ -841,20 +833,16 @@ func NewGetSeriesRequest(server string, tenant externalRef1.Tenant, params *GetS
 
 	queryValues := queryURL.Query()
 
-	if params.Match != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, *params.Match); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
+	if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, params.Match); err != nil {
+		return nil, err
+	} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+		return nil, err
+	} else {
+		for k, v := range parsed {
+			for _, v2 := range v {
+				queryValues.Add(k, v2)
 			}
 		}
-
 	}
 
 	if params.Start != nil {

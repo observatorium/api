@@ -11,6 +11,7 @@ components:
       in: query
       name: match[]
       description: Repeated series selector argument
+      required: true
       schema:
         type: array
         items:
