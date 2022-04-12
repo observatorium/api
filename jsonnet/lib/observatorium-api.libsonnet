@@ -130,7 +130,8 @@ function(params) {
                     '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
                   ] else []
               ) + (
-                if api.config.traces != {} then
+                // Only offer tracing if it has been configured and is enabled
+                if api.config.traces != {} && std.get(api.config.traces, "enabled", true) then
                   [
                     '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
                     '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'],
