@@ -140,10 +140,13 @@ type logsConfig struct {
 }
 
 type tracesConfig struct {
+	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686".
+	readTemplateEndpoint string
+
 	readEndpoint  *url.URL
 	writeEndpoint string
 	tenantHeader  string
-	// enable traces if readEndpoint or writeEndpoint is provided.
+	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
 	enabled bool
 }
 
@@ -607,7 +610,7 @@ func main() {
 			}
 
 			// Traces.
-			if cfg.traces.enabled && cfg.traces.readEndpoint != nil {
+			if cfg.traces.enabled && (cfg.traces.readEndpoint != nil || cfg.traces.readTemplateEndpoint != "") {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
@@ -629,6 +632,7 @@ func main() {
 						stripTenantPrefix("/api/traces/v1",
 							tracesv1.NewV2Handler(
 								cfg.traces.readEndpoint,
+								cfg.traces.readTemplateEndpoint,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(ins),
@@ -901,6 +905,8 @@ func parseFlags() (config, error) {
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
 	flag.StringVar(&rawTracesReadEndpoint, "traces.read.endpoint", "",
 		"The endpoint against which to make HTTP read requests for traces.")
+	flag.StringVar(&cfg.traces.readTemplateEndpoint, "experimental.traces.read.endpoint-template", "",
+		"A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
 		"The endpoint against which to make gRPC write requests for traces.")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
@@ -1004,6 +1010,26 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.writeEndpoint = logsWriteEndpoint
+	}
+
+	if cfg.traces.readTemplateEndpoint != "" {
+		if rawTracesReadEndpoint != "" {
+			return cfg, fmt.Errorf("only one of --traces.read.endpoint and --experimental.traces.read.endpoint-template allowed")
+		}
+
+		if !strings.Contains(cfg.traces.readTemplateEndpoint, "{tenant}") {
+			fmt.Fprintf(os.Stderr,
+				"--experimental.traces.read.endpoint-template does not contain '{tenant}', all tenants will use %q\n",
+				cfg.traces.readTemplateEndpoint)
+		}
+
+		// After the template is expanded, will it yield a valid URL?
+		_, err := tracesv1.ExpandTemplatedUpstream(cfg.traces.readTemplateEndpoint, "dummy")
+		if err != nil {
+			return cfg, fmt.Errorf("--experimental.traces.read.endpoint-template %q is invalid: %w", rawTracesReadEndpoint, err)
+		}
+
+		cfg.traces.enabled = true
 	}
 
 	if rawTracesReadEndpoint != "" {

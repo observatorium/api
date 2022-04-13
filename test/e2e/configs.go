@@ -18,12 +18,13 @@ import (
 type testType string
 
 const (
-	metrics     testType = "metrics"
-	rules       testType = "rules"
-	logs        testType = "logs"
-	traces      testType = "traces"
-	tenants     testType = "tenants"
-	interactive testType = "interactive"
+	metrics        testType = "metrics"
+	rules          testType = "rules"
+	logs           testType = "logs"
+	traces         testType = "traces"
+	tracesTemplate testType = "tracesTemplate"
+	tenants        testType = "tenants"
+	interactive    testType = "interactive"
 
 	dockerLocalSharedDir = "/shared"
 	certsSharedDir       = "certs"
@@ -32,12 +33,13 @@ const (
 	certsContainerPath   = dockerLocalSharedDir + "/" + certsSharedDir
 	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
 
-	envMetricsName  = "e2e_metrics_read_write"
-	envRulesAPIName = "e2e_rules_api"
-	envLogsName     = "e2e_logs_read_write_tail"
-	envTracesName   = "e2e_traces_read_export"
-	envTenantsName  = "e2e_tenants"
-	envInteractive  = "e2e_interactive"
+	envMetricsName        = "e2e_metrics_read_write"
+	envRulesAPIName       = "e2e_rules_api"
+	envLogsName           = "e2e_logs_read_write_tail"
+	envTracesName         = "e2e_traces_read_export"
+	envTracesTemplateName = "e2e_traces_template_query"
+	envTenantsName        = "e2e_tenants"
+	envInteractive        = "e2e_interactive"
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
@@ -233,7 +235,7 @@ service:
             exporters: [logging,jaeger]
 `
 
-// createOtelCollectorConfigYAML() creates YAML for an Open Telemetry collector inside the Observatorium API boundary
+// createOtelCollectorConfigYAML() creates YAML for an Open Telemetry collector inside the Observatorium API boundary.
 func createOtelCollectorConfigYAML(
 	t *testing.T,
 	e e2e.Environment,

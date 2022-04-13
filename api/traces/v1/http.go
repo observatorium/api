@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/proxy"
 )
 
@@ -95,8 +97,8 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read *url.URL, opts ...HandlerOption) http.Handler {
-	if read == nil {
+func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) http.Handler {
+	if read == nil && readTemplate == "" {
 		panic("missing Jaeger read url")
 	}
 
@@ -115,8 +117,16 @@ func NewV2Handler(read *url.URL, opts ...HandlerOption) http.Handler {
 	var proxyRead http.Handler
 	{
 		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
+
+		var upstreamMiddleware proxy.Middleware
+		if read != nil {
+			upstreamMiddleware = proxy.MiddlewareSetUpstream(read)
+		} else {
+			upstreamMiddleware = middlewareSetTemplatedUpstream(c.logger, readTemplate)
+		}
+
 		middlewares := proxy.Middlewares(
-			proxy.MiddlewareSetUpstream(read),
+			upstreamMiddleware,
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
 			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
@@ -161,6 +171,43 @@ func NewV2Handler(read *url.URL, opts ...HandlerOption) http.Handler {
 	})
 
 	return r
+}
+
+// Parse a URL; if the URL includes `{tenant}` that portion will be replaced by the tenant.
+func ExpandTemplatedUpstream(templateUpstream, tenant string) (*url.URL, error) {
+	rawTracesReadEndpoint := strings.Replace(templateUpstream, "{tenant}", tenant, 1)
+	return url.ParseRequestURI(rawTracesReadEndpoint)
+}
+
+// middlewareSetTemplatedUpstream is a variation of proxy.MiddlewareSetUpstream()
+// with additional processing if the upstream includes "{tenant}".
+func middlewareSetTemplatedUpstream(logger log.Logger, readTemplate string) proxy.Middleware {
+	// Cache upstream URLs to avoid re-parse on every read.
+	templateToURL := map[string]*url.URL{}
+
+	return func(r *http.Request) {
+		tenant, ok := authentication.GetTenant(r.Context())
+		if !ok {
+			// At this point another middleware must have put the tenant into the context.
+			level.Debug(logger).Log("msg", "Internal error; expected tenant in request context")
+		}
+
+		upstream, ok := templateToURL[tenant]
+		if !ok {
+			var err error
+			upstream, err = ExpandTemplatedUpstream(readTemplate, tenant)
+			if err != nil {
+				// Log if the tenant label includes characters that can't appear in a hostname (such as punctuation).
+				level.Debug(logger).Log("msg", "Internal error; tenant contains characters that cannot appear in hostname")
+			}
+
+			templateToURL[tenant] = upstream
+		}
+
+		r.URL.Scheme = upstream.Scheme
+		r.URL.Host = upstream.Host
+		r.URL.Path = path.Join(upstream.Path, r.URL.Path)
+	}
 }
 
 func jaegerUIResponseModifier(response *http.Response) error {
