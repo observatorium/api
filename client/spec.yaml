@@ -31,6 +31,8 @@ paths:
                 $ref: ./models/models.yaml#/components/schemas/RulesRaw
         "401":
           description: error finding tenant ID
+        "403":
+          description: unauthorized
         "500":
           description: server side error while listing rules
     put:
@@ -44,6 +46,8 @@ paths:
           description: successfully updated rules file
         "401":
           description: error finding tenant ID
+        "403":
+          description: unauthorized
         "500":
           description: server error while saving rules
       requestBody:
