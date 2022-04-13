@@ -1,0 +1,231 @@
+openapi: 3.0.0
+info:
+  description: The Observatorium API
+  version: "0.0.1"
+  title: Observatorium API
+  license:
+    name: Apache 2.0
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+tags:
+  - name: observatoriumv1
+    description: Calls related to Observatorium
+# Keeping all the API paths here, but likely need to separate it out to another file,
+# once paths for other signals are also added.
+paths:
+  /api/metrics/v1/{tenant}/api/v1/rules/raw:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+    get:
+      tags:
+        - rulesrawv1
+      summary: Lists all configured rules for a tenant in YAML form
+      operationId: getRawRules
+      description: |
+        You can list all configured rules for a tenant in YAML form
+      responses:
+        "200":
+          description: all rules for a tenant
+          content:
+            application/yaml:
+              schema:
+                $ref: ./models/models.yaml#/components/schemas/RulesRaw
+        "401":
+          description: error finding tenant ID
+        "403":
+          description: unauthorized
+        "500":
+          description: server side error while listing rules
+    put:
+      tags:
+        - rulesrawv1
+      summary: Set/overwrite the rules for a tenant
+      operationId: setRawRules
+      description: You can set rules for a tenant
+      responses:
+        "200":
+          description: successfully updated rules file
+        "401":
+          description: error finding tenant ID
+        "403":
+          description: unauthorized
+        "500":
+          description: server error while saving rules
+      requestBody:
+        content:
+          application/yaml:
+            schema:
+              $ref: ./models/models.yaml#/components/schemas/RulesRaw
+        description: Rules to set for a tenant
+  /api/metrics/v1/{tenant}/api/v1/rules:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - in: query
+        name: type
+        description: type of Rules
+        schema:
+          type: string
+          enum:
+            - alert
+            - record
+      - in: query
+        name: match[]
+        description: Repeated label selector argument
+        schema:
+          type: array
+          items:
+            type: string
+    get:
+      tags:
+        - rulesv1
+      summary: Get Rules for a tenant in JSON form
+      operationId: getRules
+      description: |
+        You can get rules for a tenant with health data
+      responses:
+        "2XX":
+          description: rule for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/RulesResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/metrics/v1/{tenant}/api/v1/labels:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+    get:
+      tags:
+        - labelsv1
+      summary: Get all labels for a tenant
+      operationId: getLabels
+      description: |
+        You can get labels for a tenant
+      responses:
+        "2XX":
+          description: labels for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/LabelsResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/metrics/v1/{tenant}/api/v1/label/{label_name}/values:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - in: path
+        name: label_name
+        description: label name to get values for
+        required: true
+        schema:
+          type: string
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+    get:
+      tags:
+        - labelvaluesv1
+      summary: Get label values for a tenant
+      operationId: getLabelValues
+      description: |
+        You can get label values for a label of a tenant
+      responses:
+        "2XX":
+          description: label values for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/LabelValuesResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/metrics/v1/{tenant}/api/v1/query:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
+      - in: query
+        name: time
+        description: Evaluation timestamp
+        schema:
+          type: string
+          format: rfc3339 | unix_timestamp
+    get:
+      tags:
+        - queryv1
+      summary: Evaluate instant queries for a tenant
+      operationId: getInstantQuery
+      description: |
+        You can evaluate instant queries for a tenant
+      responses:
+        "2XX":
+          description: instance query result for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/QueryResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/metrics/v1/{tenant}/api/v1/query_range:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
+      - in: query
+        name: step
+        description: Query resolution step width
+        schema:
+          type: string
+    get:
+      tags:
+        - queryv1
+      summary: Evaluate range queries for a tenant
+      operationId: getRangeQuery
+      description: |
+        You can evaluate range queries for a tenant
+      responses:
+        "2XX":
+          description: range query result for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/QueryRangeResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/metrics/v1/{tenant}/api/v1/series:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+    get:
+      tags:
+        - seriesv1
+      summary: Get series for a tenant
+      operationId: getSeries
+      description: |
+        You can get series for a tenant
+      responses:
+        "2XX":
+          description: series for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/SeriesResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
