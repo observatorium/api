@@ -66,7 +66,7 @@ build: $(BIN_NAME)
 .PHONY: deps
 deps: go.mod go.sum
 	go mod tidy
-	go mod download
+	go mod download all
 	go mod verify
 
 .PHONY: format
