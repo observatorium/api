@@ -6,6 +6,9 @@ package parameters
 // EndTS defines model for endTS.
 type EndTS string
 
+// OptionalSeriesMatcher defines model for optionalSeriesMatcher.
+type OptionalSeriesMatcher []string
+
 // Query defines model for query.
 type Query string
 

@@ -95,7 +95,7 @@ paths:
   /api/metrics/v1/{tenant}/api/v1/labels:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/optionalSeriesMatcher
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
@@ -125,7 +125,7 @@ paths:
         required: true
         schema:
           type: string
-      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/optionalSeriesMatcher
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
