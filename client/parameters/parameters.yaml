@@ -16,6 +16,14 @@ components:
         type: array
         items:
           type: string
+    optionalSeriesMatcher:
+      in: query
+      name: match[]
+      description: Repeated series selector argument
+      schema:
+        type: array
+        items:
+          type: string
     startTS:
       in: query
       name: start
