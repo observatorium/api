@@ -130,14 +130,17 @@ function(params) {
                     '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
                   ] else []
               ) + (
+                // Only offer tracing if it has been configured
                 if api.config.traces != {} then
-                  [
+                  []
+                   + (if std.get(api.config.traces, 'writeEndpoint', "") != "" then [
                     '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
-                    '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'],
-                  ] + (if std.objectHas(api.config.traces, 'readEndpoint') then [
+                    '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public']
+                       ] else [])
+                   + (if std.get(api.config.traces, 'readEndpoint', "") != "" then [
                          '--traces.read.endpoint=' + api.config.traces.readEndpoint,
                        ] else [])
-                  + (if std.objectHas(api.config.traces, 'templateEndpoint') then [
+                  + (if std.get(api.config.traces, 'templateEndpoint', "") != "" then [
                        '--experimental.traces.read.endpoint-template=' + api.config.traces.templateEndpoint,
                      ] else [])
                 else []
