@@ -95,6 +95,7 @@ logPipelineStageExpr:
         |       PIPE LOGFMT                                                               { $$ = newLogPipelineStageExpr("logfmt", nil, nil)                                                                          }
         |       PIPE JSON                                                                 { $$ = newLogPipelineStageExpr("json", nil, nil)                                                                            }
         |       PIPE UNPACK                                                               { $$ = newLogPipelineStageExpr("unpack", nil, nil)                                                                          }
+        |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, true)}), nil)       }
         |       PIPE REGEXP STRING                                                        { $$ = newLogPipelineStageExpr("regexp", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, false)}), nil)      }
         |       PIPE PATTERN STRING                                                       { $$ = newLogPipelineStageExpr("pattern", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, false)}), nil)     }
         |       PIPE LINE_FMT STRING                                                      { $$ = newLogPipelineStageExpr("line_format", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, false)}), nil) }

@@ -969,6 +969,72 @@ func TestParseExpr(t *testing.T) {
 				right: LogNumberExpr{value: 100},
 			},
 		},
+		// parse unwrap expression with a label filter
+		{
+			input: `rate({first="value"} | unwrap value [30s])`,
+			expr: &LogMetricExpr{
+				metricOp: "rate",
+				left: &LogRangeQueryExpr{
+					rng:     `[30s]`,
+					rngLast: true,
+					left: &LogQueryExpr{
+						filter: LogPipelineExpr{
+							{
+								parser: "unwrap",
+								matcher: &LogFormatExpr{
+									sep: "",
+									kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+								},
+							},
+						},
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// log query expressions with format expressions and line function
+		{
+			input: `{app="first"} | line_format "{{ __line__ }} bar {{.status_code}}" | label_format status_code="401"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					{
+						parser: "line_format",
+						matcher: &LogFormatExpr{
+							sep: "",
+							kv: LogFormatValues{
+								"": newLogFormatValue("{{ __line__ }} bar {{.status_code}}", false),
+							},
+						},
+					},
+					{
+						parser: "label_format",
+						matcher: &LogFormatExpr{
+							sep: "",
+							kv: LogFormatValues{
+								"status_code": newLogFormatValue("401", false),
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "app",
+							Value: "first",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tc { //nolint:paralleltest
 		tc := tc

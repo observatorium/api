@@ -61,6 +61,7 @@ var tokens = map[string]int{
 	"json":         JSON,
 	"regexp":       REGEXP,
 	"unpack":       UNPACK,
+	"unwrap":       UNWRAP,
 	"pattern":      PATTERN,
 	"line_format":  LINE_FMT,
 	"label_format": LABEL_FMT,
