@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 )
@@ -403,6 +404,7 @@ type LogMetricExpr struct {
 	preamble         string
 	grouping         *grouping
 	params           []string
+	offset           time.Duration
 	Expr
 }
 
@@ -412,7 +414,12 @@ func newLogMetricExpr(
 	op, preamble string,
 	grouping *grouping,
 	params []string,
+	o *LogOffsetExpr,
 ) LogMetricSampleExpr {
+	var offset time.Duration
+	if o != nil {
+		offset = o.Offset
+	}
 	return &LogMetricExpr{
 		Expr:     e,
 		left:     m,
@@ -420,6 +427,7 @@ func newLogMetricExpr(
 		preamble: preamble,
 		grouping: grouping,
 		params:   params,
+		offset:   offset,
 	}
 }
 
@@ -458,6 +466,11 @@ func (l *LogMetricExpr) String() string {
 				sb.WriteString(",")
 			}
 		}
+	}
+
+	if l.offset != 0 {
+		offsetExpr := LogOffsetExpr{Offset: l.offset}
+		sb.WriteString(offsetExpr.String())
 	}
 
 	sb.WriteString(")")
@@ -572,4 +585,20 @@ func (l LogNumberExpr) String() string {
 
 func (l LogNumberExpr) Walk(fn WalkFn) {
 	fn(l)
+}
+
+type LogOffsetExpr struct {
+	Offset time.Duration
+}
+
+func (o *LogOffsetExpr) String() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(" %s %s", "offset", o.Offset.String()))
+	return sb.String()
+}
+
+func newLogOffsetExpr(offset time.Duration) *LogOffsetExpr {
+	return &LogOffsetExpr{
+		Offset: offset,
+	}
 }

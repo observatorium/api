@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 )
@@ -1030,6 +1031,38 @@ func TestParseExpr(t *testing.T) {
 							Type:  labels.MatchEqual,
 							Name:  "app",
 							Value: "first",
+						},
+					},
+				},
+			},
+		},
+		// parse offset expression
+		{
+			input: `max_over_time({first="value"} | unwrap value [5m] offset 5m)`,
+			expr: &LogMetricExpr{
+				metricOp: "max_over_time",
+				offset:   5 * time.Minute,
+				left: &LogRangeQueryExpr{
+					rng:     `[5m]`,
+					rngLast: true,
+					left: &LogQueryExpr{
+						filter: LogPipelineExpr{
+							{
+								parser: "unwrap",
+								matcher: &LogFormatExpr{
+									sep: "",
+									kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+								},
+							},
+						},
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
 						},
 					},
 				},

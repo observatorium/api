@@ -2,6 +2,7 @@
 package v2
 
 import (
+  "time"
   "github.com/prometheus/prometheus/pkg/labels"
 )
 %}
@@ -18,6 +19,7 @@ import (
   LogPipelineExpr      LogPipelineExpr
   LogPipelineStageExpr LogPipelineStageExpr
   LogRangeQueryExpr    LogSelectorExpr
+  LogOffsetExpr        *LogOffsetExpr
   Matcher              *labels.Matcher
   Matchers             []*labels.Matcher
   MetricOp             string
@@ -30,6 +32,7 @@ import (
   str                  string
   binaryOp             string
   ComparisonOp         string
+  duration             time.Duration
 }
 
 %start root
@@ -49,6 +52,7 @@ import (
 %type <LogPipelineExpr>      logPipelineExpr
 %type <LogPipelineStageExpr> logPipelineStageExpr
 %type <LogRangeQueryExpr>    logRangeQueryExpr
+%type <LogOffsetExpr>        logOffsetExpr
 %type <Matcher>              matcher
 %type <Matchers>             matchers
 %type <MetricOp>             metricOp
@@ -56,11 +60,12 @@ import (
 %type <Grouping>             grouping
 
 %token  <str>      IDENTIFIER STRING RANGE NUMBER
+%token  <duration> DURATION
 %token  <val>      MATCHERS LABELS EQ RE NRE OPEN_BRACE CLOSE_BRACE OPEN_BRACKET CLOSE_BRACKET COMMA
                    OPEN_PARENTHESIS CLOSE_PARENTHESIS COUNT_OVER_TIME RATE SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK
                    BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                    MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME FIRST_OVER_TIME LAST_OVER_TIME ABSENT_OVER_TIME
-                   BY WITHOUT LABEL_REPLACE IP UNPACK PATTERN
+                   BY WITHOUT LABEL_REPLACE IP UNPACK PATTERN OFFSET
 
 %left <binaryOp> OR
 %left <binaryOp> AND UNLESS
@@ -121,6 +126,10 @@ logFormatExpr:
         |       logFormatExpr COMMA logFormatExpr                          { $$ = newLogFormatExpr(",", mergeLogFormatValues($1.kv, $3.kv))                            }
         ;
 
+logOffsetExpr:
+                OFFSET DURATION                                                            { { $$ = newLogOffsetExpr($2) } }
+                ;
+
 logRangeQueryExpr:
                 selector RANGE                                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), nil), $2, nil, false) }
         |       selector RANGE logPipelineExpr                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), $3), $2, nil, false)  }
@@ -133,23 +142,25 @@ logRangeQueryExpr:
         ;
 
 logMetricExpr:
-                metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS                                                        { $$ = newLogMetricExpr(nil, $3, $1, "", nil, nil)                                }
-        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logRangeQueryExpr CLOSE_PARENTHESIS                                           { $$ = newLogMetricExpr(nil, $5, $1, $3, nil, nil)                                }
-        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS grouping                                               { $$ = newLogMetricExpr(nil, $3, "", "", $5, nil)                                 }
-        |       metricOp OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS grouping                                                   { $$ = newLogMetricExpr($3, nil, $1, "", $5, nil)                                 }
-        |       metricOp OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                            { $$ = newLogMetricExpr($3, nil, $1, "", nil, nil)                                }
-        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS                                               { $$ = newLogMetricExpr($5, nil, $1, $3, nil, nil)                                }
-        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS grouping                                      { $$ = newLogMetricExpr($5, nil, $1, $3, $7, nil)                                 }
-        |       metricOp grouping OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS                                      { $$ = newLogMetricExpr($6, nil, $1, $4, $2, nil)                                 }
-        |       metricOp grouping OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                   { $$ = newLogMetricExpr($4, nil, $1, "", $2, nil)                                 }
-        |       LABEL_REPLACE OPEN_PARENTHESIS logMetricExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS   { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, []string{$5,$7,$9,$11}) }
-        |       metricOp OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS grouping                                                 { $$ = newLogMetricExpr($3, nil, $1, "", $5, nil)                                 }
-        |       metricOp OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS                                                          { $$ = newLogMetricExpr($3, nil, $1, "", nil, nil)                                }
-        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS                                             { $$ = newLogMetricExpr($5, nil, $1, $3, nil, nil)                                }
-        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS grouping                                    { $$ = newLogMetricExpr($5, nil, $1, $3, $7, nil)                                 }
-        |       metricOp grouping OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS                                    { $$ = newLogMetricExpr($6, nil, $1, $4, $2, nil)                                 }
-        |       metricOp grouping OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS                                                 { $$ = newLogMetricExpr($4, nil, $1, "", $2, nil)                                 }
-        |       LABEL_REPLACE OPEN_PARENTHESIS logBinaryOpExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, []string{$5,$7,$9,$11}) }
+                metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS                                                        { $$ = newLogMetricExpr(nil, $3, $1, "", nil, nil, nil)                                }
+        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS                                          { $$ = newLogMetricExpr(nil, $3, $1, "", nil, nil, $4)                                }
+        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logRangeQueryExpr CLOSE_PARENTHESIS                                           { $$ = newLogMetricExpr(nil, $5, $1, $3, nil, nil, nil)                                }
+        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS grouping                                               { $$ = newLogMetricExpr(nil, $3, "", "", $5, nil, nil)                                 }
+        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS grouping                                 { $$ = newLogMetricExpr(nil, $3, "", "", $6, nil, $4)                                 }
+        |       metricOp OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS grouping                                                   { $$ = newLogMetricExpr($3, nil, $1, "", $5, nil, nil)                                 }
+        |       metricOp OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                            { $$ = newLogMetricExpr($3, nil, $1, "", nil, nil, nil)                                }
+        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS                                               { $$ = newLogMetricExpr($5, nil, $1, $3, nil, nil, nil)                                }
+        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS grouping                                      { $$ = newLogMetricExpr($5, nil, $1, $3, $7, nil, nil)                                 }
+        |       metricOp grouping OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS                                      { $$ = newLogMetricExpr($6, nil, $1, $4, $2, nil, nil)                                 }
+        |       metricOp grouping OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                   { $$ = newLogMetricExpr($4, nil, $1, "", $2, nil, nil)                                 }
+        |       LABEL_REPLACE OPEN_PARENTHESIS logMetricExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS   { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, []string{$5,$7,$9,$11}, nil) }
+        |       metricOp OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS grouping                                                 { $$ = newLogMetricExpr($3, nil, $1, "", $5, nil, nil)                                 }
+        |       metricOp OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS                                                          { $$ = newLogMetricExpr($3, nil, $1, "", nil, nil, nil)                                }
+        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS                                             { $$ = newLogMetricExpr($5, nil, $1, $3, nil, nil, nil)                                }
+        |       metricOp OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS grouping                                    { $$ = newLogMetricExpr($5, nil, $1, $3, $7, nil, nil)                                 }
+        |       metricOp grouping OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS                                    { $$ = newLogMetricExpr($6, nil, $1, $4, $2, nil, nil)                                 }
+        |       metricOp grouping OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS                                                 { $$ = newLogMetricExpr($4, nil, $1, "", $2, nil, nil)                                 }
+        |       LABEL_REPLACE OPEN_PARENTHESIS logBinaryOpExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, []string{$5,$7,$9,$11}, nil) }
         |       OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                                     { $$ = $2                                                                         }
                 ;
 
