@@ -1001,6 +1001,38 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		// parse unwrap expression of type bytes()/duration()/duration_seconds()
+		{
+			input: `sum_over_time({first="value"} | unwrap bytes(value) [5m])`,
+			expr: &LogMetricExpr{
+				metricOp: "sum_over_time",
+				left: &LogRangeQueryExpr{
+					rng:     `[5m]`,
+					rngLast: true,
+					left: &LogQueryExpr{
+						filter: LogPipelineExpr{
+							{
+								parser: "unwrap",
+								matcher: &LogFormatExpr{
+									sep:       "",
+									kv:        LogFormatValues{"": newLogFormatValue("value", true)},
+									operation: "bytes",
+								},
+							},
+						},
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		// log query expressions with format expressions and line function
 		{
 			input: `{app="first"} | line_format "{{ __line__ }} bar {{.status_code}}" | label_format status_code="401"`,
@@ -1061,6 +1093,44 @@ func TestParseExpr(t *testing.T) {
 									Type:  labels.MatchEqual,
 									Name:  "first",
 									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// parse offset expression with double grouping
+		{
+			input: `sum without (value) (quantile_over_time(0.98,{first="value"} | unwrap value [5m] offset 5m) by (namespace))`,
+			expr: &LogMetricExpr{
+				metricOp: "sum",
+				grouping: &grouping{without: true, groups: []string{"value"}},
+				Expr: &LogMetricExpr{
+					metricOp: "quantile_over_time",
+					preamble: "0.98",
+					grouping: &grouping{without: false, groups: []string{"namespace"}},
+					offset:   5 * time.Minute,
+					left: &LogRangeQueryExpr{
+						rng:     `[5m]`,
+						rngLast: true,
+						left: &LogQueryExpr{
+							filter: LogPipelineExpr{
+								{
+									parser: "unwrap",
+									matcher: &LogFormatExpr{
+										sep: "",
+										kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+									},
+								},
+							},
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
 								},
 							},
 						},

@@ -182,10 +182,11 @@ type LogFormatExpr struct {
 	defaultLogQLExpr // nolint:unused
 	kv               LogFormatValues
 	sep              string
+	operation        string
 }
 
-func newLogFormatExpr(sep string, kv LogFormatValues) *LogFormatExpr {
-	return &LogFormatExpr{sep: sep, kv: kv}
+func newLogFormatExpr(sep string, kv LogFormatValues, operation string) *LogFormatExpr {
+	return &LogFormatExpr{sep: sep, kv: kv, operation: operation}
 }
 
 func (LogFormatExpr) logQLExpr() {}
@@ -213,6 +214,10 @@ func (l *LogFormatExpr) String() string {
 			sb.WriteString("=")
 		}
 
+		if l.operation != "" {
+			sb.WriteString(fmt.Sprintf("%s(", l.operation))
+		}
+
 		value := l.kv[key]
 		if !value.isID {
 			sb.WriteString(`"`)
@@ -222,6 +227,10 @@ func (l *LogFormatExpr) String() string {
 
 		if !value.isID {
 			sb.WriteString(`"`)
+		}
+
+		if l.operation != "" {
+			sb.WriteString(")")
 		}
 
 		if i+1 != len(l.kv) {
