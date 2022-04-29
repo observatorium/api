@@ -26,9 +26,9 @@ require (
 	github.com/prometheus/prometheus v1.8.2-0.20200305080338-7164b58945bb
 	github.com/urfave/cli v1.22.2 // indirect
 	go.uber.org/automaxprocs v1.2.0
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5 // indirect
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
-	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
+	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
 	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/component-base v0.18.0
@@ -54,7 +54,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
-	github.com/golang/snappy v0.0.1 // indirect
+	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/certificate-transparency-go v1.0.21 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
@@ -94,7 +94,7 @@ require (
 	go.uber.org/atomic v1.6.0 // indirect
 	go.uber.org/multierr v1.5.0 // indirect
 	go.uber.org/zap v1.14.1 // indirect
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
+	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
 	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/api v0.30.0 // indirect
@@ -110,6 +110,8 @@ require (
 )
 
 replace (
+	// fix CVE-2022-24450
+	github.com/nats-io/nats-server/v2 => github.com/nats-io/nats-server/v2 v2.7.2
 	go.etcd.io/etcd => go.etcd.io/etcd v0.5.0-alpha.5.0.20200329194405-dd816f0735f8
 	google.golang.org/grpc => google.golang.org/grpc v1.27.0
 )
