@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 )
@@ -181,10 +182,11 @@ type LogFormatExpr struct {
 	defaultLogQLExpr // nolint:unused
 	kv               LogFormatValues
 	sep              string
+	operation        string
 }
 
-func newLogFormatExpr(sep string, kv LogFormatValues) *LogFormatExpr {
-	return &LogFormatExpr{sep: sep, kv: kv}
+func newLogFormatExpr(sep string, kv LogFormatValues, operation string) *LogFormatExpr {
+	return &LogFormatExpr{sep: sep, kv: kv, operation: operation}
 }
 
 func (LogFormatExpr) logQLExpr() {}
@@ -212,6 +214,10 @@ func (l *LogFormatExpr) String() string {
 			sb.WriteString("=")
 		}
 
+		if l.operation != "" {
+			sb.WriteString(fmt.Sprintf("%s(", l.operation))
+		}
+
 		value := l.kv[key]
 		if !value.isID {
 			sb.WriteString(`"`)
@@ -221,6 +227,10 @@ func (l *LogFormatExpr) String() string {
 
 		if !value.isID {
 			sb.WriteString(`"`)
+		}
+
+		if l.operation != "" {
+			sb.WriteString(")")
 		}
 
 		if i+1 != len(l.kv) {
@@ -403,6 +413,7 @@ type LogMetricExpr struct {
 	preamble         string
 	grouping         *grouping
 	params           []string
+	offset           time.Duration
 	Expr
 }
 
@@ -412,7 +423,12 @@ func newLogMetricExpr(
 	op, preamble string,
 	grouping *grouping,
 	params []string,
+	o *LogOffsetExpr,
 ) LogMetricSampleExpr {
+	var offset time.Duration
+	if o != nil {
+		offset = o.Offset
+	}
 	return &LogMetricExpr{
 		Expr:     e,
 		left:     m,
@@ -420,6 +436,7 @@ func newLogMetricExpr(
 		preamble: preamble,
 		grouping: grouping,
 		params:   params,
+		offset:   offset,
 	}
 }
 
@@ -458,6 +475,11 @@ func (l *LogMetricExpr) String() string {
 				sb.WriteString(",")
 			}
 		}
+	}
+
+	if l.offset != 0 {
+		offsetExpr := LogOffsetExpr{Offset: l.offset}
+		sb.WriteString(offsetExpr.String())
 	}
 
 	sb.WriteString(")")
@@ -572,4 +594,20 @@ func (l LogNumberExpr) String() string {
 
 func (l LogNumberExpr) Walk(fn WalkFn) {
 	fn(l)
+}
+
+type LogOffsetExpr struct {
+	Offset time.Duration
+}
+
+func (o *LogOffsetExpr) String() string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf(" %s %s", "offset", o.Offset.String()))
+	return sb.String()
+}
+
+func newLogOffsetExpr(offset time.Duration) *LogOffsetExpr {
+	return &LogOffsetExpr{
+		Offset: offset,
+	}
 }

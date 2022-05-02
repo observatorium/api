@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 )
@@ -967,6 +968,174 @@ func TestParseExpr(t *testing.T) {
 				Expr:  LogNumberExpr{value: 100},
 				op:    ">",
 				right: LogNumberExpr{value: 100},
+			},
+		},
+		// parse unwrap expression with a label filter
+		{
+			input: `rate({first="value"} | unwrap value [30s])`,
+			expr: &LogMetricExpr{
+				metricOp: "rate",
+				left: &LogRangeQueryExpr{
+					rng:     `[30s]`,
+					rngLast: true,
+					left: &LogQueryExpr{
+						filter: LogPipelineExpr{
+							{
+								parser: "unwrap",
+								matcher: &LogFormatExpr{
+									sep: "",
+									kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+								},
+							},
+						},
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// parse unwrap expression of type bytes()/duration()/duration_seconds()
+		{
+			input: `sum_over_time({first="value"} | unwrap bytes(value) [5m])`,
+			expr: &LogMetricExpr{
+				metricOp: "sum_over_time",
+				left: &LogRangeQueryExpr{
+					rng:     `[5m]`,
+					rngLast: true,
+					left: &LogQueryExpr{
+						filter: LogPipelineExpr{
+							{
+								parser: "unwrap",
+								matcher: &LogFormatExpr{
+									sep:       "",
+									kv:        LogFormatValues{"": newLogFormatValue("value", true)},
+									operation: "bytes",
+								},
+							},
+						},
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// log query expressions with format expressions and line function
+		{
+			input: `{app="first"} | line_format "{{ __line__ }} bar {{.status_code}}" | label_format status_code="401"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					{
+						parser: "line_format",
+						matcher: &LogFormatExpr{
+							sep: "",
+							kv: LogFormatValues{
+								"": newLogFormatValue("{{ __line__ }} bar {{.status_code}}", false),
+							},
+						},
+					},
+					{
+						parser: "label_format",
+						matcher: &LogFormatExpr{
+							sep: "",
+							kv: LogFormatValues{
+								"status_code": newLogFormatValue("401", false),
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "app",
+							Value: "first",
+						},
+					},
+				},
+			},
+		},
+		// parse offset expression
+		{
+			input: `max_over_time({first="value"} | unwrap value [5m] offset 5m)`,
+			expr: &LogMetricExpr{
+				metricOp: "max_over_time",
+				offset:   5 * time.Minute,
+				left: &LogRangeQueryExpr{
+					rng:     `[5m]`,
+					rngLast: true,
+					left: &LogQueryExpr{
+						filter: LogPipelineExpr{
+							{
+								parser: "unwrap",
+								matcher: &LogFormatExpr{
+									sep: "",
+									kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+								},
+							},
+						},
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		// parse offset expression with double grouping
+		{
+			input: `sum without (value) (quantile_over_time(0.98,{first="value"} | unwrap value [5m] offset 5m) by (namespace))`,
+			expr: &LogMetricExpr{
+				metricOp: "sum",
+				grouping: &grouping{without: true, groups: []string{"value"}},
+				Expr: &LogMetricExpr{
+					metricOp: "quantile_over_time",
+					preamble: "0.98",
+					grouping: &grouping{without: false, groups: []string{"namespace"}},
+					offset:   5 * time.Minute,
+					left: &LogRangeQueryExpr{
+						rng:     `[5m]`,
+						rngLast: true,
+						left: &LogQueryExpr{
+							filter: LogPipelineExpr{
+								{
+									parser: "unwrap",
+									matcher: &LogFormatExpr{
+										sep: "",
+										kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+									},
+								},
+							},
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}

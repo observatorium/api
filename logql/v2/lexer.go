@@ -2,8 +2,10 @@ package v2
 
 import (
 	"fmt"
+	"github.com/prometheus/common/model"
 	"strings"
 	"text/scanner"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -39,45 +41,55 @@ const (
 	// Other ops.
 	OpLabelReplace = "label_replace"
 	OpIP           = "ip"
+
+	// conversion Op
+	OpConvBytes           = "bytes"
+	OpConvDuration        = "duration"
+	OpConvDurationSeconds = "duration_seconds"
 )
 
 // nolint:gochecknoglobals
 var tokens = map[string]int{
-	",":            COMMA,
-	"{":            OPEN_BRACE,
-	"}":            CLOSE_BRACE,
-	"(":            OPEN_PARENTHESIS,
-	")":            CLOSE_PARENTHESIS,
-	"=":            EQ,
-	"!=":           NEQ,
-	"=~":           RE,
-	"!~":           NRE,
-	"|":            PIPE,
-	"|=":           PIPE_EXACT,
-	"|~":           PIPE_MATCH,
-	"by":           BY,
-	"without":      WITHOUT,
-	"logfmt":       LOGFMT,
-	"json":         JSON,
-	"regexp":       REGEXP,
-	"unpack":       UNPACK,
-	"pattern":      PATTERN,
-	"line_format":  LINE_FMT,
-	"label_format": LABEL_FMT,
-	"==":           CMP_EQ,
-	">":            GT,
-	">=":           GTE,
-	"<":            LT,
-	"<=":           LTE,
-	"or":           OR,
-	"and":          AND,
-	"unless":       UNLESS,
-	"+":            ADD,
-	"-":            SUB,
-	"*":            MUL,
-	"/":            DIV,
-	"%":            MOD,
-	"^":            POW,
+	",":                COMMA,
+	"{":                OPEN_BRACE,
+	"}":                CLOSE_BRACE,
+	"(":                OPEN_PARENTHESIS,
+	")":                CLOSE_PARENTHESIS,
+	"=":                EQ,
+	"!=":               NEQ,
+	"=~":               RE,
+	"!~":               NRE,
+	"|":                PIPE,
+	"|=":               PIPE_EXACT,
+	"|~":               PIPE_MATCH,
+	"by":               BY,
+	"without":          WITHOUT,
+	"logfmt":           LOGFMT,
+	"json":             JSON,
+	"regexp":           REGEXP,
+	"unpack":           UNPACK,
+	"unwrap":           UNWRAP,
+	"offset":           OFFSET,
+	"pattern":          PATTERN,
+	"line_format":      LINE_FMT,
+	"label_format":     LABEL_FMT,
+	"==":               CMP_EQ,
+	">":                GT,
+	">=":               GTE,
+	"<":                LT,
+	"<=":               LTE,
+	"or":               OR,
+	"and":              AND,
+	"unless":           UNLESS,
+	"+":                ADD,
+	"-":                SUB,
+	"*":                MUL,
+	"/":                DIV,
+	"%":                MOD,
+	"^":                POW,
+	"bytes":            BYTES_CONV,
+	"duration":         DURATION_CONV,
+	"duration_seconds": DURATION_SECONDS_CONV,
 }
 
 // nolint:gochecknoglobals
@@ -141,6 +153,13 @@ func (l *lexer) Lex(lval *exprSymType) int {
 
 	case scanner.Int, scanner.Float:
 		numberText := l.TokenText()
+
+		duration, ok := tryScanDuration(numberText, &l.Scanner)
+		if ok {
+			lval.duration = duration
+			return DURATION
+		}
+
 		lval.str = numberText
 
 		return NUMBER
@@ -250,4 +269,66 @@ func trimSpace(s scanner.Scanner) scanner.Scanner {
 	}
 
 	return s
+}
+
+func tryScanDuration(number string, l *scanner.Scanner) (time.Duration, bool) {
+	var sb strings.Builder
+	sb.WriteString(number)
+	// copy the scanner to avoid advancing it in case it's not a duration.
+	s := *l
+	consumed := 0
+	for r := s.Peek(); r != scanner.EOF && !unicode.IsSpace(r); r = s.Peek() {
+		if !unicode.IsNumber(r) && !isDurationRune(r) && r != '.' {
+			break
+		}
+		_, _ = sb.WriteRune(r)
+		_ = s.Next()
+		consumed++
+	}
+
+	if consumed == 0 {
+		return 0, false
+	}
+	// we've found more characters before a whitespace or the end
+	durationString := sb.String()
+	duration, err := parseDuration(durationString)
+	if err != nil {
+		return 0, false
+	}
+
+	// we need to consume the scanner, now that we know this is a duration.
+	for i := 0; i < consumed; i++ {
+		_ = l.Next()
+	}
+
+	return duration, true
+}
+
+func parseDuration(d string) (time.Duration, error) {
+	var duration time.Duration
+	// Try to parse promql style durations first, to ensure that we support the same duration
+	// units as promql
+	prometheusDuration, err := model.ParseDuration(d)
+	if err != nil {
+		// Fall back to standard library's time.ParseDuration if a promql style
+		// duration couldn't be parsed.
+		duration, err = time.ParseDuration(d)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		duration = time.Duration(prometheusDuration)
+	}
+
+	return duration, nil
+}
+
+func isDurationRune(r rune) bool {
+	// "ns", "us" (or "µs"), "ms", "s", "m", "h", "d", "w", "y".
+	switch r {
+	case 'n', 'u', 'µ', 'm', 's', 'h', 'd', 'w', 'y':
+		return true
+	default:
+		return false
+	}
 }
