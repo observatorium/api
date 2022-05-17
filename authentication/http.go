@@ -2,6 +2,7 @@ package authentication
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -59,7 +60,17 @@ func WithAccessToken() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			rawToken := r.Header.Get("Authorization")
-			token := rawToken[strings.LastIndex(rawToken, " ")+1:]
+			token := strings.TrimPrefix(rawToken, "Bearer ")
+
+			if proxyToken := r.Header.Get("X-Forwarded-Access-Token"); rawToken == "" && proxyToken != "" {
+				// Place forwarded token in Authorization header if no other Authorization is used.
+				// This is picked up by the authentication code taken from apiserver.
+				r.Header.Set("Authorization", fmt.Sprintf("Bearer %s", proxyToken))
+
+				// Place token in request context. This is picked up by the OPA authorization code.
+				token = proxyToken
+			}
+
 			next.ServeHTTP(w, r.WithContext(
 				context.WithValue(r.Context(), accessTokenKey, token),
 			))
