@@ -520,6 +520,7 @@ func main() {
 
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
+			r.Use(authentication.EnforceAccessTokenPresent("/api/metrics/v1"))
 			r.Use(authentication.WithAccessToken())
 			r.MethodNotAllowed(blockNonDefinedMethods())
 
