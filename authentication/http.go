@@ -54,30 +54,6 @@ func WithTenantID(tenantIDs map[string]string) Middleware {
 	}
 }
 
-// EnforceAccessTokenPresent enforces that the Authorization header is present in the incoming request.
-// Otherwise, it returns an error.
-func EnforceAccessTokenPresent(urlPath string) Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasSuffix(r.URL.Path, urlPath) {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			rawToken := r.Header.Get("Authorization")
-			if rawToken == "" {
-				http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
-				return
-			}
-			if !strings.Contains(rawToken, "Bearer ") {
-				http.Error(w, "malformed authorization header", http.StatusBadRequest)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
 // WithAccessToken returns a middleware that looks up the authorization access
 // token from the request and adds it to the request context.
 func WithAccessToken() Middleware {
