@@ -525,6 +525,10 @@ func main() {
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
+			// We want to enforce that all remote write requests have an access token present in the Authorization
+			// header to avoid repeatedly redirecting clients that might be unaware of OIDC flow to the identity
+			// provider, possibly overloading it.
+			r.Use(authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants))
 			r.MethodNotAllowed(blockNonDefinedMethods())
 
 			// Metrics.
@@ -581,7 +585,6 @@ func main() {
 								metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 								metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 								metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
-								metricsv1.WithWriteMiddleware(authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants)),
 							),
 						),
 					)
@@ -608,7 +611,6 @@ func main() {
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
-								logsv1.WithWriteMiddleware(authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants)),
 							),
 						),
 					)
@@ -646,7 +648,6 @@ func main() {
 								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
-								tracesv1.WithWriteMiddleware(authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants)),
 							),
 						),
 					)

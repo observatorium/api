@@ -437,25 +437,38 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 
 // EnforceAccessTokenPresentOnSignalWrite enforces that the Authorization header is present in the incoming request
 // for the given list of tenants. Otherwise, it returns an error.
-func EnforceAccessTokenPresentOnSignalWrite(tenants map[string]struct{}) Middleware {
+func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) Middleware {
+	protectedSignalWritePath := []string{
+		"/api/v1/receive",
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant := chi.URLParam(r, "tenant")
 
-			// We aren't interested in blocking requests from tenants not using OIDC.
-			if _, found := tenants[tenant]; !found {
+			// If there's no tenant, we're not interested in blocking this request.
+			if tenant == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			rawToken := r.Header.Get("Authorization")
-			if rawToken == "" {
-				http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
+			// And we aren't interested in blocking requests from tenants not using OIDC.
+			if _, found := oidcTenants[tenant]; !found {
+				next.ServeHTTP(w, r)
 				return
 			}
-			if !strings.Contains(strings.ToLower(rawToken), "bearer ") {
-				http.Error(w, "malformed authorization header", http.StatusBadRequest)
-				return
+
+			for _, protectedPath := range protectedSignalWritePath {
+				if strings.HasSuffix(r.URL.Path, protectedPath) {
+					rawToken := r.Header.Get("Authorization")
+					if rawToken == "" {
+						http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
+						return
+					}
+					if !strings.Contains(strings.ToLower(rawToken), "bearer ") {
+						http.Error(w, "malformed authorization header", http.StatusBadRequest)
+						return
+					}
+				}
 			}
 
 			next.ServeHTTP(w, r)
