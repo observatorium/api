@@ -464,10 +464,6 @@ func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) Mid
 						http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
 						return
 					}
-					if !strings.Contains(strings.ToLower(rawToken), "bearer ") {
-						http.Error(w, "malformed authorization header", http.StatusBadRequest)
-						return
-					}
 				}
 			}
 
