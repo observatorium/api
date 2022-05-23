@@ -520,6 +520,9 @@ func main() {
 
 			r.Use(authentication.WithTenant)
 			r.Use(authentication.WithTenantID(tenantIDs))
+			// We want to enforce that all remote write requests have an access token present in the Authorization
+			// header to avoid repeatedly redirecting clients that might be unaware of OIDC flow to the identity
+			// provider, possibly overloading it.
 			r.Use(authentication.EnforceAccessTokenPresent("/api/v1/receive"))
 			r.Use(authentication.WithAccessToken())
 			r.MethodNotAllowed(blockNonDefinedMethods())
