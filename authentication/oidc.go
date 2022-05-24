@@ -437,9 +437,14 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 
 // EnforceAccessTokenPresentOnSignalWrite enforces that the Authorization header is present in the incoming request
 // for the given list of tenants. Otherwise, it returns an error.
+// It protects the Prometheus remote write and Loki push endpoints. The tracing endpoint is not protected because
+// it goes through the gRPC middleware stack, which behaves differently from the HTTP one.
 func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) Middleware {
 	protectedSignalWritePath := []string{
+		// Prometheus remote write endpoint
 		"/api/v1/receive",
+		// Loki logs push endpoint
+		"loki/api/v1/push",
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
