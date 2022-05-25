@@ -71,6 +71,14 @@ func WithUIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+// WithGlobalMiddleware adds a middleware for all operations.
+func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.uiMiddlewares = append(h.uiMiddlewares, m...)
+		h.queryMiddlewares = append(h.queryMiddlewares, m...)
+	}
+}
+
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
