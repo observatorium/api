@@ -22,7 +22,7 @@ const (
 	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
 	thanosImage = "quay.io/thanos/thanos:main-2021-09-23-177b4f23"
 	lokiImage   = "grafana/loki:2.3.0"
-	upImage     = "quay.io/observatorium/up:master-2021-02-12-03ef2f2"
+	upImage     = "quay.io/observatorium/up:master-2022-05-26-370602d"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
