@@ -5,6 +5,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"github.com/efficientgo/e2e/matchers"
 	"net/http"
 	"strings"
 	"testing"
@@ -57,15 +58,16 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
 		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, float64(1), upMetrics[0])
-		testutil.Equals(t, float64(11), upMetrics[1])
-
+		totalQueries := float64(1)
+		totalWrites := float64(21)
+		testutil.Equals(t, totalQueries, upMetrics[0])
+		testutil.Equals(t, totalWrites, upMetrics[1])
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
 		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, float64(12), apiMetrics[0])
+		testutil.Equals(t, totalQueries+totalWrites, apiMetrics[0])
 
 		// Query Thanos to ensure we have correct metrics and labels.
 		a, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
@@ -95,10 +97,45 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 			// Split on every value and ignore first line with metric name / labels.
 			vs := strings.Split(v.String(), "\n")[1:]
-			testutil.Equals(t, 11, len(vs))
+			testutil.Equals(t, 21, len(vs))
 		}
 	})
+	t.Run("OIDC redirect protection", func(t *testing.T) {
+		up, err := newUpRun(
+			e, "up-oidc-redirect-protection", metrics,
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/receive",
+			withRunParameters(&runParams{period: "500ms", threshold: "1", latency: "10s", duration: "0"}),
+		)
+		testutil.Ok(t, err)
+		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
+		// Wait until the first query is run.
+		testutil.Ok(t, up.WaitSumMetricsWithOptions(
+			e2e.Equals(1),
+			[]string{"up_queries_total"},
+			e2e.WaitMissingMetrics(),
+		))
+
+		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
+		totalMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
+		testutil.Ok(t, err)
+
+		totalQueries := float64(1)
+		totalWrites := float64(21)
+		testutil.Equals(t, totalQueries, totalMetrics[0])
+		testutil.Equals(t, totalWrites, totalMetrics[1])
+
+		errorMetrics, err := up.SumMetrics(
+			[]string{"up_remote_writes_total"},
+			e2e.WithLabelMatchers(
+				matchers.MustNewMatcher(matchers.MatchEqual, "http_code", "400"),
+			),
+		)
+		testutil.Ok(t, err)
+		testutil.Equals(t, totalMetrics[1], errorMetrics[0])
+		testutil.Ok(t, up.Stop())
+	})
 	// Query Thanos through Observatorium API to ensure we don't change API and the tenancy isolation is ensured.
 	t.Run("metrics-tenant-isolation", func(t *testing.T) {
 		tr := &http.Transport{
@@ -106,7 +143,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		}
 
 		apiTest, err := promapi.NewClient(promapi.Config{
-			Address:      "https://" + api.Endpoint("https") + "/api/metrics/v1/"+defaultTenantName,
+			Address:      "https://" + api.Endpoint("https") + "/api/metrics/v1/" + defaultTenantName,
 			RoundTripper: &tokenRoundTripper{rt: tr, token: token},
 		})
 		testutil.Ok(t, err)
