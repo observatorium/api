@@ -11,29 +11,29 @@ import (
 
 // httpMetricsCollector is responsible for collecting HTTP metrics with an extra tenant labels.
 type httpMetricsCollector struct {
-	RequestCounter  *prometheus.CounterVec
-	RequestSize     *prometheus.SummaryVec
-	RequestDuration *prometheus.HistogramVec
-	ResponseSize    *prometheus.HistogramVec
+	requestCounter  *prometheus.CounterVec
+	requestSize     *prometheus.SummaryVec
+	requestDuration *prometheus.HistogramVec
+	responseSize    *prometheus.HistogramVec
 }
 
 // newHTTPMetricsCollector creates a new httpMetricsCollector.
 func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string) httpMetricsCollector {
 	m := httpMetricsCollector{
-		RequestCounter: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
+		requestCounter: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
 			Name: "http_requests_total",
 			Help: "Counter of HTTP requests.",
 		},
 			append(hardcodedLabels, "code", "method", "tenant"),
 		),
-		RequestSize: prometheus.NewSummaryVec(
+		requestSize: prometheus.NewSummaryVec(
 			prometheus.SummaryOpts{
 				Name: "http_request_size_bytes",
 				Help: "Size of HTTP requests.",
 			},
 			append(hardcodedLabels, "code", "method", "tenant"),
 		),
-		RequestDuration: prometheus.NewHistogramVec(
+		requestDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_request_duration_seconds",
 				Help:    "Histogram of latencies for HTTP requests.",
@@ -41,7 +41,7 @@ func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 			},
 			append(hardcodedLabels, "code", "method", "tenant"),
 		),
-		ResponseSize: prometheus.NewHistogramVec(
+		responseSize: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_response_size_bytes",
 				Help:    "Histogram of response size for HTTP requests.",
@@ -66,14 +66,26 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		next.ServeHTTP(rw, r)
 
 		tenant, _ := authentication.GetTenantID(r.Context())
-		m.metricsCollector.RequestCounter.MustCurryWith(extraLabels).WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).Inc()
+		m.metricsCollector.requestCounter.
+			MustCurryWith(extraLabels).
+			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			Inc()
 
 		size := computeApproximateRequestSize(r)
-		m.metricsCollector.RequestSize.MustCurryWith(extraLabels).WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).Observe(float64(size))
+		m.metricsCollector.requestSize.
+			MustCurryWith(extraLabels).
+			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			Observe(float64(size))
 
-		m.metricsCollector.RequestDuration.MustCurryWith(extraLabels).WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).Observe(time.Since(now).Seconds())
+		m.metricsCollector.requestDuration.
+			MustCurryWith(extraLabels).
+			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			Observe(time.Since(now).Seconds())
 
-		m.metricsCollector.ResponseSize.MustCurryWith(extraLabels).WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).Observe(float64(rw.BytesWritten()))
+		m.metricsCollector.responseSize.
+			MustCurryWith(extraLabels).
+			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			Observe(float64(rw.BytesWritten()))
 	}
 }
 
