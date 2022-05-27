@@ -23,14 +23,14 @@ func NewHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 			Name: "http_requests_total",
 			Help: "Counter of HTTP requests.",
 		},
-			append([]string{"code", "method", "tenant"}, hardcodedLabels...),
+			append(hardcodedLabels, "code", "method", "tenant"),
 		),
 		RequestSize: prometheus.NewSummaryVec(
 			prometheus.SummaryOpts{
 				Name: "http_request_size_bytes",
 				Help: "Size of HTTP requests.",
 			},
-			append([]string{"code", "method", "tenant"}, hardcodedLabels...),
+			append(hardcodedLabels, "code", "method", "tenant"),
 		),
 		RequestDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -38,7 +38,7 @@ func NewHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 				Help:    "Histogram of latencies for HTTP requests.",
 				Buckets: []float64{.1, .2, .4, 1, 2.5, 5, 8, 20, 60, 120},
 			},
-			append([]string{"code", "method", "tenant"}, hardcodedLabels...),
+			append(hardcodedLabels, "code", "method", "tenant"),
 		),
 		ResponseSize: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -46,7 +46,7 @@ func NewHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 				Help:    "Histogram of response size for HTTP requests.",
 				Buckets: prometheus.ExponentialBuckets(100, 10, 8),
 			},
-			append([]string{"code", "method", "tenant"}, hardcodedLabels...),
+			append(hardcodedLabels, "code", "method", "tenant"),
 		),
 	}
 	return m
