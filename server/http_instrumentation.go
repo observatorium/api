@@ -9,17 +9,17 @@ import (
 	"time"
 )
 
-// HTTPMetricsCollector is responsible for collecting HTTP metrics with an extra tenant labels.
-type HTTPMetricsCollector struct {
+// httpMetricsCollector is responsible for collecting HTTP metrics with an extra tenant labels.
+type httpMetricsCollector struct {
 	RequestCounter  *prometheus.CounterVec
 	RequestSize     *prometheus.SummaryVec
 	RequestDuration *prometheus.HistogramVec
 	ResponseSize    *prometheus.HistogramVec
 }
 
-// NewHTTPMetricsCollector creates a new HTTPMetricsCollector.
-func NewHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string) HTTPMetricsCollector {
-	m := HTTPMetricsCollector{
+// newHTTPMetricsCollector creates a new httpMetricsCollector.
+func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string) httpMetricsCollector {
+	m := httpMetricsCollector{
 		RequestCounter: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
 			Name: "http_requests_total",
 			Help: "Counter of HTTP requests.",
@@ -53,13 +53,13 @@ func NewHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 	return m
 }
 
-// InstrumentedHandlerFactory is a factory for creating HTTP handlers instrumented by HTTPMetricsCollector.
-type InstrumentedHandlerFactory struct {
-	metricsCollector HTTPMetricsCollector
+// instrumentedHandlerFactory is a factory for creating HTTP handlers instrumented by httpMetricsCollector.
+type instrumentedHandlerFactory struct {
+	metricsCollector httpMetricsCollector
 }
 
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
-func (m InstrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
+func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		now := time.Now()
@@ -77,10 +77,10 @@ func (m InstrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 	}
 }
 
-// NewInstrumentedHandlerFactory creates a new InstrumentedHandlerFactory.
-func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string) InstrumentedHandlerFactory {
-	return InstrumentedHandlerFactory{
-		metricsCollector: NewHTTPMetricsCollector(req, hardcodedLabels),
+// NewInstrumentedHandlerFactory creates a new instrumentedHandlerFactory.
+func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string) instrumentedHandlerFactory {
+	return instrumentedHandlerFactory{
+		metricsCollector: newHTTPMetricsCollector(req, hardcodedLabels),
 	}
 }
 
