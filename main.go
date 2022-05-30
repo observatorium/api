@@ -32,7 +32,6 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/metalmatze/signal/healthcheck"
-	"github.com/metalmatze/signal/server/signalhttp"
 	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
@@ -458,7 +457,8 @@ func main() {
 			cfg.middleware.backLogLimitConcurrentRequests, cfg.middleware.backLogDurationConcurrentRequests))
 		r.Use(server.Logger(logger))
 
-		ins := signalhttp.NewHandlerInstrumenter(reg, []string{"group", "handler"})
+		hardcodedLabels := []string{"group", "handler"}
+		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
 
 		tenantIDs := map[string]string{}
 		authorizers := map[string]rbac.Authorizer{}
@@ -560,7 +560,7 @@ func main() {
 						metricsUpstreamCACert,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
-						metricslegacy.WithHandlerInstrumenter(ins),
+						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
@@ -575,7 +575,7 @@ func main() {
 						metricsUpstreamCACert,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
-						metricsv1.WithHandlerInstrumenter(ins),
+						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
 						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
@@ -603,7 +603,7 @@ func main() {
 								logsUpstreamCACert,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
-								logsv1.WithHandlerInstrumenter(ins),
+								logsv1.WithHandlerInstrumenter(instrumenter),
 								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
@@ -643,7 +643,7 @@ func main() {
 								cfg.traces.readTemplateEndpoint,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
-								tracesv1.WithHandlerInstrumenter(ins),
+								tracesv1.WithHandlerInstrumenter(instrumenter),
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
 								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
