@@ -180,12 +180,6 @@ func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) fun
 				return
 			}
 
-			// We aren't interested in blocking requests from tenants not using OIDC.
-			if _, found := oidcTenants[tenant]; !found {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			rawToken := r.Header.Get("Authorization")
 			if rawToken == "" {
 				http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
