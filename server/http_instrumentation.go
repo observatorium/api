@@ -6,10 +6,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"net/http"
+	"strconv"
 	"time"
 )
 
-// httpMetricsCollector is responsible for collecting HTTP metrics with an extra tenant labels.
+// httpMetricsCollector is responsible for collecting HTTP metrics with extra tenant labels.
 type httpMetricsCollector struct {
 	requestCounter  *prometheus.CounterVec
 	requestSize     *prometheus.SummaryVec
@@ -68,23 +69,23 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		tenant, _ := authentication.GetTenantID(r.Context())
 		m.metricsCollector.requestCounter.
 			MustCurryWith(extraLabels).
-			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Inc()
 
 		size := computeApproximateRequestSize(r)
 		m.metricsCollector.requestSize.
 			MustCurryWith(extraLabels).
-			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(size))
 
 		m.metricsCollector.requestDuration.
 			MustCurryWith(extraLabels).
-			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(time.Since(now).Seconds())
 
 		m.metricsCollector.responseSize.
 			MustCurryWith(extraLabels).
-			WithLabelValues(http.StatusText(rw.Status()), r.Method, tenant).
+			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(rw.BytesWritten()))
 	}
 }
