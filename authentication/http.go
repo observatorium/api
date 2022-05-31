@@ -158,3 +158,36 @@ func WithTenantMiddlewares(mwFns ...MiddlewareFunc) Middleware {
 		})
 	}
 }
+
+// EnforceAccessTokenPresentOnSignalWrite enforces that the Authorization header is present in the incoming request
+// for the given list of tenants. Otherwise, it returns an error.
+// It protects the Prometheus remote write and Loki push endpoints. The tracing endpoint is not protected because
+// it goes through the gRPC middleware stack, which behaves differently from the HTTP one.
+func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant := chi.URLParam(r, "tenant")
+
+			// If there's no tenant, we're not interested in blocking this request.
+			if tenant == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// And we aren't interested in blocking requests from tenants not using OIDC.
+			if _, found := oidcTenants[tenant]; !found {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			rawToken := r.Header.Get("Authorization")
+			if rawToken == "" {
+				http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+			return
+		})
+	}
+}
