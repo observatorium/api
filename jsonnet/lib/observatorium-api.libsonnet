@@ -10,9 +10,9 @@ local defaults = {
   imagePullPolicy: 'IfNotPresent',
   replicas: error 'must provide replicas',
   ports: {
-    public: 8080,
-    internal: 8081,
-    'grpc-public': 8090,
+    public: {port: 8080, appProtocol: 'http'},
+    internal: { port: 8081, appProtocol: 'http'},
+    'grpc-public': { port: 8090, appProtocol: 'h2c'},
   },
   resources: {},
   serviceMonitor: false,
@@ -72,8 +72,9 @@ function(params) {
       ports: [
         {
           name: name,
-          port: api.config.ports[name],
-          targetPort: api.config.ports[name],
+          port: api.config.ports[name].port,
+          targetPort: api.config.ports[name].port,
+          appProtocol: api.config.ports[name].appProtocol,
         }
         for name in std.objectFields(api.config.ports)
       ],
@@ -107,8 +108,8 @@ function(params) {
               image: api.config.image,
               imagePullPolicy: api.config.imagePullPolicy,
               args: [
-                '--web.listen=0.0.0.0:%s' % api.config.ports.public,
-                '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal,
+                '--web.listen=0.0.0.0:%s' % api.config.ports.public.port,
+                '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal.port,
                 '--log.level=warn',
               ] + (
                 if api.config.metrics != {} then
@@ -135,7 +136,7 @@ function(params) {
                   []
                    + (if std.get(api.config.traces, 'writeEndpoint', "") != "" then [
                     '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
-                    '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public']
+                    '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'].port
                        ] else [])
                    + (if std.get(api.config.traces, 'readEndpoint', "") != "" then [
                          '--traces.read.endpoint=' + api.config.traces.readEndpoint,
@@ -151,7 +152,7 @@ function(params) {
               ) + (
                 if api.config.tls != {} then
                   [
-                    '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public,
+                    '--web.healthchecks.url=https://127.0.0.1:%s' % api.config.ports.public.port,
                     '--tls.server.cert-file=/var/run/tls/' + api.config.tls.certKey,
                     '--tls.server.key-file=/var/run/tls/' + api.config.tls.keyKey,
                   ] + (
@@ -207,7 +208,7 @@ function(params) {
                 else []
               ),
               ports: [
-                { name: name, containerPort: api.config.ports[name] }
+                { name: name, containerPort: api.config.ports[name].port }
                 for name in std.objectFields(api.config.ports)
               ],
               resources: if api.config.resources != {} then api.config.resources else {},
@@ -216,7 +217,7 @@ function(params) {
                 periodSeconds: 30,
                 httpGet: {
                   path: '/live',
-                  port: api.config.ports.internal,
+                  port: api.config.ports.internal.port,
                   scheme: 'HTTP',
                 },
               },
@@ -225,7 +226,7 @@ function(params) {
                 periodSeconds: 5,
                 httpGet: {
                   path: '/ready',
-                  port: api.config.ports.internal,
+                  port: api.config.ports.internal.port,
                   scheme: 'HTTP',
                 },
               },
