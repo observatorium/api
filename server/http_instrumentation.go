@@ -27,14 +27,14 @@ func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 		},
 			append(hardcodedLabels, "code", "method", "tenant"),
 		),
-		requestSize: prometheus.NewSummaryVec(
+		requestSize: promauto.With(reg).NewSummaryVec(
 			prometheus.SummaryOpts{
 				Name: "http_request_size_bytes",
 				Help: "Size of HTTP requests.",
 			},
 			append(hardcodedLabels, "code", "method", "tenant"),
 		),
-		requestDuration: prometheus.NewHistogramVec(
+		requestDuration: promauto.With(reg).NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_request_duration_seconds",
 				Help:    "Histogram of latencies for HTTP requests.",
@@ -42,7 +42,7 @@ func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 			},
 			append(hardcodedLabels, "code", "method", "tenant"),
 		),
-		responseSize: prometheus.NewHistogramVec(
+		responseSize: promauto.With(reg).NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_response_size_bytes",
 				Help:    "Histogram of response size for HTTP requests.",
