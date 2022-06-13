@@ -75,6 +75,7 @@ const (
 type config struct {
 	logLevel  string
 	logFormat string
+	logTlsErr bool
 
 	rbacConfigPath    string
 	tenantsConfigPath string
@@ -695,7 +696,10 @@ func main() {
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
-			ErrorLog:     proxy.NewErrorLogAdapter(),
+		}
+
+		if cfg.logTlsErr {
+			s.ErrorLog = proxy.NewErrorLogAdapter()
 		}
 
 		g.Add(func() error {
@@ -952,6 +956,7 @@ func parseFlags() (config, error) {
 		"The number of concurrent requests that can buffered.")
 	flag.DurationVar(&cfg.middleware.backLogDurationConcurrentRequests, "middleware.backlog-duration-concurrent-requests", 1*time.Millisecond,
 		"The time duration to buffer up concurrent requests.")
+	flag.BoolVar(&cfg.logTlsErr, "log.tls.suppress-errors", false, "Suppress the TLS handshake error logs.")
 
 	flag.Parse()
 
