@@ -695,6 +695,7 @@ func main() {
 			TLSConfig:    tlsConfig,
 			ReadTimeout:  readTimeout,  // best set per handler.
 			WriteTimeout: writeTimeout, // best set per handler.
+			ErrorLog:     proxy.NewErrorLogAdapter(),
 		}
 
 		g.Add(func() error {
