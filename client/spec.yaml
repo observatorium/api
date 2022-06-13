@@ -6,6 +6,9 @@ info:
   license:
     name: Apache 2.0
     url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+  x-logo:
+    url: 'https://observatorium.io/observatorium.png'
+    altText: 'Observatorium logo'
 tags:
   - name: observatoriumv1
     description: Calls related to Observatorium
