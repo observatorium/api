@@ -92,7 +92,7 @@ Usage of ./observatorium-api:
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -log.tls.suppress-errors
-      Suppress the TLS handshake error logs.
+    	Suppress the TLS handshake error logs.
   -logs.read.endpoint string
     	The endpoint against which to make read requests for logs.
   -logs.tail.endpoint string
