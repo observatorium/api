@@ -132,7 +132,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	// enforce in both places.
 	q, found1, err := enforceQueryValues(e, r.URL.Query())
 	if err != nil {
-		http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
 		return
 	}
@@ -143,14 +143,14 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	// Enforce the query in the POST body if needed.
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, fmt.Sprintf("could not parse form: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not parse form: %v", err), http.StatusBadRequest)
 
 			return
 		}
 
 		q, found2, err = enforceQueryValues(e, r.PostForm)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
 			return
 		}
