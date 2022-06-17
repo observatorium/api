@@ -38,7 +38,10 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 				Type:  labels.MatchEqual,
 				Value: id,
 			}}...)
-			enforceRequestQueryLabels(e, w, r)
+			// If we cannot enforce, don't continue.
+			if ok := enforceRequestQueryLabels(e, w, r); !ok {
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -118,13 +121,16 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 			}
 
 			e := injectproxy.NewEnforcer(lm...)
-			enforceRequestQueryLabels(e, w, r)
+			// If we cannot enforce, don't continue.
+			if ok := enforceRequestQueryLabels(e, w, r); !ok {
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r *http.Request) {
+func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r *http.Request) bool {
 	// The `query` can come in the URL query string and/or the POST body.
 	// For this reason, we need to try to enforcing in both places.
 	// Note: a POST request may include some values in the URL query string
@@ -134,7 +140,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	if err != nil {
 		http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
-		return
+		return false
 	}
 
 	r.URL.RawQuery = q
@@ -146,14 +152,14 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 			// We're returning server error here because we cannot ensure this is a bad request.
 			http.Error(w, fmt.Sprintf("could not parse form: %v", err), http.StatusInternalServerError)
 
-			return
+			return false
 		}
 
 		q, found2, err = enforceQueryValues(e, r.PostForm)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
-			return
+			return false
 		}
 		// We are replacing request body, close previous one (ParseForm ensures it is read fully and not nil).
 		_ = r.Body.Close()
@@ -165,8 +171,10 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	if !found1 && !found2 {
 		http.Error(w, "no query found", http.StatusBadRequest)
 
-		return
+		return false
 	}
+
+	return true
 }
 
 // Adapted from
