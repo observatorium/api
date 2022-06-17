@@ -143,7 +143,8 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	// Enforce the query in the POST body if needed.
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, fmt.Sprintf("could not parse form: %v", err), http.StatusBadRequest)
+			// We're returning server error here because we cannot ensure this is a bad request.
+			http.Error(w, fmt.Sprintf("could not parse form: %v", err), http.StatusInternalServerError)
 
 			return
 		}
