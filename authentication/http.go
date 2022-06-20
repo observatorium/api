@@ -187,7 +187,6 @@ func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) fun
 			}
 
 			next.ServeHTTP(w, r)
-			return
 		})
 	}
 }
