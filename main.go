@@ -487,9 +487,6 @@ func main() {
 			var regMtx sync.RWMutex
 			registeredAuthNRoutes := make(map[string]struct{})
 			for _, t := range tenantsCfg.Tenants {
-				if t == nil {
-					continue
-				}
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
 				if t.RateLimits != nil {
 					for _, rl := range t.RateLimits {
