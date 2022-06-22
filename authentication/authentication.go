@@ -81,7 +81,7 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 			return
 		}
 
-		authenticator, err := providerFactory(config, tenant, registrationRetryCount, logger)
+		provider, err := providerFactory(config, tenant, registrationRetryCount, logger)
 		if err != nil {
 			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
@@ -89,9 +89,9 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 		}
 
 		ah.mtx.Lock()
-		ah.middlewares[tenant] = authenticator.Middleware()
-		ah.gRPCInterceptors[tenant] = authenticator.GRPCMiddleware()
-		pattern, handler := authenticator.Handler()
+		ah.middlewares[tenant] = provider.Middleware()
+		ah.gRPCInterceptors[tenant] = provider.GRPCMiddleware()
+		pattern, handler := provider.Handler()
 		if pattern != "" && handler != nil {
 			if ah.patternHandlers[pattern] == nil {
 				ah.patternHandlers[pattern] = make(tenantHandlers)
@@ -100,8 +100,8 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 		}
 		ah.mtx.Unlock()
 
-		level.Debug(ah.logger).Log("msg", "successfully initialized authenticator", "tenant", tenant, "authenticator", authenticatorType)
-		authCh <- authenticator
+		level.Debug(ah.logger).Log("msg", "successfully initialized authentication provider", "tenant", tenant, "authenticator", authenticatorType)
+		authCh <- provider
 	}()
 
 	return authCh
