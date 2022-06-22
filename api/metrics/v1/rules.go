@@ -12,6 +12,7 @@ import (
 	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/rules"
+	"github.com/observatorium/api/utils"
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
@@ -99,13 +100,13 @@ type rulesHandler struct {
 func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := authentication.GetTenant(r.Context())
 	if !ok {
-		http.Error(w, "error finding tenant", http.StatusUnauthorized)
+		utils.PrometheusAPIError(w, "error finding tenant", http.StatusUnauthorized)
 		return
 	}
 
 	id, ok := authentication.GetTenantID(r.Context())
 	if !ok {
-		http.Error(w, "error finding tenant ID", http.StatusUnauthorized)
+		utils.PrometheusAPIError(w, "error finding tenant ID", http.StatusUnauthorized)
 		return
 	}
 
@@ -118,7 +119,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 			sc = resp.StatusCode
 		}
 
-		http.Error(w, "error listing rules", sc)
+		utils.PrometheusAPIError(w, "error listing rules", sc)
 
 		return
 	}
@@ -128,9 +129,9 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	if resp.StatusCode/100 != 2 {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			http.Error(w, "no rules found", resp.StatusCode)
+			utils.PrometheusAPIError(w, "no rules found", resp.StatusCode)
 		default:
-			http.Error(w, "error listing rules", resp.StatusCode)
+			utils.PrometheusAPIError(w, "error listing rules", resp.StatusCode)
 		}
 
 		return
@@ -139,7 +140,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	rawRules, err := unmarshalRules(resp.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "error unmarshaling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -147,7 +148,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	err = enforceLabelsInRules(rawRules, rh.tenantLabel, id)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not enforce labels in rules", "err", err.Error())
-		http.Error(w, "failed to process rules", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "failed to process rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -155,7 +156,7 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
-		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "error marshaling rules YAML", http.StatusInternalServerError)
 
 		return
 	}
@@ -169,19 +170,19 @@ func (rh *rulesHandler) get(w http.ResponseWriter, r *http.Request) {
 func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := authentication.GetTenant(r.Context())
 	if !ok {
-		http.Error(w, "error finding tenant", http.StatusUnauthorized)
+		utils.PrometheusAPIError(w, "error finding tenant", http.StatusUnauthorized)
 	}
 
 	id, ok := authentication.GetTenantID(r.Context())
 	if !ok {
-		http.Error(w, "error finding tenant ID", http.StatusUnauthorized)
+		utils.PrometheusAPIError(w, "error finding tenant ID", http.StatusUnauthorized)
 		return
 	}
 
 	rawRules, err := unmarshalRules(r.Body)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not unmarshal rules", "err", err.Error())
-		http.Error(w, "error unmarshaling rules", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "error unmarshaling rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -189,7 +190,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	err = enforceLabelsInRules(rawRules, rh.tenantLabel, id)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not enforce labels in rules", "err", err.Error())
-		http.Error(w, "failed to process rules", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "failed to process rules", http.StatusInternalServerError)
 
 		return
 	}
@@ -197,7 +198,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	body, err := yaml.Marshal(rawRules)
 	if err != nil {
 		level.Error(rh.logger).Log("msg", "could not marshal rules YAML", "err", err.Error())
-		http.Error(w, "error marshaling rules YAML", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "error marshaling rules YAML", http.StatusInternalServerError)
 
 		return
 	}
@@ -210,7 +211,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 		}
 
 		level.Error(rh.logger).Log("msg", "could not set rules", "err", err.Error())
-		http.Error(w, "error creating rules", sc)
+		utils.PrometheusAPIError(w, "error creating rules", sc)
 
 		return
 	}
@@ -220,7 +221,7 @@ func (rh *rulesHandler) put(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	if _, err := io.Copy(w, resp.Body); err != nil {
-		http.Error(w, "error writing rules response", http.StatusInternalServerError)
+		utils.PrometheusAPIError(w, "error writing rules response", http.StatusInternalServerError)
 		return
 	}
 }

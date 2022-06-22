@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi"
+	"github.com/observatorium/api/utils"
 )
 
 // contextKey to use when setting context values in the HTTP package.
@@ -143,7 +144,7 @@ func WithTenantMiddlewares(mwFns ...MiddlewareFunc) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant, ok := GetTenant(r.Context())
 			if !ok {
-				http.Error(w, "error finding tenant", http.StatusBadRequest)
+				utils.PrometheusAPIError(w, "error finding tenant", http.StatusBadRequest)
 				return
 			}
 
@@ -154,7 +155,7 @@ func WithTenantMiddlewares(mwFns ...MiddlewareFunc) Middleware {
 				}
 			}
 
-			http.Error(w, "tenant not found, have you registered it?", http.StatusUnauthorized)
+			utils.PrometheusAPIError(w, "tenant not found, have you registered it?", http.StatusUnauthorized)
 		})
 	}
 }
@@ -182,7 +183,7 @@ func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) fun
 
 			rawToken := r.Header.Get("Authorization")
 			if rawToken == "" {
-				http.Error(w, "couldn't find the authorization header", http.StatusBadRequest)
+				utils.PrometheusAPIError(w, "couldn't find the authorization header", http.StatusBadRequest)
 				return
 			}
 
