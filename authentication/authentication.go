@@ -74,14 +74,14 @@ func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
 	authCh := make(chan Provider)
 
 	go func() {
-		ProviderFactory, err := getProviderFactory(authenticatorType)
+		providerFactory, err := getProviderFactory(authenticatorType)
 		if err != nil {
 			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
 			return
 		}
 
-		authenticator, err := ProviderFactory(config, tenant, registrationRetryCount, logger)
+		authenticator, err := providerFactory(config, tenant, registrationRetryCount, logger)
 		if err != nil {
 			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
@@ -152,10 +152,10 @@ func getProviderFactory(authType string) (ProviderFactory, error) {
 	providersMtx.RLock()
 	defer providersMtx.RUnlock()
 
-	ProviderFactory, ok := providerFactories[authType]
+	providerFactory, ok := providerFactories[authType]
 	if !ok {
 		return nil, fmt.Errorf("authenticator type %s is not supported", authType)
 	}
 
-	return ProviderFactory, nil
+	return providerFactory, nil
 }
