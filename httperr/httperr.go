@@ -1,4 +1,4 @@
-package utils
+package httperr
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ func PrometheusAPIError(w http.ResponseWriter, errorMessage string, code int) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 
+	// As per Prometheus HTTP API format: https://prometheus.io/docs/prometheus/latest/querying/api/#format-overview
 	res := map[string]string{"status": "error", "errorType": "observatorium-api", "error": errorMessage}
 
 	if err := json.NewEncoder(w).Encode(res); err != nil {

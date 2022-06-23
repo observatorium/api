@@ -20,7 +20,7 @@ import (
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/observatorium/api/authentication/openshift"
-	"github.com/observatorium/api/utils"
+	"github.com/observatorium/api/httperr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -249,7 +249,7 @@ func (a OpenShiftAuthenticator) openshiftLoginHandler() http.HandlerFunc {
 		if err != nil {
 			const msg = "failed to parse authorization endpoint URL"
 			level.Warn(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -257,7 +257,7 @@ func (a OpenShiftAuthenticator) openshiftLoginHandler() http.HandlerFunc {
 		if queryRoute == "" {
 			const msg = "incorrect route in request"
 			level.Debug(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -281,7 +281,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 			desc := r.URL.Query().Get("error_description")
 			msg := fmt.Sprintf("%s: %s", errMsg, desc)
 			level.Debug(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -289,7 +289,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if queryCode == "" {
 			const msg = "no code in request"
 			level.Debug(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -297,7 +297,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if queryState != state {
 			const msg = "incorrect state in request"
 			level.Debug(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -305,7 +305,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if queryRoute == "" {
 			const msg = "incorrect route in request"
 			level.Debug(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -329,14 +329,14 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if err != nil {
 			msg := fmt.Sprintf("failed to get token: %v", err)
 			level.Warn(a.logger).Log("msg", msg, "err", err)
-			utils.PrometheusAPIError(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
 		if !token.Valid() {
 			const msg = "invalid token provided"
 			level.Warn(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+			httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 			return
 		}
 
@@ -347,7 +347,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if err != nil {
 			const msg = "invalid request to the apiserver"
 			level.Warn(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -357,14 +357,14 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if err != nil {
 			msg := fmt.Sprintf("failed to authenticate redirect request: %s", err)
 			level.Warn(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+			httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 			return
 		}
 
 		if !ok {
 			const msg = "failed to authenticate redirect request"
 			level.Warn(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+			httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 			return
 		}
 
@@ -374,7 +374,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 			if err != nil {
 				const msg = "failed to encrypt access token"
 				level.Warn(a.logger).Log("msg", msg)
-				utils.PrometheusAPIError(w, msg, http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 				return
 			}
 		}
@@ -398,7 +398,7 @@ func (a OpenShiftAuthenticator) openshiftCallbackHandler() http.HandlerFunc {
 		if err != nil {
 			msg := fmt.Sprintf("failed to sign jwt token: %s", err)
 			level.Warn(a.logger).Log("msg", msg)
-			utils.PrometheusAPIError(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -444,12 +444,12 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 				if !ok {
 					const msg = "error finding tenant"
 					level.Warn(a.logger).Log("msg", msg)
-					utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+					httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 					return
 				}
 				// Redirect users to the oauth2 login
 				w.Header().Set("Location", path.Join("/openshift", tenant, "/login?route=", r.URL.Path))
-				utils.PrometheusAPIError(w, "failed to find token", http.StatusFound)
+				httperr.PrometheusAPIError(w, "failed to find token", http.StatusFound)
 				return
 			}
 
@@ -459,14 +459,14 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 			if err != nil {
 				msg := errors.Wrap(err, "failed to parse jwt token: %s").Error()
 				level.Warn(a.logger).Log("msg", msg)
-				utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+				httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 				return
 			}
 
 			if !jwtToken.Valid {
 				const msg = "failed to authenticate"
 				level.Warn(a.logger).Log("msg", msg)
-				utils.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 				return
 			}
 
@@ -474,7 +474,7 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 			if !ok {
 				const msg = "failed to read claims"
 				level.Warn(a.logger).Log("msg", msg)
-				utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+				httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 				return
 			}
 
@@ -487,7 +487,7 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 				if err != nil {
 					msg := errors.Wrap(err, "failed to decrypt acess token").Error()
 					level.Warn(a.logger).Log("msg", msg)
-					utils.PrometheusAPIError(w, msg, http.StatusBadRequest)
+					httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 					return
 				}
 

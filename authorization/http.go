@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
-	"github.com/observatorium/api/utils"
 )
 
 // contextKey to use when setting context values in the HTTP package.
@@ -39,13 +39,13 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			ctx := r.Context()
 			tenant, ok := authentication.GetTenant(ctx)
 			if !ok {
-				utils.PrometheusAPIError(w, "error finding tenant", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error finding tenant", http.StatusInternalServerError)
 
 				return
 			}
 			subject, ok := authentication.GetSubject(ctx)
 			if !ok {
-				utils.PrometheusAPIError(w, "unknown subject", http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, "unknown subject", http.StatusUnauthorized)
 
 				return
 			}
@@ -55,21 +55,21 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			}
 			a, ok := authorizers[tenant]
 			if !ok {
-				utils.PrometheusAPIError(w, "error finding tenant", http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, "error finding tenant", http.StatusUnauthorized)
 
 				return
 			}
 
 			token, ok := authentication.GetAccessToken(r.Context())
 			if !ok {
-				utils.PrometheusAPIError(w, "error finding access token", http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, "error finding access token", http.StatusUnauthorized)
 
 				return
 			}
 
 			tenantID, ok := authentication.GetTenantID(r.Context())
 			if !ok {
-				utils.PrometheusAPIError(w, "error finding tenant id", http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, "error finding tenant id", http.StatusUnauthorized)
 
 				return
 			}

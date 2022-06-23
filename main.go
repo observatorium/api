@@ -54,6 +54,7 @@ import (
 	"github.com/observatorium/api/authentication"
 
 	"github.com/observatorium/api/authorization"
+	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
 	"github.com/observatorium/api/proxy"
@@ -62,7 +63,6 @@ import (
 	"github.com/observatorium/api/server"
 	"github.com/observatorium/api/tls"
 	"github.com/observatorium/api/tracing"
-	"github.com/observatorium/api/utils"
 )
 
 const (
@@ -1088,7 +1088,7 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
-			utils.PrometheusAPIError(w, "tenant not found", http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, "tenant not found", http.StatusInternalServerError)
 			return
 		}
 

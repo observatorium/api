@@ -13,7 +13,7 @@ import (
 	"github.com/go-kit/log/level"
 
 	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/utils"
+	"github.com/observatorium/api/httperr"
 )
 
 const (
@@ -78,7 +78,7 @@ func combine(middlewares map[string][]middleware) func(next http.Handler) http.H
 			tenant, ok := authentication.GetTenant(r.Context())
 			if !ok {
 				// This shouldn't have happened.
-				utils.PrometheusAPIError(w, "error finding tenant", http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, "error finding tenant", http.StatusUnauthorized)
 				return
 			}
 
@@ -120,11 +120,11 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 
 		if err != nil {
 			if err == errOverLimit {
-				utils.PrometheusAPIError(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+				httperr.PrometheusAPIError(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 				return
 			}
 			level.Warn(l.logger).Log("msg", "API failed", "err", err)
-			utils.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 

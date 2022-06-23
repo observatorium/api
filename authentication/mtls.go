@@ -12,7 +12,7 @@ import (
 	"github.com/go-kit/log"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
-	"github.com/observatorium/api/utils"
+	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -99,7 +99,7 @@ func (a MTLSAuthenticator) Middleware() Middleware {
 			}
 
 			if len(r.TLS.PeerCertificates) == 0 {
-				utils.PrometheusAPIError(w, "no client certificate presented", http.StatusUnauthorized)
+				httperr.PrometheusAPIError(w, "no client certificate presented", http.StatusUnauthorized)
 				return
 			}
 
@@ -117,10 +117,10 @@ func (a MTLSAuthenticator) Middleware() Middleware {
 
 			if _, err := r.TLS.PeerCertificates[0].Verify(opts); err != nil {
 				if errors.Is(err, x509.CertificateInvalidError{}) {
-					utils.PrometheusAPIError(w, err.Error(), http.StatusUnauthorized)
+					httperr.PrometheusAPIError(w, err.Error(), http.StatusUnauthorized)
 					return
 				}
-				utils.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
@@ -135,7 +135,7 @@ func (a MTLSAuthenticator) Middleware() Middleware {
 			case len(r.TLS.PeerCertificates[0].IPAddresses) > 0:
 				sub = r.TLS.PeerCertificates[0].IPAddresses[0].String()
 			default:
-				utils.PrometheusAPIError(w, "could not determine subject", http.StatusBadRequest)
+				httperr.PrometheusAPIError(w, "could not determine subject", http.StatusBadRequest)
 				return
 			}
 			ctx := context.WithValue(r.Context(), subjectKey, sub)
