@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 )
@@ -132,7 +133,7 @@ func (pm *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
 		const msg = "error finding tenant"
 		if !ok {
 			level.Warn(pm.logger).Log("msg", msg, "tenant", tenant)
-			http.Error(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -141,7 +142,7 @@ func (pm *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
 		pm.mtx.RUnlock()
 		if !ok {
 			level.Debug(pm.logger).Log("msg", msg, "tenant", tenant)
-			http.Error(w, msg, http.StatusUnauthorized)
+			httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 			return
 		}
 		h.ServeHTTP(w, r)

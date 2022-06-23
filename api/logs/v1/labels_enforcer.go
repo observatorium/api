@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/observatorium/api/authorization"
+	"github.com/observatorium/api/httperr"
 	logqlv2 "github.com/observatorium/api/logql/v2"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
@@ -18,7 +19,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			data, ok := authorization.GetData(r.Context())
 			if !ok {
-				http.Error(w, "error finding authorization label matcher", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error finding authorization label matcher", http.StatusInternalServerError)
 
 				return
 			}
@@ -33,14 +34,14 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 			var lm []*labels.Matcher
 			if err := json.Unmarshal([]byte(data), &lm); err != nil {
-				http.Error(w, "error parsing authorization label matchers", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error parsing authorization label matchers", http.StatusInternalServerError)
 
 				return
 			}
 
 			q, err := enforceValues(lm, r.URL.Query())
 			if err != nil {
-				http.Error(w, fmt.Sprintf("could not enforce authorization label matchers: %v", err), http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce authorization label matchers: %v", err), http.StatusInternalServerError)
 
 				return
 			}
