@@ -73,7 +73,7 @@ func TestNewAuthentication(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	registrationFailingMetric := RegisterTenantsFailingMetric(reg)
-	ah := NewProviderManager(l, registrationFailingMetric)
+	pm := NewProviderManager(l, registrationFailingMetric)
 
 	t.Run("Getting an authenticator factory", func(t *testing.T) {
 		_, err := getProviderFactory(authenticatorTypeName)
@@ -87,23 +87,23 @@ func TestNewAuthentication(t *testing.T) {
 	})
 
 	t.Run("initialize authenticators", func(t *testing.T) {
-		initializedAuthenticator := <-ah.InitializeProvider(dummyConfig, tenant, authenticatorTypeName, registrationFailingMetric, l)
-		if initializedAuthenticator == nil {
+		initializedProvider := <-pm.InitializeProvider(dummyConfig, tenant, authenticatorTypeName, registrationFailingMetric, l)
+		if initializedProvider == nil {
 			t.Fatalf("initialized authenticator should not be nil")
 		}
 
-		_, ok := ah.Middlewares(tenant)
+		_, ok := pm.Middlewares(tenant)
 		if !ok {
 			t.Fatalf("middleware of the dummy authenticator has not been found")
 		}
 
-		_, handler := initializedAuthenticator.Handler()
+		_, handler := initializedProvider.Handler()
 		if handler != nil {
 			t.Fatalf("getting undefined handler should be nil")
 		}
 
-		nonExistAuthenticator := <-ah.InitializeProvider(dummyConfig, tenant, "not-exist", registrationFailingMetric, l)
-		if nonExistAuthenticator != nil {
+		nonExistantProvider := <-pm.InitializeProvider(dummyConfig, tenant, "not-exist", registrationFailingMetric, l)
+		if nonExistantProvider != nil {
 			t.Fatalf("intializing a non-exist authenticator should return a nil authenticator")
 		}
 	})
