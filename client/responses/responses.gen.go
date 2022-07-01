@@ -25,6 +25,12 @@ type LabelsResponse struct {
 	Warnings  *[]string `json:"warnings,omitempty"`
 }
 
+// LogReadResponse defines model for LogReadResponse.
+type LogReadResponse map[string]interface{}
+
+// LogWriteResponse defines model for LogWriteResponse.
+type LogWriteResponse map[string]interface{}
+
 // QueryRangeResponse defines model for QueryRangeResponse.
 type QueryRangeResponse struct {
 	Data      *externalRef0.RangeQueryResponse `json:"data,omitempty"`

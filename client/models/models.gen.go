@@ -19,6 +19,8 @@ const (
 
 	InstantQueryResponseResultTypeScalar InstantQueryResponseResultType = "scalar"
 
+	InstantQueryResponseResultTypeStream InstantQueryResponseResultType = "stream"
+
 	InstantQueryResponseResultTypeString InstantQueryResponseResultType = "string"
 
 	InstantQueryResponseResultTypeVector InstantQueryResponseResultType = "vector"
@@ -119,6 +121,17 @@ type InstantVectors_Metric struct {
 	AdditionalProperties map[string]string `json:"-"`
 }
 
+// PushLogs defines model for PushLogs.
+type PushLogs struct {
+	Stream PushLogs_Stream `json:"stream"`
+	Values ScalarOrString  `json:"values"`
+}
+
+// PushLogs_Stream defines model for PushLogs.Stream.
+type PushLogs_Stream struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
+
 // RangeQueryResponse defines model for RangeQueryResponse.
 type RangeQueryResponse struct {
 	Result     []interface{}                `json:"result"`
@@ -201,6 +214,28 @@ type RulesRaw struct {
 
 // ScalarOrString defines model for ScalarOrString.
 type ScalarOrString []interface{}
+
+// StreamValues defines model for StreamValues.
+type StreamValues struct {
+	Metric *StreamValues_Metric `json:"metric,omitempty"`
+	Values ScalarOrString       `json:"values"`
+}
+
+// StreamValues_Metric defines model for StreamValues.Metric.
+type StreamValues_Metric struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
+
+// TailLogs defines model for TailLogs.
+type TailLogs struct {
+	Labels    TailLogs_Labels `json:"labels"`
+	Timestamp string          `json:"timestamp"`
+}
+
+// TailLogs_Labels defines model for TailLogs.Labels.
+type TailLogs_Labels struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
 
 // Getter for additional properties for ActiveAlert_Annotations. Returns the specified
 // element and whether it was found
@@ -573,6 +608,59 @@ func (a InstantVectors_Metric) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
+// Getter for additional properties for PushLogs_Stream. Returns the specified
+// element and whether it was found
+func (a PushLogs_Stream) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for PushLogs_Stream
+func (a *PushLogs_Stream) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for PushLogs_Stream to handle AdditionalProperties
+func (a *PushLogs_Stream) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for PushLogs_Stream to handle AdditionalProperties
+func (a PushLogs_Stream) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
 // Getter for additional properties for RangeVectors_Metric. Returns the specified
 // element and whether it was found
 func (a RangeVectors_Metric) Get(fieldName string) (value string, found bool) {
@@ -720,6 +808,112 @@ func (a *RecordingRuleEvaluated_Labels) UnmarshalJSON(b []byte) error {
 
 // Override default JSON handling for RecordingRuleEvaluated_Labels to handle AdditionalProperties
 func (a RecordingRuleEvaluated_Labels) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for StreamValues_Metric. Returns the specified
+// element and whether it was found
+func (a StreamValues_Metric) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for StreamValues_Metric
+func (a *StreamValues_Metric) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for StreamValues_Metric to handle AdditionalProperties
+func (a *StreamValues_Metric) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for StreamValues_Metric to handle AdditionalProperties
+func (a StreamValues_Metric) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for TailLogs_Labels. Returns the specified
+// element and whether it was found
+func (a TailLogs_Labels) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for TailLogs_Labels
+func (a *TailLogs_Labels) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for TailLogs_Labels to handle AdditionalProperties
+func (a *TailLogs_Labels) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for TailLogs_Labels to handle AdditionalProperties
+func (a TailLogs_Labels) MarshalJSON() ([]byte, error) {
 	var err error
 	object := make(map[string]json.RawMessage)
 

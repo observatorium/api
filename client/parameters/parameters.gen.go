@@ -6,6 +6,9 @@ package parameters
 // EndTS defines model for endTS.
 type EndTS string
 
+// Limit defines model for limit.
+type Limit int
+
 // OptionalSeriesMatcher defines model for optionalSeriesMatcher.
 type OptionalSeriesMatcher []string
 
