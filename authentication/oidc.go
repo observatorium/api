@@ -20,6 +20,7 @@ import (
 	"github.com/go-kit/log/level"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
+	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
@@ -210,7 +211,7 @@ func (a oidcAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 			desc := r.URL.Query().Get("error_description")
 			msg := fmt.Sprintf("%s: %s", errMsg, desc)
 			level.Debug(a.logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -218,14 +219,14 @@ func (a oidcAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 		if queryCode == "" {
 			const msg = "no code in request"
 			level.Debug(a.logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 		queryState := r.URL.Query().Get("state")
 		if queryState != state {
 			const msg = "incorrect state in request"
 			level.Debug(a.logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusBadRequest)
+			httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
 			return
 		}
 
@@ -233,7 +234,7 @@ func (a oidcAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 		if err != nil {
 			msg := fmt.Sprintf("failed to get token: %v", err)
 			level.Warn(a.logger).Log("msg", msg, "err", err)
-			http.Error(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -241,7 +242,7 @@ func (a oidcAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 		if !ok {
 			const msg = "no id_token in token response"
 			level.Warn(a.logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -249,7 +250,7 @@ func (a oidcAuthenticator) oidcCallBackHandler() http.HandlerFunc {
 		if err != nil {
 			msg := fmt.Sprintf("failed to verify ID token: %v", err)
 			level.Warn(a.logger).Log("msg", msg)
-			http.Error(w, msg, http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
@@ -280,7 +281,7 @@ func (a oidcAuthenticator) Middleware() Middleware {
 				if len(authorization) != 2 {
 					const msg = "invalid Authorization header"
 					level.Debug(a.logger).Log("msg", msg)
-					http.Error(w, msg, http.StatusUnauthorized)
+					httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 					return
 				}
 
@@ -292,12 +293,12 @@ func (a oidcAuthenticator) Middleware() Middleware {
 					if !ok {
 						const msg = "error finding tenant"
 						level.Warn(a.logger).Log("msg", msg)
-						http.Error(w, msg, http.StatusInternalServerError)
+						httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 						return
 					}
 					// Redirect users to the OIDC login
 					w.Header().Set("Location", path.Join("/oidc", tenant, "/login"))
-					http.Error(w, "failed to find token", http.StatusFound)
+					httperr.PrometheusAPIError(w, "failed to find token", http.StatusFound)
 					return
 				}
 				token = cookie.Value
@@ -305,7 +306,7 @@ func (a oidcAuthenticator) Middleware() Middleware {
 
 			ctx, msg, code, _ := a.checkAuth(r.Context(), token)
 			if code != http.StatusOK {
-				http.Error(w, msg, code)
+				httperr.PrometheusAPIError(w, msg, code)
 				return
 			}
 

@@ -54,6 +54,7 @@ import (
 	"github.com/observatorium/api/authentication"
 
 	"github.com/observatorium/api/authorization"
+	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
 	"github.com/observatorium/api/proxy"
@@ -460,25 +461,34 @@ func main() {
 		hardcodedLabels := []string{"group", "handler"}
 		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
 
-		tenantIDs := map[string]string{}
-		authorizers := map[string]rbac.Authorizer{}
-		var rateLimits []ratelimit.Config
-		oidcTenants := map[string]struct{}{}
-		// registrationRetryCount used by authenticator providers to count
-		// registration failures per tenant.
-		registerTenantsFailingMetric := authentication.RegisterTenantsFailingMetric(reg)
-		pm := authentication.NewProviderManager(logger, registerTenantsFailingMetric)
+		var (
+			tenantIDs   = map[string]string{}
+			authorizers = map[string]rbac.Authorizer{}
+			oidcTenants = map[string]struct{}{}
+
+			rateLimits []ratelimit.Config
+			// registrationRetryCount used by authenticator providers to count
+			// registration failures per tenant.
+			registerTenantsFailingMetric = authentication.RegisterTenantsFailingMetric(reg)
+			pm                           = authentication.NewProviderManager(logger, registerTenantsFailingMetric)
+		)
 
 		r.Group(func(r chi.Router) {
-			// registeredAuthNRoutes is used to avoid double register the same pattern.
+			// Set up common middleware before mounting authN routes.
+			for _, t := range tenantsCfg.Tenants {
+				tenantIDs[t.Name] = t.ID
+			}
+
+			r.Use(authentication.WithTenant)
+			r.Use(authentication.WithTenantID(tenantIDs))
+			r.Use(authentication.WithAccessToken())
+			r.MethodNotAllowed(blockNonDefinedMethods())
+
+			// registeredAuthNRoutes is used to avoid double registration of the same pattern.
 			var regMtx sync.RWMutex
 			registeredAuthNRoutes := make(map[string]struct{})
 			for _, t := range tenantsCfg.Tenants {
-				if t == nil {
-					continue
-				}
 				level.Info(logger).Log("msg", "adding a tenant", "tenant", t.Name)
-				tenantIDs[t.Name] = t.ID
 				if t.RateLimits != nil {
 					for _, rl := range t.RateLimits {
 						matcher, err := regexp.Compile(rl.Endpoint)
@@ -521,11 +531,6 @@ func main() {
 					authorizers[t.Name] = authorizer
 				}
 			}
-
-			r.Use(authentication.WithTenant)
-			r.Use(authentication.WithTenantID(tenantIDs))
-			r.Use(authentication.WithAccessToken())
-			r.MethodNotAllowed(blockNonDefinedMethods())
 
 			writePathRedirectProtection := authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants)
 
@@ -1083,7 +1088,7 @@ func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
-			http.Error(w, "tenant not found", http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, "tenant not found", http.StatusInternalServerError)
 			return
 		}
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
+	"github.com/observatorium/api/httperr"
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
@@ -28,7 +29,7 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id, ok := authentication.GetTenantID(r.Context())
 			if !ok {
-				http.Error(w, "error finding tenant ID", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
 
 				return
 			}
@@ -38,7 +39,10 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 				Type:  labels.MatchEqual,
 				Value: id,
 			}}...)
-			enforceRequestQueryLabels(e, w, r)
+			// If we cannot enforce, don't continue.
+			if ok := enforceRequestQueryLabels(e, w, r); !ok {
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -56,7 +60,7 @@ func WithEnforceTenancyOnMatchers(label string) func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id, ok := authentication.GetTenantID(r.Context())
 			if !ok {
-				http.Error(w, "error finding tenant ID", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
 
 				return
 			}
@@ -97,7 +101,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			data, ok := authorization.GetData(r.Context())
 			if !ok {
-				http.Error(w, "error finding authorization label matcher", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error finding authorization label matcher", http.StatusInternalServerError)
 
 				return
 			}
@@ -112,19 +116,22 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 			var lm []*labels.Matcher
 			if err := json.Unmarshal([]byte(data), &lm); err != nil {
-				http.Error(w, "error parsing authorization label matcher", http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, "error parsing authorization label matcher", http.StatusInternalServerError)
 
 				return
 			}
 
 			e := injectproxy.NewEnforcer(lm...)
-			enforceRequestQueryLabels(e, w, r)
+			// If we cannot enforce, don't continue.
+			if ok := enforceRequestQueryLabels(e, w, r); !ok {
+				return
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
 }
 
-func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r *http.Request) {
+func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r *http.Request) bool {
 	// The `query` can come in the URL query string and/or the POST body.
 	// For this reason, we need to try to enforcing in both places.
 	// Note: a POST request may include some values in the URL query string
@@ -132,9 +139,9 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	// enforce in both places.
 	q, found1, err := enforceQueryValues(e, r.URL.Query())
 	if err != nil {
-		http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusInternalServerError)
+		httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
-		return
+		return false
 	}
 
 	r.URL.RawQuery = q
@@ -143,16 +150,17 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	// Enforce the query in the POST body if needed.
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, fmt.Sprintf("could not parse form: %v", err), http.StatusInternalServerError)
+			// We're returning server error here because we cannot ensure this is a bad request.
+			httperr.PrometheusAPIError(w, fmt.Sprintf("could not parse form: %v", err), http.StatusInternalServerError)
 
-			return
+			return false
 		}
 
 		q, found2, err = enforceQueryValues(e, r.PostForm)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusInternalServerError)
+			httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
-			return
+			return false
 		}
 		// We are replacing request body, close previous one (ParseForm ensures it is read fully and not nil).
 		_ = r.Body.Close()
@@ -162,10 +170,12 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 
 	// If no query was found, return early.
 	if !found1 && !found2 {
-		http.Error(w, "no query found", http.StatusBadRequest)
+		httperr.PrometheusAPIError(w, "no query found", http.StatusBadRequest)
 
-		return
+		return false
 	}
+
+	return true
 }
 
 // Adapted from

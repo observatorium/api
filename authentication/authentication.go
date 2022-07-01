@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 )
@@ -69,79 +70,79 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 
 // InitializeProvider initializes an authenticator provider and register the created
 // authentication middleware and handler.
-func (ah *ProviderManager) InitializeProvider(config map[string]interface{},
+func (pm *ProviderManager) InitializeProvider(config map[string]interface{},
 	tenant string, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) chan Provider {
 	authCh := make(chan Provider)
 
 	go func() {
-		ProviderFactory, err := getProviderFactory(authenticatorType)
+		providerFactory, err := getProviderFactory(authenticatorType)
 		if err != nil {
-			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
+			level.Error(pm.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
 			return
 		}
 
-		authenticator, err := ProviderFactory(config, tenant, registrationRetryCount, logger)
+		provider, err := providerFactory(config, tenant, registrationRetryCount, logger)
 		if err != nil {
-			level.Error(ah.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
+			level.Error(pm.logger).Log("msg", err, "tenant", tenant, "authenticator", authenticatorType)
 			authCh <- nil
 			return
 		}
 
-		ah.mtx.Lock()
-		ah.middlewares[tenant] = authenticator.Middleware()
-		ah.gRPCInterceptors[tenant] = authenticator.GRPCMiddleware()
-		pattern, handler := authenticator.Handler()
+		pm.mtx.Lock()
+		pm.middlewares[tenant] = provider.Middleware()
+		pm.gRPCInterceptors[tenant] = provider.GRPCMiddleware()
+		pattern, handler := provider.Handler()
 		if pattern != "" && handler != nil {
-			if ah.patternHandlers[pattern] == nil {
-				ah.patternHandlers[pattern] = make(tenantHandlers)
+			if pm.patternHandlers[pattern] == nil {
+				pm.patternHandlers[pattern] = make(tenantHandlers)
 			}
-			ah.patternHandlers[pattern][tenant] = handler
+			pm.patternHandlers[pattern][tenant] = handler
 		}
-		ah.mtx.Unlock()
+		pm.mtx.Unlock()
 
-		level.Debug(ah.logger).Log("msg", "successfully initialized authenticator", "tenant", tenant, "authenticator", authenticatorType)
-		authCh <- authenticator
+		level.Debug(pm.logger).Log("msg", "successfully initialized authentication provider", "tenant", tenant, "authenticator", authenticatorType)
+		authCh <- provider
 	}()
 
 	return authCh
 }
 
 // Middleware returns an authentication middleware for a tenant.
-func (ah *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
-	ah.mtx.RLock()
-	mw, ok := ah.middlewares[tenant]
-	ah.mtx.RUnlock()
+func (pm *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
+	pm.mtx.RLock()
+	mw, ok := pm.middlewares[tenant]
+	pm.mtx.RUnlock()
 
 	return mw, ok
 }
 
 // GRPCMiddlewares returns an authentication interceptor for a tenant.
-func (ah *ProviderManager) GRPCMiddlewares(tenant string) (grpc.StreamServerInterceptor, bool) {
-	ah.mtx.RLock()
-	mw, ok := ah.gRPCInterceptors[tenant]
-	ah.mtx.RUnlock()
+func (pm *ProviderManager) GRPCMiddlewares(tenant string) (grpc.StreamServerInterceptor, bool) {
+	pm.mtx.RLock()
+	mw, ok := pm.gRPCInterceptors[tenant]
+	pm.mtx.RUnlock()
 
 	return mw, ok
 }
 
 // PatternHandler return an http.HandlerFunc for a corresponding pattern.
-func (ah *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
+func (pm *ProviderManager) PatternHandler(pattern string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tenant, ok := GetTenant(r.Context())
 		const msg = "error finding tenant"
 		if !ok {
-			level.Warn(ah.logger).Log("msg", msg, "tenant", tenant)
-			http.Error(w, msg, http.StatusInternalServerError)
+			level.Warn(pm.logger).Log("msg", msg, "tenant", tenant)
+			httperr.PrometheusAPIError(w, msg, http.StatusInternalServerError)
 			return
 		}
 
-		ah.mtx.RLock()
-		h, ok := ah.patternHandlers[pattern][tenant]
-		ah.mtx.RUnlock()
+		pm.mtx.RLock()
+		h, ok := pm.patternHandlers[pattern][tenant]
+		pm.mtx.RUnlock()
 		if !ok {
-			level.Debug(ah.logger).Log("msg", msg, "tenant", tenant)
-			http.Error(w, msg, http.StatusUnauthorized)
+			level.Debug(pm.logger).Log("msg", msg, "tenant", tenant)
+			httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
 			return
 		}
 		h.ServeHTTP(w, r)
@@ -152,10 +153,10 @@ func getProviderFactory(authType string) (ProviderFactory, error) {
 	providersMtx.RLock()
 	defer providersMtx.RUnlock()
 
-	ProviderFactory, ok := providerFactories[authType]
+	providerFactory, ok := providerFactories[authType]
 	if !ok {
 		return nil, fmt.Errorf("authenticator type %s is not supported", authType)
 	}
 
-	return ProviderFactory, nil
+	return providerFactory, nil
 }
