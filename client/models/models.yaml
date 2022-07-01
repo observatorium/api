@@ -212,13 +212,16 @@ components:
             - vector
             - scalar
             - string
+            - streams
         result:
           type: array
           items:
             oneOf:
-              - $ref: "#/components/schemas/RangeVectors"
-              - $ref: "#/components/schemas/InstantVectors"
-              - $ref: "#/components/schemas/ScalarOrString"
+              - $ref: "#/components/schemas/RangeVectors" #matrix
+              - $ref: "#/components/schemas/InstantVectors" #vector
+              - $ref: "#/components/schemas/ScalarOrString" # scalar
+              - $ref: "#/components/schemas/ScalarOrString" #string 
+              - $ref: "#/components/schemas/StreamValues" #streams
     RangeQueryResponse:
       type: object
       required:
@@ -261,7 +264,49 @@ components:
             type: string
         values:
           type: array
-          $ref: "#/components/schemas/ScalarOrString"
+          items:
+            $ref: "#/components/schemas/ScalarOrString"
+    StreamValues:
+      type: object
+      required:
+        - stream
+        - values
+      properties:
+        stream:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScalarOrString"
+    PushLogs:
+      type: object
+      required:
+        - stream
+        - values
+      properties:
+        stream:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScalarOrString"
+    TailLogs:
+      type: object
+      required:
+        - labels
+        - timestamp
+      properties:
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: unix_timestamp
     ScalarOrString:
       type: array
       items:

@@ -4,6 +4,7 @@ components:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -26,6 +27,7 @@ components:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -45,6 +47,7 @@ components:
       type: object
       required:
         - status
+        - data 
       properties:
         error:
           type: string
@@ -64,6 +67,7 @@ components:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -80,11 +84,12 @@ components:
           type: array
           items:
             type: string
-            example: "__name__"
+           
     LabelValuesResponse:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -96,7 +101,6 @@ components:
             type: string
         status:
           type: string
-          example: "success"
         data:
           type: array
           items:
@@ -106,6 +110,7 @@ components:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -121,3 +126,52 @@ components:
         data:
           type: object
           $ref: "../models/models.yaml#/components/schemas/Rules"
+    LogWriteResponse:
+        type: object
+        required:
+          - status
+          - streams
+        properties:
+          error:
+            type: string
+          errorType:
+            type: string
+          warnings:
+            type: array
+            items:
+              type: string
+          status:
+            type: string
+            example: "success"
+          streams:
+            type: array
+            items:
+              type: object
+              $ref: "../models/models.yaml#/components/schemas/PushLogs"
+    LogReadResponse:
+        type: object
+        required:
+          - status
+          - streams 
+        properties:
+          error:
+            type: string
+          errorType:
+            type: string
+          warnings:
+            type: array
+          items:
+            type: string
+          status:
+            type: string
+            example: "success"
+          streams:
+            type: array
+            items:
+              type: object
+              $ref: "../models/models.yaml#/components/schemas/PushLogs"
+          dropped_entries:
+            type: array
+            items:
+              type: object
+              $ref: "../models/models.yaml#/components/schemas/TailLogs"

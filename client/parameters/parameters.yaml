@@ -50,3 +50,9 @@ components:
       description: Evaluation timeout
       schema:
         type: string
+    limit:
+      in: query
+      name: limit
+      description: Max number of entries 
+      schema:
+        type: integer
