@@ -232,3 +232,198 @@ paths:
           description: Bad request
         "5XX":
           description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/push:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+    post:
+      tags:
+        - pushv1
+      summary: sends log entries to Loki
+      operationId: postlogEntries
+      requestBody:
+        description: You can send all the log entries of clusters to Loki
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./responses/responses.yaml#/components/schemas/LogWriteResponse
+      responses:
+        "201":
+          description: writes all log entries of corresponding tenenat to Loki
+          content:
+            application/json:
+              schema:
+                 $ref: ./responses/responses.yaml#/components/schemas/LogWriteResponse
+        "401":
+          description: error finding tenant ID
+        "403":
+          description: unauthorized
+        "500":
+          description: server side error while listing rules
+  /api/logs/v1/{tenant}/loki/api/v1/labels:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+    get:
+      tags:
+        - labelsv1
+      summary: lists known labels of tenant within a given time span
+      operationId: getLogLabels
+      description: |
+        You can get labels for a tenant
+      responses:
+        "2XX":
+          description: labels for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/LabelsResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/label/{name}/values:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - in: path
+        name: name
+        description: label name to get values for
+        required: true
+        schema:
+          type: string 
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+    get:
+      tags:
+        - labelvaluesv1
+      summary: Get label values for a tenant
+      operationId: getLogLabelValues
+      description: |
+        You can get label values for a label of a tenant
+      responses:
+        "2XX":
+          description: label values for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/LabelValuesResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/series:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+    get:
+      tags:
+        - seriesv1
+      summary: Get series for a tenant that matches certain label set
+      operationId: getLogSeries
+      description: |
+        You can get series for a tenant
+      responses:
+        "2XX":
+          description: series for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/SeriesResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/query_range:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/limit
+      - in: query
+        name: step
+        description: Query resolution step width
+        schema:
+          type: string
+    get:
+      tags:
+        - queryv1
+      summary: Evaluate range queries for a tenant
+      operationId: getLogRangeQuery
+      description: |
+        You can evaluate range queries for a tenant
+      responses:
+        "2XX":
+          description: range query result for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/QueryRangeResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/query:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/limit
+      - in: query
+        name: time
+        description: Evaluation timestamp
+        schema:
+          type: string
+          format: rfc3339 | unix_timestamp
+    get:
+      tags:
+        - queryv1
+      summary: Evaluate instant queries for a tenant
+      operationId: getLogInstantQuery
+      description: |
+        You can evaluate instant queries for a tenant
+      responses:
+        "2XX":
+          description: instance query result for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/QueryResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/tail:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
+      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - in: query
+        name: delay
+        description: delay retrieving logs  
+        schema:
+          type: integer 
+          oneOf:
+            - minimum: 0 
+            - mximum: 5 
+    get:
+      tags:
+        - tailV1
+      summary: lists log messages based on query 
+      operationId: getLogs 
+      description: |
+        You can get log messages based on query 
+      responses:
+        "2XX":
+          description: logs for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/LogReadResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+
