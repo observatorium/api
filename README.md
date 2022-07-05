@@ -102,3 +102,6 @@ Usage of ./observatorium:
 ```
 
 Rebuild Image: Thu May 19 11:59:44 EDT 2022
+
+
+Rebuild: 2022-07-05
