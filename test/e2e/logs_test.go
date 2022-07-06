@@ -90,6 +90,64 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 
 	})
 
+	t.Run("logs-native-read-write", func(t *testing.T) {
+		up, err := newUpRun(
+			e, "up-logs-native-read-write", logs,
+			"https://"+api.InternalEndpoint("https")+"/loki/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/loki/api/v1/push",
+			withToken(token),
+			withRunParameters(&runParams{initialDelay: "100ms", period: "1s", threshold: "1", latency: "10s", duration: "0", tenant: "test-mtls", tenantHeader: "X-Scope-OrgID"}),
+		)
+		testutil.Ok(t, err)
+		testutil.Ok(t, e2e.StartAndWaitReady(up))
+
+		// Wait until 5 queries are run.
+		testutil.Ok(t, up.WaitSumMetricsWithOptions(
+			e2e.Equals(5),
+			[]string{"up_queries_total"},
+			e2e.WaitMissingMetrics(),
+		))
+
+		// Check that up metrics are correct.
+		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
+		testutil.Ok(t, err)
+		testutil.Equals(t, float64(5), upMetrics[0])
+		testutil.Equals(t, float64(5), upMetrics[1])
+
+		testutil.Ok(t, up.Stop())
+
+		// Check that API metrics are correct.
+		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
+		testutil.Ok(t, err)
+		testutil.Equals(t, float64(10), apiMetrics[0])
+
+		// Simple test to check if we can query Loki for logs.
+		r, err := http.NewRequest(
+			http.MethodGet,
+			"http://"+logsExtEndpoint+"/loki/api/v1/query",
+			nil,
+		)
+		testutil.Ok(t, err)
+
+		v := url.Values{}
+		v.Add("query", "{_id=\"test\"}")
+		r.URL.RawQuery = v.Encode()
+		r.Header.Add("X-Scope-OrgID", mtlsTenantID)
+
+		res, err := http.DefaultClient.Do(r)
+		testutil.Ok(t, err)
+		defer res.Body.Close()
+
+		body, err := ioutil.ReadAll(res.Body)
+		testutil.Ok(t, err)
+
+		bodyStr := string(body)
+		assertResponse(t, bodyStr, "\"__name__\":\"observatorium_write\"")
+		assertResponse(t, bodyStr, "\"_id\":\"test\"")
+		assertResponse(t, bodyStr, "log line 1")
+
+	})
+
 	t.Run("logs-tail", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-logs-tail", logs,

@@ -408,6 +408,7 @@ func newObservatoriumAPIService(
 		args = append(args, "--logs.read.endpoint="+opts.logsEndpoint)
 		args = append(args, "--logs.tail.endpoint="+opts.logsEndpoint)
 		args = append(args, "--logs.write.endpoint="+opts.logsEndpoint)
+		args = append(args, "--logs.native.routes=true")
 	}
 
 	if opts.ratelimiterAddr != "" {
@@ -455,6 +456,8 @@ type runParams struct {
 	latency      string
 	threshold    string
 	duration     string
+	tenant       string
+	tenantHeader string
 }
 
 type upOptions struct {
@@ -529,6 +532,12 @@ func newUpRun(
 		}
 		if opts.runParams.period != "" {
 			args = append(args, "--period="+opts.runParams.period)
+		}
+		if opts.runParams.tenantHeader != "" {
+			args = append(args, "--tenant-header="+opts.runParams.tenantHeader)
+		}
+		if opts.runParams.tenant != "" {
+			args = append(args, "--tenant="+opts.runParams.tenant)
 		}
 	}
 

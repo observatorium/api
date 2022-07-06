@@ -136,7 +136,8 @@ type logsConfig struct {
 	upstreamCAFile string
 	tenantHeader   string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
-	enabled bool
+	enabled            bool
+	enableNativeRoutes bool
 }
 
 type tracesConfig struct {
@@ -598,27 +599,32 @@ func main() {
 
 			// Logs.
 			if cfg.logs.enabled {
+				lh := logsv1.NewHandler(
+					cfg.logs.readEndpoint,
+					cfg.logs.tailEndpoint,
+					cfg.logs.writeEndpoint,
+					logsUpstreamCACert,
+					logsv1.Logger(logger),
+					logsv1.WithRegistry(reg),
+					logsv1.WithHandlerInstrumenter(instrumenter),
+					logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
+					logsv1.WithWriteMiddleware(writePathRedirectProtection),
+					logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+					logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
+					logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
+					logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+					logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+				)
+
+				if cfg.logs.enableNativeRoutes {
+					r.Group(func(r chi.Router) {
+						r.Use(authentication.WithTenantFromHeader(cfg.logs.tenantHeader))
+						r.Handle("/loki/api/v1/*", lh)
+					})
+				}
+
 				r.Group(func(r chi.Router) {
-					r.Mount("/api/logs/v1/{tenant}",
-						stripTenantPrefix("/api/logs/v1",
-							logsv1.NewHandler(
-								cfg.logs.readEndpoint,
-								cfg.logs.tailEndpoint,
-								cfg.logs.writeEndpoint,
-								logsUpstreamCACert,
-								logsv1.Logger(logger),
-								logsv1.WithRegistry(reg),
-								logsv1.WithHandlerInstrumenter(instrumenter),
-								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
-								logsv1.WithWriteMiddleware(writePathRedirectProtection),
-								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
-								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
-								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
-								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
-							),
-						),
-					)
+					r.Mount("/api/logs/v1/{tenant}", stripTenantPrefix("/api/logs/v1", lh))
 				})
 			}
 
@@ -894,6 +900,8 @@ func parseFlags() (config, error) {
 		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL against which to run healthchecks.")
+	flag.BoolVar(&cfg.logs.enableNativeRoutes, "logs.native.routes", false,
+		"Enable native `/loki/api/v1` routes for opaque proxying to Loki. Requires passing `X-Scope-OrgID` header.")
 	flag.StringVar(&rawLogsTailEndpoint, "logs.tail.endpoint", "",
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",

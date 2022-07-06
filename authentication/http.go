@@ -42,6 +42,23 @@ func WithTenant(next http.Handler) http.Handler {
 	})
 }
 
+// WithTenantFromHeader finds the tenant from the HTTP headers and adds it to the request context.
+func WithTenantFromHeader(tenantHeader string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant := r.Header.Get(tenantHeader)
+			if tenant == "" {
+				httperr.PrometheusAPIError(w, "tenant not found", http.StatusInternalServerError)
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(
+				context.WithValue(r.Context(), tenantKey, tenant),
+			))
+		})
+	}
+}
+
 // WithTenantID returns a middleware that finds the tenantID using the tenant
 // from the URL parameters and adds it to the request context.
 func WithTenantID(tenantIDs map[string]string) Middleware {
