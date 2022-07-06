@@ -19,7 +19,7 @@ const (
 
 	InstantQueryResponseResultTypeScalar InstantQueryResponseResultType = "scalar"
 
-	InstantQueryResponseResultTypeStream InstantQueryResponseResultType = "stream"
+	InstantQueryResponseResultTypeStreams InstantQueryResponseResultType = "streams"
 
 	InstantQueryResponseResultTypeString InstantQueryResponseResultType = "string"
 
@@ -113,7 +113,7 @@ type InstantQueryResponseResultType string
 // InstantVectors defines model for InstantVectors.
 type InstantVectors struct {
 	Metric InstantVectors_Metric `json:"metric"`
-	Values ScalarOrString        `json:"values"`
+	Values []ScalarOrString      `json:"values"`
 }
 
 // InstantVectors_Metric defines model for InstantVectors.Metric.
@@ -123,8 +123,8 @@ type InstantVectors_Metric struct {
 
 // PushLogs defines model for PushLogs.
 type PushLogs struct {
-	Stream PushLogs_Stream `json:"stream"`
-	Values ScalarOrString  `json:"values"`
+	Stream PushLogs_Stream  `json:"stream"`
+	Values []ScalarOrString `json:"values"`
 }
 
 // PushLogs_Stream defines model for PushLogs.Stream.
@@ -217,12 +217,12 @@ type ScalarOrString []interface{}
 
 // StreamValues defines model for StreamValues.
 type StreamValues struct {
-	Metric *StreamValues_Metric `json:"metric,omitempty"`
-	Values ScalarOrString       `json:"values"`
+	Stream StreamValues_Stream `json:"stream"`
+	Values []ScalarOrString    `json:"values"`
 }
 
-// StreamValues_Metric defines model for StreamValues.Metric.
-type StreamValues_Metric struct {
+// StreamValues_Stream defines model for StreamValues.Stream.
+type StreamValues_Stream struct {
 	AdditionalProperties map[string]string `json:"-"`
 }
 
@@ -820,25 +820,25 @@ func (a RecordingRuleEvaluated_Labels) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
-// Getter for additional properties for StreamValues_Metric. Returns the specified
+// Getter for additional properties for StreamValues_Stream. Returns the specified
 // element and whether it was found
-func (a StreamValues_Metric) Get(fieldName string) (value string, found bool) {
+func (a StreamValues_Stream) Get(fieldName string) (value string, found bool) {
 	if a.AdditionalProperties != nil {
 		value, found = a.AdditionalProperties[fieldName]
 	}
 	return
 }
 
-// Setter for additional properties for StreamValues_Metric
-func (a *StreamValues_Metric) Set(fieldName string, value string) {
+// Setter for additional properties for StreamValues_Stream
+func (a *StreamValues_Stream) Set(fieldName string, value string) {
 	if a.AdditionalProperties == nil {
 		a.AdditionalProperties = make(map[string]string)
 	}
 	a.AdditionalProperties[fieldName] = value
 }
 
-// Override default JSON handling for StreamValues_Metric to handle AdditionalProperties
-func (a *StreamValues_Metric) UnmarshalJSON(b []byte) error {
+// Override default JSON handling for StreamValues_Stream to handle AdditionalProperties
+func (a *StreamValues_Stream) UnmarshalJSON(b []byte) error {
 	object := make(map[string]json.RawMessage)
 	err := json.Unmarshal(b, &object)
 	if err != nil {
@@ -859,8 +859,8 @@ func (a *StreamValues_Metric) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// Override default JSON handling for StreamValues_Metric to handle AdditionalProperties
-func (a StreamValues_Metric) MarshalJSON() ([]byte, error) {
+// Override default JSON handling for StreamValues_Stream to handle AdditionalProperties
+func (a StreamValues_Stream) MarshalJSON() ([]byte, error) {
 	var err error
 	object := make(map[string]json.RawMessage)
 

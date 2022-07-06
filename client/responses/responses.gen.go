@@ -9,7 +9,7 @@ import (
 
 // LabelValuesResponse defines model for LabelValuesResponse.
 type LabelValuesResponse struct {
-	Data      *[]string `json:"data,omitempty"`
+	Data      []string  `json:"data"`
 	Error     *string   `json:"error,omitempty"`
 	ErrorType *string   `json:"errorType,omitempty"`
 	Status    string    `json:"status"`
@@ -18,7 +18,7 @@ type LabelValuesResponse struct {
 
 // LabelsResponse defines model for LabelsResponse.
 type LabelsResponse struct {
-	Data      *[]string `json:"data,omitempty"`
+	Data      []string  `json:"data"`
 	Error     *string   `json:"error,omitempty"`
 	ErrorType *string   `json:"errorType,omitempty"`
 	Status    string    `json:"status"`
@@ -26,43 +26,57 @@ type LabelsResponse struct {
 }
 
 // LogReadResponse defines model for LogReadResponse.
-type LogReadResponse map[string]interface{}
+type LogReadResponse struct {
+	DroppedEntries *[]externalRef0.TailLogs `json:"dropped_entries,omitempty"`
+	Error          *string                  `json:"error,omitempty"`
+	ErrorType      *string                  `json:"errorType,omitempty"`
+	Items          *string                  `json:"items,omitempty"`
+	Status         string                   `json:"status"`
+	Streams        []externalRef0.PushLogs  `json:"streams"`
+	Warnings       *[]interface{}           `json:"warnings,omitempty"`
+}
 
 // LogWriteResponse defines model for LogWriteResponse.
-type LogWriteResponse map[string]interface{}
+type LogWriteResponse struct {
+	Error     *string                 `json:"error,omitempty"`
+	ErrorType *string                 `json:"errorType,omitempty"`
+	Status    string                  `json:"status"`
+	Streams   []externalRef0.PushLogs `json:"streams"`
+	Warnings  *[]string               `json:"warnings,omitempty"`
+}
 
 // QueryRangeResponse defines model for QueryRangeResponse.
 type QueryRangeResponse struct {
-	Data      *externalRef0.RangeQueryResponse `json:"data,omitempty"`
-	Error     *string                          `json:"error,omitempty"`
-	ErrorType *string                          `json:"errorType,omitempty"`
-	Status    string                           `json:"status"`
-	Warnings  *[]string                        `json:"warnings,omitempty"`
+	Data      externalRef0.RangeQueryResponse `json:"data"`
+	Error     *string                         `json:"error,omitempty"`
+	ErrorType *string                         `json:"errorType,omitempty"`
+	Status    string                          `json:"status"`
+	Warnings  *[]string                       `json:"warnings,omitempty"`
 }
 
 // QueryResponse defines model for QueryResponse.
 type QueryResponse struct {
-	Data      *externalRef0.InstantQueryResponse `json:"data,omitempty"`
-	Error     *string                            `json:"error,omitempty"`
-	ErrorType *string                            `json:"errorType,omitempty"`
-	Status    string                             `json:"status"`
-	Warnings  *[]string                          `json:"warnings,omitempty"`
+	Data      externalRef0.InstantQueryResponse `json:"data"`
+	Error     *string                           `json:"error,omitempty"`
+	ErrorType *string                           `json:"errorType,omitempty"`
+	Status    string                            `json:"status"`
+	Warnings  *[]string                         `json:"warnings,omitempty"`
 }
 
 // RulesResponse defines model for RulesResponse.
 type RulesResponse struct {
-	Data      *externalRef0.Rules `json:"data,omitempty"`
-	Error     *string             `json:"error,omitempty"`
-	ErrorType *string             `json:"errorType,omitempty"`
-	Status    string              `json:"status"`
-	Warnings  *[]string           `json:"warnings,omitempty"`
+	Data      externalRef0.Rules `json:"data"`
+	Error     *string            `json:"error,omitempty"`
+	ErrorType *string            `json:"errorType,omitempty"`
+	Status    string             `json:"status"`
+	Warnings  *[]string          `json:"warnings,omitempty"`
 }
 
 // SeriesResponse defines model for SeriesResponse.
 type SeriesResponse struct {
-	Data *[]struct {
+	Data []struct {
 		AdditionalProperties map[string]string `json:"-"`
-	} `json:"data,omitempty"`
+	} `json:"data"`
 	Error     *string   `json:"error,omitempty"`
 	ErrorType *string   `json:"errorType,omitempty"`
 	Status    string    `json:"status"`

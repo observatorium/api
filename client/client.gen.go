@@ -22,8 +22,8 @@ import (
 	externalRef2 "github.com/observatorium/api/client/responses"
 )
 
-// GetLabelValuesParams defines parameters for GetLabelValues.
-type GetLabelValuesParams struct {
+// GetLogLabelValuesParams defines parameters for GetLogLabelValues.
+type GetLogLabelValuesParams struct {
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
 
@@ -31,8 +31,8 @@ type GetLabelValuesParams struct {
 	End *externalRef1.EndTS `json:"end,omitempty"`
 }
 
-// GetLabelsParams defines parameters for GetLabels.
-type GetLabelsParams struct {
+// GetLogLabelsParams defines parameters for GetLogLabels.
+type GetLogLabelsParams struct {
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
 
@@ -43,8 +43,8 @@ type GetLabelsParams struct {
 // PostlogEntriesJSONBody defines parameters for PostlogEntries.
 type PostlogEntriesJSONBody externalRef2.LogWriteResponse
 
-// GetInstantQueryParams defines parameters for GetInstantQuery.
-type GetInstantQueryParams struct {
+// GetLogInstantQueryParams defines parameters for GetLogInstantQuery.
+type GetLogInstantQueryParams struct {
 	// query to fetch result for
 	Query *externalRef1.Query `json:"query,omitempty"`
 
@@ -55,8 +55,8 @@ type GetInstantQueryParams struct {
 	Time *string `json:"time,omitempty"`
 }
 
-// GetRangeQueryParams defines parameters for GetRangeQuery.
-type GetRangeQueryParams struct {
+// GetLogRangeQueryParams defines parameters for GetLogRangeQuery.
+type GetLogRangeQueryParams struct {
 	// query to fetch result for
 	Query *externalRef1.Query `json:"query,omitempty"`
 
@@ -73,8 +73,8 @@ type GetRangeQueryParams struct {
 	Step *string `json:"step,omitempty"`
 }
 
-// GetSeriesParams defines parameters for GetSeries.
-type GetSeriesParams struct {
+// GetLogSeriesParams defines parameters for GetLogSeries.
+type GetLogSeriesParams struct {
 	// Repeated series selector argument
 	Match externalRef1.SeriesMatcher `json:"match[]"`
 
@@ -92,9 +92,6 @@ type GetLogsParams struct {
 
 	// query to fetch result for
 	Query *externalRef1.Query `json:"query,omitempty"`
-
-	// delay retrieving logs
-	Delay *interface{} `json:"delay,omitempty"`
 }
 
 // GetLabelValuesParams defines parameters for GetLabelValues.
@@ -248,25 +245,25 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetLabelValues request
-	GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLogLabelValues request
+	GetLogLabelValues(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetLabels request
-	GetLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLogLabels request
+	GetLogLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostlogEntries request with any body
 	PostlogEntriesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostlogEntries(ctx context.Context, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetInstantQuery request
-	GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLogInstantQuery request
+	GetLogInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetRangeQuery request
-	GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLogRangeQuery request
+	GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetSeries request
-	GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLogSeries request
+	GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogs request
 	GetLogs(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -296,8 +293,8 @@ type ClientInterface interface {
 	GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLabelValuesRequest(c.Server, tenant, name, params)
+func (c *Client) GetLogLabelValues(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogLabelValuesRequest(c.Server, tenant, name, params)
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +305,8 @@ func (c *Client) GetLabelValues(ctx context.Context, tenant externalRef1.Tenant,
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLabelsRequest(c.Server, tenant, params)
+func (c *Client) GetLogLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogLabelsRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
 	}
@@ -344,8 +341,8 @@ func (c *Client) PostlogEntries(ctx context.Context, tenant externalRef1.Tenant,
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetInstantQueryRequest(c.Server, tenant, params)
+func (c *Client) GetLogInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogInstantQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
 	}
@@ -356,8 +353,8 @@ func (c *Client) GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRangeQueryRequest(c.Server, tenant, params)
+func (c *Client) GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogRangeQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
 	}
@@ -368,8 +365,8 @@ func (c *Client) GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetSeriesRequest(c.Server, tenant, params)
+func (c *Client) GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogSeriesRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
 	}
@@ -488,8 +485,8 @@ func (c *Client) GetSeries(ctx context.Context, tenant externalRef1.Tenant, para
 	return c.Client.Do(req)
 }
 
-// NewGetLabelValuesRequest generates requests for GetLabelValues
-func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, name string, params *GetLabelValuesParams) (*http.Request, error) {
+// NewGetLogLabelValuesRequest generates requests for GetLogLabelValues
+func NewGetLogLabelValuesRequest(server string, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -511,7 +508,7 @@ func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, name st
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/label/%s/values/", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/label/%s/values", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -565,8 +562,8 @@ func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, name st
 	return req, nil
 }
 
-// NewGetLabelsRequest generates requests for GetLabels
-func NewGetLabelsRequest(server string, tenant externalRef1.Tenant, params *GetLabelsParams) (*http.Request, error) {
+// NewGetLogLabelsRequest generates requests for GetLogLabels
+func NewGetLogLabelsRequest(server string, tenant externalRef1.Tenant, params *GetLogLabelsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -682,8 +679,8 @@ func NewPostlogEntriesRequestWithBody(server string, tenant externalRef1.Tenant,
 	return req, nil
 }
 
-// NewGetInstantQueryRequest generates requests for GetInstantQuery
-func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params *GetInstantQueryParams) (*http.Request, error) {
+// NewGetLogInstantQueryRequest generates requests for GetLogInstantQuery
+func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, params *GetLogInstantQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -768,8 +765,8 @@ func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params
 	return req, nil
 }
 
-// NewGetRangeQueryRequest generates requests for GetRangeQuery
-func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *GetRangeQueryParams) (*http.Request, error) {
+// NewGetLogRangeQueryRequest generates requests for GetLogRangeQuery
+func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, params *GetLogRangeQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -886,8 +883,8 @@ func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *
 	return req, nil
 }
 
-// NewGetSeriesRequest generates requests for GetSeries
-func NewGetSeriesRequest(server string, tenant externalRef1.Tenant, params *GetSeriesParams) (*http.Request, error) {
+// NewGetLogSeriesRequest generates requests for GetLogSeries
+func NewGetLogSeriesRequest(server string, tenant externalRef1.Tenant, params *GetLogSeriesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1015,22 +1012,6 @@ func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLog
 	if params.Query != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-	}
-
-	if params.Delay != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "delay", runtime.ParamLocationQuery, *params.Delay); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1702,25 +1683,25 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetLabelValues request
-	GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
+	// GetLogLabelValues request
+	GetLogLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLogLabelValuesResponse, error)
 
-	// GetLabels request
-	GetLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error)
+	// GetLogLabels request
+	GetLogLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*GetLogLabelsResponse, error)
 
 	// PostlogEntries request with any body
 	PostlogEntriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error)
 
 	PostlogEntriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error)
 
-	// GetInstantQuery request
-	GetInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error)
+	// GetLogInstantQuery request
+	GetLogInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*GetLogInstantQueryResponse, error)
 
-	// GetRangeQuery request
-	GetRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error)
+	// GetLogRangeQuery request
+	GetLogRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error)
 
-	// GetSeries request
-	GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error)
+	// GetLogSeries request
+	GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error)
 
 	// GetLogs request
 	GetLogsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error)
@@ -1750,14 +1731,14 @@ type ClientWithResponsesInterface interface {
 	GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error)
 }
 
-type GetLabelValuesResponse struct {
+type GetLogLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON2XX      *externalRef2.LabelValuesResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetLabelValuesResponse) Status() string {
+func (r GetLogLabelValuesResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1765,21 +1746,21 @@ func (r GetLabelValuesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetLabelValuesResponse) StatusCode() int {
+func (r GetLogLabelValuesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetLabelsResponse struct {
+type GetLogLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON2XX      *externalRef2.LabelsResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetLabelsResponse) Status() string {
+func (r GetLogLabelsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1787,7 +1768,7 @@ func (r GetLabelsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetLabelsResponse) StatusCode() int {
+func (r GetLogLabelsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1797,6 +1778,7 @@ func (r GetLabelsResponse) StatusCode() int {
 type PostlogEntriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON201      *externalRef2.LogWriteResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1815,14 +1797,14 @@ func (r PostlogEntriesResponse) StatusCode() int {
 	return 0
 }
 
-type GetInstantQueryResponse struct {
+type GetLogInstantQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON2XX      *externalRef2.QueryResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetInstantQueryResponse) Status() string {
+func (r GetLogInstantQueryResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1830,21 +1812,21 @@ func (r GetInstantQueryResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetInstantQueryResponse) StatusCode() int {
+func (r GetLogInstantQueryResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetRangeQueryResponse struct {
+type GetLogRangeQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON2XX      *externalRef2.QueryRangeResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetRangeQueryResponse) Status() string {
+func (r GetLogRangeQueryResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1852,21 +1834,21 @@ func (r GetRangeQueryResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetRangeQueryResponse) StatusCode() int {
+func (r GetLogRangeQueryResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetSeriesResponse struct {
+type GetLogSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON2XX      *externalRef2.SeriesResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetSeriesResponse) Status() string {
+func (r GetLogSeriesResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1874,7 +1856,7 @@ func (r GetSeriesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetSeriesResponse) StatusCode() int {
+func (r GetLogSeriesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2078,22 +2060,22 @@ func (r GetSeriesResponse) StatusCode() int {
 	return 0
 }
 
-// GetLabelValuesWithResponse request returning *GetLabelValuesResponse
-func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error) {
-	rsp, err := c.GetLabelValues(ctx, tenant, name, params, reqEditors...)
+// GetLogLabelValuesWithResponse request returning *GetLogLabelValuesResponse
+func (c *ClientWithResponses) GetLogLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLogLabelValuesResponse, error) {
+	rsp, err := c.GetLogLabelValues(ctx, tenant, name, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetLabelValuesResponse(rsp)
+	return ParseGetLogLabelValuesResponse(rsp)
 }
 
-// GetLabelsWithResponse request returning *GetLabelsResponse
-func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error) {
-	rsp, err := c.GetLabels(ctx, tenant, params, reqEditors...)
+// GetLogLabelsWithResponse request returning *GetLogLabelsResponse
+func (c *ClientWithResponses) GetLogLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*GetLogLabelsResponse, error) {
+	rsp, err := c.GetLogLabels(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetLabelsResponse(rsp)
+	return ParseGetLogLabelsResponse(rsp)
 }
 
 // PostlogEntriesWithBodyWithResponse request with arbitrary body returning *PostlogEntriesResponse
@@ -2113,31 +2095,31 @@ func (c *ClientWithResponses) PostlogEntriesWithResponse(ctx context.Context, te
 	return ParsePostlogEntriesResponse(rsp)
 }
 
-// GetInstantQueryWithResponse request returning *GetInstantQueryResponse
-func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error) {
-	rsp, err := c.GetInstantQuery(ctx, tenant, params, reqEditors...)
+// GetLogInstantQueryWithResponse request returning *GetLogInstantQueryResponse
+func (c *ClientWithResponses) GetLogInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*GetLogInstantQueryResponse, error) {
+	rsp, err := c.GetLogInstantQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetInstantQueryResponse(rsp)
+	return ParseGetLogInstantQueryResponse(rsp)
 }
 
-// GetRangeQueryWithResponse request returning *GetRangeQueryResponse
-func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error) {
-	rsp, err := c.GetRangeQuery(ctx, tenant, params, reqEditors...)
+// GetLogRangeQueryWithResponse request returning *GetLogRangeQueryResponse
+func (c *ClientWithResponses) GetLogRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error) {
+	rsp, err := c.GetLogRangeQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetRangeQueryResponse(rsp)
+	return ParseGetLogRangeQueryResponse(rsp)
 }
 
-// GetSeriesWithResponse request returning *GetSeriesResponse
-func (c *ClientWithResponses) GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error) {
-	rsp, err := c.GetSeries(ctx, tenant, params, reqEditors...)
+// GetLogSeriesWithResponse request returning *GetLogSeriesResponse
+func (c *ClientWithResponses) GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error) {
+	rsp, err := c.GetLogSeries(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetSeriesResponse(rsp)
+	return ParseGetLogSeriesResponse(rsp)
 }
 
 // GetLogsWithResponse request returning *GetLogsResponse
@@ -2221,15 +2203,15 @@ func (c *ClientWithResponses) GetSeriesWithResponse(ctx context.Context, tenant 
 	return ParseGetSeriesResponse(rsp)
 }
 
-// ParseGetLabelValuesResponse parses an HTTP response from a GetLabelValuesWithResponse call
-func ParseGetLabelValuesResponse(rsp *http.Response) (*GetLabelValuesResponse, error) {
+// ParseGetLogLabelValuesResponse parses an HTTP response from a GetLogLabelValuesWithResponse call
+func ParseGetLogLabelValuesResponse(rsp *http.Response) (*GetLogLabelValuesResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetLabelValuesResponse{
+	response := &GetLogLabelValuesResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2247,15 +2229,15 @@ func ParseGetLabelValuesResponse(rsp *http.Response) (*GetLabelValuesResponse, e
 	return response, nil
 }
 
-// ParseGetLabelsResponse parses an HTTP response from a GetLabelsWithResponse call
-func ParseGetLabelsResponse(rsp *http.Response) (*GetLabelsResponse, error) {
+// ParseGetLogLabelsResponse parses an HTTP response from a GetLogLabelsWithResponse call
+func ParseGetLogLabelsResponse(rsp *http.Response) (*GetLogLabelsResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetLabelsResponse{
+	response := &GetLogLabelsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2286,18 +2268,28 @@ func ParsePostlogEntriesResponse(rsp *http.Response) (*PostlogEntriesResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest externalRef2.LogWriteResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	}
+
 	return response, nil
 }
 
-// ParseGetInstantQueryResponse parses an HTTP response from a GetInstantQueryWithResponse call
-func ParseGetInstantQueryResponse(rsp *http.Response) (*GetInstantQueryResponse, error) {
+// ParseGetLogInstantQueryResponse parses an HTTP response from a GetLogInstantQueryWithResponse call
+func ParseGetLogInstantQueryResponse(rsp *http.Response) (*GetLogInstantQueryResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetInstantQueryResponse{
+	response := &GetLogInstantQueryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2315,15 +2307,15 @@ func ParseGetInstantQueryResponse(rsp *http.Response) (*GetInstantQueryResponse,
 	return response, nil
 }
 
-// ParseGetRangeQueryResponse parses an HTTP response from a GetRangeQueryWithResponse call
-func ParseGetRangeQueryResponse(rsp *http.Response) (*GetRangeQueryResponse, error) {
+// ParseGetLogRangeQueryResponse parses an HTTP response from a GetLogRangeQueryWithResponse call
+func ParseGetLogRangeQueryResponse(rsp *http.Response) (*GetLogRangeQueryResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetRangeQueryResponse{
+	response := &GetLogRangeQueryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2341,15 +2333,15 @@ func ParseGetRangeQueryResponse(rsp *http.Response) (*GetRangeQueryResponse, err
 	return response, nil
 }
 
-// ParseGetSeriesResponse parses an HTTP response from a GetSeriesWithResponse call
-func ParseGetSeriesResponse(rsp *http.Response) (*GetSeriesResponse, error) {
+// ParseGetLogSeriesResponse parses an HTTP response from a GetLogSeriesWithResponse call
+func ParseGetLogSeriesResponse(rsp *http.Response) (*GetLogSeriesResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetSeriesResponse{
+	response := &GetLogSeriesResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
