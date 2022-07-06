@@ -92,6 +92,9 @@ type GetLogsParams struct {
 
 	// query to fetch result for
 	Query *externalRef1.Query `json:"query,omitempty"`
+
+	// delay retrieving logs
+	Delay *interface{} `json:"delay,omitempty"`
 }
 
 // GetLabelValuesParams defines parameters for GetLabelValues.
@@ -1012,6 +1015,22 @@ func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLog
 	if params.Query != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.Delay != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "delay", runtime.ParamLocationQuery, *params.Delay); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
