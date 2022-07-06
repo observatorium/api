@@ -127,6 +127,8 @@ Usage of ./observatorium-api:
     	Path to the tenants file. (default "tenants.yaml")
   -tls.cipher-suites string
     	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
+  -tls.client-auth-type string
+    	Policy for TLS client-side authentication. Values are from ClientAuthType constants in https://pkg.go.dev/crypto/tls#ClientAuthType (default "RequestClientCert")
   -tls.healthchecks.server-ca-file string
     	File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
   -tls.healthchecks.server-name string
@@ -135,6 +137,8 @@ Usage of ./observatorium-api:
     	File containing the default x509 Certificate for internal HTTPS. Leave blank to disable TLS.
   -tls.internal.server.key-file string
     	File containing the default x509 private key matching --tls.internal.server.cert-file. Leave blank to disable TLS.
+  -tls.max-version string
+    	Maximum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
   -tls.min-version string
     	Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants. (default "VersionTLS13")
   -tls.reload-interval duration
