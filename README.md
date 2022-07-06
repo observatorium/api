@@ -91,6 +91,8 @@ Usage of ./observatorium-api:
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
+  -logs.native.routes
+    	Enable native /loki/api/v1 routes for opaque proxying to Loki. Requires passing X-Scope-OrgID header.
   -logs.read.endpoint string
     	The endpoint against which to make read requests for logs.
   -logs.tail.endpoint string

@@ -901,7 +901,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL against which to run healthchecks.")
 	flag.BoolVar(&cfg.logs.enableNativeRoutes, "logs.native.routes", false,
-		"Enable native `/loki/api/v1` routes for opaque proxying to Loki. Requires passing `X-Scope-OrgID` header.")
+		"Enable native /loki/api/v1 routes for opaque proxying to Loki. Requires passing X-Scope-OrgID header.")
 	flag.StringVar(&rawLogsTailEndpoint, "logs.tail.endpoint", "",
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
