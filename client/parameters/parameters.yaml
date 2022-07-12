@@ -38,10 +38,16 @@ components:
       schema:
         type: string
         format: rfc3339 | unix_timestamp
-    query:
+    promqlQuery:
       in: query
       name: query
-      description: query to fetch result for
+      description: PromQL query to fetch result for metrics
+      schema:
+        type: string
+    logqlQuery:
+      in: query
+      name: query
+      description: LogQL query to fetch result for logs
       schema:
         type: string
     queryTimeout:
@@ -55,4 +61,4 @@ components:
       name: limit
       description: Max number of entries 
       schema:
-        type: integer
+        type: number

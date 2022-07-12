@@ -41,12 +41,12 @@ type GetLogLabelsParams struct {
 }
 
 // PostlogEntriesJSONBody defines parameters for PostlogEntries.
-type PostlogEntriesJSONBody externalRef2.LogWriteResponse
+type PostlogEntriesJSONBody externalRef0.PushLogs
 
 // GetLogInstantQueryParams defines parameters for GetLogInstantQuery.
 type GetLogInstantQueryParams struct {
-	// query to fetch result for
-	Query *externalRef1.Query `json:"query,omitempty"`
+	// LogQL query to fetch result for logs
+	LogQLquery *externalRef1.LogqlQuery `json:"logQLquery,omitempty"`
 
 	// Max number of entries
 	Limit *externalRef1.Limit `json:"limit,omitempty"`
@@ -57,8 +57,8 @@ type GetLogInstantQueryParams struct {
 
 // GetLogRangeQueryParams defines parameters for GetLogRangeQuery.
 type GetLogRangeQueryParams struct {
-	// query to fetch result for
-	Query *externalRef1.Query `json:"query,omitempty"`
+	// LogQL query to fetch result for logs
+	LogQLquery *externalRef1.LogqlQuery `json:"logQLquery,omitempty"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -69,12 +69,30 @@ type GetLogRangeQueryParams struct {
 	// Max number of entries
 	Limit *externalRef1.Limit `json:"limit,omitempty"`
 
-	// Query resolution step width
-	Step *string `json:"step,omitempty"`
+	// Query resolution step width.Only applies to query types which produce a matrix response.
+	Step *interface{} `json:"step,omitempty"`
+
+	// Only return entries at (or >) the specified interval,Only applies to queries which produce a stream response.
+	Interval *interface{} `json:"interval,omitempty"`
+
+	// Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
+	Direction *string `json:"direction,omitempty"`
 }
 
 // GetLogSeriesParams defines parameters for GetLogSeries.
 type GetLogSeriesParams struct {
+	// Repeated series selector argument
+	Match externalRef1.SeriesMatcher `json:"match[]"`
+
+	// Start timestamp
+	Start *externalRef1.StartTS `json:"start,omitempty"`
+
+	// End timestamp
+	End *externalRef1.EndTS `json:"end,omitempty"`
+}
+
+// PostLogSeriesParams defines parameters for PostLogSeries.
+type PostLogSeriesParams struct {
 	// Repeated series selector argument
 	Match externalRef1.SeriesMatcher `json:"match[]"`
 
@@ -90,8 +108,8 @@ type GetLogsParams struct {
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
 
-	// query to fetch result for
-	Query *externalRef1.Query `json:"query,omitempty"`
+	// LogQL query to fetch result for logs
+	LogQLquery *externalRef1.LogqlQuery `json:"logQLquery,omitempty"`
 
 	// delay retrieving logs
 	Delay *interface{} `json:"delay,omitempty"`
@@ -123,8 +141,8 @@ type GetLabelsParams struct {
 
 // GetInstantQueryParams defines parameters for GetInstantQuery.
 type GetInstantQueryParams struct {
-	// query to fetch result for
-	Query *externalRef1.Query `json:"query,omitempty"`
+	// PromQL query to fetch result for metrics
+	PromQLquery *externalRef1.PromqlQuery `json:"promQLquery,omitempty"`
 
 	// Evaluation timeout
 	Timeout *externalRef1.QueryTimeout `json:"timeout,omitempty"`
@@ -135,8 +153,8 @@ type GetInstantQueryParams struct {
 
 // GetRangeQueryParams defines parameters for GetRangeQuery.
 type GetRangeQueryParams struct {
-	// query to fetch result for
-	Query *externalRef1.Query `json:"query,omitempty"`
+	// PromQL query to fetch result for metrics
+	PromQLquery *externalRef1.PromqlQuery `json:"promQLquery,omitempty"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -268,6 +286,9 @@ type ClientInterface interface {
 	// GetLogSeries request
 	GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostLogSeries request with any body
+	PostLogSeriesWithBody(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetLogs request
 	GetLogs(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -370,6 +391,18 @@ func (c *Client) GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenan
 
 func (c *Client) GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogSeriesRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostLogSeriesWithBody(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostLogSeriesRequestWithBody(c.Server, tenant, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -710,9 +743,9 @@ func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, par
 
 	queryValues := queryURL.Query()
 
-	if params.Query != nil {
+	if params.LogQLquery != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "logQLquery", runtime.ParamLocationQuery, *params.LogQLquery); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -796,9 +829,9 @@ func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, param
 
 	queryValues := queryURL.Query()
 
-	if params.Query != nil {
+	if params.LogQLquery != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "logQLquery", runtime.ParamLocationQuery, *params.LogQLquery); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -863,6 +896,38 @@ func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, param
 	if params.Step != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "step", runtime.ParamLocationQuery, *params.Step); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.Interval != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "interval", runtime.ParamLocationQuery, *params.Interval); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.Direction != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "direction", runtime.ParamLocationQuery, *params.Direction); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -968,6 +1033,90 @@ func NewGetLogSeriesRequest(server string, tenant externalRef1.Tenant, params *G
 	return req, nil
 }
 
+// NewPostLogSeriesRequestWithBody generates requests for PostLogSeries with any type of body
+func NewPostLogSeriesRequestWithBody(server string, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/series", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	queryValues := queryURL.Query()
+
+	if queryFrag, err := runtime.StyleParamWithLocation("form", true, "match[]", runtime.ParamLocationQuery, params.Match); err != nil {
+		return nil, err
+	} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+		return nil, err
+	} else {
+		for k, v := range parsed {
+			for _, v2 := range v {
+				queryValues.Add(k, v2)
+			}
+		}
+	}
+
+	if params.Start != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "start", runtime.ParamLocationQuery, *params.Start); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.End != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "end", runtime.ParamLocationQuery, *params.End); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	queryURL.RawQuery = queryValues.Encode()
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetLogsRequest generates requests for GetLogs
 func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLogsParams) (*http.Request, error) {
 	var err error
@@ -1012,9 +1161,9 @@ func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLog
 
 	}
 
-	if params.Query != nil {
+	if params.LogQLquery != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "logQLquery", runtime.ParamLocationQuery, *params.LogQLquery); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1261,9 +1410,9 @@ func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params
 
 	queryValues := queryURL.Query()
 
-	if params.Query != nil {
+	if params.PromQLquery != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "promQLquery", runtime.ParamLocationQuery, *params.PromQLquery); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1347,9 +1496,9 @@ func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *
 
 	queryValues := queryURL.Query()
 
-	if params.Query != nil {
+	if params.PromQLquery != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "promQLquery", runtime.ParamLocationQuery, *params.PromQLquery); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1722,6 +1871,9 @@ type ClientWithResponsesInterface interface {
 	// GetLogSeries request
 	GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error)
 
+	// PostLogSeries request with any body
+	PostLogSeriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error)
+
 	// GetLogs request
 	GetLogsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error)
 
@@ -1753,7 +1905,7 @@ type ClientWithResponsesInterface interface {
 type GetLogLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LabelValuesResponse
+	JSON2XX      *externalRef2.LogLabelValuesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1775,7 +1927,7 @@ func (r GetLogLabelValuesResponse) StatusCode() int {
 type GetLogLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LabelsResponse
+	JSON2XX      *externalRef2.LogLabelsResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1797,7 +1949,6 @@ func (r GetLogLabelsResponse) StatusCode() int {
 type PostlogEntriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *externalRef2.LogWriteResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1819,7 +1970,7 @@ func (r PostlogEntriesResponse) StatusCode() int {
 type GetLogInstantQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.QueryResponse
+	JSON2XX      *externalRef2.LogQueryResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1841,7 +1992,7 @@ func (r GetLogInstantQueryResponse) StatusCode() int {
 type GetLogRangeQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.QueryRangeResponse
+	JSON2XX      *externalRef2.LogQueryRangeResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1863,7 +2014,7 @@ func (r GetLogRangeQueryResponse) StatusCode() int {
 type GetLogSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.SeriesResponse
+	JSON2XX      *externalRef2.LogSeriesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1876,6 +2027,27 @@ func (r GetLogSeriesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetLogSeriesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostLogSeriesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostLogSeriesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostLogSeriesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1907,7 +2079,7 @@ func (r GetLogsResponse) StatusCode() int {
 type GetLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LabelValuesResponse
+	JSON2XX      *externalRef2.MetricLabelValuesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1929,7 +2101,7 @@ func (r GetLabelValuesResponse) StatusCode() int {
 type GetLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LabelsResponse
+	JSON2XX      *externalRef2.MetricLabelsResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1951,7 +2123,7 @@ func (r GetLabelsResponse) StatusCode() int {
 type GetInstantQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.QueryResponse
+	JSON2XX      *externalRef2.MetricQueryResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1973,7 +2145,7 @@ func (r GetInstantQueryResponse) StatusCode() int {
 type GetRangeQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.QueryRangeResponse
+	JSON2XX      *externalRef2.MetricQueryRangeResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1995,7 +2167,7 @@ func (r GetRangeQueryResponse) StatusCode() int {
 type GetRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.RulesResponse
+	JSON2XX      *externalRef2.MetricRulesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2060,7 +2232,7 @@ func (r SetRawRulesResponse) StatusCode() int {
 type GetSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.SeriesResponse
+	JSON2XX      *externalRef2.MetricSeriesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2139,6 +2311,15 @@ func (c *ClientWithResponses) GetLogSeriesWithResponse(ctx context.Context, tena
 		return nil, err
 	}
 	return ParseGetLogSeriesResponse(rsp)
+}
+
+// PostLogSeriesWithBodyWithResponse request with arbitrary body returning *PostLogSeriesResponse
+func (c *ClientWithResponses) PostLogSeriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error) {
+	rsp, err := c.PostLogSeriesWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostLogSeriesResponse(rsp)
 }
 
 // GetLogsWithResponse request returning *GetLogsResponse
@@ -2237,7 +2418,7 @@ func ParseGetLogLabelValuesResponse(rsp *http.Response) (*GetLogLabelValuesRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LabelValuesResponse
+		var dest externalRef2.LogLabelValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2263,7 +2444,7 @@ func ParseGetLogLabelsResponse(rsp *http.Response) (*GetLogLabelsResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LabelsResponse
+		var dest externalRef2.LogLabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2287,16 +2468,6 @@ func ParsePostlogEntriesResponse(rsp *http.Response) (*PostlogEntriesResponse, e
 		HTTPResponse: rsp,
 	}
 
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest externalRef2.LogWriteResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	}
-
 	return response, nil
 }
 
@@ -2315,7 +2486,7 @@ func ParseGetLogInstantQueryResponse(rsp *http.Response) (*GetLogInstantQueryRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.QueryResponse
+		var dest externalRef2.LogQueryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2341,7 +2512,7 @@ func ParseGetLogRangeQueryResponse(rsp *http.Response) (*GetLogRangeQueryRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.QueryRangeResponse
+		var dest externalRef2.LogQueryRangeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2367,12 +2538,28 @@ func ParseGetLogSeriesResponse(rsp *http.Response) (*GetLogSeriesResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.SeriesResponse
+		var dest externalRef2.LogSeriesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON2XX = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParsePostLogSeriesResponse parses an HTTP response from a PostLogSeriesWithResponse call
+func ParsePostLogSeriesResponse(rsp *http.Response) (*PostLogSeriesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostLogSeriesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -2419,7 +2606,7 @@ func ParseGetLabelValuesResponse(rsp *http.Response) (*GetLabelValuesResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LabelValuesResponse
+		var dest externalRef2.MetricLabelValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2445,7 +2632,7 @@ func ParseGetLabelsResponse(rsp *http.Response) (*GetLabelsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LabelsResponse
+		var dest externalRef2.MetricLabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2471,7 +2658,7 @@ func ParseGetInstantQueryResponse(rsp *http.Response) (*GetInstantQueryResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.QueryResponse
+		var dest externalRef2.MetricQueryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2497,7 +2684,7 @@ func ParseGetRangeQueryResponse(rsp *http.Response) (*GetRangeQueryResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.QueryRangeResponse
+		var dest externalRef2.MetricQueryRangeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2523,7 +2710,7 @@ func ParseGetRulesResponse(rsp *http.Response) (*GetRulesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.RulesResponse
+		var dest externalRef2.MetricRulesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2591,7 +2778,7 @@ func ParseGetSeriesResponse(rsp *http.Response) (*GetSeriesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.SeriesResponse
+		var dest externalRef2.MetricSeriesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

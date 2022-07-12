@@ -59,7 +59,6 @@ func TestInteractiveSetup(t *testing.T) {
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(up))
-	testutil.Ok(t, e2einteractive.OpenInBrowser("http://"+logsExtEndpoint))
 
 	fmt.Printf("\n")
 	fmt.Printf("You're all set up!\n")

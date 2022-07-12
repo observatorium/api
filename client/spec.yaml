@@ -90,7 +90,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/RulesResponse
+                $ref: "./responses/responses.yaml#/components/schemas/MetricRulesResponse"
         "4XX":
           description: Bad request
         "5XX":
@@ -114,7 +114,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LabelsResponse
+                $ref: ./responses/responses.yaml#/components/schemas/MetricLabelsResponse
         "4XX":
           description: Bad request
         "5XX":
@@ -144,7 +144,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LabelValuesResponse
+                $ref: ./responses/responses.yaml#/components/schemas/MetricLabelValuesResponse
         "4XX":
           description: Bad request
         "5XX":
@@ -152,7 +152,7 @@ paths:
   /api/metrics/v1/{tenant}/api/v1/query:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/promqlQuery
       - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
       - in: query
         name: time
@@ -173,7 +173,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/QueryResponse
+                $ref: ./responses/responses.yaml#/components/schemas/MetricQueryResponse
         "4XX":
           description: Bad request
         "5XX":
@@ -181,7 +181,7 @@ paths:
   /api/metrics/v1/{tenant}/api/v1/query_range:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/promqlQuery
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
@@ -203,7 +203,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/QueryRangeResponse
+                $ref: ./responses/responses.yaml#/components/schemas/MetricQueryRangeResponse
         "4XX":
           description: Bad request
         "5XX":
@@ -227,7 +227,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/SeriesResponse
+                $ref: ./responses/responses.yaml#/components/schemas/MetricSeriesResponse
         "4XX":
           description: Bad request
         "5XX":
@@ -246,20 +246,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ./responses/responses.yaml#/components/schemas/LogWriteResponse
+              $ref: ./models/models.yaml#/components/schemas/PushLogs
       responses:
         "201":
           description: writes all log entries of corresponding tenenat to Loki
-          content:
-            application/json:
-              schema:
-                 $ref: ./responses/responses.yaml#/components/schemas/LogWriteResponse
+          # content:
+          #   application/json:
+          #     schema:
+          #        $ref: ./responses/responses.yaml#/components/schemas/LogWriteResponse
         "401":
           description: error finding tenant ID
         "403":
           description: unauthorized
         "500":
-          description: server side error while listing rules
+          description: server side error while pushing logs
   /api/logs/v1/{tenant}/loki/api/v1/labels:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
@@ -278,11 +278,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LabelsResponse
+                $ref: ./responses/responses.yaml#/components/schemas/LogLabelsResponse
         "4XX":
           description: Bad request
         "5XX":
-          description: Server side error
+          description: Server side error while getting labels
   /api/logs/v1/{tenant}/loki/api/v1/label/{name}/values:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
@@ -307,11 +307,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LabelValuesResponse
+                $ref: ./responses/responses.yaml#/components/schemas/LogLabelValuesResponse
         "4XX":
           description: Bad request
         "5XX":
-          description: Server side error
+          description: Server side error while getting label values 
   /api/logs/v1/{tenant}/loki/api/v1/series:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
@@ -324,28 +324,81 @@ paths:
       summary: Get series for a tenant that matches certain label set
       operationId: getLogSeries
       description: |
-        You can get series for a tenant
+        Returns the list of time series that match a certain label set.
       responses:
         "2XX":
           description: series for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/SeriesResponse
+                $ref: ./responses/responses.yaml#/components/schemas/LogSeriesResponse
         "4XX":
           description: Bad request
         "5XX":
-          description: Server side error
+          description: Server side error while getting series 
+    post:
+      tags:
+        - seriesv1
+      summary: save series for a tenant with label sets
+      operationId: postLogSeries
+      description: save series for a tenant with label sets
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - match[]
+                - start
+                - end
+              properties:
+                match[]:
+                  type: array
+                  items:
+                    type: string
+                start:
+                  type: string
+                  format: rfc3339 | unix_timestamp
+                end:
+                  type: string
+                  format: rfc3339 | unix_timestamp
+      responses:
+        "201":
+          description: successfully writes series to tenant
+        "401":
+          description: error finding tenant ID
+        "403":
+          description: unauthorized
+        "500":
+          description: server side error while writing series 
   /api/logs/v1/{tenant}/loki/api/v1/query_range:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/limit
       - in: query
         name: step
-        description: Query resolution step width
+        description: Query resolution step width.Only applies to query types which produce a matrix response.
+        schema:
+          oneOf:
+            - type: number
+            - format: float
+            - type: string
+            - pattern: '^\[0-9]+[smhdwy]/$'
+      - in: query
+        name: interval
+        description: Only return entries at (or >) the specified interval,Only applies to queries which produce a stream response.
+        schema:
+          oneOf:
+            - type: number
+            - format: float
+            - type: string
+            - pattern: '^\[0-9]+[smhdwy]/$'
+      - in: query
+        name: direction
+        description: Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
         schema:
           type: string
     get:
@@ -361,15 +414,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/QueryRangeResponse
+                $ref: ./responses/responses.yaml#/components/schemas/LogQueryRangeResponse
         "4XX":
           description: Bad request
         "5XX":
-          description: Server side error
+          description: Server side error while getting range queries 
   /api/logs/v1/{tenant}/loki/api/v1/query:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
       - $ref: ./parameters/parameters.yaml#/components/parameters/limit
       - in: query
         name: time
@@ -390,24 +443,24 @@ paths:
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/QueryResponse
+                $ref: ./responses/responses.yaml#/components/schemas/LogQueryResponse
         "4XX":
           description: Bad request
         "5XX":
-          description: Server side error
+          description: Server side error while getting queries 
   /api/logs/v1/{tenant}/loki/api/v1/tail:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/query
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
       - in: query
         name: delay
         description: delay retrieving logs  
         schema:
-          type: integer 
+          type: integer
           oneOf:
             - minimum: 0 
-            - mximum: 5 
+            - maximum: 5 
     get:
       tags:
         - tailV1
@@ -425,5 +478,5 @@ paths:
         "4XX":
           description: Bad request
         "5XX":
-          description: Server side error
+          description: Server side error while tailing logs
 

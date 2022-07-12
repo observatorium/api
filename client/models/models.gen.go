@@ -13,22 +13,40 @@ const (
 	AlertingRuleEvaluatedTypeAlerting AlertingRuleEvaluatedType = "alerting"
 )
 
-// Defines values for InstantQueryResponseResultType.
+// Defines values for LogInstantQueryResponseResultType.
 const (
-	InstantQueryResponseResultTypeMatrix InstantQueryResponseResultType = "matrix"
+	LogInstantQueryResponseResultTypeMatrix LogInstantQueryResponseResultType = "matrix"
 
-	InstantQueryResponseResultTypeScalar InstantQueryResponseResultType = "scalar"
+	LogInstantQueryResponseResultTypeScalar LogInstantQueryResponseResultType = "scalar"
 
-	InstantQueryResponseResultTypeStreams InstantQueryResponseResultType = "streams"
+	LogInstantQueryResponseResultTypeStreams LogInstantQueryResponseResultType = "streams"
 
-	InstantQueryResponseResultTypeString InstantQueryResponseResultType = "string"
+	LogInstantQueryResponseResultTypeString LogInstantQueryResponseResultType = "string"
 
-	InstantQueryResponseResultTypeVector InstantQueryResponseResultType = "vector"
+	LogInstantQueryResponseResultTypeVector LogInstantQueryResponseResultType = "vector"
 )
 
-// Defines values for RangeQueryResponseResultType.
+// Defines values for LogRangeQueryResponseResultType.
 const (
-	RangeQueryResponseResultTypeMatrix RangeQueryResponseResultType = "matrix"
+	LogRangeQueryResponseResultTypeMatrix LogRangeQueryResponseResultType = "matrix"
+)
+
+// Defines values for MetricInstantQueryResponseResultType.
+const (
+	MetricInstantQueryResponseResultTypeMatrix MetricInstantQueryResponseResultType = "matrix"
+
+	MetricInstantQueryResponseResultTypeScalar MetricInstantQueryResponseResultType = "scalar"
+
+	MetricInstantQueryResponseResultTypeStreams MetricInstantQueryResponseResultType = "streams"
+
+	MetricInstantQueryResponseResultTypeString MetricInstantQueryResponseResultType = "string"
+
+	MetricInstantQueryResponseResultTypeVector MetricInstantQueryResponseResultType = "vector"
+)
+
+// Defines values for MetricRangeQueryResponseResultType.
+const (
+	MetricRangeQueryResponseResultTypeMatrix MetricRangeQueryResponseResultType = "matrix"
 )
 
 // Defines values for RecordingRuleEvaluatedType.
@@ -101,15 +119,6 @@ type AlertingRuleEvaluated_Labels struct {
 // AlertingRuleEvaluatedType defines model for AlertingRuleEvaluated.Type.
 type AlertingRuleEvaluatedType string
 
-// InstantQueryResponse defines model for InstantQueryResponse.
-type InstantQueryResponse struct {
-	Result     []interface{}                  `json:"result"`
-	ResultType InstantQueryResponseResultType `json:"resultType"`
-}
-
-// InstantQueryResponseResultType defines model for InstantQueryResponse.ResultType.
-type InstantQueryResponseResultType string
-
 // InstantVectors defines model for InstantVectors.
 type InstantVectors struct {
 	Metric InstantVectors_Metric `json:"metric"`
@@ -121,6 +130,49 @@ type InstantVectors_Metric struct {
 	AdditionalProperties map[string]string `json:"-"`
 }
 
+// LogInstantQueryResponse defines model for LogInstantQueryResponse.
+type LogInstantQueryResponse struct {
+	Result     []interface{}                     `json:"result"`
+	ResultType LogInstantQueryResponseResultType `json:"resultType"`
+}
+
+// LogInstantQueryResponseResultType defines model for LogInstantQueryResponse.ResultType.
+type LogInstantQueryResponseResultType string
+
+// LogRangeQueryResponse defines model for LogRangeQueryResponse.
+type LogRangeQueryResponse struct {
+	Result     []interface{}                   `json:"result"`
+	ResultType LogRangeQueryResponseResultType `json:"resultType"`
+}
+
+// LogRangeQueryResponseResultType defines model for LogRangeQueryResponse.ResultType.
+type LogRangeQueryResponseResultType string
+
+// LogSeriesRequest defines model for LogSeriesRequest.
+type LogSeriesRequest struct {
+	End   *string  `json:"end,omitempty"`
+	Match []string `json:"match[]"`
+	Start *string  `json:"start,omitempty"`
+}
+
+// MetricInstantQueryResponse defines model for MetricInstantQueryResponse.
+type MetricInstantQueryResponse struct {
+	Result     []interface{}                        `json:"result"`
+	ResultType MetricInstantQueryResponseResultType `json:"resultType"`
+}
+
+// MetricInstantQueryResponseResultType defines model for MetricInstantQueryResponse.ResultType.
+type MetricInstantQueryResponseResultType string
+
+// MetricRangeQueryResponse defines model for MetricRangeQueryResponse.
+type MetricRangeQueryResponse struct {
+	Result     []interface{}                      `json:"result"`
+	ResultType MetricRangeQueryResponseResultType `json:"resultType"`
+}
+
+// MetricRangeQueryResponseResultType defines model for MetricRangeQueryResponse.ResultType.
+type MetricRangeQueryResponseResultType string
+
 // PushLogs defines model for PushLogs.
 type PushLogs struct {
 	Stream PushLogs_Stream  `json:"stream"`
@@ -131,15 +183,6 @@ type PushLogs struct {
 type PushLogs_Stream struct {
 	AdditionalProperties map[string]string `json:"-"`
 }
-
-// RangeQueryResponse defines model for RangeQueryResponse.
-type RangeQueryResponse struct {
-	Result     []interface{}                `json:"result"`
-	ResultType RangeQueryResponseResultType `json:"resultType"`
-}
-
-// RangeQueryResponseResultType defines model for RangeQueryResponse.ResultType.
-type RangeQueryResponseResultType string
 
 // RangeVectors defines model for RangeVectors.
 type RangeVectors struct {

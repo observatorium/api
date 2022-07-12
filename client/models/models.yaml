@@ -199,7 +199,7 @@ components:
         value:
           type: string
           example: "1e+00"
-    InstantQueryResponse:
+    MetricInstantQueryResponse:
       type: object
       required:
         - resultType
@@ -222,7 +222,7 @@ components:
               - $ref: "#/components/schemas/ScalarOrString" # scalar
               - $ref: "#/components/schemas/ScalarOrString" #string 
               - $ref: "#/components/schemas/StreamValues" #streams
-    RangeQueryResponse:
+    MetricRangeQueryResponse:
       type: object
       required:
         - resultType
@@ -315,3 +315,56 @@ components:
             format: unix_timestamp
           - type: string
             format: sample_value
+    LogSeriesRequest:
+      type: object
+      required:
+        - match[]
+      properties:
+        match[]:
+          type: array
+          items:
+            type: string
+        start:
+          type: string
+          format: rfc3339 | unix_timestamp
+        end:
+          type: string
+          format: rfc3339 | unix_timestamp
+    LogInstantQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+            - vector
+            - scalar
+            - string
+            - streams
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/RangeVectors" #matrix
+              - $ref: "#/components/schemas/InstantVectors" #vector
+              - $ref: "#/components/schemas/ScalarOrString" # scalar
+              - $ref: "#/components/schemas/ScalarOrString" #string 
+              - $ref: "#/components/schemas/StreamValues" #streams
+    LogRangeQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/RangeVectors"
