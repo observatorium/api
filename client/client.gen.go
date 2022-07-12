@@ -46,7 +46,7 @@ type PostlogEntriesJSONBody externalRef0.PushLogs
 // GetLogInstantQueryParams defines parameters for GetLogInstantQuery.
 type GetLogInstantQueryParams struct {
 	// LogQL query to fetch result for logs
-	LogQLquery *externalRef1.LogqlQuery `json:"logQLquery,omitempty"`
+	Query *externalRef1.LogqlQuery `json:"query,omitempty"`
 
 	// Max number of entries
 	Limit *externalRef1.Limit `json:"limit,omitempty"`
@@ -58,7 +58,7 @@ type GetLogInstantQueryParams struct {
 // GetLogRangeQueryParams defines parameters for GetLogRangeQuery.
 type GetLogRangeQueryParams struct {
 	// LogQL query to fetch result for logs
-	LogQLquery *externalRef1.LogqlQuery `json:"logQLquery,omitempty"`
+	Query *externalRef1.LogqlQuery `json:"query,omitempty"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -109,7 +109,7 @@ type GetLogsParams struct {
 	Start *externalRef1.StartTS `json:"start,omitempty"`
 
 	// LogQL query to fetch result for logs
-	LogQLquery *externalRef1.LogqlQuery `json:"logQLquery,omitempty"`
+	Query *externalRef1.LogqlQuery `json:"query,omitempty"`
 
 	// delay retrieving logs
 	Delay *interface{} `json:"delay,omitempty"`
@@ -142,7 +142,7 @@ type GetLabelsParams struct {
 // GetInstantQueryParams defines parameters for GetInstantQuery.
 type GetInstantQueryParams struct {
 	// PromQL query to fetch result for metrics
-	PromQLquery *externalRef1.PromqlQuery `json:"promQLquery,omitempty"`
+	Query *externalRef1.PromqlQuery `json:"query,omitempty"`
 
 	// Evaluation timeout
 	Timeout *externalRef1.QueryTimeout `json:"timeout,omitempty"`
@@ -154,7 +154,7 @@ type GetInstantQueryParams struct {
 // GetRangeQueryParams defines parameters for GetRangeQuery.
 type GetRangeQueryParams struct {
 	// PromQL query to fetch result for metrics
-	PromQLquery *externalRef1.PromqlQuery `json:"promQLquery,omitempty"`
+	Query *externalRef1.PromqlQuery `json:"query,omitempty"`
 
 	// Start timestamp
 	Start *externalRef1.StartTS `json:"start,omitempty"`
@@ -743,9 +743,9 @@ func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, par
 
 	queryValues := queryURL.Query()
 
-	if params.LogQLquery != nil {
+	if params.Query != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "logQLquery", runtime.ParamLocationQuery, *params.LogQLquery); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -829,9 +829,9 @@ func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, param
 
 	queryValues := queryURL.Query()
 
-	if params.LogQLquery != nil {
+	if params.Query != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "logQLquery", runtime.ParamLocationQuery, *params.LogQLquery); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1161,9 +1161,9 @@ func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLog
 
 	}
 
-	if params.LogQLquery != nil {
+	if params.Query != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "logQLquery", runtime.ParamLocationQuery, *params.LogQLquery); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1410,9 +1410,9 @@ func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params
 
 	queryValues := queryURL.Query()
 
-	if params.PromQLquery != nil {
+	if params.Query != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "promQLquery", runtime.ParamLocationQuery, *params.PromQLquery); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1496,9 +1496,9 @@ func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *
 
 	queryValues := queryURL.Query()
 
-	if params.PromQLquery != nil {
+	if params.Query != nil {
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "promQLquery", runtime.ParamLocationQuery, *params.PromQLquery); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "query", runtime.ParamLocationQuery, *params.Query); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err

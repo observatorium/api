@@ -7,7 +7,7 @@ package parameters
 type EndTS string
 
 // Limit defines model for limit.
-type Limit int
+type Limit float32
 
 // LogqlQuery defines model for logqlQuery.
 type LogqlQuery string
