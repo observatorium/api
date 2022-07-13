@@ -426,6 +426,11 @@ paths:
         schema:
           type: string
           format: rfc3339 | unix_timestamp
+      - in: query
+        name: direction
+        description: Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
+        schema:
+          type: string
     get:
       tags:
         - queryv1
