@@ -53,6 +53,9 @@ type GetLogInstantQueryParams struct {
 
 	// Evaluation timestamp
 	Time *string `json:"time,omitempty"`
+
+	// Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
+	Direction *string `json:"direction,omitempty"`
 }
 
 // GetLogRangeQueryParams defines parameters for GetLogRangeQuery.
@@ -778,6 +781,22 @@ func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, par
 	if params.Time != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "time", runtime.ParamLocationQuery, *params.Time); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.Direction != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "direction", runtime.ParamLocationQuery, *params.Direction); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
