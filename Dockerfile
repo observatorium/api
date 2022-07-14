@@ -17,6 +17,8 @@ ARG VERSION
 ARG VCS_REF
 ARG DOCKERFILE_PATH
 
+USER 10000:10000
+
 LABEL vendor="Observatorium" \
     name="observatorium/api" \
     description="Observatorium API" \
