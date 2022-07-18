@@ -53,6 +53,12 @@ type GetInstantQueryParams struct {
 	// Evaluation timeout
 	Timeout *externalRef1.QueryTimeout `json:"timeout,omitempty"`
 
+	// Query deduplication (Thanos)
+	Dedup *externalRef1.QueryDedup `json:"dedup,omitempty"`
+
+	// Query partial response (Thanos)
+	PartialResponse *externalRef1.QueryPartialResponse `json:"partial_response,omitempty"`
+
 	// Evaluation timestamp
 	Time *string `json:"time,omitempty"`
 }
@@ -70,6 +76,12 @@ type GetRangeQueryParams struct {
 
 	// Evaluation timeout
 	Timeout *externalRef1.QueryTimeout `json:"timeout,omitempty"`
+
+	// Query deduplication (Thanos)
+	Dedup *externalRef1.QueryDedup `json:"dedup,omitempty"`
+
+	// Query partial response (Thanos)
+	PartialResponse *externalRef1.QueryPartialResponse `json:"partial_response,omitempty"`
 
 	// Query resolution step width
 	Step *string `json:"step,omitempty"`
@@ -529,6 +541,38 @@ func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params
 
 	}
 
+	if params.Dedup != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dedup", runtime.ParamLocationQuery, *params.Dedup); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.PartialResponse != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "partial_response", runtime.ParamLocationQuery, *params.PartialResponse); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
 	if params.Time != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "time", runtime.ParamLocationQuery, *params.Time); err != nil {
@@ -634,6 +678,38 @@ func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *
 	if params.Timeout != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "timeout", runtime.ParamLocationQuery, *params.Timeout); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.Dedup != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dedup", runtime.ParamLocationQuery, *params.Dedup); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.PartialResponse != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "partial_response", runtime.ParamLocationQuery, *params.PartialResponse); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err

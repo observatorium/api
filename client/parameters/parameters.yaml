@@ -50,3 +50,15 @@ components:
       description: Evaluation timeout
       schema:
         type: string
+    queryDedup:
+      in: query
+      name: dedup
+      description: Query deduplication (Thanos)
+      schema:
+        type: boolean
+    queryPartialResponse:
+      in: query
+      name: partial_response
+      description: Query partial response (Thanos)
+      schema:
+        type: boolean
