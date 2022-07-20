@@ -248,12 +248,8 @@ paths:
             schema:
               $ref: ./models/models.yaml#/components/schemas/PushLogs
       responses:
-        "201":
+        "204":
           description: writes all log entries of corresponding tenenat to Loki
-          # content:
-          #   application/json:
-          #     schema:
-          #        $ref: ./responses/responses.yaml#/components/schemas/LogWriteResponse
         "401":
           description: error finding tenant ID
         "403":
