@@ -790,38 +790,6 @@ func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, par
 
 	}
 
-	if params.Dedup != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dedup", runtime.ParamLocationQuery, *params.Dedup); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-	}
-
-	if params.PartialResponse != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "partial_response", runtime.ParamLocationQuery, *params.PartialResponse); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-	}
-
 	if params.Time != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "time", runtime.ParamLocationQuery, *params.Time); err != nil {
@@ -943,38 +911,6 @@ func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, param
 	if params.Limit != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-	}
-
-	if params.Dedup != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dedup", runtime.ParamLocationQuery, *params.Dedup); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-	}
-
-	if params.PartialResponse != nil {
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "partial_response", runtime.ParamLocationQuery, *params.PartialResponse); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -1537,6 +1473,38 @@ func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params
 
 	}
 
+	if params.Dedup != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dedup", runtime.ParamLocationQuery, *params.Dedup); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.PartialResponse != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "partial_response", runtime.ParamLocationQuery, *params.PartialResponse); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
 	if params.Time != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "time", runtime.ParamLocationQuery, *params.Time); err != nil {
@@ -1642,6 +1610,38 @@ func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *
 	if params.Timeout != nil {
 
 		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "timeout", runtime.ParamLocationQuery, *params.Timeout); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.Dedup != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "dedup", runtime.ParamLocationQuery, *params.Dedup); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+	}
+
+	if params.PartialResponse != nil {
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "partial_response", runtime.ParamLocationQuery, *params.PartialResponse); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
