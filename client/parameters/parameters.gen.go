@@ -18,6 +18,12 @@ type OptionalSeriesMatcher []string
 // PromqlQuery defines model for promqlQuery.
 type PromqlQuery string
 
+// QueryDedup defines model for queryDedup.
+type QueryDedup bool
+
+// QueryPartialResponse defines model for queryPartialResponse.
+type QueryPartialResponse bool
+
 // QueryTimeout defines model for queryTimeout.
 type QueryTimeout string
 

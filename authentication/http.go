@@ -84,7 +84,7 @@ func WithTenantHeader(header string, tenantIDs map[string]string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenant := chi.URLParam(r, "tenant")
-			r.Header.Add(header, tenantIDs[tenant])
+			r.Header.Set(header, tenantIDs[tenant])
 			next.ServeHTTP(w, r)
 		})
 	}

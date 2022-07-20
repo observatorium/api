@@ -154,6 +154,8 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
       - $ref: ./parameters/parameters.yaml#/components/parameters/promqlQuery
       - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryDedup
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryPartialResponse
       - in: query
         name: time
         description: Evaluation timestamp
@@ -185,6 +187,8 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
       - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryDedup
+      - $ref: ./parameters/parameters.yaml#/components/parameters/queryPartialResponse
       - in: query
         name: step
         description: Query resolution step width
