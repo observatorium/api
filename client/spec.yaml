@@ -12,6 +12,28 @@ info:
 tags:
   - name: observatoriumv1
     description: Calls related to Observatorium
+  - name: metrics 
+    description: Calls related to metric endpoints 
+  - name: logs 
+    description: Calls related to logs endpoint 
+x-tagGroups:
+  - name: metrics
+    tags:
+      - metrics/rulesrawv1
+      - metrics/rulesv1
+      - metrics/labelsv1
+      - metrics/labelvaluesv1
+      - metrics/queryv1
+      - metrics/seriesv1
+  - name: logs
+    tags: 
+      - logs/pushv1
+      - logs/labelsv1
+      - logs/labelvaluesv1
+      - logs/queryv1
+      - logs/seriesv1
+      - logs/tailV1
+
 # Keeping all the API paths here, but likely need to separate it out to another file,
 # once paths for other signals are also added.
 paths:
@@ -20,7 +42,7 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
     get:
       tags:
-        - rulesrawv1
+        - metrics/rulesrawv1
       summary: Lists all configured rules for a tenant in YAML form
       operationId: getRawRules
       description: |
@@ -40,7 +62,7 @@ paths:
           description: server side error while listing rules
     put:
       tags:
-        - rulesrawv1
+        - metrics/rulesrawv1
       summary: Set/overwrite the rules for a tenant
       operationId: setRawRules
       description: You can set rules for a tenant
@@ -79,7 +101,7 @@ paths:
             type: string
     get:
       tags:
-        - rulesv1
+        - metrics/rulesv1
       summary: Get Rules for a tenant in JSON form
       operationId: getRules
       description: |
@@ -103,7 +125,7 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
-        - labelsv1
+        - metrics/labelsv1
       summary: Get all labels for a tenant
       operationId: getLabels
       description: |
@@ -133,7 +155,7 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
-        - labelvaluesv1
+        - metrics/labelvaluesv1
       summary: Get label values for a tenant
       operationId: getLabelValues
       description: |
@@ -164,7 +186,7 @@ paths:
           format: rfc3339 | unix_timestamp
     get:
       tags:
-        - queryv1
+        - metrics/queryv1
       summary: Evaluate instant queries for a tenant
       operationId: getInstantQuery
       description: |
@@ -196,7 +218,7 @@ paths:
           type: string
     get:
       tags:
-        - queryv1
+        - metrics/queryv1
       summary: Evaluate range queries for a tenant
       operationId: getRangeQuery
       description: |
@@ -220,7 +242,7 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
-        - seriesv1
+        - metrics/seriesv1
       summary: Get series for a tenant
       operationId: getSeries
       description: |
@@ -241,7 +263,7 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
     post:
       tags:
-        - pushv1
+        - logs/pushv1
       summary: sends log entries to Loki
       operationId: postlogEntries
       requestBody:
@@ -267,8 +289,8 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
-        - labelsv1
-      summary: lists known labels of tenant within a given time span
+        - logs/labelsv1
+      summary: Get all labels for a tenant
       operationId: getLogLabels
       description: |
         You can get labels for a tenant
@@ -296,7 +318,7 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
-        - labelvaluesv1
+        - logs/labelvaluesv1
       summary: Get label values for a tenant
       operationId: getLogLabelValues
       description: |
@@ -320,11 +342,11 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
     get:
       tags:
-        - seriesv1
-      summary: Get series for a tenant that matches certain label set
+        - logs/seriesv1
+      summary: Get series for a tenant
       operationId: getLogSeries
       description: |
-        Returns the list of time series that match a certain label set.
+        You can get series for a tenant
       responses:
         "2XX":
           description: series for a tenant
@@ -338,10 +360,10 @@ paths:
           description: Server side error while getting series 
     post:
       tags:
-        - seriesv1
-      summary: save series for a tenant with label sets
+        - logs/seriesv1
+      summary: Get series for a tenant
       operationId: postLogSeries
-      description: save series for a tenant with label sets
+      description: Used when specifying a large or dynamic number of stream selectors that may breach server-side URL character limits.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -367,6 +389,41 @@ paths:
           description: unauthorized
         "500":
           description: server side error while writing series 
+
+  /api/logs/v1/{tenant}/loki/api/v1/query:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
+      - $ref: ./parameters/parameters.yaml#/components/parameters/limit
+      - in: query
+        name: time
+        description: Evaluation timestamp
+        schema:
+          type: string
+          format: rfc3339 | unix_timestamp
+      - in: query
+        name: direction
+        description: Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
+        schema:
+          type: string
+    get:
+      tags:
+        - logs/queryv1
+      summary: Evaluate instant queries for a tenant
+      operationId: getLogInstantQuery
+      description: |
+        You can evaluate instant queries for a tenant
+      responses:
+        "2XX":
+          description: instance query result for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: ./responses/responses.yaml#/components/schemas/LogQueryResponse
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error while getting queries 
   /api/logs/v1/{tenant}/loki/api/v1/query_range:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
@@ -399,7 +456,7 @@ paths:
           type: string
     get:
       tags:
-        - queryv1
+        - logs/queryv1
       summary: Evaluate range queries for a tenant
       operationId: getLogRangeQuery
       description: |
@@ -415,40 +472,6 @@ paths:
           description: Bad request
         "5XX":
           description: Server side error while getting range queries 
-  /api/logs/v1/{tenant}/loki/api/v1/query:
-    parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
-      - $ref: ./parameters/parameters.yaml#/components/parameters/limit
-      - in: query
-        name: time
-        description: Evaluation timestamp
-        schema:
-          type: string
-          format: rfc3339 | unix_timestamp
-      - in: query
-        name: direction
-        description: Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
-        schema:
-          type: string
-    get:
-      tags:
-        - queryv1
-      summary: Evaluate instant queries for a tenant
-      operationId: getLogInstantQuery
-      description: |
-        You can evaluate instant queries for a tenant
-      responses:
-        "2XX":
-          description: instance query result for a tenant
-          content:
-            application/json:
-              schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogQueryResponse
-        "4XX":
-          description: Bad request
-        "5XX":
-          description: Server side error while getting queries 
   /api/logs/v1/{tenant}/loki/api/v1/tail:
     parameters:
       - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
@@ -464,7 +487,7 @@ paths:
             - maximum: 5 
     get:
       tags:
-        - tailV1
+        - logs/tailV1
       summary: lists log messages based on query 
       operationId: getLogs 
       description: |
