@@ -50,6 +50,16 @@ func TestInteractiveSetup(t *testing.T) {
 
 	testutil.Ok(t, e2einteractive.OpenInBrowser("http://"+readExtEndpoint))
 
+	up, err = newUpRun(
+		e, "up-logs-read-write", logs,
+		"https://"+api.InternalEndpoint("https")+"/api/logs/v1/"+defaultTenantName+"/loki/api/v1/query",
+		"https://"+api.InternalEndpoint("https")+"/api/logs/v1/"+defaultTenantName+"/loki/api/v1/push",
+		withToken(token),
+		withRunParameters(&runParams{initialDelay: "100ms", period: "1s", threshold: "1", latency: "10s", duration: "0"}),
+	)
+	testutil.Ok(t, err)
+	testutil.Ok(t, e2e.StartAndWaitReady(up))
+
 	fmt.Printf("\n")
 	fmt.Printf("You're all set up!\n")
 	fmt.Printf("========================================\n")

@@ -1,9 +1,11 @@
 components:
   schemas:
-    SeriesResponse:
+  # metrics
+    MetricSeriesResponse:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -22,10 +24,11 @@ components:
             type: object
             additionalProperties:
               type: string
-    QueryResponse:
+    MetricQueryResponse:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -40,11 +43,12 @@ components:
           example: "success"
         data:
           type: object
-          $ref: "../models/models.yaml#/components/schemas/InstantQueryResponse"
-    QueryRangeResponse:
+          $ref: "../models/models.yaml#/components/schemas/MetricInstantQueryResponse"
+    MetricQueryRangeResponse:
       type: object
       required:
         - status
+        - data 
       properties:
         error:
           type: string
@@ -59,11 +63,12 @@ components:
           example: "success"
         data:
           type: object
-          $ref: "../models/models.yaml#/components/schemas/RangeQueryResponse"
-    LabelsResponse:
+          $ref: "../models/models.yaml#/components/schemas/MetricRangeQueryResponse"
+    MetricLabelsResponse:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -80,11 +85,11 @@ components:
           type: array
           items:
             type: string
-            example: "__name__"
-    LabelValuesResponse:
+    MetricLabelValuesResponse:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -96,16 +101,16 @@ components:
             type: string
         status:
           type: string
-          example: "success"
         data:
           type: array
           items:
             type: string
             example: "node"
-    RulesResponse:
+    MetricRulesResponse:
       type: object
       required:
         - status
+        - data
       properties:
         error:
           type: string
@@ -121,3 +126,158 @@ components:
         data:
           type: object
           $ref: "../models/models.yaml#/components/schemas/Rules"
+  # Logs 
+    LogSeriesResponse:
+        type: object
+        required:
+          - status
+          - data
+        properties:
+          error:
+            type: string
+          errorType:
+            type: string
+          warnings:
+            type: array
+            items:
+              type: string
+          status:
+            type: string
+            example: "success"
+          data:
+            type: array
+            items:
+              type: object
+              additionalProperties:
+                type: string
+    LogQueryResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          $ref: "../models/models.yaml#/components/schemas/LogInstantQueryResponse"
+    LogQueryRangeResponse:
+      type: object
+      required:
+        - status
+        - data 
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          $ref: "../models/models.yaml#/components/schemas/LogRangeQueryResponse"
+    LogLabelsResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            type: string
+    LogLabelValuesResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            type: string
+            example: "node"
+    LogWriteResponse:
+        type: object
+        required:
+          - status
+          - streams
+        properties:
+          error:
+            type: string
+          errorType:
+            type: string
+          warnings:
+            type: array
+            items:
+              type: string
+          status:
+            type: string
+            example: "success"
+          streams:
+            type: array
+            items:
+              type: object
+              $ref: "../models/models.yaml#/components/schemas/PushLogs"
+    LogReadResponse:
+        type: object
+        required:
+          - status
+          - streams 
+        properties:
+          error:
+            type: string
+          errorType:
+            type: string
+          warnings:
+            type: array
+          items:
+            type: string
+          status:
+            type: string
+            example: "success"
+          streams:
+            type: array
+            items:
+              type: object
+              $ref: "../models/models.yaml#/components/schemas/PushLogs"
+          dropped_entries:
+            type: array
+            items:
+              type: object
+              $ref: "../models/models.yaml#/components/schemas/TailLogs"

@@ -7,56 +7,123 @@ import (
 	externalRef0 "github.com/observatorium/api/client/models"
 )
 
-// LabelValuesResponse defines model for LabelValuesResponse.
-type LabelValuesResponse struct {
-	Data      *[]string `json:"data,omitempty"`
+// LogLabelValuesResponse defines model for LogLabelValuesResponse.
+type LogLabelValuesResponse struct {
+	Data      []string  `json:"data"`
 	Error     *string   `json:"error,omitempty"`
 	ErrorType *string   `json:"errorType,omitempty"`
 	Status    string    `json:"status"`
 	Warnings  *[]string `json:"warnings,omitempty"`
 }
 
-// LabelsResponse defines model for LabelsResponse.
-type LabelsResponse struct {
-	Data      *[]string `json:"data,omitempty"`
+// LogLabelsResponse defines model for LogLabelsResponse.
+type LogLabelsResponse struct {
+	Data      []string  `json:"data"`
 	Error     *string   `json:"error,omitempty"`
 	ErrorType *string   `json:"errorType,omitempty"`
 	Status    string    `json:"status"`
 	Warnings  *[]string `json:"warnings,omitempty"`
 }
 
-// QueryRangeResponse defines model for QueryRangeResponse.
-type QueryRangeResponse struct {
-	Data      *externalRef0.RangeQueryResponse `json:"data,omitempty"`
-	Error     *string                          `json:"error,omitempty"`
-	ErrorType *string                          `json:"errorType,omitempty"`
-	Status    string                           `json:"status"`
-	Warnings  *[]string                        `json:"warnings,omitempty"`
-}
-
-// QueryResponse defines model for QueryResponse.
-type QueryResponse struct {
-	Data      *externalRef0.InstantQueryResponse `json:"data,omitempty"`
+// LogQueryRangeResponse defines model for LogQueryRangeResponse.
+type LogQueryRangeResponse struct {
+	Data      externalRef0.LogRangeQueryResponse `json:"data"`
 	Error     *string                            `json:"error,omitempty"`
 	ErrorType *string                            `json:"errorType,omitempty"`
 	Status    string                             `json:"status"`
 	Warnings  *[]string                          `json:"warnings,omitempty"`
 }
 
-// RulesResponse defines model for RulesResponse.
-type RulesResponse struct {
-	Data      *externalRef0.Rules `json:"data,omitempty"`
-	Error     *string             `json:"error,omitempty"`
-	ErrorType *string             `json:"errorType,omitempty"`
-	Status    string              `json:"status"`
-	Warnings  *[]string           `json:"warnings,omitempty"`
+// LogQueryResponse defines model for LogQueryResponse.
+type LogQueryResponse struct {
+	Data      externalRef0.LogInstantQueryResponse `json:"data"`
+	Error     *string                              `json:"error,omitempty"`
+	ErrorType *string                              `json:"errorType,omitempty"`
+	Status    string                               `json:"status"`
+	Warnings  *[]string                            `json:"warnings,omitempty"`
 }
 
-// SeriesResponse defines model for SeriesResponse.
-type SeriesResponse struct {
-	Data *[]struct {
+// LogReadResponse defines model for LogReadResponse.
+type LogReadResponse struct {
+	DroppedEntries *[]externalRef0.TailLogs `json:"dropped_entries,omitempty"`
+	Error          *string                  `json:"error,omitempty"`
+	ErrorType      *string                  `json:"errorType,omitempty"`
+	Items          *string                  `json:"items,omitempty"`
+	Status         string                   `json:"status"`
+	Streams        []externalRef0.PushLogs  `json:"streams"`
+	Warnings       *[]interface{}           `json:"warnings,omitempty"`
+}
+
+// LogSeriesResponse defines model for LogSeriesResponse.
+type LogSeriesResponse struct {
+	Data []struct {
 		AdditionalProperties map[string]string `json:"-"`
-	} `json:"data,omitempty"`
+	} `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// LogWriteResponse defines model for LogWriteResponse.
+type LogWriteResponse struct {
+	Error     *string                 `json:"error,omitempty"`
+	ErrorType *string                 `json:"errorType,omitempty"`
+	Status    string                  `json:"status"`
+	Streams   []externalRef0.PushLogs `json:"streams"`
+	Warnings  *[]string               `json:"warnings,omitempty"`
+}
+
+// MetricLabelValuesResponse defines model for MetricLabelValuesResponse.
+type MetricLabelValuesResponse struct {
+	Data      []string  `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// MetricLabelsResponse defines model for MetricLabelsResponse.
+type MetricLabelsResponse struct {
+	Data      []string  `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// MetricQueryRangeResponse defines model for MetricQueryRangeResponse.
+type MetricQueryRangeResponse struct {
+	Data      externalRef0.MetricRangeQueryResponse `json:"data"`
+	Error     *string                               `json:"error,omitempty"`
+	ErrorType *string                               `json:"errorType,omitempty"`
+	Status    string                                `json:"status"`
+	Warnings  *[]string                             `json:"warnings,omitempty"`
+}
+
+// MetricQueryResponse defines model for MetricQueryResponse.
+type MetricQueryResponse struct {
+	Data      externalRef0.MetricInstantQueryResponse `json:"data"`
+	Error     *string                                 `json:"error,omitempty"`
+	ErrorType *string                                 `json:"errorType,omitempty"`
+	Status    string                                  `json:"status"`
+	Warnings  *[]string                               `json:"warnings,omitempty"`
+}
+
+// MetricRulesResponse defines model for MetricRulesResponse.
+type MetricRulesResponse struct {
+	Data      externalRef0.Rules `json:"data"`
+	Error     *string            `json:"error,omitempty"`
+	ErrorType *string            `json:"errorType,omitempty"`
+	Status    string             `json:"status"`
+	Warnings  *[]string          `json:"warnings,omitempty"`
+}
+
+// MetricSeriesResponse defines model for MetricSeriesResponse.
+type MetricSeriesResponse struct {
+	Data []struct {
+		AdditionalProperties map[string]string `json:"-"`
+	} `json:"data"`
 	Error     *string   `json:"error,omitempty"`
 	ErrorType *string   `json:"errorType,omitempty"`
 	Status    string    `json:"status"`

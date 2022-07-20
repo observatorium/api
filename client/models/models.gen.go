@@ -13,20 +13,40 @@ const (
 	AlertingRuleEvaluatedTypeAlerting AlertingRuleEvaluatedType = "alerting"
 )
 
-// Defines values for InstantQueryResponseResultType.
+// Defines values for LogInstantQueryResponseResultType.
 const (
-	InstantQueryResponseResultTypeMatrix InstantQueryResponseResultType = "matrix"
+	LogInstantQueryResponseResultTypeMatrix LogInstantQueryResponseResultType = "matrix"
 
-	InstantQueryResponseResultTypeScalar InstantQueryResponseResultType = "scalar"
+	LogInstantQueryResponseResultTypeScalar LogInstantQueryResponseResultType = "scalar"
 
-	InstantQueryResponseResultTypeString InstantQueryResponseResultType = "string"
+	LogInstantQueryResponseResultTypeStreams LogInstantQueryResponseResultType = "streams"
 
-	InstantQueryResponseResultTypeVector InstantQueryResponseResultType = "vector"
+	LogInstantQueryResponseResultTypeString LogInstantQueryResponseResultType = "string"
+
+	LogInstantQueryResponseResultTypeVector LogInstantQueryResponseResultType = "vector"
 )
 
-// Defines values for RangeQueryResponseResultType.
+// Defines values for LogRangeQueryResponseResultType.
 const (
-	RangeQueryResponseResultTypeMatrix RangeQueryResponseResultType = "matrix"
+	LogRangeQueryResponseResultTypeMatrix LogRangeQueryResponseResultType = "matrix"
+)
+
+// Defines values for MetricInstantQueryResponseResultType.
+const (
+	MetricInstantQueryResponseResultTypeMatrix MetricInstantQueryResponseResultType = "matrix"
+
+	MetricInstantQueryResponseResultTypeScalar MetricInstantQueryResponseResultType = "scalar"
+
+	MetricInstantQueryResponseResultTypeStreams MetricInstantQueryResponseResultType = "streams"
+
+	MetricInstantQueryResponseResultTypeString MetricInstantQueryResponseResultType = "string"
+
+	MetricInstantQueryResponseResultTypeVector MetricInstantQueryResponseResultType = "vector"
+)
+
+// Defines values for MetricRangeQueryResponseResultType.
+const (
+	MetricRangeQueryResponseResultTypeMatrix MetricRangeQueryResponseResultType = "matrix"
 )
 
 // Defines values for RecordingRuleEvaluatedType.
@@ -99,19 +119,10 @@ type AlertingRuleEvaluated_Labels struct {
 // AlertingRuleEvaluatedType defines model for AlertingRuleEvaluated.Type.
 type AlertingRuleEvaluatedType string
 
-// InstantQueryResponse defines model for InstantQueryResponse.
-type InstantQueryResponse struct {
-	Result     []interface{}                  `json:"result"`
-	ResultType InstantQueryResponseResultType `json:"resultType"`
-}
-
-// InstantQueryResponseResultType defines model for InstantQueryResponse.ResultType.
-type InstantQueryResponseResultType string
-
 // InstantVectors defines model for InstantVectors.
 type InstantVectors struct {
 	Metric InstantVectors_Metric `json:"metric"`
-	Values ScalarOrString        `json:"values"`
+	Values []ScalarOrString      `json:"values"`
 }
 
 // InstantVectors_Metric defines model for InstantVectors.Metric.
@@ -119,14 +130,59 @@ type InstantVectors_Metric struct {
 	AdditionalProperties map[string]string `json:"-"`
 }
 
-// RangeQueryResponse defines model for RangeQueryResponse.
-type RangeQueryResponse struct {
-	Result     []interface{}                `json:"result"`
-	ResultType RangeQueryResponseResultType `json:"resultType"`
+// LogInstantQueryResponse defines model for LogInstantQueryResponse.
+type LogInstantQueryResponse struct {
+	Result     []interface{}                     `json:"result"`
+	ResultType LogInstantQueryResponseResultType `json:"resultType"`
 }
 
-// RangeQueryResponseResultType defines model for RangeQueryResponse.ResultType.
-type RangeQueryResponseResultType string
+// LogInstantQueryResponseResultType defines model for LogInstantQueryResponse.ResultType.
+type LogInstantQueryResponseResultType string
+
+// LogRangeQueryResponse defines model for LogRangeQueryResponse.
+type LogRangeQueryResponse struct {
+	Result     []interface{}                   `json:"result"`
+	ResultType LogRangeQueryResponseResultType `json:"resultType"`
+}
+
+// LogRangeQueryResponseResultType defines model for LogRangeQueryResponse.ResultType.
+type LogRangeQueryResponseResultType string
+
+// LogSeriesRequest defines model for LogSeriesRequest.
+type LogSeriesRequest struct {
+	End   *string  `json:"end,omitempty"`
+	Match []string `json:"match[]"`
+	Start *string  `json:"start,omitempty"`
+}
+
+// MetricInstantQueryResponse defines model for MetricInstantQueryResponse.
+type MetricInstantQueryResponse struct {
+	Result     []interface{}                        `json:"result"`
+	ResultType MetricInstantQueryResponseResultType `json:"resultType"`
+}
+
+// MetricInstantQueryResponseResultType defines model for MetricInstantQueryResponse.ResultType.
+type MetricInstantQueryResponseResultType string
+
+// MetricRangeQueryResponse defines model for MetricRangeQueryResponse.
+type MetricRangeQueryResponse struct {
+	Result     []interface{}                      `json:"result"`
+	ResultType MetricRangeQueryResponseResultType `json:"resultType"`
+}
+
+// MetricRangeQueryResponseResultType defines model for MetricRangeQueryResponse.ResultType.
+type MetricRangeQueryResponseResultType string
+
+// PushLogs defines model for PushLogs.
+type PushLogs struct {
+	Stream PushLogs_Stream  `json:"stream"`
+	Values []ScalarOrString `json:"values"`
+}
+
+// PushLogs_Stream defines model for PushLogs.Stream.
+type PushLogs_Stream struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
 
 // RangeVectors defines model for RangeVectors.
 type RangeVectors struct {
@@ -201,6 +257,28 @@ type RulesRaw struct {
 
 // ScalarOrString defines model for ScalarOrString.
 type ScalarOrString []interface{}
+
+// StreamValues defines model for StreamValues.
+type StreamValues struct {
+	Stream StreamValues_Stream `json:"stream"`
+	Values []ScalarOrString    `json:"values"`
+}
+
+// StreamValues_Stream defines model for StreamValues.Stream.
+type StreamValues_Stream struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
+
+// TailLogs defines model for TailLogs.
+type TailLogs struct {
+	Labels    TailLogs_Labels `json:"labels"`
+	Timestamp string          `json:"timestamp"`
+}
+
+// TailLogs_Labels defines model for TailLogs.Labels.
+type TailLogs_Labels struct {
+	AdditionalProperties map[string]string `json:"-"`
+}
 
 // Getter for additional properties for ActiveAlert_Annotations. Returns the specified
 // element and whether it was found
@@ -573,6 +651,59 @@ func (a InstantVectors_Metric) MarshalJSON() ([]byte, error) {
 	return json.Marshal(object)
 }
 
+// Getter for additional properties for PushLogs_Stream. Returns the specified
+// element and whether it was found
+func (a PushLogs_Stream) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for PushLogs_Stream
+func (a *PushLogs_Stream) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for PushLogs_Stream to handle AdditionalProperties
+func (a *PushLogs_Stream) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for PushLogs_Stream to handle AdditionalProperties
+func (a PushLogs_Stream) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
 // Getter for additional properties for RangeVectors_Metric. Returns the specified
 // element and whether it was found
 func (a RangeVectors_Metric) Get(fieldName string) (value string, found bool) {
@@ -720,6 +851,112 @@ func (a *RecordingRuleEvaluated_Labels) UnmarshalJSON(b []byte) error {
 
 // Override default JSON handling for RecordingRuleEvaluated_Labels to handle AdditionalProperties
 func (a RecordingRuleEvaluated_Labels) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for StreamValues_Stream. Returns the specified
+// element and whether it was found
+func (a StreamValues_Stream) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for StreamValues_Stream
+func (a *StreamValues_Stream) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for StreamValues_Stream to handle AdditionalProperties
+func (a *StreamValues_Stream) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for StreamValues_Stream to handle AdditionalProperties
+func (a StreamValues_Stream) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
+
+// Getter for additional properties for TailLogs_Labels. Returns the specified
+// element and whether it was found
+func (a TailLogs_Labels) Get(fieldName string) (value string, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for TailLogs_Labels
+func (a *TailLogs_Labels) Set(fieldName string, value string) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]string)
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for TailLogs_Labels to handle AdditionalProperties
+func (a *TailLogs_Labels) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]string)
+		for fieldName, fieldBuf := range object {
+			var fieldVal string
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for TailLogs_Labels to handle AdditionalProperties
+func (a TailLogs_Labels) MarshalJSON() ([]byte, error) {
 	var err error
 	object := make(map[string]json.RawMessage)
 

@@ -6,11 +6,17 @@ package parameters
 // EndTS defines model for endTS.
 type EndTS string
 
+// Limit defines model for limit.
+type Limit float32
+
+// LogqlQuery defines model for logqlQuery.
+type LogqlQuery string
+
 // OptionalSeriesMatcher defines model for optionalSeriesMatcher.
 type OptionalSeriesMatcher []string
 
-// Query defines model for query.
-type Query string
+// PromqlQuery defines model for promqlQuery.
+type PromqlQuery string
 
 // QueryDedup defines model for queryDedup.
 type QueryDedup bool

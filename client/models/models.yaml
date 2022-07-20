@@ -199,7 +199,7 @@ components:
         value:
           type: string
           example: "1e+00"
-    InstantQueryResponse:
+    MetricInstantQueryResponse:
       type: object
       required:
         - resultType
@@ -212,14 +212,17 @@ components:
             - vector
             - scalar
             - string
+            - streams
         result:
           type: array
           items:
             oneOf:
-              - $ref: "#/components/schemas/RangeVectors"
-              - $ref: "#/components/schemas/InstantVectors"
-              - $ref: "#/components/schemas/ScalarOrString"
-    RangeQueryResponse:
+              - $ref: "#/components/schemas/RangeVectors" #matrix
+              - $ref: "#/components/schemas/InstantVectors" #vector
+              - $ref: "#/components/schemas/ScalarOrString" # scalar
+              - $ref: "#/components/schemas/ScalarOrString" #string 
+              - $ref: "#/components/schemas/StreamValues" #streams
+    MetricRangeQueryResponse:
       type: object
       required:
         - resultType
@@ -261,7 +264,49 @@ components:
             type: string
         values:
           type: array
-          $ref: "#/components/schemas/ScalarOrString"
+          items:
+            $ref: "#/components/schemas/ScalarOrString"
+    StreamValues:
+      type: object
+      required:
+        - stream
+        - values
+      properties:
+        stream:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScalarOrString"
+    PushLogs:
+      type: object
+      required:
+        - stream
+        - values
+      properties:
+        stream:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScalarOrString"
+    TailLogs:
+      type: object
+      required:
+        - labels
+        - timestamp
+      properties:
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: unix_timestamp
     ScalarOrString:
       type: array
       items:
@@ -270,3 +315,56 @@ components:
             format: unix_timestamp
           - type: string
             format: sample_value
+    LogSeriesRequest:
+      type: object
+      required:
+        - match[]
+      properties:
+        match[]:
+          type: array
+          items:
+            type: string
+        start:
+          type: string
+          format: rfc3339 | unix_timestamp
+        end:
+          type: string
+          format: rfc3339 | unix_timestamp
+    LogInstantQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+            - vector
+            - scalar
+            - string
+            - streams
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/RangeVectors" #matrix
+              - $ref: "#/components/schemas/InstantVectors" #vector
+              - $ref: "#/components/schemas/ScalarOrString" # scalar
+              - $ref: "#/components/schemas/ScalarOrString" #string 
+              - $ref: "#/components/schemas/StreamValues" #streams
+    LogRangeQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/RangeVectors"
