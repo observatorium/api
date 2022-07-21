@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine3.14 as builder
+FROM golang:1.18.4-alpine3.16 as builder
 
 RUN apk add --update --no-cache ca-certificates tzdata git make bash && update-ca-certificates
 
@@ -7,7 +7,7 @@ WORKDIR /opt
 
 RUN git update-index --refresh; make build
 
-FROM alpine:3.14 as runner
+FROM alpine:3.16 as runner
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /opt/observatorium-api /bin/observatorium-api
