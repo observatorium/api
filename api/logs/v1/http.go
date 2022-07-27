@@ -140,6 +140,34 @@ func NewHandler(read, tail, write *url.URL, upstreamCA []byte, opts ...HandlerOp
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
 			const (
+				readyRoute     = "/ready"
+				metricsRoute   = "/metrics"
+				configRoute    = "/config"
+				servicesRoute  = "/services"
+				buildInfoRoute = "/loki/api/v1/status/buildinfo"
+			)
+			r.Handle(readyRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "ready"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+readyRoute, proxyRead),
+			))
+			r.Handle(metricsRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "metrics"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+metricsRoute, proxyRead),
+			))
+			r.Handle(configRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "config"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+configRoute, proxyRead),
+			))
+			r.Handle(servicesRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "services"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+servicesRoute, proxyRead),
+			))
+			r.Handle(buildInfoRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "status/buildinfo"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+buildInfoRoute, proxyRead),
+			))
+
+			const (
 				queryRoute      = "/loki/api/v1/query"
 				queryRangeRoute = "/loki/api/v1/query_range"
 			)
