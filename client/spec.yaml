@@ -433,22 +433,14 @@ paths:
       - $ref: ./parameters/parameters.yaml#/components/parameters/limit
       - in: query
         name: step
-        description: Query resolution step width.Only applies to query types which produce a matrix response.
+        description: Query resolution step width
         schema:
-          oneOf:
-            - type: number
-            - format: float
-            - type: string
-            - pattern: '^\[0-9]+[smhdwy]/$'
+          type: string
       - in: query
         name: interval
         description: Only return entries at (or >) the specified interval,Only applies to queries which produce a stream response.
         schema:
-          oneOf:
-            - type: number
-            - format: float
-            - type: string
-            - pattern: '^\[0-9]+[smhdwy]/$'
+          type: string
       - in: query
         name: direction
         description: Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
