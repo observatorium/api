@@ -72,11 +72,11 @@ type GetLogRangeQueryParams struct {
 	// Max number of entries
 	Limit *externalRef1.Limit `json:"limit,omitempty"`
 
-	// Query resolution step width.Only applies to query types which produce a matrix response.
-	Step *interface{} `json:"step,omitempty"`
+	// Query resolution step width
+	Step *string `json:"step,omitempty"`
 
 	// Only return entries at (or >) the specified interval,Only applies to queries which produce a stream response.
-	Interval *interface{} `json:"interval,omitempty"`
+	Interval *string `json:"interval,omitempty"`
 
 	// Determines the sort order of logs.Supported values are forward or backward. Defaults to backward.
 	Direction *string `json:"direction,omitempty"`
