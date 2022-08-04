@@ -1493,8 +1493,8 @@ go.opentelemetry.io/otel v1.6.1/go.mod h1:blzUabWHkX6LJewxvadmzafgh/wnvBSDBdOuwk
 go.opentelemetry.io/otel v1.8.0/go.mod h1:2pkj+iMj0o03Y+cW6/m8Y4WkRdYN3AvCXCnzRMp9yvM=
 go.opentelemetry.io/otel v1.9.0 h1:8WZNQFIB2a71LnANS9JeyidJKKGOOremcUtb/OtHISw=
 go.opentelemetry.io/otel v1.9.0/go.mod h1:np4EoPGzoPs3O67xUVNoPPcmSvsfOxNlNA4F4AC+0Eo=
-go.opentelemetry.io/otel/exporters/jaeger v1.8.0 h1:TLLqD6kDhLPziEC7pgPrMvP9lAqdk3n1gf8DiFSnfW8=
-go.opentelemetry.io/otel/exporters/jaeger v1.8.0/go.mod h1:GbWg+ng88rDtx+id26C34QLqw2erqJeAjsCx9AFeHfE=
+go.opentelemetry.io/otel/exporters/jaeger v1.9.0 h1:gAEgEVGDWwFjcis9jJTOJqZNxDzoZfR12WNIxr7g9Ww=
+go.opentelemetry.io/otel/exporters/jaeger v1.9.0/go.mod h1:hquezOLVAybNW6vanIxkdLXTXvzlj2Vn3wevSP15RYs=
 go.opentelemetry.io/otel/exporters/otlp v0.20.0/go.mod h1:YIieizyaN77rtLJra0buKiNBOm9XQfkPEKBeuhoMwAM=
 go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.6.1/go.mod h1:NEu79Xo32iVb+0gVNV8PMd7GoWqnyDXRlj04yFjqz40=
 go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.6.1/go.mod h1:YJ/JbY5ag/tSQFXzH3mtDmHqzF3aFn3DI/aB1n7pt4w=
@@ -1506,8 +1506,8 @@ go.opentelemetry.io/otel/metric v0.31.0/go.mod h1:ohmwj9KTSIeBnDBm/ZwH2PSZxZzoOa
 go.opentelemetry.io/otel/oteltest v0.20.0/go.mod h1:L7bgKf9ZB7qCwT9Up7i9/pn0PWIa9FqQ2IQ8LoxiGnw=
 go.opentelemetry.io/otel/sdk v0.20.0/go.mod h1:g/IcepuwNsoiX5Byy2nNV0ySUF1em498m7hBWC279Yc=
 go.opentelemetry.io/otel/sdk v1.6.1/go.mod h1:IVYrddmFZ+eJqu2k38qD3WezFR2pymCzm8tdxyh3R4E=
-go.opentelemetry.io/otel/sdk v1.8.0 h1:xwu69/fNuwbSHWe/0PGS888RmjWY181OmcXDQKu7ZQk=
-go.opentelemetry.io/otel/sdk v1.8.0/go.mod h1:uPSfc+yfDH2StDM/Rm35WE8gXSNdvCg023J6HeGNO0c=
+go.opentelemetry.io/otel/sdk v1.9.0 h1:LNXp1vrr83fNXTHgU8eO89mhzxb/bbWAsHG6fNf3qWo=
+go.opentelemetry.io/otel/sdk v1.9.0/go.mod h1:AEZc8nt5bd2F7BC24J5R0mrjYnpEgYHyTcM/vrSple4=
 go.opentelemetry.io/otel/sdk/export/metric v0.20.0/go.mod h1:h7RBNMsDJ5pmI1zExLi+bJK+Dr8NQCh0qGhm1KDnNlE=
 go.opentelemetry.io/otel/sdk/metric v0.20.0/go.mod h1:knxiS8Xd4E/N+ZqKmUPf3gTTZ4/0TjTXukfxjzSTpHE=
 go.opentelemetry.io/otel/trace v0.20.0/go.mod h1:6GjCW8zgDjwGHGa6GkyeB8+/5vjT16gUEi0Nf1iBdgw=
