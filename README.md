@@ -101,7 +101,4 @@ Usage of ./observatorium:
     	The address on which the public server listens. (default ":8080")
 ```
 
-Rebuild Image: Thu May 19 11:59:44 EDT 2022
-
-
-Rebuild: 2022-07-05
+Rebuild Image: Tue Aug 16 14:18:41 EDT 2022
