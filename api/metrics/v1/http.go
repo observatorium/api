@@ -313,12 +313,18 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
-			r.Get(rulesRawRoute, rh.get)
+			r.Get(rulesRawRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRawRoute, http.HandlerFunc(rh.get)),
+			))
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			r.Put(rulesRawRoute, rh.put)
+			r.Put(rulesRawRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRawRoute, http.HandlerFunc(rh.put)),
+			))
 		})
 	}
 
