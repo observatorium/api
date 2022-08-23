@@ -7,9 +7,10 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,7 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 	}
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return "", fmt.Errorf("cannot read body: %v\n", err)
 	}
@@ -104,7 +105,7 @@ func getContainerName(t *testing.T, tt testType, serviceName string) string {
 }
 
 func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
-	cert, err := ioutil.ReadFile(filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"))
+	cert, err := os.ReadFile(filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"))
 	testutil.Ok(t, err)
 
 	cp := x509.NewCertPool()

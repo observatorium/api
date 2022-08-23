@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/ghodss/yaml"
@@ -78,7 +77,7 @@ func enforceLabelsInExpr(e *injectproxy.Enforcer, expr string) (string, error) {
 }
 
 func unmarshalRules(r io.Reader) (rules.Rules, error) {
-	body, err := ioutil.ReadAll(r)
+	body, err := io.ReadAll(r)
 	if err != nil {
 		return rules.Rules{}, err
 	}

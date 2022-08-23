@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	stdlog "log"
 	"net"
 	"net/http"
@@ -260,7 +259,7 @@ func main() {
 
 	var tenantsCfg tenantsConfig
 	{
-		f, err := ioutil.ReadFile(cfg.tenantsConfigPath)
+		f, err := os.ReadFile(cfg.tenantsConfigPath)
 		if err != nil {
 			stdlog.Fatalf("cannot read tenant configuration file from path %q: %v", cfg.tenantsConfigPath, err)
 		}
@@ -410,7 +409,7 @@ func main() {
 			}
 
 			if cfg.tls.healthchecksServerCAFile != "" {
-				caCert, err := ioutil.ReadFile(cfg.tls.healthchecksServerCAFile)
+				caCert, err := os.ReadFile(cfg.tls.healthchecksServerCAFile)
 				if err != nil {
 					stdlog.Fatalf("failed to initialize healthcheck server TLS CA: %v", err)
 				}
@@ -436,14 +435,14 @@ func main() {
 		)
 
 		if cfg.metrics.upstreamCAFile != "" {
-			metricsUpstreamCACert, err = ioutil.ReadFile(cfg.metrics.upstreamCAFile)
+			metricsUpstreamCACert, err = os.ReadFile(cfg.metrics.upstreamCAFile)
 			if err != nil {
 				stdlog.Fatalf("failed to read upstream metrics TLS CA: %v", err)
 			}
 		}
 
 		if cfg.logs.upstreamCAFile != "" {
-			logsUpstreamCACert, err = ioutil.ReadFile(cfg.logs.upstreamCAFile)
+			logsUpstreamCACert, err = os.ReadFile(cfg.logs.upstreamCAFile)
 			if err != nil {
 				stdlog.Fatalf("failed to read upstream logs TLS CA: %v", err)
 			}

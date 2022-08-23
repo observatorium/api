@@ -3,7 +3,7 @@
 package e2e
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"testing"
@@ -80,7 +80,7 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 		testutil.Ok(t, err)
 		defer res.Body.Close()
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		testutil.Ok(t, err)
 
 		bodyStr := string(body)

@@ -3,7 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -164,7 +164,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 		}
 		// We are replacing request body, close previous one (ParseForm ensures it is read fully and not nil).
 		_ = r.Body.Close()
-		r.Body = ioutil.NopCloser(strings.NewReader(q))
+		r.Body = io.NopCloser(strings.NewReader(q))
 		r.ContentLength = int64(len(q))
 	}
 

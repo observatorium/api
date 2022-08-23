@@ -6,9 +6,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -86,7 +86,7 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 	}
 
 	if config.IssuerCAPath != "" {
-		IssuerRawCA, err := ioutil.ReadFile(config.IssuerCAPath)
+		IssuerRawCA, err := os.ReadFile(config.IssuerCAPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read issuer ca file: %s", err.Error())
 		}

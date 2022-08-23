@@ -4,7 +4,7 @@ package e2e
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -139,7 +139,7 @@ func TestRulesAPI(t *testing.T) {
 
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		bodyStr := string(body)
 
 		assertResponse(t, bodyStr, "subscription_labels{email_domain=\"domain1.com\",tenant_id=\""+defaultTenantID+"\"}")
@@ -179,7 +179,7 @@ func TestRulesAPI(t *testing.T) {
 
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		bodyStr := string(body)
 
 		assertResponse(t, bodyStr, "alert: HighRequestLatency")
@@ -215,7 +215,7 @@ func TestRulesAPI(t *testing.T) {
 
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		bodyStr := string(body)
 
 		assertResponse(t, bodyStr, "record: job:up:avg")

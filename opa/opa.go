@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -154,7 +154,7 @@ func (a *restAuthorizer) Authorize(
 	}
 
 	if res.StatusCode/100 != 2 {
-		body, _ := ioutil.ReadAll(res.Body)
+		body, _ := io.ReadAll(res.Body)
 		res.Body.Close()
 		level.Error(a.logger).Log(
 			"msg", "received non-200 status code from OPA endpoint",

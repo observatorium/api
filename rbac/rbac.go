@@ -3,7 +3,6 @@ package rbac
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/ghodss/yaml"
@@ -183,7 +182,7 @@ func Parse(r io.Reader, logger log.Logger) (Authorizer, error) {
 		RoleBindings []RoleBinding `json:"roleBindings"`
 	}{}
 
-	raw, err := ioutil.ReadAll(r)
+	raw, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("could not read RBAC data: %w", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -129,7 +129,7 @@ func TestTracesExport(t *testing.T) {
 		testutil.Ok(t, err)
 		defer response.Body.Close()
 
-		body, err := ioutil.ReadAll(response.Body)
+		body, err := io.ReadAll(response.Body)
 		testutil.Ok(t, err)
 
 		bodyStr := string(body)
@@ -247,7 +247,7 @@ func requestWithRetry(t *testing.T, testLabel string, client *http.Client, reque
 		// We got a 200 response.
 		defer response.Body.Close()
 
-		body, err := ioutil.ReadAll(response.Body)
+		body, err := io.ReadAll(response.Body)
 		testutil.Ok(t, err)
 
 		return string(body), response.StatusCode
@@ -320,7 +320,7 @@ func TestTracesTemplateQuery(t *testing.T) {
 		testutil.Ok(t, err)
 		defer response.Body.Close()
 
-		body, err := ioutil.ReadAll(response.Body)
+		body, err := io.ReadAll(response.Body)
 		testutil.Ok(t, err)
 
 		bodyStr := string(body)
