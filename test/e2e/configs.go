@@ -4,7 +4,6 @@ package e2e
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -117,7 +116,7 @@ func createTenantsYAML(
 		path.Join(opaURL, "v1/data/observatorium/allow"),
 	))
 
-	err := ioutil.WriteFile(
+	err := os.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "tenants.yaml"),
 		yamlContent,
 		os.FileMode(0755),
@@ -168,7 +167,7 @@ func createDexYAML(
 		redirectURI,
 	))
 
-	err := ioutil.WriteFile(
+	err := os.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "dex.yaml"),
 		yamlContent,
 		os.FileMode(0755),
@@ -199,7 +198,7 @@ func createRulesYAML(
 		secretKey,
 	))
 
-	err := ioutil.WriteFile(
+	err := os.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
 		yamlContent,
 		os.FileMode(0755),
@@ -250,7 +249,7 @@ func createOtelCollectorConfigYAML(
 		otelConfigTpl,
 		jaegerGRPCEndpoint))
 
-	err := ioutil.WriteFile(
+	err := os.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "collector.yaml"),
 		yamlContent,
 		os.FileMode(0644),
@@ -313,7 +312,7 @@ func createOtelForwardingCollectorConfigYAML(
 		observatoriumGRPCEndpoint,
 		dexToken))
 
-	err := ioutil.WriteFile(
+	err := os.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"),
 		yamlContent,
 		os.FileMode(0644),

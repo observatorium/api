@@ -2,7 +2,6 @@ package testtls
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -103,7 +102,7 @@ func GenerateCerts(
 			return fmt.Errorf("mkdir %s: %v", path, err)
 		}
 
-		if err := ioutil.WriteFile(filepath.Join(path, file), content, 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(path, file), content, 0644); err != nil {
 			return fmt.Errorf("write file %s: %v", file, err)
 		}
 	}

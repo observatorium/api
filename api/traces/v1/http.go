@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -234,7 +233,7 @@ func jaegerUIResponseModifier(response *http.Response) error {
 			reader = response.Body
 		}
 
-		b, err := ioutil.ReadAll(reader)
+		b, err := io.ReadAll(reader)
 		if err != nil {
 			return err
 		}
@@ -257,7 +256,7 @@ func jaegerUIResponseModifier(response *http.Response) error {
 		response.Header["Content-Encoding"] = []string{}
 		buf := bytes.NewBufferString(strResponse)
 		response.Header["Content-Length"] = []string{fmt.Sprint(buf.Len())}
-		response.Body = ioutil.NopCloser(buf)
+		response.Body = io.NopCloser(buf)
 	}
 
 	return nil

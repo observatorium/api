@@ -1,7 +1,6 @@
 package opa
 
 import (
-	"io/ioutil"
 	"os"
 	"regexp"
 	"testing"
@@ -28,14 +27,10 @@ func dummyCustomRegoFunction(logger log.Logger) func(*rego.Rego) {
 func TestCustomRegoFunctions(t *testing.T) {
 	onboardNewFunction("dummy-rego-function", dummyCustomRegoFunction)
 
-	dir, err := ioutil.TempDir(".", "observatorium-tests")
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
+	dir := t.TempDir()
 	defer os.RemoveAll(dir)
 
-	regoFile, err := ioutil.TempFile(dir, "test.rego")
+	regoFile, err := os.CreateTemp(dir, "test.rego")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}

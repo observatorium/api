@@ -3,7 +3,7 @@ package openshift
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,7 +23,7 @@ const (
 
 // GetServiceAccountCACert returns the PEM-encoded CA certificate currently mounted.
 func GetServiceAccountCACert() ([]byte, error) {
-	rawCA, err := ioutil.ReadFile(ServiceAccountCAPath)
+	rawCA, err := os.ReadFile(ServiceAccountCAPath)
 	if err != nil {
 		return nil, err
 	}
@@ -35,12 +35,12 @@ func GetServiceAccountCACert() ([]byte, error) {
 // serviceaccount name. Returns an error if the reading the auto-mounted files for
 // the namespace and token are not readable.
 func DiscoverCredentials(name string) (string, string, error) {
-	n, err := ioutil.ReadFile(ServiceAccountNamespacePath)
+	n, err := os.ReadFile(ServiceAccountNamespacePath)
 	if err != nil || len(n) == 0 {
 		return "", "", err
 	}
 
-	d, err := ioutil.ReadFile(ServiceAccountTokenPath)
+	d, err := os.ReadFile(ServiceAccountTokenPath)
 	if err != nil || len(d) == 0 {
 		return "", "", err
 	}
@@ -68,7 +68,7 @@ func DiscoverOAuth(client *http.Client) (authURL *url.URL, tokenURL *url.URL, er
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}

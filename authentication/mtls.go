@@ -6,8 +6,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/go-kit/log"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
@@ -48,7 +48,7 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 	}
 
 	if config.CAPath != "" {
-		rawCA, err := ioutil.ReadFile(config.CAPath)
+		rawCA, err := os.ReadFile(config.CAPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read mTLS ca file: %s", err.Error())
 		}
