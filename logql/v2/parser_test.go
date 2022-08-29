@@ -284,6 +284,35 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | json | level=~"info|notice"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					{
+						parser: "json",
+					},
+					{
+						stages: LogFiltersExpr{
+							{
+								filter:  "|",
+								alias:   "level",
+								aliasOp: "=~",
+								value:   "info|notice",
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | unpack | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
