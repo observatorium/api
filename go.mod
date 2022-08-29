@@ -39,7 +39,7 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 	google.golang.org/genproto v0.0.0-20220107163113-42d7afdf6368
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	k8s.io/apimachinery v0.24.4
 	k8s.io/apiserver v0.21.1
