@@ -1,8 +1,7 @@
 package legacy
 
 import (
-	"crypto/tls"
-	"crypto/x509"
+	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -15,6 +14,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/tls"
 )
 
 const (
@@ -89,7 +89,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 	return handler.ServeHTTP
 }
 
-func NewHandler(url *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
+func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -114,13 +114,7 @@ func NewHandler(url *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Han
 			DialContext: (&net.Dialer{
 				Timeout: readTimeout,
 			}).DialContext,
-		}
-
-		if len(upstreamCA) != 0 {
-			t.TLSClientConfig = &tls.Config{
-				RootCAs: x509.NewCertPool(),
-			}
-			t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 		}
 
 		legacyProxy = &httputil.ReverseProxy{

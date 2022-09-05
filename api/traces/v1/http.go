@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	stdtls "crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/tls"
 )
 
 const (
@@ -96,7 +98,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) http.Handler {
+func NewV2Handler(read *url.URL, readTemplate string, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 	if read == nil && readTemplate == "" {
 		panic("missing Jaeger read url")
 	}
@@ -135,6 +137,7 @@ func NewV2Handler(read *url.URL, readTemplate string, opts ...HandlerOption) htt
 			DialContext: (&net.Dialer{
 				Timeout: ReadTimeout,
 			}).DialContext,
+			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 		}
 
 		proxyRead = &httputil.ReverseProxy{

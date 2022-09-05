@@ -120,22 +120,26 @@ type tlsConfig struct {
 }
 
 type metricsConfig struct {
-	readEndpoint   *url.URL
-	writeEndpoint  *url.URL
-	rulesEndpoint  *url.URL
-	upstreamCAFile string
-	tenantHeader   string
-	tenantLabel    string
+	readEndpoint     *url.URL
+	writeEndpoint    *url.URL
+	rulesEndpoint    *url.URL
+	upstreamCAFile   string
+	upstreamCertFile string
+	upstreamKeyFile  string
+	tenantHeader     string
+	tenantLabel      string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
 	enabled bool
 }
 
 type logsConfig struct {
-	readEndpoint   *url.URL
-	writeEndpoint  *url.URL
-	tailEndpoint   *url.URL
-	upstreamCAFile string
-	tenantHeader   string
+	readEndpoint     *url.URL
+	writeEndpoint    *url.URL
+	tailEndpoint     *url.URL
+	upstreamCAFile   string
+	upstreamCertFile string
+	upstreamKeyFile  string
+	tenantHeader     string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -144,9 +148,12 @@ type tracesConfig struct {
 	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686".
 	readTemplateEndpoint string
 
-	readEndpoint  *url.URL
-	writeEndpoint string
-	tenantHeader  string
+	readEndpoint     *url.URL
+	writeEndpoint    string
+	upstreamCAFile   string
+	upstreamCertFile string
+	upstreamKeyFile  string
+	tenantHeader     string
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
 	enabled bool
 }
@@ -430,8 +437,12 @@ func main() {
 		}
 
 		var (
-			metricsUpstreamCACert []byte
-			logsUpstreamCACert    []byte
+			metricsUpstreamCACert     []byte
+			metricsUpstreamClientCert *stdtls.Certificate
+			logsUpstreamCACert        []byte
+			logsUpstreamClientCert    *stdtls.Certificate
+			tracesUpstreamCACert      []byte
+			tracesUpstreamClientCert  *stdtls.Certificate
 		)
 
 		if cfg.metrics.upstreamCAFile != "" {
@@ -441,11 +452,44 @@ func main() {
 			}
 		}
 
+		if cfg.metrics.upstreamCertFile != "" && cfg.metrics.upstreamKeyFile != "" {
+			clientCert, err := stdtls.LoadX509KeyPair(cfg.metrics.upstreamCertFile, cfg.metrics.upstreamKeyFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream metrics client TLS cert/key pair: %v", err)
+			}
+			metricsUpstreamClientCert = &clientCert
+		}
+
 		if cfg.logs.upstreamCAFile != "" {
 			logsUpstreamCACert, err = os.ReadFile(cfg.logs.upstreamCAFile)
 			if err != nil {
 				stdlog.Fatalf("failed to read upstream logs TLS CA: %v", err)
 			}
+
+		}
+
+		if cfg.logs.upstreamCertFile != "" && cfg.logs.upstreamKeyFile != "" {
+			clientCert, err := stdtls.LoadX509KeyPair(cfg.logs.upstreamCertFile, cfg.logs.upstreamKeyFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream logs client TLS cert/key pair: %v", err)
+			}
+			logsUpstreamClientCert = &clientCert
+		}
+
+		if cfg.traces.upstreamCAFile != "" {
+			tracesUpstreamCACert, err = os.ReadFile(cfg.traces.upstreamCAFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream traces TLS CA: %v", err)
+			}
+
+		}
+
+		if cfg.traces.upstreamCertFile != "" && cfg.traces.upstreamKeyFile != "" {
+			clientCert, err := stdtls.LoadX509KeyPair(cfg.traces.upstreamCertFile, cfg.traces.upstreamKeyFile)
+			if err != nil {
+				stdlog.Fatalf("failed to read upstream traces client TLS cert/key pair: %v", err)
+			}
+			tracesUpstreamClientCert = &clientCert
 		}
 
 		r := chi.NewRouter()
@@ -564,6 +608,7 @@ func main() {
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamCACert,
+						metricsUpstreamClientCert,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
@@ -579,6 +624,7 @@ func main() {
 						cfg.metrics.writeEndpoint,
 						cfg.metrics.rulesEndpoint,
 						metricsUpstreamCACert,
+						metricsUpstreamClientCert,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
@@ -607,6 +653,7 @@ func main() {
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
 								logsUpstreamCACert,
+								logsUpstreamClientCert,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(instrumenter),
@@ -647,6 +694,8 @@ func main() {
 							tracesv1.NewV2Handler(
 								cfg.traces.readEndpoint,
 								cfg.traces.readTemplateEndpoint,
+								tracesUpstreamCACert,
+								tracesUpstreamClientCert,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(instrumenter),
@@ -905,6 +954,10 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make read requests for logs.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.logs.upstreamCertFile, "logs.tls.cert-file", "",
+		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
+	flag.StringVar(&cfg.logs.upstreamKeyFile, "logs.tls.key-file", "",
+		"File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
 		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
@@ -917,6 +970,10 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.metrics.upstreamCertFile, "metrics.tls.cert-file", "",
+		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
+	flag.StringVar(&cfg.metrics.upstreamKeyFile, "metrics.tls.key-file", "",
+		"File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
@@ -927,6 +984,12 @@ func parseFlags() (config, error) {
 		"A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
 		"The endpoint against which to make gRPC write requests for traces.")
+	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream traces servers. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.traces.upstreamCertFile, "traces.tls.cert-file", "",
+		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
+	flag.StringVar(&cfg.traces.upstreamKeyFile, "traces.tls.key-file", "",
+		"File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
 		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",

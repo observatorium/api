@@ -2,12 +2,31 @@ package tls
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"k8s.io/component-base/cli/flag"
 )
+
+// NewClientConfig returns a tls config for the reverse proxy handling if an upstream CA is given.
+func NewClientConfig(upstreamCA []byte, upstreamCert *tls.Certificate) *tls.Config {
+	if len(upstreamCA) == 0 {
+		return nil
+	}
+
+	cfg := &tls.Config{
+		RootCAs: x509.NewCertPool(),
+	}
+	cfg.RootCAs.AppendCertsFromPEM(upstreamCA)
+
+	if upstreamCert != nil {
+		cfg.Certificates = append(cfg.Certificates, *upstreamCert)
+	}
+
+	return cfg
+}
 
 // NewServerConfig provides new server TLS configuration.
 func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion, maxVersion, clientAuthType string, cipherSuites []string) (*tls.Config, error) {
