@@ -99,6 +99,10 @@ Usage of ./observatorium-api:
     	The name of the HTTP header containing the tenant ID to forward to the logs upstream. (default "X-Scope-OrgID")
   -logs.tls.ca-file string
     	File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.
+  -logs.tls.cert-file string
+    	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
+  -logs.tls.key-file string
+    	File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -logs.write.endpoint string
     	The endpoint against which to make write requests for logs.
   -metrics.read.endpoint string
@@ -111,6 +115,10 @@ Usage of ./observatorium-api:
     	The name of the PromQL label that should hold the tenant ID in metrics upstreams. (default "tenant_id")
   -metrics.tls.ca-file string
     	File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.
+  -metrics.tls.cert-file string
+    	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
+  -metrics.tls.key-file string
+    	File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -middleware.backlog-duration-concurrent-requests duration
@@ -151,6 +159,12 @@ Usage of ./observatorium-api:
     	The endpoint against which to make HTTP read requests for traces.
   -traces.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector. (default "X-Tenant")
+  -traces.tls.ca-file string
+    	File containing the TLS CA against which to upstream traces servers. Leave blank to disable TLS.
+  -traces.tls.cert-file string
+    	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
+  -traces.tls.key-file string
+    	File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.
   -traces.write.endpoint string
     	The endpoint against which to make gRPC write requests for traces.
   -web.healthchecks.url string

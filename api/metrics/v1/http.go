@@ -1,8 +1,7 @@
 package v1
 
 import (
-	"crypto/tls"
-	"crypto/x509"
+	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/observatorium/api/proxy"
 	"github.com/observatorium/api/rules"
+	"github.com/observatorium/api/tls"
 )
 
 const (
@@ -136,7 +136,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 
 // NewHandler creates the new metrics v1 handler.
 // nolint:funlen
-func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...HandlerOption) http.Handler {
+func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -196,13 +196,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 				DialContext: (&net.Dialer{
 					Timeout: readTimeout,
 				}).DialContext,
-			}
-
-			if len(upstreamCA) != 0 {
-				t.TLSClientConfig = &tls.Config{
-					RootCAs: x509.NewCertPool(),
-				}
-				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
 
 			proxyRead = &httputil.ReverseProxy{
@@ -243,12 +237,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 			)
 
 			t := http.DefaultTransport.(*http.Transport)
-			if len(upstreamCA) != 0 {
-				t.TLSClientConfig = &tls.Config{
-					RootCAs: x509.NewCertPool(),
-				}
-				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
-			}
+			t.TLSClientConfig = tls.NewClientConfig(upstreamCA, upstreamCert)
 
 			uiProxy = &httputil.ReverseProxy{
 				Director:  middlewares,
@@ -278,13 +267,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, opts ...
 				DialContext: (&net.Dialer{
 					Timeout: writeTimeout,
 				}).DialContext,
-			}
-
-			if len(upstreamCA) != 0 {
-				t.TLSClientConfig = &tls.Config{
-					RootCAs: x509.NewCertPool(),
-				}
-				t.TLSClientConfig.RootCAs.AppendCertsFromPEM(upstreamCA)
+				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
 
 			proxyWrite = &httputil.ReverseProxy{
