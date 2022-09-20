@@ -10,9 +10,9 @@ local defaults = {
   imagePullPolicy: 'IfNotPresent',
   replicas: error 'must provide replicas',
   ports: {
-    public: {port: 8080, appProtocol: 'http'},
-    internal: { port: 8081, appProtocol: 'http'},
-    'grpc-public': { port: 8090, appProtocol: 'h2c'},
+    public: { port: 8080, appProtocol: 'http' },
+    internal: { port: 8081, appProtocol: 'http' },
+    'grpc-public': { port: 8090, appProtocol: 'h2c' },
   },
   resources: {},
   serviceMonitor: false,
@@ -125,23 +125,26 @@ function(params) {
                 else []
               ) + (
                 if api.config.logs != {} then
-                  [
-                    '--logs.read.endpoint=' + api.config.logs.readEndpoint,
-                    '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
-                    '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
-                  ] else []
+                  ([
+                     '--logs.read.endpoint=' + api.config.logs.readEndpoint,
+                     '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
+                     '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
+                   ] +
+                   if std.objectHas(api.config.logs, 'rulesEndpoint') && api.config.logs.rulesEndpoint != '' then [
+                     '--logs.rules.endpoint=' + api.config.logs.rulesEndpoint,
+                   ] else []) else []
               ) + (
                 // Only offer tracing if it has been configured
                 if api.config.traces != {} then
                   []
-                   + (if std.get(api.config.traces, 'writeEndpoint', "") != "" then [
-                    '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
-                    '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'].port
-                       ] else [])
-                   + (if std.get(api.config.traces, 'readEndpoint', "") != "" then [
-                         '--traces.read.endpoint=' + api.config.traces.readEndpoint,
-                       ] else [])
-                  + (if std.get(api.config.traces, 'templateEndpoint', "") != "" then [
+                  + (if std.get(api.config.traces, 'writeEndpoint', '') != '' then [
+                       '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
+                       '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'].port,
+                     ] else [])
+                  + (if std.get(api.config.traces, 'readEndpoint', '') != '' then [
+                       '--traces.read.endpoint=' + api.config.traces.readEndpoint,
+                     ] else [])
+                  + (if std.get(api.config.traces, 'templateEndpoint', '') != '' then [
                        '--experimental.traces.read.endpoint-template=' + api.config.traces.templateEndpoint,
                      ] else [])
                 else []

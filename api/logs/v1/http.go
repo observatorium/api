@@ -23,6 +23,33 @@ const (
 	WriteTimeout = time.Minute
 )
 
+const (
+	labelRoute             = "/loki/api/v1/label"
+	labelsRoute            = "/loki/api/v1/labels"
+	labelValuesRoute       = "/loki/api/v1/label/{name}/values"
+	queryRoute             = "/loki/api/v1/query"
+	queryRangeRoute        = "/loki/api/v1/query_range"
+	seriesRoute            = "/loki/api/v1/series"
+	tailRoute              = "/loki/api/v1/tail"
+	rulesRoute             = "/loki/api/v1/rules"
+	rulesPerNamespaceRoute = "/loki/api/v1/rules/{namespace}"
+	rulesPerGroupNameRoute = "/loki/api/v1/rules/{namespace}/{groupName}"
+
+	prometheusRulesRoute  = "/prometheus/api/v1/rules"
+	prometheusAlertsRoute = "/prometheus/api/v1/alerts"
+
+	// Legacy APIs for Grafana <= 6
+
+	promQueryRoute             = "/api/prom/query"
+	promLabelRoute             = "/api/prom/label"
+	promLabelValuesRoute       = "/api/prom/label/{name}/values"
+	promSeriesRoute            = "/api/prom/series"
+	promTailRoute              = "/api/prom/tail"
+	promRulesRoute             = "/api/prom/rules"
+	promRulesPerNamespaceRoute = "/api/prom/rules/{namespace}"
+	promRulesPerGroupNameRoute = "/api/prom/rules/{namespace}/{groupName}"
+)
+
 type handlerConfiguration struct {
 	logger           log.Logger
 	registry         *prometheus.Registry
@@ -95,7 +122,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-func NewHandler(read, tail, write *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(read, tail, write, rules *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -133,10 +160,6 @@ func NewHandler(read, tail, write *url.URL, upstreamCA []byte, upstreamCert *std
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			const (
-				queryRoute      = "/loki/api/v1/query"
-				queryRangeRoute = "/loki/api/v1/query_range"
-			)
 			r.Handle(queryRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, proxyRead),
@@ -145,18 +168,6 @@ func NewHandler(read, tail, write *url.URL, upstreamCA []byte, upstreamCert *std
 				prometheus.Labels{"group": "logsv1", "handler": "query_range"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, proxyRead),
 			))
-
-			// Endpoints exposed by the querier and frontend
-			// See https://grafana.com/docs/loki/latest/api/#microservices-mode
-
-			// Undocumented but present in querier and query-frontend
-			// see https://github.com/grafana/loki/blob/v1.6.1/pkg/loki/modules.go#L333
-			const (
-				labelRoute       = "/loki/api/v1/label"
-				labelsRoute      = "/loki/api/v1/labels"
-				labelValuesRoute = "/loki/api/v1/label/{name}/values"
-				seriesRoute      = "/loki/api/v1/series"
-			)
 			r.Handle(labelRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+labelRoute, proxyRead),
@@ -173,14 +184,6 @@ func NewHandler(read, tail, write *url.URL, upstreamCA []byte, upstreamCert *std
 				prometheus.Labels{"group": "logsv1", "handler": "series"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+seriesRoute, proxyRead),
 			))
-
-			// Legacy APIs for Grafana <= 6
-			const (
-				promQueryRoute       = "/api/prom/query"
-				promLabelRoute       = "/api/prom/label"
-				promLabelValuesRoute = "/api/prom/label/{name}/values"
-				promSeriesRoute      = "/api/prom/series"
-			)
 			r.Handle(promQueryRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "query"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+promQueryRoute, proxyRead),
@@ -196,6 +199,66 @@ func NewHandler(read, tail, write *url.URL, upstreamCA []byte, upstreamCert *std
 			r.Handle(promSeriesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "series"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+promSeriesRoute, proxyRead),
+			))
+		})
+	}
+
+	if rules != nil {
+		var proxyRules http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(rules),
+				proxy.MiddlewareSetPrefixHeader(),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-rules"}),
+			)
+
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: ReadTimeout,
+				}).DialContext,
+				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			}
+
+			proxyRules = &httputil.ReverseProxy{
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
+			}
+		}
+		r.Group(func(r chi.Router) {
+			r.Use(c.readMiddlewares...)
+			r.Handle(rulesRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyRules),
+			))
+			r.Handle(rulesPerNamespaceRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
+			))
+			r.Handle(rulesPerGroupNameRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyRules),
+			))
+			r.Handle(prometheusRulesRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusRulesRoute, proxyRules),
+			))
+			r.Handle(prometheusAlertsRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "alerts"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusAlertsRoute, proxyRules),
+			))
+			r.Handle(promRulesRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesRoute, proxyRules),
+			))
+			r.Handle(promRulesPerNamespaceRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
+			))
+			r.Handle(promRulesPerGroupNameRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyRules),
 			))
 		})
 	}
@@ -225,14 +288,10 @@ func NewHandler(read, tail, write *url.URL, upstreamCA []byte, upstreamCert *std
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
-			const tailRoute = "/loki/api/v1/tail"
 			r.Handle(tailRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "tail"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+tailRoute, tailRead),
 			))
-
-			// Legacy APIs for Grafana <= 6
-			const promTailRoute = "/api/prom/tail"
 			r.Handle(promTailRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "prom_tail"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+promTailRoute, tailRead),
