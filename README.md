@@ -93,6 +93,8 @@ Usage of ./observatorium-api:
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
   -logs.read.endpoint string
     	The endpoint against which to make read requests for logs.
+  -logs.rules.endpoint string
+    	The endpoint against which to make rules requests for logs.
   -logs.tail.endpoint string
     	The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string

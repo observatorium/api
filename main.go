@@ -136,6 +136,7 @@ type logsConfig struct {
 	readEndpoint     *url.URL
 	writeEndpoint    *url.URL
 	tailEndpoint     *url.URL
+	rulesEndpoint    *url.URL
 	upstreamCAFile   string
 	upstreamCertFile string
 	upstreamKeyFile  string
@@ -652,6 +653,7 @@ func main() {
 								cfg.logs.readEndpoint,
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
+								cfg.logs.rulesEndpoint,
 								logsUpstreamCACert,
 								logsUpstreamClientCert,
 								logsv1.Logger(logger),
@@ -909,6 +911,7 @@ func parseFlags() (config, error) {
 		rawMetricsWriteEndpoint string
 		rawMetricsRulesEndpoint string
 		rawLogsReadEndpoint     string
+		rawLogsRulesEndpoint    string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
 		rawTracesReadEndpoint   string
@@ -952,6 +955,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
 		"The endpoint against which to make read requests for logs.")
+	flag.StringVar(&rawLogsRulesEndpoint, "logs.rules.endpoint", "",
+		"The endpoint against which to make rules requests for logs.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.logs.upstreamCertFile, "logs.tls.cert-file", "",
@@ -1073,6 +1078,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.readEndpoint = logsReadEndpoint
+	}
+
+	if rawLogsRulesEndpoint != "" {
+		cfg.logs.enabled = true
+
+		logsRulesEndpoint, err := url.ParseRequestURI(rawLogsRulesEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--logs.rules.endpoint is invalid, raw %s: %w", rawLogsReadEndpoint, err)
+		}
+
+		cfg.logs.rulesEndpoint = logsRulesEndpoint
 	}
 
 	if rawLogsTailEndpoint != "" {
