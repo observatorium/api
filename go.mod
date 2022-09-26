@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/prometheus/common v0.37.0
 	github.com/prometheus/prometheus v1.8.2-0.20210621150501-ff58416a0b02
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.35.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.0
 	go.opentelemetry.io/contrib/propagators/jaeger v1.10.0
 	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.10.0
@@ -155,7 +155,7 @@ require (
 	go.etcd.io/etcd/tests/v3 v3.5.0-alpha.0 // indirect
 	go.etcd.io/etcd/v3 v3.5.0-alpha.0 // indirect
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
-	go.opentelemetry.io/otel/metric v0.31.0 // indirect
+	go.opentelemetry.io/otel/metric v0.32.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
