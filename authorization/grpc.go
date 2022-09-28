@@ -67,7 +67,7 @@ func WithGRPCAuthorizers(authorizers map[string]rbac.Authorizer, methReq GRPCRBa
 			return ctx, status.Error(codes.Unauthenticated, "error finding tenant id")
 		}
 
-		_, ok, data := a.Authorize(subject, groups, accessReq.Permission, accessReq.Resource, tenant, tenantID, token)
+		_, ok, data := a.Authorize(subject, groups, accessReq.Permission, rbac.Resource(accessReq.Resource), tenant, tenantID, token)
 		if !ok {
 			level.Debug(logger).Log("msg", "gRPC Authorizer: insufficient auth", "subject", subject, "tenant", tenant)
 			return ctx, status.Error(codes.PermissionDenied, "forbidden")

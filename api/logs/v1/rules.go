@@ -1,30 +1,19 @@
-package v1
+package http
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 
-	"github.com/ghodss/yaml"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rules"
-	"github.com/prometheus-community/prom-label-proxy/injectproxy"
-	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql/parser"
+	"gopkg.in/yaml.v2"
 )
 
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
-	// creates new tenant label enforcer
-	e := injectproxy.NewEnforcer([]*labels.Matcher{{
-		Name:  tenantLabel,
-		Type:  labels.MatchEqual,
-		Value: tenantID,
-	}}...)
-
 	for i := range rawRules.Groups {
 		for j := range rawRules.Groups[i].Rules {
 			switch r := rawRules.Groups[i].Rules[j].(type) {
@@ -34,13 +23,6 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID str
 				}
 
 				r.Labels.AdditionalProperties[tenantLabel] = tenantID
-
-				expr, err := enforceLabelsInExpr(e, r.Expr)
-				if err != nil {
-					return err
-				}
-
-				r.Expr = expr
 				rawRules.Groups[i].Rules[j] = r
 			case rules.AlertingRule:
 				if r.Labels.AdditionalProperties == nil {
@@ -48,32 +30,12 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID str
 				}
 
 				r.Labels.AdditionalProperties[tenantLabel] = tenantID
-
-				expr, err := enforceLabelsInExpr(e, r.Expr)
-				if err != nil {
-					return err
-				}
-
-				r.Expr = expr
 				rawRules.Groups[i].Rules[j] = r
 			}
 		}
 	}
 
 	return nil
-}
-
-func enforceLabelsInExpr(e *injectproxy.Enforcer, expr string) (string, error) {
-	parsedExpr, err := parser.ParseExpr(expr)
-	if err != nil {
-		return "", fmt.Errorf("parse expr error: %w", err)
-	}
-
-	if err := e.EnforceNode(parsedExpr); err != nil {
-		return "", fmt.Errorf("enforce node error: %w", err)
-	}
-
-	return parsedExpr.String(), nil
 }
 
 func unmarshalRules(r io.Reader) (rules.Rules, error) {

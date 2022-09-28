@@ -141,6 +141,11 @@ type logsConfig struct {
 	upstreamCertFile string
 	upstreamKeyFile  string
 	tenantHeader     string
+
+	// Flags to route rules traffic to Loki ruler directly.
+	nativeRulesEndpoint bool
+	readOnlyRulesAccess bool
+
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -615,9 +620,9 @@ func main() {
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
-						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Metrics)),
 						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
-						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Metrics)),
 					))
 
 					r.Mount("/api/metrics/v1/{tenant}", stripTenantPrefix("/api/metrics/v1", metricsv1.NewHandler(
@@ -633,13 +638,13 @@ func main() {
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
 						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
-						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Metrics)),
 						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
-						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Metrics)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
-						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
+						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Metrics)),
+						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, rbac.Metrics)),
 					)))
 				})
 			}
@@ -654,6 +659,8 @@ func main() {
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
 								cfg.logs.rulesEndpoint,
+								cfg.logs.nativeRulesEndpoint,
+								cfg.logs.readOnlyRulesAccess,
 								logsUpstreamCACert,
 								logsUpstreamClientCert,
 								logsv1.Logger(logger),
@@ -661,11 +668,17 @@ func main() {
 								logsv1.WithHandlerInstrumenter(instrumenter),
 								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
+								// Global Middlewares
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
-								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
+								// Logs Middlewares
+								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Logs)),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, rbac.Logs)),
+								// Rules Middlewares
+								logsv1.WithRulesReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Logs)),
+								logsv1.WithRulesWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, rbac.Logs)),
+								logsv1.WithRulesWriteMiddleware(writePathRedirectProtection),
 							),
 						),
 					)
@@ -702,9 +715,9 @@ func main() {
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(instrumenter),
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
-								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, rbac.Traces)),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
+								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, rbac.Traces)),
 							),
 						),
 					)
@@ -957,6 +970,10 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make read requests for logs.")
 	flag.StringVar(&rawLogsRulesEndpoint, "logs.rules.endpoint", "",
 		"The endpoint against which to make rules requests for logs.")
+	flag.BoolVar(&cfg.logs.nativeRulesEndpoint, "logs.rules.native", false,
+		"Enable proxying logs rules requests to Loki Ruler directly.")
+	flag.BoolVar(&cfg.logs.readOnlyRulesAccess, "logs.rules.read-only", false,
+		"Enable only read-only logs rules requests to endpoint.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.logs.upstreamCertFile, "logs.tls.cert-file", "",

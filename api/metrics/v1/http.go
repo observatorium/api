@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/rbac"
 	"github.com/observatorium/api/rules"
 	"github.com/observatorium/api/tls"
 )
@@ -25,6 +26,7 @@ const (
 )
 
 const (
+	// Routes to Thanos
 	uiRoute          = "/"
 	queryRoute       = "/api/v1/query"
 	queryRangeRoute  = "/api/v1/query_range"
@@ -33,7 +35,9 @@ const (
 	labelValuesRoute = "/api/v1/label/{label_name}/values"
 	receiveRoute     = "/api/v1/receive"
 	rulesRoute       = "/api/v1/rules"
-	rulesRawRoute    = "/api/v1/rules/raw"
+
+	// Routes to rules-objstore
+	rulesRawRoute = "/api/v1/rules/raw"
 )
 
 type handlerConfiguration struct {
@@ -292,7 +296,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 			return r
 		}
 
-		rh := rulesHandler{client: client, logger: c.logger, tenantLabel: c.tenantLabel}
+		rh := rulesHandler{client: client, logger: c.logger, tenantLabel: c.tenantLabel, source: string(rbac.Metrics)}
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)

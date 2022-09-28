@@ -11,10 +11,13 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/rbac"
+	rulesspec "github.com/observatorium/api/rules"
 	"github.com/observatorium/api/tls"
 )
 
@@ -24,22 +27,28 @@ const (
 )
 
 const (
-	labelRoute             = "/loki/api/v1/label"
-	labelsRoute            = "/loki/api/v1/labels"
-	labelValuesRoute       = "/loki/api/v1/label/{name}/values"
-	queryRoute             = "/loki/api/v1/query"
-	queryRangeRoute        = "/loki/api/v1/query_range"
-	seriesRoute            = "/loki/api/v1/series"
-	tailRoute              = "/loki/api/v1/tail"
+	// Route to Loki Distributor
+	pushRoute = "/loki/api/v1/push"
+
+	// Routes to Loki Query Frontend
+	labelRoute       = "/loki/api/v1/label"
+	labelsRoute      = "/loki/api/v1/labels"
+	labelValuesRoute = "/loki/api/v1/label/{name}/values"
+	queryRoute       = "/loki/api/v1/query"
+	queryRangeRoute  = "/loki/api/v1/query_range"
+	seriesRoute      = "/loki/api/v1/series"
+	tailRoute        = "/loki/api/v1/tail"
+
+	// Routes to Loki Ruler
 	rulesRoute             = "/loki/api/v1/rules"
 	rulesPerNamespaceRoute = "/loki/api/v1/rules/{namespace}"
 	rulesPerGroupNameRoute = "/loki/api/v1/rules/{namespace}/{groupName}"
 
+	// Prometheus-Compatible Routes to Loki Ruler
 	prometheusRulesRoute  = "/prometheus/api/v1/rules"
 	prometheusAlertsRoute = "/prometheus/api/v1/alerts"
 
-	// Legacy APIs for Grafana <= 6
-
+	// Routes to legacy APIs for Grafana <= 6
 	promQueryRoute             = "/api/prom/query"
 	promLabelRoute             = "/api/prom/label"
 	promLabelValuesRoute       = "/api/prom/label/{name}/values"
@@ -48,15 +57,21 @@ const (
 	promRulesRoute             = "/api/prom/rules"
 	promRulesPerNamespaceRoute = "/api/prom/rules/{namespace}"
 	promRulesPerGroupNameRoute = "/api/prom/rules/{namespace}/{groupName}"
+
+	// Routes to rules-objstore
+	rulesRawRoute       = "/api/v1/rules/raw"
+	rulesRawTenantLabel = "tenant"
 )
 
 type handlerConfiguration struct {
-	logger           log.Logger
-	registry         *prometheus.Registry
-	instrument       handlerInstrumenter
-	spanRoutePrefix  string
-	readMiddlewares  []func(http.Handler) http.Handler
-	writeMiddlewares []func(http.Handler) http.Handler
+	logger                log.Logger
+	registry              *prometheus.Registry
+	instrument            handlerInstrumenter
+	spanRoutePrefix       string
+	readMiddlewares       []func(http.Handler) http.Handler
+	writeMiddlewares      []func(http.Handler) http.Handler
+	rulesReadMiddlewares  []func(http.Handler) http.Handler
+	rulesWriteMiddlewares []func(http.Handler) http.Handler
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -104,6 +119,20 @@ func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+// WithRulesMiddleware adds a middleware for all rules read operations.
+func WithRulesReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesReadMiddlewares = append(h.rulesReadMiddlewares, m)
+	}
+}
+
+// WithRulesMiddleware adds a middleware for all rules write operations.
+func WithRulesWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesWriteMiddlewares = append(h.rulesWriteMiddlewares, m)
+	}
+}
+
 // WithGlobalMiddleware adds a middleware for all operations.
 func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
@@ -122,7 +151,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-func NewHandler(read, tail, write, rules *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(read, tail, write, rules *url.URL, nativeRulesEndpoint, readOnlyRules bool, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -203,7 +232,7 @@ func NewHandler(read, tail, write, rules *url.URL, upstreamCA []byte, upstreamCe
 		})
 	}
 
-	if rules != nil {
+	if rules != nil && nativeRulesEndpoint {
 		var proxyRules http.Handler
 		{
 			middlewares := proxy.Middlewares(
@@ -227,40 +256,100 @@ func NewHandler(read, tail, write, rules *url.URL, upstreamCA []byte, upstreamCe
 			}
 		}
 		r.Group(func(r chi.Router) {
-			r.Use(c.readMiddlewares...)
-			r.Handle(rulesRoute, c.instrument.NewHandler(
+			r.Use(c.rulesReadMiddlewares...)
+			r.Get(rulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyRules),
 			))
-			r.Handle(rulesPerNamespaceRoute, c.instrument.NewHandler(
+			r.Get(rulesPerNamespaceRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
 			))
-			r.Handle(rulesPerGroupNameRoute, c.instrument.NewHandler(
+			r.Get(rulesPerGroupNameRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyRules),
 			))
-			r.Handle(prometheusRulesRoute, c.instrument.NewHandler(
+			r.Get(prometheusRulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusRulesRoute, proxyRules),
 			))
-			r.Handle(prometheusAlertsRoute, c.instrument.NewHandler(
+			r.Get(prometheusAlertsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "alerts"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusAlertsRoute, proxyRules),
 			))
-			r.Handle(promRulesRoute, c.instrument.NewHandler(
+			r.Get(promRulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesRoute, proxyRules),
 			))
-			r.Handle(promRulesPerNamespaceRoute, c.instrument.NewHandler(
+			r.Get(promRulesPerNamespaceRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
 			))
-			r.Handle(promRulesPerGroupNameRoute, c.instrument.NewHandler(
+			r.Get(promRulesPerGroupNameRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyRules),
 			))
 		})
+
+		if !readOnlyRules {
+			r.Group(func(r chi.Router) {
+				r.Use(c.rulesWriteMiddlewares...)
+				r.Post(rulesPerNamespaceRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
+				))
+				r.Delete(rulesPerNamespaceRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
+				))
+				r.Delete(rulesPerGroupNameRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyRules),
+				))
+
+				r.Post(promRulesPerNamespaceRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
+				))
+				r.Delete(promRulesPerNamespaceRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
+				))
+				r.Delete(promRulesPerGroupNameRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyRules),
+				))
+			})
+
+		}
+	}
+
+	if rules != nil && !nativeRulesEndpoint {
+		client, err := rulesspec.NewClient(rules.String())
+		if err != nil {
+			level.Warn(c.logger).Log("msg", "could not create rules endpoint client")
+			return r
+		}
+
+		rh := rulesHandler{client: client, logger: c.logger, tenantLabel: rulesRawTenantLabel, source: string(rbac.Logs)}
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.rulesReadMiddlewares...)
+			r.Get(rulesRawRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "rules-raw"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRawRoute, http.HandlerFunc(rh.get)),
+			))
+		})
+
+		if !readOnlyRules {
+			r.Group(func(r chi.Router) {
+				r.Use(c.rulesWriteMiddlewares...)
+				r.Put(rulesRawRoute, c.instrument.NewHandler(
+					prometheus.Labels{"group": "logsv1", "handler": "rules-raw"},
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRawRoute, http.HandlerFunc(rh.put)),
+				))
+			})
+		}
 	}
 
 	if tail != nil {
@@ -324,7 +413,6 @@ func NewHandler(read, tail, write, rules *url.URL, upstreamCA []byte, upstreamCe
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			const pushRoute = "/loki/api/v1/push"
 			r.Handle(pushRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "push"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+pushRoute, proxyWrite),

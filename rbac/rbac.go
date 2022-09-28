@@ -16,6 +16,9 @@ type Permission string
 // SubjectKind is a kind of Observatorium RBAC subject.
 type SubjectKind string
 
+// Resource is a kind of Observatorium RBAC resource.
+type Resource string
+
 const (
 	// Write gives access to write data to a tenant.
 	Write Permission = "write"
@@ -26,6 +29,13 @@ const (
 	User SubjectKind = "user"
 	// Group represents a subject that is a group.
 	Group SubjectKind = "group"
+
+	// Logs resprsents a resource that is a log endpoint.
+	Logs Resource = "logs"
+	// Metrics resprsents a resource that is a metrics endpoint.
+	Metrics Resource = "metrics"
+	// Traces resprsents a resource that is a traces endpoint.
+	Traces Resource = "Traces"
 )
 
 // Role describes a set of permissions to interact with a tenant.
@@ -52,7 +62,7 @@ type RoleBinding struct {
 // Authorizer can authorize a subject's permission for a tenant's resource.
 type Authorizer interface {
 	// Authorize answers the question: can subject S in groups G perform permission P on resource R for Tenant T?
-	Authorize(subject string, groups []string, permission Permission, resource, tenant, tenantID, token string) (int, bool, string)
+	Authorize(subject string, groups []string, permission Permission, resource Resource, tenant, tenantID, token string) (int, bool, string)
 }
 
 // tenant represents the read and write permissions of many subjects on a single tenant.
@@ -71,9 +81,10 @@ type resources struct {
 }
 
 // Authorize implements the Authorizer interface.
-func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant,
+func (rs resources) Authorize(subject string, groups []string, permission Permission, resource Resource, tenant,
 	tenantID, token string) (int, bool, string) {
-	ts, ok := rs.tenants[resource]
+	resourceStr := string(resource)
+	ts, ok := rs.tenants[resourceStr]
 	if !ok {
 		level.Debug(rs.logger).Log("msg",
 			fmt.Sprintf("authorization: resource %q unknown; valid resources are %v", resource, rs))

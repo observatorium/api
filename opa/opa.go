@@ -101,12 +101,12 @@ func (a *restAuthorizer) Authorize(
 	subject string,
 	groups []string,
 	permission rbac.Permission,
-	resource, tenant, tenantID, token string,
+	resource rbac.Resource, tenant, tenantID, token string,
 ) (int, bool, string) {
 	var i interface{} = Input{
 		Groups:     groups,
 		Permission: permission,
-		Resource:   resource,
+		Resource:   string(resource),
 		Subject:    subject,
 		Tenant:     tenant,
 		TenantID:   tenantID,
@@ -249,12 +249,12 @@ func (a *inProcessAuthorizer) Authorize(
 	subject string,
 	groups []string,
 	permission rbac.Permission,
-	resource, tenant, tenantID, token string,
+	resource rbac.Resource, tenant, tenantID, token string,
 ) (int, bool, string) {
 	var i interface{} = Input{
 		Groups:     groups,
 		Permission: permission,
-		Resource:   resource,
+		Resource:   string(resource),
 		Subject:    subject,
 		Tenant:     tenant,
 		TenantID:   tenantID,

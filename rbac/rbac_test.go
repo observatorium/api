@@ -13,7 +13,7 @@ func TestNewAuthorizer(t *testing.T) {
 		subject    string
 		groups     []string
 		permission Permission
-		resource   string
+		resource   Resource
 		tenant     string
 		tenantID   string
 		output     bool

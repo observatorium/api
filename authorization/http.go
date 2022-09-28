@@ -33,7 +33,7 @@ func WithData(ctx context.Context, data string) context.Context {
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
-func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
+func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource rbac.Resource) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()

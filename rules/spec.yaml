@@ -10,8 +10,14 @@ tags:
   - name: rulesv1
     description: Calls related to rules
 paths:
-  /api/v1/rules/{tenant}:
+  /api/v1/rules/{source}/{tenant}:
     parameters:
+      - in: path
+        name: source
+        description: name of the observability signal source
+        required: true
+        schema:
+          type: string
       - in: path
         name: tenant
         description: name of the tenant
@@ -51,7 +57,14 @@ paths:
             schema:
               $ref: '#/components/schemas/Rules'
         description: Rules to set
-  /api/v1/rules:
+  /api/v1/rules/{source}:
+    parameters:
+      - in: path
+        name: source
+        description: name of the observability signal source
+        required: true
+        schema:
+          type: string
     get:
       tags:
         - rulesv1

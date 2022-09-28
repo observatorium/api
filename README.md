@@ -95,6 +95,10 @@ Usage of ./observatorium-api:
     	The endpoint against which to make read requests for logs.
   -logs.rules.endpoint string
     	The endpoint against which to make rules requests for logs.
+  -logs.rules.native
+    	Enable proxying logs rules requests to Loki Ruler directly.
+  -logs.rules.read-only
+    	Enable only read-only logs rules requests to endpoint.
   -logs.tail.endpoint string
     	The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string
