@@ -95,6 +95,8 @@ Usage of ./observatorium-api:
     	The endpoint against which to make read requests for logs.
   -logs.rules.endpoint string
     	The endpoint against which to make rules requests for logs.
+  -logs.rules.read-only
+    	Allow only read-only rule requests for logs.
   -logs.tail.endpoint string
     	The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string

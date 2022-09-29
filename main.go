@@ -141,6 +141,9 @@ type logsConfig struct {
 	upstreamCertFile string
 	upstreamKeyFile  string
 	tenantHeader     string
+
+	// Allow only read-only access on rules
+	rulesReaOnly bool
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -654,6 +657,7 @@ func main() {
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
 								cfg.logs.rulesEndpoint,
+								cfg.logs.rulesReaOnly,
 								logsUpstreamCACert,
 								logsUpstreamClientCert,
 								logsv1.Logger(logger),
@@ -957,6 +961,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make read requests for logs.")
 	flag.StringVar(&rawLogsRulesEndpoint, "logs.rules.endpoint", "",
 		"The endpoint against which to make rules requests for logs.")
+	flag.BoolVar(&cfg.logs.rulesReaOnly, "logs.rules.read-only", false,
+		"Allow only read-only rule requests for logs.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.logs.upstreamCertFile, "logs.tls.cert-file", "",
