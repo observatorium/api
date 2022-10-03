@@ -231,7 +231,6 @@ func main() {
 	}
 
 	if !cfg.metrics.enabled && !cfg.logs.enabled && !cfg.traces.enabled {
-		// Currently we don't support the case where only the gRPC trace endpoint is enabled
 		stdlog.Fatal("Neither logging, metrics not traces endpoints are enabled. " +
 			"Specifying at least a logging or a metrics endpoint is mandatory")
 	}
