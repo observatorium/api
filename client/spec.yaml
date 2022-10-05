@@ -31,6 +31,8 @@ x-tagGroups:
       - logs/labelsv1
       - logs/labelvaluesv1
       - logs/queryv1
+      - logs/rulesrawv1
+      - logs/rulesv1
       - logs/seriesv1
       - logs/tailV1
 
@@ -495,4 +497,169 @@ paths:
           description: Bad request
         "5XX":
           description: Server side error while tailing logs
-
+  /api/logs/v1/{tenant}/loki/api/v1/rules:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+    get:
+      tags:
+        - logs/rulesrawv1
+      summary: Get all logs rules for a tenant in YAML form
+      operationId: getAllLogsRules
+      description: |
+        You can get all logs rules for a tenant in YAML form for all known namespaces and groups.
+      responses:
+        "2XX":
+          description: All logs rules for a tenant
+          content:
+            application/yaml:
+              schema:
+                $ref: "./responses/responses.yaml#/components/schemas/AllLogRulesResponse"
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/rules/{namespace}:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logRulesNamespace
+    get:
+      tags:
+        - logs/rulesrawv1
+      summary: Get all logs rules in a namespace for a tenant in YAML form
+      operationId: getLogsRules
+      description: |
+        You can get all logs rules in a namespace for a tenant.
+      responses:
+        "2XX":
+          description: All rule groups in a namespace for a tenant
+          content:
+            application/yaml:
+              schema:
+                $ref: "./responses/responses.yaml#/components/schemas/LogRulesNamespaceResponse"
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+    post:
+      tags:
+        - logs/rulesrawv1
+      summary: Set logs rule groups in a namespace for a tenant
+      operationId: setLogsRules
+      description: |
+        You can create and update rule groups in a namespace for a tenant.
+      requestBody:
+        content:
+          application/yaml:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                interval:
+                  type: string
+                rules[]:
+                  type: array
+                  items:
+                    anyOf:
+                      - $ref: "./models/models.yaml#/components/schemas/RecordingRule"
+                      - $ref: "./models/models.yaml#/components/schemas/AlertingRule"
+      responses:
+        "2XX":
+          description: Successfully created and/or updated rule groups in a namespace for a tenant
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+    delete:
+      tags:
+        - logs/rulesrawv1
+      summary: Delete logs rules groups in a namespace for a tenant
+      operationId: deleteLogsRules
+      description: |
+        You can delete all the rule groups in a namespace (including the namespace itself).
+      responses:
+        "202":
+          description: Successfully deleted all rule groups in a namespace including the namespace itself
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/loki/api/v1/rules/{namespace}/{group}:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logRulesNamespace
+      - $ref: ./parameters/parameters.yaml#/components/parameters/logRulesGroup
+    get:
+      tags:
+        - logs/rulesrawv1
+      summary: Get the logs Rule group in a namespace for a tenant in YAML form
+      operationId: getLogsRulesGroup
+      description: |
+        You get the logs Rule group in a namespace for a tenant
+      responses:
+        "2XX":
+          description: rule group for a tenant
+          content:
+            application/yaml:
+              schema:
+                $ref: "./responses/responses.yaml#/components/schemas/LogRulesGroupResponse"
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+    delete:
+      tags:
+        - logs/rulesrawv1
+      summary: Delete a logs rule group in a namespace for a tenant
+      operationId: deleteLogsRulesGroup
+      description: |
+        You delete a rule group by namespace and group name for a tenant.
+      responses:
+        "202":
+          description: Successfully deleted a rule group in a namespace for a tenant
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/prometheus/api/v1/rules:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+    get:
+      tags:
+        - logs/rulesv1
+      summary: Prometheus-compatible rules endpoint to list alerting and recording rules that are currently loaded for a tenant in JSON form
+      operationId: getLogsPromRules
+      description: |
+        Prometheus-compatible rules endpoint to list alerting and recording rules that are currently loaded for a tenant.
+      responses:
+        "2XX":
+          description: All rules for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: "./responses/responses.yaml#/components/schemas/LogRulesPrometheusResponse"
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error
+  /api/logs/v1/{tenant}/prometheus/api/v1/alerts:
+    parameters:
+      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+    get:
+      tags:
+        - logs/rulesv1
+      summary: Prometheus-compatible rules endpoint to list all active alerts for a tenant in JSON form
+      operationId: getLogsPromAlerts
+      description: |
+        Prometheus-compatible rules endpoint to list all active alerts for a tenant.
+      responses:
+        "2XX":
+          description: All active alerts for a tenant
+          content:
+            application/json:
+              schema:
+                $ref: "./responses/responses.yaml#/components/schemas/LogRulesPrometheusResponse"
+        "4XX":
+          description: Bad request
+        "5XX":
+          description: Server side error

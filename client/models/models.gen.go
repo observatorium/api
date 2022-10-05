@@ -100,6 +100,7 @@ type AlertingRuleEvaluated struct {
 	EvaluationTime *float32                           `json:"evaluationTime,omitempty"`
 	Health         *string                            `json:"health,omitempty"`
 	Labels         *AlertingRuleEvaluated_Labels      `json:"labels,omitempty"`
+	LastError      *string                            `json:"lastError,omitempty"`
 	LastEvaluation *string                            `json:"lastEvaluation,omitempty"`
 	Name           string                             `json:"name"`
 	Query          string                             `json:"query"`
@@ -212,6 +213,7 @@ type RecordingRuleEvaluated struct {
 	EvaluationTime *float32                       `json:"evaluationTime,omitempty"`
 	Health         *string                        `json:"health,omitempty"`
 	Labels         *RecordingRuleEvaluated_Labels `json:"labels,omitempty"`
+	LastError      *string                        `json:"lastError,omitempty"`
 	LastEvaluation *string                        `json:"lastEvaluation,omitempty"`
 	Name           string                         `json:"name"`
 	Query          string                         `json:"query"`

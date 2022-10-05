@@ -281,3 +281,50 @@ components:
             items:
               type: object
               $ref: "../models/models.yaml#/components/schemas/TailLogs"
+    AllLogRulesResponse:
+      type: object
+    LogRulesNamespaceResponse:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            type: object
+            $ref: "../models/models.yaml#/components/schemas/RuleGroup"
+    LogRulesGroupResponse:
+      type: object
+      required:
+        - name
+        - rules
+      properties:
+        name:
+          type: string
+        interval:
+          type: string
+        rules:
+          type: array
+          items:
+            type: object
+            $ref: "../models/models.yaml#/components/schemas/RulesRaw"
+    LogRulesPrometheusResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "success"
+        data:
+          type: object
+          $ref: "../models/models.yaml#/components/schemas/Rules"
