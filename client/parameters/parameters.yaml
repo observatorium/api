@@ -74,3 +74,17 @@ components:
       description: Query partial response (Thanos)
       schema:
         type: boolean
+    logRulesNamespace:
+      in: path
+      name: namespace
+      description: namespace of the log rule group
+      required: true
+      schema:
+        type: string
+    logRulesGroup:
+      in: path
+      name: group
+      description: group of the log rule
+      required: true
+      schema:
+        type: string

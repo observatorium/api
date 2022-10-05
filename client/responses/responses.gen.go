@@ -7,6 +7,9 @@ import (
 	externalRef0 "github.com/observatorium/api/client/models"
 )
 
+// AllLogRulesResponse defines model for AllLogRulesResponse.
+type AllLogRulesResponse map[string]interface{}
+
 // LogLabelValuesResponse defines model for LogLabelValuesResponse.
 type LogLabelValuesResponse struct {
 	Data      []string  `json:"data"`
@@ -52,6 +55,27 @@ type LogReadResponse struct {
 	Status         string                   `json:"status"`
 	Streams        []externalRef0.PushLogs  `json:"streams"`
 	Warnings       *[]interface{}           `json:"warnings,omitempty"`
+}
+
+// LogRulesGroupResponse defines model for LogRulesGroupResponse.
+type LogRulesGroupResponse struct {
+	Interval *string                 `json:"interval,omitempty"`
+	Name     string                  `json:"name"`
+	Rules    []externalRef0.RulesRaw `json:"rules"`
+}
+
+// LogRulesNamespaceResponse defines model for LogRulesNamespaceResponse.
+type LogRulesNamespaceResponse struct {
+	Groups []externalRef0.RuleGroup `json:"groups"`
+}
+
+// LogRulesPrometheusResponse defines model for LogRulesPrometheusResponse.
+type LogRulesPrometheusResponse struct {
+	Data      externalRef0.Rules `json:"data"`
+	Error     *string            `json:"error,omitempty"`
+	ErrorType *string            `json:"errorType,omitempty"`
+	Status    string             `json:"status"`
+	Warnings  *[]string          `json:"warnings,omitempty"`
 }
 
 // LogSeriesResponse defines model for LogSeriesResponse.

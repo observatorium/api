@@ -9,6 +9,12 @@ type EndTS string
 // Limit defines model for limit.
 type Limit float32
 
+// LogRulesGroup defines model for logRulesGroup.
+type LogRulesGroup string
+
+// LogRulesNamespace defines model for logRulesNamespace.
+type LogRulesNamespace string
+
 // LogqlQuery defines model for logqlQuery.
 type LogqlQuery string
 

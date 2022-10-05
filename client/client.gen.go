@@ -298,6 +298,24 @@ type ClientInterface interface {
 	// GetLogRangeQuery request
 	GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAllLogsRules request
+	GetAllLogsRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLogsRules request
+	DeleteLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLogsRules request
+	GetLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetLogsRules request with any body
+	SetLogsRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLogsRulesGroup request
+	DeleteLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLogsRulesGroup request
+	GetLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetLogSeries request
 	GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -306,6 +324,12 @@ type ClientInterface interface {
 
 	// GetLogs request
 	GetLogs(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLogsPromAlerts request
+	GetLogsPromAlerts(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLogsPromRules request
+	GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabelValues request
 	GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -404,6 +428,78 @@ func (c *Client) GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenan
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetAllLogsRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAllLogsRulesRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLogsRulesRequest(c.Server, tenant, namespace)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogsRulesRequest(c.Server, tenant, namespace)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetLogsRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetLogsRulesRequestWithBody(c.Server, tenant, namespace, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLogsRulesGroupRequest(c.Server, tenant, namespace, group)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogsRulesGroupRequest(c.Server, tenant, namespace, group)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogSeriesRequest(c.Server, tenant, params)
 	if err != nil {
@@ -430,6 +526,30 @@ func (c *Client) PostLogSeriesWithBody(ctx context.Context, tenant externalRef1.
 
 func (c *Client) GetLogs(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLogsPromAlerts(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogsPromAlertsRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLogsPromRulesRequest(c.Server, tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -982,6 +1102,261 @@ func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, param
 	return req, nil
 }
 
+// NewGetAllLogsRulesRequest generates requests for GetAllLogsRules
+func NewGetAllLogsRulesRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/rules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteLogsRulesRequest generates requests for DeleteLogsRules
+func NewDeleteLogsRulesRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLogsRulesRequest generates requests for GetLogsRules
+func NewGetLogsRulesRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetLogsRulesRequestWithBody generates requests for SetLogsRules with any type of body
+func NewSetLogsRulesRequestWithBody(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLogsRulesGroupRequest generates requests for DeleteLogsRulesGroup
+func NewDeleteLogsRulesGroupRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/rules/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLogsRulesGroupRequest generates requests for GetLogsRulesGroup
+func NewGetLogsRulesGroupRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "group", runtime.ParamLocationPath, group)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/loki/api/v1/rules/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetLogSeriesRequest generates requests for GetLogSeries
 func NewGetLogSeriesRequest(server string, tenant externalRef1.Tenant, params *GetLogSeriesParams) (*http.Request, error) {
 	var err error
@@ -1225,6 +1600,74 @@ func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLog
 	}
 
 	queryURL.RawQuery = queryValues.Encode()
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLogsPromAlertsRequest generates requests for GetLogsPromAlerts
+func NewGetLogsPromAlertsRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/prometheus/api/v1/alerts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLogsPromRulesRequest generates requests for GetLogsPromRules
+func NewGetLogsPromRulesRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/logs/v1/%s/prometheus/api/v1/rules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
@@ -1963,6 +2406,24 @@ type ClientWithResponsesInterface interface {
 	// GetLogRangeQuery request
 	GetLogRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error)
 
+	// GetAllLogsRules request
+	GetAllLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetAllLogsRulesResponse, error)
+
+	// DeleteLogsRules request
+	DeleteLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*DeleteLogsRulesResponse, error)
+
+	// GetLogsRules request
+	GetLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*GetLogsRulesResponse, error)
+
+	// SetLogsRules request with any body
+	SetLogsRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLogsRulesResponse, error)
+
+	// DeleteLogsRulesGroup request
+	DeleteLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*DeleteLogsRulesGroupResponse, error)
+
+	// GetLogsRulesGroup request
+	GetLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*GetLogsRulesGroupResponse, error)
+
 	// GetLogSeries request
 	GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error)
 
@@ -1971,6 +2432,12 @@ type ClientWithResponsesInterface interface {
 
 	// GetLogs request
 	GetLogsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error)
+
+	// GetLogsPromAlerts request
+	GetLogsPromAlertsWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromAlertsResponse, error)
+
+	// GetLogsPromRules request
+	GetLogsPromRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error)
 
 	// GetLabelValues request
 	GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
@@ -2106,6 +2573,135 @@ func (r GetLogRangeQueryResponse) StatusCode() int {
 	return 0
 }
 
+type GetAllLogsRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	YAML2XX      *externalRef2.AllLogRulesResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAllLogsRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAllLogsRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteLogsRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLogsRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLogsRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetLogsRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	YAML2XX      *externalRef2.LogRulesNamespaceResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLogsRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLogsRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetLogsRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r SetLogsRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetLogsRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteLogsRulesGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLogsRulesGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLogsRulesGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetLogsRulesGroupResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	YAML2XX      *externalRef2.LogRulesGroupResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLogsRulesGroupResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLogsRulesGroupResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetLogSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2165,6 +2761,50 @@ func (r GetLogsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetLogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetLogsPromAlertsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *externalRef2.LogRulesPrometheusResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLogsPromAlertsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLogsPromAlertsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetLogsPromRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *externalRef2.LogRulesPrometheusResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLogsPromRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLogsPromRulesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2399,6 +3039,60 @@ func (c *ClientWithResponses) GetLogRangeQueryWithResponse(ctx context.Context, 
 	return ParseGetLogRangeQueryResponse(rsp)
 }
 
+// GetAllLogsRulesWithResponse request returning *GetAllLogsRulesResponse
+func (c *ClientWithResponses) GetAllLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetAllLogsRulesResponse, error) {
+	rsp, err := c.GetAllLogsRules(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAllLogsRulesResponse(rsp)
+}
+
+// DeleteLogsRulesWithResponse request returning *DeleteLogsRulesResponse
+func (c *ClientWithResponses) DeleteLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*DeleteLogsRulesResponse, error) {
+	rsp, err := c.DeleteLogsRules(ctx, tenant, namespace, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLogsRulesResponse(rsp)
+}
+
+// GetLogsRulesWithResponse request returning *GetLogsRulesResponse
+func (c *ClientWithResponses) GetLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*GetLogsRulesResponse, error) {
+	rsp, err := c.GetLogsRules(ctx, tenant, namespace, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLogsRulesResponse(rsp)
+}
+
+// SetLogsRulesWithBodyWithResponse request with arbitrary body returning *SetLogsRulesResponse
+func (c *ClientWithResponses) SetLogsRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLogsRulesResponse, error) {
+	rsp, err := c.SetLogsRulesWithBody(ctx, tenant, namespace, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetLogsRulesResponse(rsp)
+}
+
+// DeleteLogsRulesGroupWithResponse request returning *DeleteLogsRulesGroupResponse
+func (c *ClientWithResponses) DeleteLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*DeleteLogsRulesGroupResponse, error) {
+	rsp, err := c.DeleteLogsRulesGroup(ctx, tenant, namespace, group, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLogsRulesGroupResponse(rsp)
+}
+
+// GetLogsRulesGroupWithResponse request returning *GetLogsRulesGroupResponse
+func (c *ClientWithResponses) GetLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*GetLogsRulesGroupResponse, error) {
+	rsp, err := c.GetLogsRulesGroup(ctx, tenant, namespace, group, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLogsRulesGroupResponse(rsp)
+}
+
 // GetLogSeriesWithResponse request returning *GetLogSeriesResponse
 func (c *ClientWithResponses) GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error) {
 	rsp, err := c.GetLogSeries(ctx, tenant, params, reqEditors...)
@@ -2424,6 +3118,24 @@ func (c *ClientWithResponses) GetLogsWithResponse(ctx context.Context, tenant ex
 		return nil, err
 	}
 	return ParseGetLogsResponse(rsp)
+}
+
+// GetLogsPromAlertsWithResponse request returning *GetLogsPromAlertsResponse
+func (c *ClientWithResponses) GetLogsPromAlertsWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromAlertsResponse, error) {
+	rsp, err := c.GetLogsPromAlerts(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLogsPromAlertsResponse(rsp)
+}
+
+// GetLogsPromRulesWithResponse request returning *GetLogsPromRulesResponse
+func (c *ClientWithResponses) GetLogsPromRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error) {
+	rsp, err := c.GetLogsPromRules(ctx, tenant, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLogsPromRulesResponse(rsp)
 }
 
 // GetLabelValuesWithResponse request returning *GetLabelValuesResponse
@@ -2618,6 +3330,132 @@ func ParseGetLogRangeQueryResponse(rsp *http.Response) (*GetLogRangeQueryRespons
 	return response, nil
 }
 
+// ParseGetAllLogsRulesResponse parses an HTTP response from a GetAllLogsRulesWithResponse call
+func ParseGetAllLogsRulesResponse(rsp *http.Response) (*GetAllLogsRulesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAllLogsRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode/100 == 2:
+		var dest externalRef2.AllLogRulesResponse
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLogsRulesResponse parses an HTTP response from a DeleteLogsRulesWithResponse call
+func ParseDeleteLogsRulesResponse(rsp *http.Response) (*DeleteLogsRulesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLogsRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetLogsRulesResponse parses an HTTP response from a GetLogsRulesWithResponse call
+func ParseGetLogsRulesResponse(rsp *http.Response) (*GetLogsRulesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLogsRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode/100 == 2:
+		var dest externalRef2.LogRulesNamespaceResponse
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetLogsRulesResponse parses an HTTP response from a SetLogsRulesWithResponse call
+func ParseSetLogsRulesResponse(rsp *http.Response) (*SetLogsRulesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetLogsRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLogsRulesGroupResponse parses an HTTP response from a DeleteLogsRulesGroupWithResponse call
+func ParseDeleteLogsRulesGroupResponse(rsp *http.Response) (*DeleteLogsRulesGroupResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLogsRulesGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetLogsRulesGroupResponse parses an HTTP response from a GetLogsRulesGroupWithResponse call
+func ParseGetLogsRulesGroupResponse(rsp *http.Response) (*GetLogsRulesGroupResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLogsRulesGroupResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode/100 == 2:
+		var dest externalRef2.LogRulesGroupResponse
+		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.YAML2XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetLogSeriesResponse parses an HTTP response from a GetLogSeriesWithResponse call
 func ParseGetLogSeriesResponse(rsp *http.Response) (*GetLogSeriesResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -2676,6 +3514,58 @@ func ParseGetLogsResponse(rsp *http.Response) (*GetLogsResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
 		var dest externalRef2.LogReadResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLogsPromAlertsResponse parses an HTTP response from a GetLogsPromAlertsWithResponse call
+func ParseGetLogsPromAlertsResponse(rsp *http.Response) (*GetLogsPromAlertsResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLogsPromAlertsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest externalRef2.LogRulesPrometheusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLogsPromRulesResponse parses an HTTP response from a GetLogsPromRulesWithResponse call
+func ParseGetLogsPromRulesResponse(rsp *http.Response) (*GetLogsPromRulesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLogsPromRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest externalRef2.LogRulesPrometheusResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
