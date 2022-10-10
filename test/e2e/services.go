@@ -21,8 +21,8 @@ const (
 
 	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
 	thanosImage = "quay.io/thanos/thanos:main-2021-09-23-177b4f23"
-	lokiImage   = "grafana/loki:2.3.0"
-	upImage     = "quay.io/observatorium/up:master-2022-05-26-370602d"
+	lokiImage   = "grafana/loki:2.6.1"
+	upImage     = "quay.io/observatorium/up:master-2022-07-13-7f0630b"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
@@ -96,6 +96,7 @@ func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoin
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
 
 	createRulesYAML(t, e, bucket, runnable.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
+
 	rulesBackend := newRulesBackendService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(rulesBackend))
 
@@ -106,6 +107,44 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	logsEndpoint string,
 	logsExtEndpoint string,
 ) {
+
+	// Create S3 replacement for rules backend
+	bucket := "loki_test"
+	userID := strconv.Itoa(os.Getuid())
+	ports := map[string]int{e2edb.AccessPortName: 8090}
+	envVars := []string{
+		"MINIO_ROOT_USER=" + e2edb.MinioAccessKey,
+		"MINIO_ROOT_PASSWORD=" + e2edb.MinioSecretKey,
+		"MINIO_BROWSER=" + "off",
+		"ENABLE_HTTPS=" + "0",
+		// https://docs.min.io/docs/minio-kms-quickstart-guide.html
+		"MINIO_KMS_KES_ENDPOINT=" + "https://play.min.io:7373",
+		"MINIO_KMS_KES_KEY_FILE=" + "root.key",
+		"MINIO_KMS_KES_CERT_FILE=" + "root.cert",
+		"MINIO_KMS_KES_KEY_NAME=" + "my-minio-key",
+	}
+	f := e2e.NewInstrumentedRunnable(e, "loki-minio").WithPorts(ports, e2edb.AccessPortName)
+	runnable := f.Init(
+		e2e.StartOptions{
+			Image: "minio/minio:RELEASE.2022-03-03T21-21-16Z",
+			// Create the required bucket before starting minio.
+			Command: e2e.NewCommandWithoutEntrypoint("sh", "-c", fmt.Sprintf(
+				// Hacky: Create user that matches ID with host ID to be able to remove .minio.sys details on the start.
+				// Proper solution would be to contribute/create our own minio image which is non root.
+				"useradd -G root -u %v me && mkdir -p %s && chown -R me %s &&"+
+					"curl -sSL --tlsv1.2 -O 'https://raw.githubusercontent.com/minio/kes/master/root.key' -O 'https://raw.githubusercontent.com/minio/kes/master/root.cert' && "+
+					"cp root.* /home/me/ && "+
+					"su - me -s /bin/sh -c 'mkdir -p %s && %s /opt/bin/minio server --address :%v --quiet %v'",
+				userID, f.Future().InternalDir(), f.Future().InternalDir(), filepath.Join(f.Future().InternalDir(), bucket), strings.Join(envVars, " "), ports[e2edb.AccessPortName], f.Future().InternalDir()),
+			),
+			Readiness: e2e.NewHTTPReadinessProbe(e2edb.AccessPortName, "/minio/health/live", 200, 200),
+		},
+	)
+
+	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
+
+	createLokiYAML(t, e, e2edb.MinioAccessKey, e2edb.MinioSecretKey, runnable.InternalEndpoint(e2edb.AccessPortName), bucket)
+
 	loki := newLokiService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(loki))
 
@@ -243,12 +282,16 @@ func newThanosReceiveService(e e2e.Environment) e2e.InstrumentedRunnable {
 }
 
 func newLokiService(e e2e.Environment) e2e.InstrumentedRunnable {
-	ports := map[string]int{"http": 3100}
+	ports := map[string]int{"http": 3100, "grpc": 9095}
 
 	args := e2e.BuildArgs(map[string]string{
-		"-config.file": filepath.Join(configsContainerPath, "loki.yml"),
-		"-target":      "all",
-		"-log.level":   logLevelError,
+		"-config.file":                filepath.Join(configsContainerPath, "loki.yml"),
+		"-server.grpc-listen-address": "0.0.0.0",
+		"-server.grpc-listen-port":    strconv.Itoa(ports["grpc"]),
+		"-server.http-listen-address": "0.0.0.0",
+		"-server.http-listen-port":    strconv.Itoa(ports["http"]),
+		"-target":                     "all",
+		"-log.level":                  logLevelError,
 	})
 
 	return e2e.NewInstrumentedRunnable(e, "loki").WithPorts(ports, "http").Init(
@@ -408,6 +451,7 @@ func newObservatoriumAPIService(
 		args = append(args, "--logs.read.endpoint="+opts.logsEndpoint)
 		args = append(args, "--logs.tail.endpoint="+opts.logsEndpoint)
 		args = append(args, "--logs.write.endpoint="+opts.logsEndpoint)
+		args = append(args, "--logs.rules.endpoint="+opts.logsEndpoint)
 	}
 
 	if opts.ratelimiterAddr != "" {

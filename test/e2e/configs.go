@@ -319,3 +319,93 @@ func createOtelForwardingCollectorConfigYAML(
 	)
 	testutil.Ok(t, err)
 }
+
+const lokiYAMLTpl = `auth_enabled: true
+
+server:
+  http_listen_port: 3100
+
+common:
+ storage:
+  s3:
+    s3forcepathstyle: true
+    access_key_id: %[1]s
+    secret_access_key: %[2]s
+    endpoint: %[3]s
+    bucketnames: %[4]s
+    insecure: true
+
+compactor:
+  working_directory: /tmp/loki/compactor
+  shared_store: s3
+  compaction_interval: 5m
+
+distributor:
+  ring:
+    kvstore:
+      store: inmemory
+
+ingester:
+  lifecycler:
+    address: 0.0.0.0
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+    final_sleep: 0s
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
+  wal:
+    dir: /tmp/loki/ingester/wal
+    enabled: false
+
+querier:
+  engine:
+    max_look_back_period: 5m
+    timeout: 3m
+
+ruler:
+  storage:
+    type: s3
+  wal:
+   dir: /tmp/loki/ruler/wal
+  rule_path: /tmp/loki/
+ 
+schema_config:
+  configs:
+  - from: 2019-01-01
+    store: boltdb-shipper
+    object_store: s3
+    schema: v12
+    index:
+      prefix: index_
+      period: 24h
+
+storage_config:
+  boltdb_shipper:
+    active_index_directory: /tmp/loki/index
+    cache_location: /tmp/loki/index_cache
+    shared_store: s3
+
+limits_config:
+  enforce_metric_name: false
+  reject_old_samples: false
+
+`
+
+func createLokiYAML(
+	t *testing.T,
+	e e2e.Environment,
+	accessId, accessKey, endpoint, bucket string,
+) {
+	yamlContent := []byte(fmt.Sprintf(lokiYAMLTpl, accessId, accessKey, endpoint, bucket))
+
+	err := os.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "loki.yml"),
+		yamlContent,
+		os.FileMode(0755),
+	)
+
+	testutil.Ok(t, err)
+}

@@ -51,12 +51,14 @@ const (
 )
 
 type handlerConfiguration struct {
-	logger           log.Logger
-	registry         *prometheus.Registry
-	instrument       handlerInstrumenter
-	spanRoutePrefix  string
-	readMiddlewares  []func(http.Handler) http.Handler
-	writeMiddlewares []func(http.Handler) http.Handler
+	logger                log.Logger
+	registry              *prometheus.Registry
+	instrument            handlerInstrumenter
+	spanRoutePrefix       string
+	readMiddlewares       []func(http.Handler) http.Handler
+	writeMiddlewares      []func(http.Handler) http.Handler
+	rulesReadMiddlewares  []func(http.Handler) http.Handler
+	rulesWriteMiddlewares []func(http.Handler) http.Handler
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -101,6 +103,20 @@ func WithReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.writeMiddlewares = append(h.writeMiddlewares, m)
+	}
+}
+
+// WithRulesWriteMiddleware adds a middleware for all rules write operations.
+func WithRulesReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesReadMiddlewares = append(h.rulesReadMiddlewares, m)
+	}
+}
+
+// WithRulesWriteMiddleware adds a middleware for all rules write operations.
+func WithRulesWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesWriteMiddlewares = append(h.rulesWriteMiddlewares, m)
 	}
 }
 
@@ -228,6 +244,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
+			r.Use(c.rulesReadMiddlewares...)
 			r.Get(rulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyRules),
@@ -265,6 +282,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 		if !rulesReadOnly {
 			r.Group(func(r chi.Router) {
 				r.Use(c.writeMiddlewares...)
+				r.Use(c.rulesWriteMiddlewares...)
 				r.Post(rulesPerNamespaceRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
 					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),

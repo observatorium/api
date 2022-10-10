@@ -97,6 +97,8 @@ Usage of ./observatorium-api:
     	The endpoint against which to make rules requests for logs.
   -logs.rules.read-only
     	Allow only read-only rule requests for logs.
+  -logs.rules.tenant-label string
+    	The name of the rules label that should hold the tenant ID in logs upstreams. (default "tenant_id")
   -logs.tail.endpoint string
     	The endpoint against which to make tail read requests for logs.
   -logs.tenant-header string

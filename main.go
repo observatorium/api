@@ -141,9 +141,9 @@ type logsConfig struct {
 	upstreamCertFile string
 	upstreamKeyFile  string
 	tenantHeader     string
-
+	tenantLabel      string
 	// Allow only read-only access on rules
-	rulesReaOnly bool
+	rulesReadOnly bool
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -656,7 +656,7 @@ func main() {
 								cfg.logs.tailEndpoint,
 								cfg.logs.writeEndpoint,
 								cfg.logs.rulesEndpoint,
-								cfg.logs.rulesReaOnly,
+								cfg.logs.rulesReadOnly,
 								logsUpstreamCACert,
 								logsUpstreamClientCert,
 								logsv1.Logger(logger),
@@ -669,6 +669,9 @@ func main() {
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
+								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
+								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceRuleLabels(cfg.logs.tenantLabel)),
 							),
 						),
 					)
@@ -960,7 +963,7 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make read requests for logs.")
 	flag.StringVar(&rawLogsRulesEndpoint, "logs.rules.endpoint", "",
 		"The endpoint against which to make rules requests for logs.")
-	flag.BoolVar(&cfg.logs.rulesReaOnly, "logs.rules.read-only", false,
+	flag.BoolVar(&cfg.logs.rulesReadOnly, "logs.rules.read-only", false,
 		"Allow only read-only rule requests for logs.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
@@ -970,6 +973,8 @@ func parseFlags() (config, error) {
 		"File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
 		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
+	flag.StringVar(&cfg.logs.tenantLabel, "logs.rules.tenant-label", "tenant_id",
+		"The name of the rules label that should hold the tenant ID in logs upstreams.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
 		"The endpoint against which to make write requests for logs.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
