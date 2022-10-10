@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.11.0
-	github.com/cloudflare/cfssl v1.6.2
+	github.com/cloudflare/cfssl v1.6.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/efficientgo/e2e v0.12.1
