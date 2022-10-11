@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func TestLogsReadWriteAndTail(t *testing.T) {
+func TestLogs(t *testing.T) {
 	t.Parallel()
 
 	e, err := e2e.NewDockerEnvironment(envLogsName)
@@ -32,7 +32,7 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	t.Run("logs-read-write", func(t *testing.T) {
+	t.Run("read-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-logs-read-write", logs,
 			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/test-mtls/loki/api/v1/query",
@@ -54,14 +54,14 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
 		testutil.Ok(t, err)
 		testutil.Equals(t, float64(5), upMetrics[0])
-		testutil.Equals(t, float64(5), upMetrics[1])
+		testutil.Equals(t, float64(12), upMetrics[1])
 
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
 		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, float64(10), apiMetrics[0])
+		testutil.Equals(t, float64(24), apiMetrics[0])
 
 		// Simple test to check if we can query Loki for logs.
 		r, err := http.NewRequest(
@@ -90,7 +90,7 @@ func TestLogsReadWriteAndTail(t *testing.T) {
 
 	})
 
-	t.Run("logs-tail", func(t *testing.T) {
+	t.Run("tail-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-logs-tail", logs,
 			"https://"+api.InternalEndpoint("https")+"/api/logs/v1/"+defaultTenantName+"/loki/api/v1/query",

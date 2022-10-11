@@ -12,7 +12,36 @@ import (
 	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
-const recordingRuleYamlTpl = `
+const logsAlertingRuleYamlTpl = `
+name: test-firing-alert
+interval: 30s
+rules:
+  - alert: TestFiringAlert
+    annotations:
+      description: Test firing alert
+    expr: |
+      1 > 0
+    for: 1s
+    labels:
+      severity: warn
+      source: logs
+`
+
+const logsRecordingRuleYamlTpl = `
+interval: 30s
+name: test-firing-alert
+rules:
+  - record: test:metric
+    expr: |
+      sum(
+        rate({container="nginx"}[1m])
+      )
+    labels:
+      severity: warn
+      source: logs
+`
+
+const metricsRecordingRuleYamlTpl = `
 groups:
  - name: example
    interval: 30s
@@ -21,7 +50,7 @@ groups:
        expr: 0 * topk by (ebs_account) (1, max by (ebs_account,account_type,internal,email_domain) (label_replace(label_replace(label_replace(subscription_labels{email_domain="domain1.com"}*0+5, "class", "Internal", "class", ".*") or label_replace(subscription_labels{class!="Customer",email_domain=~"(.*\\.|^)domain2.com"}*0+4, "class", "Internal", "class", ".*") or (subscription_labels{class="Customer"}*0+3) or (subscription_labels{class="Partner"}*0+2) or (subscription_labels{class="Evaluation"}*0+1) or label_replace(subscription_labels{class!~"Evaluation|Customer|Partner"}*0+0, "class", "", "class", ".*"), "account_type", "$1", "class", "(.+)"), "internal", "true", "email_domain", "domain1.com|(.*\\.|^)domain2.com") ))
 `
 
-const alertingRuleYamlTpl = `
+const metricsAlertingRuleYamlTpl = `
 groups:
 - name: example
   interval: 30s
@@ -34,7 +63,8 @@ groups:
     annotations:
       summary: High request latency
 `
-const recordAndAlertingRulesYamlTpl = `
+
+const metricsRecordAndAlertingRulesYamlTpl = `
 groups:
 - name: node_rules
   interval: 30s
@@ -48,7 +78,7 @@ groups:
       Summary: Many instances down
 `
 
-const invalidRulesYamlTpl = `
+const metricsInvalidRulesYamlTpl = `
 invalid:
 - name: testing
  invalid_rules:
@@ -58,7 +88,7 @@ invalid:
    expr: job:up:avg{job="node"} < 0.5
 `
 
-const validYamlWithInvalidRulesYamlTpl = `
+const metricsValidYamlWithInvalidRulesYamlTpl = `
 groups:
   - name: example
     interval: 30TB
@@ -80,17 +110,20 @@ func TestRulesAPI(t *testing.T) {
 
 	prepareConfigsAndCerts(t, rules, e)
 	_, token, rateLimiterAddr := startBaseServices(t, e, rules)
-	rulesEndpoint := startServicesForRules(t, e)
+	metricsRulesEndpoint := startServicesForRules(t, e)
+	logsRulesEndpoint, _ := startServicesForLogs(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
-		withRulesEndpoint("http://"+rulesEndpoint),
+		withRulesEndpoint("http://"+metricsRulesEndpoint),
+		withLogsEndpoints("http://"+logsRulesEndpoint),
 		withRateLimiter(rateLimiterAddr),
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	rulesEndpointURL := "https://" + api.Endpoint("https") + "/api/metrics/v1/" + defaultTenantName + "/api/v1/rules/raw"
+	logsRulesURL := "https://" + api.Endpoint("https") + "/api/logs/v1/" + defaultTenantName + "/loki/api/v1/rules"
+	metricsRulesURL := "https://" + api.Endpoint("https") + "/api/metrics/v1/" + defaultTenantName + "/api/v1/rules/raw"
 	tr := &http.Transport{
 		TLSClientConfig: getTLSClientConfig(t, e),
 	}
@@ -99,11 +132,11 @@ func TestRulesAPI(t *testing.T) {
 		Transport: &tokenRoundTripper{rt: tr, token: token},
 	}
 
-	t.Run("write-then-read-recording-rules", func(t *testing.T) {
+	t.Run("metrics-write-then-read-recording-rules", func(t *testing.T) {
 		// Try to list rules
 		r, err := http.NewRequest(
 			http.MethodGet,
-			rulesEndpointURL,
+			metricsRulesURL,
 			nil,
 		)
 		testutil.Ok(t, err)
@@ -113,10 +146,10 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusNotFound, res.StatusCode)
 
 		// Set a file containing a recording rule
-		recordingRule := []byte(recordingRuleYamlTpl)
+		recordingRule := []byte(metricsRecordingRuleYamlTpl)
 		r, err = http.NewRequest(
 			http.MethodPut,
-			rulesEndpointURL,
+			metricsRulesURL,
 			bytes.NewReader(recordingRule),
 		)
 		testutil.Ok(t, err)
@@ -128,7 +161,7 @@ func TestRulesAPI(t *testing.T) {
 		// Check if recording rule is listed
 		r, err = http.NewRequest(
 			http.MethodGet,
-			rulesEndpointURL,
+			metricsRulesURL,
 			nil,
 		)
 		testutil.Ok(t, err)
@@ -151,12 +184,12 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
-	t.Run("write-then-read-alerting-rules", func(t *testing.T) {
+	t.Run("metrics-write-then-read-alerting-rules", func(t *testing.T) {
 		// Set a file containing an alerting rule
-		alertingRule := []byte(alertingRuleYamlTpl)
+		alertingRule := []byte(metricsAlertingRuleYamlTpl)
 		r, err := http.NewRequest(
 			http.MethodPut,
-			rulesEndpointURL,
+			metricsRulesURL,
 			bytes.NewReader(alertingRule),
 		)
 		testutil.Ok(t, err)
@@ -168,7 +201,7 @@ func TestRulesAPI(t *testing.T) {
 		// Check if the alerting rule is listed
 		r, err = http.NewRequest(
 			http.MethodGet,
-			rulesEndpointURL,
+			metricsRulesURL,
 			nil,
 		)
 		testutil.Ok(t, err)
@@ -187,12 +220,12 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
-	t.Run("write-then-read-recording-and-alerting-rules", func(t *testing.T) {
+	t.Run("metrics-write-then-read-recording-and-alerting-rules", func(t *testing.T) {
 		// Set a file containing both recording and alerting rules
-		recordAndAlertingRules := []byte(recordAndAlertingRulesYamlTpl)
+		recordAndAlertingRules := []byte(metricsRecordAndAlertingRulesYamlTpl)
 		r, err := http.NewRequest(
 			http.MethodPut,
-			rulesEndpointURL,
+			metricsRulesURL,
 			bytes.NewReader(recordAndAlertingRules),
 		)
 		testutil.Ok(t, err)
@@ -204,7 +237,7 @@ func TestRulesAPI(t *testing.T) {
 		// Check if both recording and alerting rules are listed
 		r, err = http.NewRequest(
 			http.MethodGet,
-			rulesEndpointURL,
+			metricsRulesURL,
 			nil,
 		)
 		testutil.Ok(t, err)
@@ -225,12 +258,12 @@ func TestRulesAPI(t *testing.T) {
 		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
 	})
 
-	t.Run("write-invalid-rules", func(t *testing.T) {
+	t.Run("metrics-write-invalid-rules", func(t *testing.T) {
 		// Set an invalid rules file
-		invalidRules := []byte(invalidRulesYamlTpl)
+		invalidRules := []byte(metricsInvalidRulesYamlTpl)
 		r, err := http.NewRequest(
 			http.MethodPut,
-			rulesEndpointURL,
+			metricsRulesURL,
 			bytes.NewReader(invalidRules),
 		)
 		testutil.Ok(t, err)
@@ -240,12 +273,12 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusInternalServerError, res.StatusCode)
 	})
 
-	t.Run("write-valid-yaml-with-invalid-rules", func(t *testing.T) {
+	t.Run("metrics-write-valid-yaml-with-invalid-rules", func(t *testing.T) {
 		// set valid YAML with invalid rules
-		validYamlWithinvalidRules := []byte(validYamlWithInvalidRulesYamlTpl)
+		validYamlWithinvalidRules := []byte(metricsValidYamlWithInvalidRulesYamlTpl)
 		r, err := http.NewRequest(
 			http.MethodPut,
-			rulesEndpointURL,
+			metricsRulesURL,
 			bytes.NewReader(validYamlWithinvalidRules),
 		)
 		testutil.Ok(t, err)
@@ -255,4 +288,60 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
 	})
 
+	t.Run("logs-write-then-read-alerting-rules", func(t *testing.T) {
+		// Set a file containing an alerting rule
+		alertingRule := []byte(logsAlertingRuleYamlTpl)
+
+		res, err := client.Post(logsRulesURL+"/"+defaultTenantName, "application/yaml", bytes.NewReader(alertingRule))
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusAccepted, res.StatusCode)
+
+		res, err = client.Get(logsRulesURL)
+		testutil.Ok(t, err)
+		defer res.Body.Close()
+
+		testutil.Equals(t, http.StatusOK, res.StatusCode)
+
+		body, err := io.ReadAll(res.Body)
+		bodyStr := string(body)
+
+		assertResponse(t, bodyStr, "alert: TestFiringAlert")
+		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
+	})
+
+	t.Run("logs-write-then-read-recording-rules", func(t *testing.T) {
+		// Set a file containing a recording rule
+		recordingRule := []byte(logsRecordingRuleYamlTpl)
+
+		res, err := client.Post(logsRulesURL+"/"+defaultTenantName, "application/yaml", bytes.NewReader(recordingRule))
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusAccepted, res.StatusCode)
+
+		res, err = client.Get(logsRulesURL)
+		testutil.Ok(t, err)
+		defer res.Body.Close()
+
+		testutil.Equals(t, http.StatusOK, res.StatusCode)
+
+		body, err := io.ReadAll(res.Body)
+		bodyStr := string(body)
+
+		assertResponse(t, bodyStr, "record: test:metric")
+		assertResponse(t, bodyStr, "tenant_id: "+defaultTenantID)
+	})
+
+	t.Run("logs-write-tenant-not-matching-namespace", func(t *testing.T) {
+		// Set a file containing an alerting rule
+		alertingRule := []byte(logsAlertingRuleYamlTpl)
+
+		res, err := client.Post(logsRulesURL+"/nonsense", "application/yaml", bytes.NewReader(alertingRule))
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
+	})
+
+	t.Run("logs-read-tenant-not-matching-namespace", func(t *testing.T) {
+		res, err := client.Get(logsRulesURL + "/nonsense")
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
+	})
 }
