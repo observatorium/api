@@ -837,27 +837,27 @@ exprdefault:
 	case 18:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue(exprDollar[3].str, true)}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
 		}
 	case 19:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue(exprDollar[5].str, true)}, exprDollar[3].ConvOp), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": exprDollar[5].str}, exprDollar[3].ConvOp), nil)
 		}
 	case 20:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("regexp", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue(exprDollar[3].str, false)}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("regexp", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
 		}
 	case 21:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("pattern", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue(exprDollar[3].str, false)}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("pattern", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
 		}
 	case 22:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("line_format", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue(exprDollar[3].str, false)}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("line_format", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
 		}
 	case 23:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
@@ -897,17 +897,17 @@ exprdefault:
 	case 30:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: newLogFormatValue(exprDollar[3].str, false)}, "")
+			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: exprDollar[3].str}, "")
 		}
 	case 31:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: newLogFormatValue(exprDollar[3].str, true)}, "")
+			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: exprDollar[3].str}, "")
 		}
 	case 32:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: newLogFormatValue(OpIP+"("+exprDollar[5].str+")", false)}, "")
+			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: OpIP + "(" + exprDollar[5].str + ")"}, "")
 		}
 	case 33:
 		exprDollar = exprS[exprpt-3 : exprpt+1]

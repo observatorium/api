@@ -350,7 +350,7 @@ func TestParseExpr(t *testing.T) {
 						parser: "regexp",
 						matcher: &LogFormatExpr{
 							sep: "",
-							kv:  LogFormatValues{"": newLogFormatValue("(.)*", false)},
+							kv:  LogFormatValues{"": "(.)*"},
 						},
 					},
 					{
@@ -377,6 +377,34 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{ log_type = "application" } | json | pattern ` + "`" + `<_>:"<mytimestamp>",<_>` + "`",
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					{
+						parser: "json",
+					},
+					{
+						parser: "pattern",
+						matcher: &LogFormatExpr{
+							sep: "",
+							kv: LogFormatValues{
+								"": `<_>:"<mytimestamp>",<_>`,
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "log_type",
+							Value: "application",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | pattern "(.)*" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
@@ -384,7 +412,7 @@ func TestParseExpr(t *testing.T) {
 						parser: "pattern",
 						matcher: &LogFormatExpr{
 							sep: "",
-							kv:  LogFormatValues{"": newLogFormatValue("(.)*", false)},
+							kv:  LogFormatValues{"": "(.)*"},
 						},
 					},
 					{
@@ -431,7 +459,7 @@ func TestParseExpr(t *testing.T) {
 						matcher: &LogFormatExpr{
 							sep: "",
 							kv: LogFormatValues{
-								"": newLogFormatValue("loop{{ .first }}blop {{.status_code}}", false),
+								"": "loop{{ .first }}blop {{.status_code}}",
 							},
 						},
 					},
@@ -440,8 +468,8 @@ func TestParseExpr(t *testing.T) {
 						matcher: &LogFormatExpr{
 							sep: ",",
 							kv: LogFormatValues{
-								"first":       newLogFormatValue("value", true),
-								"status_code": newLogFormatValue("blop{{.value}}", false),
+								"first":       "value",
+								"status_code": "blop{{.value}}",
 							},
 						},
 					},
@@ -1013,7 +1041,7 @@ func TestParseExpr(t *testing.T) {
 								parser: "unwrap",
 								matcher: &LogFormatExpr{
 									sep: "",
-									kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+									kv:  LogFormatValues{"": "value"},
 								},
 							},
 						},
@@ -1044,7 +1072,7 @@ func TestParseExpr(t *testing.T) {
 								parser: "unwrap",
 								matcher: &LogFormatExpr{
 									sep:       "",
-									kv:        LogFormatValues{"": newLogFormatValue("value", true)},
+									kv:        LogFormatValues{"": "value"},
 									operation: "bytes",
 								},
 							},
@@ -1072,7 +1100,7 @@ func TestParseExpr(t *testing.T) {
 						matcher: &LogFormatExpr{
 							sep: "",
 							kv: LogFormatValues{
-								"": newLogFormatValue("{{ __line__ }} bar {{.status_code}}", false),
+								"": "{{ __line__ }} bar {{.status_code}}",
 							},
 						},
 					},
@@ -1081,7 +1109,7 @@ func TestParseExpr(t *testing.T) {
 						matcher: &LogFormatExpr{
 							sep: "",
 							kv: LogFormatValues{
-								"status_code": newLogFormatValue("401", false),
+								"status_code": "401",
 							},
 						},
 					},
@@ -1112,7 +1140,7 @@ func TestParseExpr(t *testing.T) {
 								parser: "unwrap",
 								matcher: &LogFormatExpr{
 									sep: "",
-									kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+									kv:  LogFormatValues{"": "value"},
 								},
 							},
 						},
@@ -1149,7 +1177,7 @@ func TestParseExpr(t *testing.T) {
 									parser: "unwrap",
 									matcher: &LogFormatExpr{
 										sep: "",
-										kv:  LogFormatValues{"": newLogFormatValue("value", true)},
+										kv:  LogFormatValues{"": "value"},
 									},
 								},
 							},

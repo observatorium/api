@@ -108,11 +108,11 @@ logPipelineStageExpr:
         |       PIPE LOGFMT                                                               { $$ = newLogPipelineStageExpr("logfmt", nil, nil)                                                                              }
         |       PIPE JSON                                                                 { $$ = newLogPipelineStageExpr("json", nil, nil)                                                                                }
         |       PIPE UNPACK                                                               { $$ = newLogPipelineStageExpr("unpack", nil, nil)                                                                              }
-        |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, true)}, ""), nil)       }
-        |       PIPE UNWRAP convOp OPEN_PARENTHESIS IDENTIFIER CLOSE_PARENTHESIS          { $$ = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($5, true)}, $3), nil)       }
-        |       PIPE REGEXP STRING                                                        { $$ = newLogPipelineStageExpr("regexp", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, false)}, ""), nil)      }
-        |       PIPE PATTERN STRING                                                       { $$ = newLogPipelineStageExpr("pattern", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, false)}, ""), nil)     }
-        |       PIPE LINE_FMT STRING                                                      { $$ = newLogPipelineStageExpr("line_format", newLogFormatExpr("", LogFormatValues{"": newLogFormatValue($3, false)}, ""), nil) }
+        |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": $3}, ""), nil)       }
+        |       PIPE UNWRAP convOp OPEN_PARENTHESIS IDENTIFIER CLOSE_PARENTHESIS          { $$ = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": $5}, $3), nil)       }
+        |       PIPE REGEXP STRING                                                        { $$ = newLogPipelineStageExpr("regexp", newLogFormatExpr("", LogFormatValues{"": $3}, ""), nil)      }
+        |       PIPE PATTERN STRING                                                       { $$ = newLogPipelineStageExpr("pattern", newLogFormatExpr("", LogFormatValues{"": $3}, ""), nil)     }
+        |       PIPE LINE_FMT STRING                                                      { $$ = newLogPipelineStageExpr("line_format", newLogFormatExpr("", LogFormatValues{"": $3}, ""), nil) }
         |       PIPE LABEL_FMT logFormatExpr                                              { $$ = newLogPipelineStageExpr("label_format", $3, nil)                                                                         }
         |       PIPE IDENTIFIER comparisonOp STRING                                       { $$ = newLogPipelineStageExpr("", nil, LogFiltersExpr{newLogFilterExpr("|", $2, $3, "", $4)})                                  }
         |       PIPE IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogPipelineStageExpr("", nil, LogFiltersExpr{newLogFilterExpr("|", $2, $3, OpIP, $6)})                                }
@@ -129,9 +129,9 @@ logFilterExpr:
                 ;
 
 logFormatExpr:
-                IDENTIFIER EQ STRING                                       { $$ = newLogFormatExpr("", LogFormatValues{$1: newLogFormatValue($3, false)}, "")              }
-        |       IDENTIFIER EQ IDENTIFIER                                   { $$ = newLogFormatExpr("", LogFormatValues{$1: newLogFormatValue($3, true)}, "")               }
-        |       IDENTIFIER EQ IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFormatExpr("", LogFormatValues{$1: newLogFormatValue(OpIP+"("+$5+")", false)}, "") }
+                IDENTIFIER EQ STRING                                       { $$ = newLogFormatExpr("", LogFormatValues{$1: $3}, "")              }
+        |       IDENTIFIER EQ IDENTIFIER                                   { $$ = newLogFormatExpr("", LogFormatValues{$1: $3}, "")               }
+        |       IDENTIFIER EQ IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFormatExpr("", LogFormatValues{$1: OpIP+"("+$5+")"}, "") }
         |       logFormatExpr COMMA logFormatExpr                          { $$ = newLogFormatExpr(",", mergeLogFormatValues($1.kv, $3.kv), "")                            }
         ;
 

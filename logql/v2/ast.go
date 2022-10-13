@@ -157,7 +157,7 @@ func (l *LogFilterExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
-type LogFormatValues map[string]LogFormatValue
+type LogFormatValues map[string]string
 
 func (l *LogFormatValues) Walk(fn WalkFn) {
 	if l == nil {
@@ -167,15 +167,6 @@ func (l *LogFormatValues) Walk(fn WalkFn) {
 	for _, e := range *l {
 		fn(e)
 	}
-}
-
-type LogFormatValue struct {
-	value string
-	isID  bool
-}
-
-func newLogFormatValue(val string, isID bool) LogFormatValue {
-	return LogFormatValue{value: val, isID: isID}
 }
 
 type LogFormatExpr struct {
@@ -218,16 +209,7 @@ func (l *LogFormatExpr) String() string {
 			sb.WriteString(fmt.Sprintf("%s(", l.operation))
 		}
 
-		value := l.kv[key]
-		if !value.isID {
-			sb.WriteString(`"`)
-		}
-
-		sb.WriteString(value.value)
-
-		if !value.isID {
-			sb.WriteString(`"`)
-		}
+		sb.WriteString(strconv.Quote(l.kv[key]))
 
 		if l.operation != "" {
 			sb.WriteString(")")
