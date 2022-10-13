@@ -2,13 +2,13 @@ package v2
 
 import (
 	"fmt"
-	"github.com/prometheus/common/model"
 	"strings"
 	"text/scanner"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/util/strutil"
 )
 
