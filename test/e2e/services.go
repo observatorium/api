@@ -201,7 +201,7 @@ func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (
 	opa := newOPAService(e)
 	testutil.Ok(t, e2e.StartAndWaitReady(dex, gubernator, opa))
 
-	createTenantsYAML(t, e, dex.InternalEndpoint("https"), opa.InternalEndpoint("http"))
+	createTenantsYAML(t, e, dex.InternalEndpoint("https"), opa.InternalEndpoint("http"), getContainerName(t, tt, "observatorium_api"))
 
 	token, err := obtainToken(dex.Endpoint("https"), getTLSClientConfig(t, e))
 	testutil.Ok(t, err)

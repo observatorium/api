@@ -57,7 +57,7 @@ tenants:
       clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
       issuerCAPath: %[1]s
       issuerURL: https://%[2]s
-      redirectURL: https://localhost:8443/oidc/test-oidc/callback
+      redirectURL: https://%[7]s:8443/oidc/test-oidc/callback
       usernameClaim: email
   opa:
     query: data.observatorium.allow
@@ -78,7 +78,7 @@ tenants:
     clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
     issuerCAPath: %[1]s
     issuerURL: https://%[2]s
-    redirectURL: https://localhost:8443/oidc/test-attacker/callback
+    redirectURL: https://%[7]s:8443/oidc/test-attacker/callback
     usernameClaim: email
   opa:
     query: data.observatorium.allow
@@ -105,6 +105,7 @@ func createTenantsYAML(
 	e e2e.Environment,
 	issuerURL string,
 	opaURL string,
+	apiServiceHostname string,
 ) {
 	yamlContent := []byte(fmt.Sprintf(
 		tenantsYamlTpl,
@@ -114,6 +115,7 @@ func createTenantsYAML(
 		filepath.Join(configsContainerPath, "rbac.yaml"),
 		filepath.Join(certsContainerPath, "ca.pem"),
 		path.Join(opaURL, "v1/data/observatorium/allow"),
+		apiServiceHostname,
 	))
 
 	err := os.WriteFile(
