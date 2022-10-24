@@ -33,8 +33,8 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.3
 	go.opentelemetry.io/contrib/propagators/jaeger v1.11.0
 	go.opentelemetry.io/otel v1.11.1
-	go.opentelemetry.io/otel/exporters/jaeger v1.11.0
-	go.opentelemetry.io/otel/sdk v1.11.0
+	go.opentelemetry.io/otel/exporters/jaeger v1.11.1
+	go.opentelemetry.io/otel/sdk v1.11.1
 	go.opentelemetry.io/otel/trace v1.11.1
 	go.uber.org/automaxprocs v1.5.1
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
