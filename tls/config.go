@@ -109,6 +109,10 @@ func parseTLSVersion(rawTLSVersion string) (uint16, error) {
 }
 
 func mapCipherNamesToIDs(rawTLSCipherSuites []string) ([]uint16, error) {
+	if rawTLSCipherSuites == nil {
+		return nil, nil
+	}
+
 	cipherSuites := []uint16{}
 	allCipherSuites := tlsCipherSuites()
 
