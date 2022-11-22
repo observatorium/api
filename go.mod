@@ -1,6 +1,6 @@
 module github.com/observatorium/api
 
-go 1.17
+go 1.18
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.11.0
