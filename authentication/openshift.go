@@ -27,6 +27,9 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -501,7 +504,36 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 
 func (a OpenShiftAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 	return grpc_middleware_auth.StreamServerInterceptor(func(ctx context.Context) (context.Context, error) {
-		return ctx, status.Error(codes.Unimplemented, "internal error")
+		httpReq := http.Request{Header: map[string][]string{}}
+
+		// set authorization header
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			return ctx, status.Error(codes.Internal, "metadata error")
+		}
+		for _, val := range md.Get("Authorization") {
+			httpReq.Header.Add("Authorization", val)
+		}
+
+		// set peer certificates
+		peerContext, ok := peer.FromContext(ctx)
+		if ok {
+			tlsInfo := peerContext.AuthInfo.(credentials.TLSInfo)
+			httpReq.TLS = &tls.ConnectionState{
+				PeerCertificates: tlsInfo.State.PeerCertificates,
+			}
+		}
+
+		res, ok, _ := a.authenticator.AuthenticateRequest(&httpReq)
+		if ok {
+			ctx := context.WithValue(ctx, subjectKey, res.User.GetName())
+			ctx = context.WithValue(ctx, groupsKey, res.User.GetGroups())
+			return ctx, nil
+		}
+
+		level.Info(a.logger).Log("msg", "failed to authenticate, no serviceaccount bearer token or mTLS certs provided")
+		// cookie auth is not implemented, it does not make sense for gRPC
+		return ctx, status.Error(codes.Unauthenticated, "missing SA token or mTLS")
 	})
 }
 
