@@ -584,17 +584,21 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
-				var metricsMiddlewares []func(http.Handler) http.Handler
-				tenantMiddlewares := authentication.WithTenantMiddlewares(pm.Middlewares)
-				tenantHeaderMiddleware := authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs)
-				metricsMiddlewares = append(metricsMiddlewares, tenantMiddlewares, tenantHeaderMiddleware)
+				metricsMiddlewares := []func(http.Handler) http.Handler{
+					authentication.WithTenantMiddlewares(pm.Middlewares),
+					authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs),
+				}
+
+				// rateLimitMiddleware should be appended early onto the router middleware stack
+				// prior to any path stripping or other middleware that may alter the request path
+				// in order to avoid unexpected path matching issues.
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
 				if rateLimitClient != nil {
 					rateLimitMiddleware = ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...)
 				}
-				metricsMiddlewares = append(metricsMiddlewares, rateLimitMiddleware)
 
 				r.Group(func(r chi.Router) {
+					r.Use(rateLimitMiddleware)
 					r.Use(metricsMiddlewares...)
 					r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 						tenant, ok := authentication.GetTenant(r.Context())
@@ -608,6 +612,7 @@ func main() {
 				})
 
 				r.Group(func(r chi.Router) {
+					r.Use(rateLimitMiddleware)
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamCACert,
