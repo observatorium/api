@@ -132,12 +132,12 @@ func (l *LogFilterExpr) String() string {
 	sb.WriteString(l.filter)
 	sb.WriteString(" ")
 
-	if l.filterOp != "" {
-		if l.alias != "" {
-			sb.WriteString(l.alias)
-			sb.WriteString(l.aliasOp)
-		}
+	if l.alias != "" {
+		sb.WriteString(l.alias)
+		sb.WriteString(l.aliasOp)
+	}
 
+	if l.filterOp != "" {
 		sb.WriteString(l.filterOp)
 		sb.WriteString("(")
 		sb.WriteString(`"`)
@@ -157,7 +157,12 @@ func (l *LogFilterExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
-type LogFormatValues map[string]string
+type LogFormatValue struct {
+	Value        string
+	IsIdentifier bool
+}
+
+type LogFormatValues map[string]LogFormatValue
 
 func (l *LogFormatValues) Walk(fn WalkFn) {
 	if l == nil {
@@ -169,6 +174,11 @@ func (l *LogFormatValues) Walk(fn WalkFn) {
 	}
 }
 
+type LogStageExpr interface {
+	logStageExpr()
+	String() string
+}
+
 type LogFormatExpr struct {
 	defaultLogQLExpr // nolint:unused
 	kv               LogFormatValues
@@ -176,11 +186,13 @@ type LogFormatExpr struct {
 	operation        string
 }
 
-func newLogFormatExpr(sep string, kv LogFormatValues, operation string) *LogFormatExpr {
+func newLogFormatExpr(sep string, kv LogFormatValues, operation string) LogStageExpr {
 	return &LogFormatExpr{sep: sep, kv: kv, operation: operation}
 }
 
 func (LogFormatExpr) logQLExpr() {}
+
+func (LogFormatExpr) logStageExpr() {}
 
 func (l *LogFormatExpr) String() string {
 	if l == nil {
@@ -191,6 +203,8 @@ func (l *LogFormatExpr) String() string {
 		sb strings.Builder
 		i  int
 	)
+
+	sb.WriteString(fmt.Sprintf("| %s ", ParserLabelFormat))
 
 	keys := make([]string, 0, len(l.kv))
 	for key := range l.kv {
@@ -209,7 +223,13 @@ func (l *LogFormatExpr) String() string {
 			sb.WriteString(fmt.Sprintf("%s(", l.operation))
 		}
 
-		sb.WriteString(strconv.Quote(l.kv[key]))
+		lmv := l.kv[key]
+		val := lmv.Value
+		if !lmv.IsIdentifier {
+			val = strconv.Quote(lmv.Value)
+		}
+
+		sb.WriteString(val)
 
 		if l.operation != "" {
 			sb.WriteString(")")
@@ -235,6 +255,67 @@ func mergeLogFormatValues(lhs, rhs LogFormatValues) LogFormatValues {
 	}
 
 	return lhs
+}
+
+type LogParserExpr struct {
+	defaultLogQLExpr // nolint:unused
+	identifier       string
+	parser           string
+	operation        string
+}
+
+func newLogParserExpr(parser, identifier, operation string) LogStageExpr {
+	return &LogParserExpr{parser: parser, identifier: identifier, operation: operation}
+}
+
+func (LogParserExpr) logQLExpr() {}
+
+func (LogParserExpr) logStageExpr() {}
+
+func (l *LogParserExpr) String() string {
+	if l == nil {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("| ")
+	sb.WriteString(l.parser)
+
+	if l.operation != "" {
+		sb.WriteString(fmt.Sprintf(" %s(", l.operation))
+	}
+
+	switch l.parser {
+	case ParserRegExp, ParserLineFormat:
+		sb.WriteString(" ")
+		sb.WriteString(strconv.Quote(l.identifier))
+	case ParserPattern:
+		sb.WriteString(" ")
+		if strings.Contains(l.identifier, `"`) {
+			sb.WriteString("`")
+			sb.WriteString(l.identifier)
+			sb.WriteString("`")
+		} else {
+			sb.WriteString(strconv.Quote(l.identifier))
+		}
+	case ParserUnwrap:
+		if l.operation == "" {
+			sb.WriteString(" ")
+		}
+		sb.WriteString(l.identifier)
+	default:
+		sb.WriteString(l.identifier)
+	}
+
+	if l.operation != "" {
+		sb.WriteString(")")
+	}
+
+	return sb.String()
+}
+
+func (l *LogParserExpr) Walk(fn WalkFn) {
+	fn(l)
 }
 
 type LogPipelineExpr []LogPipelineStageExpr
@@ -266,13 +347,12 @@ func (l *LogPipelineExpr) Walk(fn WalkFn) {
 }
 
 type LogPipelineStageExpr struct {
-	parser  string
-	matcher *LogFormatExpr
-	stages  LogFiltersExpr
+	expr   LogStageExpr
+	stages LogFiltersExpr
 }
 
-func newLogPipelineStageExpr(parser string, matcher *LogFormatExpr, stage LogFiltersExpr) LogPipelineStageExpr {
-	return LogPipelineStageExpr{parser: parser, matcher: matcher, stages: stage}
+func newLogPipelineStageExpr(expr LogStageExpr, stage LogFiltersExpr) LogPipelineStageExpr {
+	return LogPipelineStageExpr{expr: expr, stages: stage}
 }
 
 func (LogPipelineStageExpr) logQLExpr() {}
@@ -280,14 +360,8 @@ func (LogPipelineStageExpr) logQLExpr() {}
 func (l *LogPipelineStageExpr) String() string {
 	var sb strings.Builder
 
-	if l.parser != "" || l.matcher != nil {
-		sb.WriteString("| ")
-		sb.WriteString(l.parser)
-
-		if l.matcher != nil {
-			sb.WriteString(" ")
-			sb.WriteString(l.matcher.String())
-		}
+	if l.expr != nil {
+		sb.WriteString(l.expr.String())
 	}
 
 	for i, stage := range l.stages {
@@ -367,8 +441,9 @@ func (l *LogRangeQueryExpr) String() string {
 	}
 
 	if l.rngLast {
+		sb.WriteString("(")
 		sb.WriteString(l.left.String())
-		sb.WriteString(" ")
+		sb.WriteString(") ")
 		sb.WriteString(l.rng)
 	} else {
 		sl := strings.Replace(l.left.String(), "}", fmt.Sprintf("}%s", l.rng), 1)
@@ -394,6 +469,7 @@ type LogMetricExpr struct {
 	metricOp         string
 	preamble         string
 	grouping         *grouping
+	groupingAfterOp  bool
 	params           []string
 	offset           time.Duration
 	Expr
@@ -404,6 +480,7 @@ func newLogMetricExpr(
 	m LogSelectorExpr,
 	op, preamble string,
 	grouping *grouping,
+	groupingAfterOp bool,
 	params []string,
 	o *LogOffsetExpr,
 ) LogMetricSampleExpr {
@@ -412,13 +489,14 @@ func newLogMetricExpr(
 		offset = o.Offset
 	}
 	return &LogMetricExpr{
-		Expr:     e,
-		left:     m,
-		metricOp: op,
-		preamble: preamble,
-		grouping: grouping,
-		params:   params,
-		offset:   offset,
+		Expr:            e,
+		left:            m,
+		metricOp:        op,
+		preamble:        preamble,
+		grouping:        grouping,
+		groupingAfterOp: groupingAfterOp,
+		params:          params,
+		offset:          offset,
 	}
 }
 
@@ -432,6 +510,12 @@ func (l *LogMetricExpr) String() string {
 	var sb strings.Builder
 
 	sb.WriteString(l.metricOp)
+
+	if l.grouping != nil && l.groupingAfterOp {
+		sb.WriteString(l.grouping.String())
+		sb.WriteString(" ")
+	}
+
 	sb.WriteString("(")
 
 	if l.preamble != "" {
@@ -466,7 +550,7 @@ func (l *LogMetricExpr) String() string {
 
 	sb.WriteString(")")
 
-	if l.grouping != nil {
+	if l.grouping != nil && !l.groupingAfterOp {
 		sb.WriteString(l.grouping.String())
 	}
 
@@ -528,7 +612,6 @@ func (LogBinaryOpExpr) logQLExpr() {}
 func (l LogBinaryOpExpr) String() string {
 	var sb strings.Builder
 
-	sb.WriteString("(")
 	sb.WriteString(l.Expr.String())
 	sb.WriteString(" ")
 	sb.WriteString(l.op)
@@ -540,7 +623,6 @@ func (l LogBinaryOpExpr) String() string {
 	}
 
 	sb.WriteString(l.right.String())
-	sb.WriteString(")")
 
 	return sb.String()
 }
@@ -567,11 +649,12 @@ func newLogNumberExpr(value string, isNegative bool) LogNumberExpr {
 }
 
 func (l LogNumberExpr) String() string {
+	format := "%f"
 	if l.isNeg {
-		return fmt.Sprintf("-%f", l.value)
+		format = "-" + format
 	}
 
-	return fmt.Sprintf("%f", l.value)
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf(format, l.value), "0"), ".")
 }
 
 func (l LogNumberExpr) Walk(fn WalkFn) {

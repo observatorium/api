@@ -106,11 +106,13 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{ first = "value" }|logfmt|addr>=ip("1.1.1.1")`,
+			input: `{first="value"} | logfmt | addr>=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "logfmt",
+						expr: &LogParserExpr{
+							parser: "logfmt",
+						},
 					},
 					{
 						stages: LogFiltersExpr{
@@ -136,11 +138,13 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{ first = "value" }|logfmt|remote_addr=ip("10.0.0.0")|level="error"|addr=ip("1.1.1.1")`,
+			input: `{first="value"} | logfmt | remote_addr=ip("10.0.0.0") | level="error" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "logfmt",
+						expr: &LogParserExpr{
+							parser: "logfmt",
+						},
 					},
 					{
 						stages: LogFiltersExpr{
@@ -228,7 +232,9 @@ func TestParseExpr(t *testing.T) {
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "logfmt",
+						expr: &LogParserExpr{
+							parser: "logfmt",
+						},
 					},
 					{
 						stages: LogFiltersExpr{
@@ -258,7 +264,9 @@ func TestParseExpr(t *testing.T) {
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "json",
+						expr: &LogParserExpr{
+							parser: "json",
+						},
 					},
 					{
 						stages: LogFiltersExpr{
@@ -288,7 +296,9 @@ func TestParseExpr(t *testing.T) {
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "json",
+						expr: &LogParserExpr{
+							parser: "json",
+						},
 					},
 					{
 						stages: LogFiltersExpr{
@@ -317,7 +327,9 @@ func TestParseExpr(t *testing.T) {
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "unpack",
+						expr: &LogParserExpr{
+							parser: "unpack",
+						},
 					},
 					{
 						stages: LogFiltersExpr{
@@ -347,10 +359,9 @@ func TestParseExpr(t *testing.T) {
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "regexp",
-						matcher: &LogFormatExpr{
-							sep: "",
-							kv:  LogFormatValues{"": "(.)*"},
+						expr: &LogParserExpr{
+							parser:     "regexp",
+							identifier: "(.)*",
 						},
 					},
 					{
@@ -377,19 +388,18 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{ log_type = "application" } | json | pattern ` + "`" + `<_>:"<mytimestamp>",<_>` + "`",
+			input: `{log_type="application"} | json | pattern ` + "`" + `<_>:"<mytimestamp>",<_>` + "`",
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "json",
+						expr: &LogParserExpr{
+							parser: "json",
+						},
 					},
 					{
-						parser: "pattern",
-						matcher: &LogFormatExpr{
-							sep: "",
-							kv: LogFormatValues{
-								"": `<_>:"<mytimestamp>",<_>`,
-							},
+						expr: &LogParserExpr{
+							parser:     "pattern",
+							identifier: `<_>:"<mytimestamp>",<_>`,
 						},
 					},
 				},
@@ -405,14 +415,44 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{kubernetes_namespace_name="log-test-0"} | json | level=~"critical|emerg|fatal|alert|crit|error|err|eror"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					{
+						expr: &LogParserExpr{
+							parser: "json",
+						},
+					},
+					{
+						stages: LogFiltersExpr{
+							{
+								filter:  "|",
+								alias:   "level",
+								aliasOp: "=~",
+								value:   "critical|emerg|fatal|alert|crit|error|err|eror",
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "kubernetes_namespace_name",
+							Value: "log-test-0",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | pattern "(.)*" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "pattern",
-						matcher: &LogFormatExpr{
-							sep: "",
-							kv:  LogFormatValues{"": "(.)*"},
+						expr: &LogParserExpr{
+							parser:     "pattern",
+							identifier: "(.)*",
 						},
 					},
 					{
@@ -452,24 +492,22 @@ func TestParseExpr(t *testing.T) {
 						},
 					},
 					{
-						parser: "json",
-					},
-					{
-						parser: "line_format",
-						matcher: &LogFormatExpr{
-							sep: "",
-							kv: LogFormatValues{
-								"": "loop{{ .first }}blop {{.status_code}}",
-							},
+						expr: &LogParserExpr{
+							parser: "json",
 						},
 					},
 					{
-						parser: "label_format",
-						matcher: &LogFormatExpr{
+						expr: &LogParserExpr{
+							parser:     "line_format",
+							identifier: "loop{{ .first }}blop {{.status_code}}",
+						},
+					},
+					{
+						expr: &LogFormatExpr{
 							sep: ",",
 							kv: LogFormatValues{
-								"first":       "value",
-								"status_code": "blop{{.value}}",
+								"first":       LogFormatValue{Value: "value", IsIdentifier: true},
+								"status_code": LogFormatValue{Value: "blop{{.value}}"},
 							},
 						},
 					},
@@ -561,7 +599,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `count_over_time({first="value"} |= "error" [24h])`,
+			input: `count_over_time(({first="value"} |= "error") [24h])`,
 			expr: &LogMetricExpr{
 				metricOp: `count_over_time`,
 				left: &LogRangeQueryExpr{
@@ -592,7 +630,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `bytes_over_time(({first="value"} |= "other" |~ "loop" != "while" !~ "goto")[1m])`,
+			input: `bytes_over_time(({first="value"} |= "other" |~ "loop" != "while" !~ "goto") [1m])`,
 			expr: &LogMetricExpr{
 				metricOp: "bytes_over_time",
 				left: &LogRangeQueryExpr{
@@ -688,8 +726,9 @@ func TestParseExpr(t *testing.T) {
 		{
 			input: `max without (value) (count_over_time({first="value"}[10h]))`,
 			expr: &LogMetricExpr{
-				metricOp: "max",
-				grouping: &grouping{without: true, groups: []string{"value"}},
+				metricOp:        "max",
+				grouping:        &grouping{without: true, groups: []string{"value"}},
+				groupingAfterOp: true,
 				Expr: &LogMetricExpr{
 					metricOp: "count_over_time",
 					left: &LogRangeQueryExpr{
@@ -750,7 +789,7 @@ func TestParseExpr(t *testing.T) {
 		{
 			input: `
 			label_replace(
-				bytes_over_time(({first="value"} |= "other" |~ "loop" != "while" !~ "goto")[1m]),
+				bytes_over_time(({first="value"} |= "other" |~ "loop" != "while" !~ "goto") [1m]),
 				"blop",
 				"$2",
 				"value",
@@ -809,7 +848,7 @@ func TestParseExpr(t *testing.T) {
 		},
 		// log binary op expressions
 		{
-			input: `count_over_time({title="martian"} |= "level=error"[1m])	/ count_over_time({title="martian"}[1m])`,
+			input: `count_over_time(({title="martian"} |= "level=error") [1m]) / count_over_time({title="martian"}[1m])`,
 			expr: LogBinaryOpExpr{
 				Expr: &LogMetricExpr{
 					metricOp: "count_over_time",
@@ -862,15 +901,16 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `sum by (job) (
-							count_over_time({title="martian"} |= "level=error"[1m])
-						/
-							bytes_over_time({title="martian"}[1m])
-						)  * 100`,
+			input: `sum by(job) (
+							count_over_time(({title="martian"} |= "level=error") [1m])
+						 /
+							 bytes_over_time({title="martian"}[1m])
+						) * 100`,
 			expr: LogBinaryOpExpr{
 				Expr: &LogMetricExpr{
-					metricOp: "sum",
-					grouping: &grouping{groups: []string{"job"}},
+					metricOp:        "sum",
+					grouping:        &grouping{groups: []string{"job"}},
+					groupingAfterOp: true,
 					Expr: LogBinaryOpExpr{
 						Expr: &LogMetricExpr{
 							metricOp: "count_over_time",
@@ -928,9 +968,9 @@ func TestParseExpr(t *testing.T) {
 		},
 		{
 			input: `
-					sum(count_over_time({first="value"}[1m])) by (first) +
-					sum(bytes_over_time({first="value"}[1m])) by (first) /
-					sum(absent_over_time({first="value"}[1m])) by (first)
+					sum(count_over_time({first="value"}[1m])) by(first) +
+					 sum(bytes_over_time({first="value"}[1m])) by(first) /
+					 sum(absent_over_time({first="value"}[1m])) by(first)
 					`,
 			expr: LogBinaryOpExpr{
 				Expr: &LogMetricExpr{
@@ -1012,7 +1052,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: "100^100",
+			input: "100 ^ 100",
 			expr: LogBinaryOpExpr{
 				Expr:  LogNumberExpr{value: 100},
 				op:    "^",
@@ -1029,7 +1069,7 @@ func TestParseExpr(t *testing.T) {
 		},
 		// parse unwrap expression with a label filter
 		{
-			input: `rate({first="value"} | unwrap value [30s])`,
+			input: `rate(({first="value"} | unwrap value) [30s])`,
 			expr: &LogMetricExpr{
 				metricOp: "rate",
 				left: &LogRangeQueryExpr{
@@ -1038,10 +1078,9 @@ func TestParseExpr(t *testing.T) {
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
 							{
-								parser: "unwrap",
-								matcher: &LogFormatExpr{
-									sep: "",
-									kv:  LogFormatValues{"": "value"},
+								expr: &LogParserExpr{
+									parser:     "unwrap",
+									identifier: "value",
 								},
 							},
 						},
@@ -1060,7 +1099,7 @@ func TestParseExpr(t *testing.T) {
 		},
 		// parse unwrap expression of type bytes()/duration()/duration_seconds()
 		{
-			input: `sum_over_time({first="value"} | unwrap bytes(value) [5m])`,
+			input: `sum_over_time(({first="value"} | unwrap bytes(value)) [5m])`,
 			expr: &LogMetricExpr{
 				metricOp: "sum_over_time",
 				left: &LogRangeQueryExpr{
@@ -1069,11 +1108,10 @@ func TestParseExpr(t *testing.T) {
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
 							{
-								parser: "unwrap",
-								matcher: &LogFormatExpr{
-									sep:       "",
-									kv:        LogFormatValues{"": "value"},
-									operation: "bytes",
+								expr: &LogParserExpr{
+									parser:     "unwrap",
+									identifier: "value",
+									operation:  "bytes",
 								},
 							},
 						},
@@ -1096,20 +1134,16 @@ func TestParseExpr(t *testing.T) {
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					{
-						parser: "line_format",
-						matcher: &LogFormatExpr{
-							sep: "",
-							kv: LogFormatValues{
-								"": "{{ __line__ }} bar {{.status_code}}",
-							},
+						expr: &LogParserExpr{
+							parser:     "line_format",
+							identifier: "{{ __line__ }} bar {{.status_code}}",
 						},
 					},
 					{
-						parser: "label_format",
-						matcher: &LogFormatExpr{
+						expr: &LogFormatExpr{
 							sep: "",
 							kv: LogFormatValues{
-								"status_code": "401",
+								"status_code": LogFormatValue{Value: "401"},
 							},
 						},
 					},
@@ -1127,7 +1161,7 @@ func TestParseExpr(t *testing.T) {
 		},
 		// parse offset expression
 		{
-			input: `max_over_time({first="value"} | unwrap value [5m] offset 5m)`,
+			input: `max_over_time(({first="value"} | unwrap value) [5m] offset 5m0s)`,
 			expr: &LogMetricExpr{
 				metricOp: "max_over_time",
 				offset:   5 * time.Minute,
@@ -1137,10 +1171,9 @@ func TestParseExpr(t *testing.T) {
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
 							{
-								parser: "unwrap",
-								matcher: &LogFormatExpr{
-									sep: "",
-									kv:  LogFormatValues{"": "value"},
+								expr: &LogParserExpr{
+									parser:     "unwrap",
+									identifier: "value",
 								},
 							},
 						},
@@ -1159,10 +1192,11 @@ func TestParseExpr(t *testing.T) {
 		},
 		// parse offset expression with double grouping
 		{
-			input: `sum without (value) (quantile_over_time(0.98,{first="value"} | unwrap value [5m] offset 5m) by (namespace))`,
+			input: `sum without(value) (quantile_over_time(0.98,({first="value"} | unwrap value) [5m] offset 5m0s) by(namespace))`,
 			expr: &LogMetricExpr{
-				metricOp: "sum",
-				grouping: &grouping{without: true, groups: []string{"value"}},
+				metricOp:        "sum",
+				grouping:        &grouping{without: true, groups: []string{"value"}},
+				groupingAfterOp: true,
 				Expr: &LogMetricExpr{
 					metricOp: "quantile_over_time",
 					preamble: "0.98",
@@ -1174,10 +1208,9 @@ func TestParseExpr(t *testing.T) {
 						left: &LogQueryExpr{
 							filter: LogPipelineExpr{
 								{
-									parser: "unwrap",
-									matcher: &LogFormatExpr{
-										sep: "",
-										kv:  LogFormatValues{"": "value"},
+									expr: &LogParserExpr{
+										parser:     "unwrap",
+										identifier: "value",
 									},
 								},
 							},
@@ -1210,8 +1243,11 @@ func TestParseExpr(t *testing.T) {
 			}
 
 			if !tc.doNotcheckString {
-				if tc.expr.String() != expr.String() {
-					t.Fatalf("\ngot: %s\nwant: %s", expr.String(), trimInput(tc.input))
+				got := trimOutput(expr.String())
+				want := trimInput(tc.input)
+
+				if want != got {
+					t.Fatalf("\ngot:  %s\nwant: %s", got, want)
 				}
 			}
 		})
@@ -1228,4 +1264,16 @@ func trimInput(s string) string {
 	s = strings.ReplaceAll(s, "\t", "")
 
 	return strings.TrimSpace(s)
+}
+
+func trimOutput(s string) string {
+	if s == "" {
+		return s
+	}
+
+	if strings.HasPrefix(s, "(") {
+		s = strings.TrimPrefix(s, "(")
+		s = strings.TrimSuffix(s, ")")
+	}
+	return s
 }

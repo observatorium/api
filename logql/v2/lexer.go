@@ -23,6 +23,15 @@ const (
 	VectorOpTypeBottomK = "bottomk"
 	VectorOpTypeTopK    = "topk"
 
+	ParserLogFMT      = "logfmt"
+	ParserJSON        = "json"
+	ParserUnpack      = "unpack"
+	ParserUnwrap      = "unwrap"
+	ParserRegExp      = "regexp"
+	ParserPattern     = "pattern"
+	ParserLineFormat  = "line_format"
+	ParserLabelFormat = "label_format"
+
 	RangeOpTypeCount     = "count_over_time"
 	RangeOpTypeRate      = "rate"
 	RangeOpTypeBytes     = "bytes_over_time"
@@ -50,46 +59,46 @@ const (
 
 // nolint:gochecknoglobals
 var tokens = map[string]int{
-	",":                COMMA,
-	"{":                OPEN_BRACE,
-	"}":                CLOSE_BRACE,
-	"(":                OPEN_PARENTHESIS,
-	")":                CLOSE_PARENTHESIS,
-	"=":                EQ,
-	"!=":               NEQ,
-	"=~":               RE,
-	"!~":               NRE,
-	"|":                PIPE,
-	"|=":               PIPE_EXACT,
-	"|~":               PIPE_MATCH,
-	"by":               BY,
-	"without":          WITHOUT,
-	"logfmt":           LOGFMT,
-	"json":             JSON,
-	"regexp":           REGEXP,
-	"unpack":           UNPACK,
-	"unwrap":           UNWRAP,
-	"offset":           OFFSET,
-	"pattern":          PATTERN,
-	"line_format":      LINE_FMT,
-	"label_format":     LABEL_FMT,
-	"==":               CMP_EQ,
-	">":                GT,
-	">=":               GTE,
-	"<":                LT,
-	"<=":               LTE,
-	"or":               OR,
-	"and":              AND,
-	"unless":           UNLESS,
-	"+":                ADD,
-	"-":                SUB,
-	"*":                MUL,
-	"/":                DIV,
-	"%":                MOD,
-	"^":                POW,
-	"bytes":            BYTES_CONV,
-	"duration":         DURATION_CONV,
-	"duration_seconds": DURATION_SECONDS_CONV,
+	",":                   COMMA,
+	"{":                   OPEN_BRACE,
+	"}":                   CLOSE_BRACE,
+	"(":                   OPEN_PARENTHESIS,
+	")":                   CLOSE_PARENTHESIS,
+	"=":                   EQ,
+	"!=":                  NEQ,
+	"=~":                  RE,
+	"!~":                  NRE,
+	"|":                   PIPE,
+	"|=":                  PIPE_EXACT,
+	"|~":                  PIPE_MATCH,
+	"by":                  BY,
+	"without":             WITHOUT,
+	ParserLogFMT:          LOGFMT,
+	ParserJSON:            JSON,
+	ParserRegExp:          REGEXP,
+	ParserUnpack:          UNPACK,
+	ParserUnwrap:          UNWRAP,
+	"offset":              OFFSET,
+	"pattern":             PATTERN,
+	ParserLineFormat:      LINE_FMT,
+	ParserLabelFormat:     LABEL_FMT,
+	"==":                  CMP_EQ,
+	">":                   GT,
+	">=":                  GTE,
+	"<":                   LT,
+	"<=":                  LTE,
+	"or":                  OR,
+	"and":                 AND,
+	"unless":              UNLESS,
+	"+":                   ADD,
+	"-":                   SUB,
+	"*":                   MUL,
+	"/":                   DIV,
+	"%":                   MOD,
+	"^":                   POW,
+	OpConvBytes:           BYTES_CONV,
+	OpConvDuration:        DURATION_CONV,
+	OpConvDurationSeconds: DURATION_SECONDS_CONV,
 }
 
 // nolint:gochecknoglobals

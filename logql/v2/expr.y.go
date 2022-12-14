@@ -817,62 +817,62 @@ exprdefault:
 	case 14:
 		exprDollar = exprS[exprpt-1 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("", nil, exprDollar[1].LogFiltersExpr)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(nil, exprDollar[1].LogFiltersExpr)
 		}
 	case 15:
 		exprDollar = exprS[exprpt-2 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("logfmt", nil, nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserLogFMT, "", ""), nil)
 		}
 	case 16:
 		exprDollar = exprS[exprpt-2 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("json", nil, nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserJSON, "", ""), nil)
 		}
 	case 17:
 		exprDollar = exprS[exprpt-2 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unpack", nil, nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserUnpack, "", ""), nil)
 		}
 	case 18:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserUnwrap, exprDollar[3].str, ""), nil)
 		}
 	case 19:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("unwrap", newLogFormatExpr("", LogFormatValues{"": exprDollar[5].str}, exprDollar[3].ConvOp), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserUnwrap, exprDollar[5].str, exprDollar[3].ConvOp), nil)
 		}
 	case 20:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("regexp", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserRegExp, exprDollar[3].str, ""), nil)
 		}
 	case 21:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("pattern", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserPattern, exprDollar[3].str, ""), nil)
 		}
 	case 22:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("line_format", newLogFormatExpr("", LogFormatValues{"": exprDollar[3].str}, ""), nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(newLogParserExpr(ParserLineFormat, exprDollar[3].str, ""), nil)
 		}
 	case 23:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("label_format", exprDollar[3].LogFormatExpr, nil)
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(exprDollar[3].LogFormatExpr, nil)
 		}
 	case 24:
 		exprDollar = exprS[exprpt-4 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("", nil, LogFiltersExpr{newLogFilterExpr("|", exprDollar[2].str, exprDollar[3].ComparisonOp, "", exprDollar[4].str)})
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(nil, LogFiltersExpr{newLogFilterExpr("|", exprDollar[2].str, exprDollar[3].ComparisonOp, "", exprDollar[4].str)})
 		}
 	case 25:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr("", nil, LogFiltersExpr{newLogFilterExpr("|", exprDollar[2].str, exprDollar[3].ComparisonOp, OpIP, exprDollar[6].str)})
+			exprVAL.LogPipelineStageExpr = newLogPipelineStageExpr(nil, LogFiltersExpr{newLogFilterExpr("|", exprDollar[2].str, exprDollar[3].ComparisonOp, OpIP, exprDollar[6].str)})
 		}
 	case 26:
 		exprDollar = exprS[exprpt-1 : exprpt+1]
@@ -897,22 +897,22 @@ exprdefault:
 	case 30:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: exprDollar[3].str}, "")
+			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: LogFormatValue{Value: exprDollar[3].str}}, "").(*LogFormatExpr)
 		}
 	case 31:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: exprDollar[3].str}, "")
+			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: LogFormatValue{Value: exprDollar[3].str, IsIdentifier: true}}, "").(*LogFormatExpr)
 		}
 	case 32:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: OpIP + "(" + exprDollar[5].str + ")"}, "")
+			exprVAL.LogFormatExpr = newLogFormatExpr("", LogFormatValues{exprDollar[1].str: LogFormatValue{Value: OpIP + "(" + exprDollar[5].str + ")"}}, "").(*LogFormatExpr)
 		}
 	case 33:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr(",", mergeLogFormatValues(exprDollar[1].LogFormatExpr.kv, exprDollar[3].LogFormatExpr.kv), "")
+			exprVAL.LogFormatExpr = newLogFormatExpr(",", mergeLogFormatValues(exprDollar[1].LogFormatExpr.kv, exprDollar[3].LogFormatExpr.kv), "").(*LogFormatExpr)
 		}
 	case 34:
 		exprDollar = exprS[exprpt-2 : exprpt+1]
@@ -959,122 +959,122 @@ exprdefault:
 	case 43:
 		exprDollar = exprS[exprpt-4 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, exprDollar[1].MetricOp, "", nil, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, exprDollar[1].MetricOp, "", nil, false, nil, nil)
 		}
 	case 44:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, exprDollar[1].MetricOp, "", nil, nil, exprDollar[4].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, exprDollar[1].MetricOp, "", nil, false, nil, exprDollar[4].LogOffsetExpr)
 		}
 	case 45:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, nil, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, nil, false, nil, nil)
 		}
 	case 46:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[7].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[7].Grouping, false, nil, nil)
 		}
 	case 47:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, nil, nil, exprDollar[6].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, nil, false, nil, exprDollar[6].LogOffsetExpr)
 		}
 	case 48:
 		exprDollar = exprS[exprpt-8 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[8].Grouping, nil, exprDollar[6].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[5].LogRangeQueryExpr, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[8].Grouping, false, nil, exprDollar[6].LogOffsetExpr)
 		}
 	case 49:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, "", "", exprDollar[5].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, "", "", exprDollar[5].Grouping, false, nil, nil)
 		}
 	case 50:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, "", "", exprDollar[6].Grouping, nil, exprDollar[4].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, "", "", exprDollar[6].Grouping, false, nil, exprDollar[4].LogOffsetExpr)
 		}
 	case 51:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogMetricExpr, nil, exprDollar[1].MetricOp, "", exprDollar[5].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogMetricExpr, nil, exprDollar[1].MetricOp, "", exprDollar[5].Grouping, false, nil, nil)
 		}
 	case 52:
 		exprDollar = exprS[exprpt-4 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogMetricExpr, nil, exprDollar[1].MetricOp, "", nil, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogMetricExpr, nil, exprDollar[1].MetricOp, "", nil, false, nil, nil)
 		}
 	case 53:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, nil, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, nil, false, nil, nil)
 		}
 	case 54:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[7].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[7].Grouping, false, nil, nil)
 		}
 	case 55:
 		exprDollar = exprS[exprpt-8 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[8].Grouping, nil, exprDollar[6].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[8].Grouping, false, nil, exprDollar[6].LogOffsetExpr)
 		}
 	case 56:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[6].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[4].str, exprDollar[2].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[6].LogMetricExpr, nil, exprDollar[1].MetricOp, exprDollar[4].str, exprDollar[2].Grouping, true, nil, nil)
 		}
 	case 57:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[4].LogMetricExpr, nil, exprDollar[1].MetricOp, "", exprDollar[2].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[4].LogMetricExpr, nil, exprDollar[1].MetricOp, "", exprDollar[2].Grouping, true, nil, nil)
 		}
 	case 58:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[4].LogMetricExpr, nil, exprDollar[1].MetricOp, "", exprDollar[2].Grouping, nil, exprDollar[5].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[4].LogMetricExpr, nil, exprDollar[1].MetricOp, "", exprDollar[2].Grouping, true, nil, exprDollar[5].LogOffsetExpr)
 		}
 	case 59:
 		exprDollar = exprS[exprpt-12 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogMetricExpr, nil, OpLabelReplace, "", nil, []string{exprDollar[5].str, exprDollar[7].str, exprDollar[9].str, exprDollar[11].str}, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogMetricExpr, nil, OpLabelReplace, "", nil, false, []string{exprDollar[5].str, exprDollar[7].str, exprDollar[9].str, exprDollar[11].str}, nil)
 		}
 	case 60:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, "", exprDollar[5].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, "", exprDollar[5].Grouping, false, nil, nil)
 		}
 	case 61:
 		exprDollar = exprS[exprpt-4 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, "", nil, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, "", nil, false, nil, nil)
 		}
 	case 62:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, nil, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, nil, false, nil, nil)
 		}
 	case 63:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[7].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[5].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, exprDollar[3].str, exprDollar[7].Grouping, false, nil, nil)
 		}
 	case 64:
 		exprDollar = exprS[exprpt-7 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[6].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, exprDollar[4].str, exprDollar[2].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[6].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, exprDollar[4].str, exprDollar[2].Grouping, true, nil, nil)
 		}
 	case 65:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[4].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, "", exprDollar[2].Grouping, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[4].LogBinaryOpExpr, nil, exprDollar[1].MetricOp, "", exprDollar[2].Grouping, true, nil, nil)
 		}
 	case 66:
 		exprDollar = exprS[exprpt-12 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogBinaryOpExpr, nil, OpLabelReplace, "", nil, []string{exprDollar[5].str, exprDollar[7].str, exprDollar[9].str, exprDollar[11].str}, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(exprDollar[3].LogBinaryOpExpr, nil, OpLabelReplace, "", nil, false, []string{exprDollar[5].str, exprDollar[7].str, exprDollar[9].str, exprDollar[11].str}, nil)
 		}
 	case 67:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
