@@ -65,7 +65,7 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 				name:     requestName,
 				key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
 				limit:    int64(c.Limit),
-				duration: c.Window.Microseconds(),
+				duration: c.Window.Milliseconds(),
 			}}.Handler})
 	}
 
