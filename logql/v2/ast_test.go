@@ -60,11 +60,11 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 		// log number expressions
 		{
 			input:  "100 * 100",
-			output: "(100.000000 * 100.000000)",
+			output: "100 * 100",
 		},
 		{
 			input:  "100 * -100",
-			output: "(100.000000 * -100.000000)",
+			output: "100 * -100",
 		},
 		// log selector expressions
 		{
@@ -86,20 +86,20 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 		},
 		{
 			input:  `max without (second) (count_over_time({first="value"}[5h]))`,
-			output: `max(count_over_time({first="value", second="next"}[5h])) without(second)`,
+			output: `max without(second) (count_over_time({first="value", second="next"}[5h]))`,
 		},
 		// log binary expressions
 		{
 			input:  `sum(rate({first="value"}[5m])) / sum(rate({first="value"}[5m]))`,
-			output: `(sum(rate({first="value", second="next"}[5m])) / sum(rate({first="value", second="next"}[5m])))`,
+			output: `sum(rate({first="value", second="next"}[5m])) / sum(rate({first="value", second="next"}[5m]))`,
 		},
 		{
-			input: `sum by (job) (
+			input: `sum by(job) (
 							count_over_time({title="martian"} |= "level=error"[5m])
 						/
 							count_over_time({title="martian"}[5m])
 						)  * 100`,
-			output: `(sum((count_over_time({title="martian", second="next"} |= "level=error" [5m]) / count_over_time({title="martian", second="next"}[5m]))) by(job) * 100.000000)`,
+			output: `sum by(job) (count_over_time(({title="martian", second="next"} |= "level=error") [5m]) / count_over_time({title="martian", second="next"}[5m])) * 100`,
 		},
 		// multiline expressions
 		{
