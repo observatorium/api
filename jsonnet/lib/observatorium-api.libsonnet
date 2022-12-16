@@ -14,6 +14,7 @@ local defaults = {
     internal: { port: 8081, appProtocol: 'http' },
     'grpc-public': { port: 8090, appProtocol: 'h2c' },
   },
+  logLevel: 'warn',
   resources: {},
   serviceMonitor: false,
   logs: {},
@@ -110,7 +111,7 @@ function(params) {
               args: [
                 '--web.listen=0.0.0.0:%s' % api.config.ports.public.port,
                 '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal.port,
-                '--log.level=warn',
+                '--log.level=%s' % api.config.logLevel,
               ] + (
                 if api.config.metrics != {} then
                   [
