@@ -32,20 +32,24 @@ const (
 	ParserLineFormat  = "line_format"
 	ParserLabelFormat = "label_format"
 
-	RangeOpTypeCount     = "count_over_time"
-	RangeOpTypeRate      = "rate"
-	RangeOpTypeBytes     = "bytes_over_time"
-	RangeOpTypeBytesRate = "bytes_rate"
-	RangeOpTypeAvg       = "avg_over_time"
-	RangeOpTypeSum       = "sum_over_time"
-	RangeOpTypeMin       = "min_over_time"
-	RangeOpTypeMax       = "max_over_time"
-	RangeOpTypeStdvar    = "stdvar_over_time"
-	RangeOpTypeStddev    = "stddev_over_time"
-	RangeOpTypeQuantile  = "quantile_over_time"
-	RangeOpTypeFirst     = "first_over_time"
-	RangeOpTypeLast      = "last_over_time"
-	RangeOpTypeAbsent    = "absent_over_time"
+	RangeOpTypeCount       = "count_over_time"
+	RangeOpTypeRate        = "rate"
+	RangeOpTypeBytes       = "bytes_over_time"
+	RangeOpTypeBytesRate   = "bytes_rate"
+	RangeOpTypeAvg         = "avg_over_time"
+	RangeOpTypeSum         = "sum_over_time"
+	RangeOpTypeMin         = "min_over_time"
+	RangeOpTypeMax         = "max_over_time"
+	RangeOpTypeStdvar      = "stdvar_over_time"
+	RangeOpTypeStddev      = "stddev_over_time"
+	RangeOpTypeQuantile    = "quantile_over_time"
+	RangeOpTypeFirst       = "first_over_time"
+	RangeOpTypeLast        = "last_over_time"
+	RangeOpTypeAbsent      = "absent_over_time"
+	RangeOpTypeRateCounter = "rate_counter"
+
+	// vector op
+	OpTypeVector = "vector"
 
 	// Other ops.
 	OpLabelReplace = "label_replace"
@@ -60,6 +64,7 @@ const (
 // nolint:gochecknoglobals
 var tokens = map[string]int{
 	",":                   COMMA,
+	".":                   DOT,
 	"{":                   OPEN_BRACE,
 	"}":                   CLOSE_BRACE,
 	"(":                   OPEN_PARENTHESIS,
@@ -71,8 +76,13 @@ var tokens = map[string]int{
 	"|":                   PIPE,
 	"|=":                  PIPE_EXACT,
 	"|~":                  PIPE_MATCH,
+	"decolorize":          DECOLORIZE,
 	"by":                  BY,
 	"without":             WITHOUT,
+	"on":                  ON,
+	"ignoring":            IGNORING,
+	"group_left":          GROUP_LEFT,
+	"group_right":         GROUP_RIGHT,
 	ParserLogFMT:          LOGFMT,
 	ParserJSON:            JSON,
 	ParserRegExp:          REGEXP,
@@ -104,20 +114,22 @@ var tokens = map[string]int{
 // nolint:gochecknoglobals
 var funcTokens = map[string]int{
 	// range vec ops
-	RangeOpTypeRate:      RATE,
-	RangeOpTypeCount:     COUNT_OVER_TIME,
-	RangeOpTypeBytesRate: BYTES_RATE,
-	RangeOpTypeBytes:     BYTES_OVER_TIME,
-	RangeOpTypeAvg:       AVG_OVER_TIME,
-	RangeOpTypeSum:       SUM_OVER_TIME,
-	RangeOpTypeMin:       MIN_OVER_TIME,
-	RangeOpTypeMax:       MAX_OVER_TIME,
-	RangeOpTypeStdvar:    STDVAR_OVER_TIME,
-	RangeOpTypeStddev:    STDDEV_OVER_TIME,
-	RangeOpTypeQuantile:  QUANTILE_OVER_TIME,
-	RangeOpTypeFirst:     FIRST_OVER_TIME,
-	RangeOpTypeLast:      LAST_OVER_TIME,
-	RangeOpTypeAbsent:    ABSENT_OVER_TIME,
+	RangeOpTypeRate:        RATE,
+	RangeOpTypeCount:       COUNT_OVER_TIME,
+	RangeOpTypeBytesRate:   BYTES_RATE,
+	RangeOpTypeBytes:       BYTES_OVER_TIME,
+	RangeOpTypeAvg:         AVG_OVER_TIME,
+	RangeOpTypeSum:         SUM_OVER_TIME,
+	RangeOpTypeMin:         MIN_OVER_TIME,
+	RangeOpTypeMax:         MAX_OVER_TIME,
+	RangeOpTypeStdvar:      STDVAR_OVER_TIME,
+	RangeOpTypeStddev:      STDDEV_OVER_TIME,
+	RangeOpTypeQuantile:    QUANTILE_OVER_TIME,
+	RangeOpTypeFirst:       FIRST_OVER_TIME,
+	RangeOpTypeLast:        LAST_OVER_TIME,
+	RangeOpTypeAbsent:      ABSENT_OVER_TIME,
+	RangeOpTypeRateCounter: RATE_COUNTER,
+	OpTypeVector:           VECTOR,
 
 	// vector ops
 	VectorOpTypeSum:     SUM,

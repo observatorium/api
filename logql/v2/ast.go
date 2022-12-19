@@ -318,6 +318,26 @@ func (l *LogParserExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
+type LogDecolorizeExpr struct {
+	defaultLogQLExpr // nolint:unused
+}
+
+func newLogDecolorizeExpr() LogStageExpr {
+	return &LogDecolorizeExpr{}
+}
+
+func (LogDecolorizeExpr) logQLExpr() {}
+
+func (LogDecolorizeExpr) logStageExpr() {}
+
+func (l *LogDecolorizeExpr) String() string {
+	return "| decolorize"
+}
+
+func (l *LogDecolorizeExpr) Walk(fn WalkFn) {
+	fn(l)
+}
+
 type LogPipelineExpr []LogPipelineStageExpr
 
 func (LogPipelineExpr) logQLExpr() {}
@@ -599,8 +619,31 @@ type LogBinaryOpExpr struct {
 	Expr
 }
 
+type GroupingOptionType string
+
+const (
+	GroupLeftOption  GroupingOptionType = "group_left"
+	GroupRightOption GroupingOptionType = "group_right"
+)
+
+type OnOption struct {
+	Enabled       bool
+	Labels        []string
+	GroupingType  GroupingOptionType
+	IncludeLabels []string
+}
+
+type IgnoringOption struct {
+	Enabled       bool
+	Labels        []string
+	GroupingType  GroupingOptionType
+	IncludeLabels []string
+}
+
 type BinaryOpOptions struct {
-	ReturnBool bool
+	ReturnBool     bool
+	IgnoringOption IgnoringOption
+	OnOption       OnOption
 }
 
 func newLogBinaryOpExpr(op string, modifier BinaryOpOptions, left, right Expr) LogBinaryOpExpr {
@@ -619,6 +662,57 @@ func (l LogBinaryOpExpr) String() string {
 
 	if l.modifier.ReturnBool {
 		sb.WriteString("bool")
+		sb.WriteString(" ")
+	}
+
+	if l.modifier.IgnoringOption.Enabled {
+		sb.WriteString("ignoring")
+		sb.WriteString("(")
+		sb.WriteString(strings.Join(l.modifier.IgnoringOption.Labels, ","))
+		sb.WriteString(")")
+
+		switch l.modifier.IgnoringOption.GroupingType {
+		case GroupLeftOption:
+			sb.WriteString(" ")
+			sb.WriteString(string(GroupLeftOption))
+			sb.WriteString("(")
+			sb.WriteString(strings.Join(l.modifier.IgnoringOption.IncludeLabels, ","))
+			sb.WriteString(")")
+		case GroupRightOption:
+			sb.WriteString(" ")
+			sb.WriteString(string(GroupRightOption))
+			sb.WriteString("(")
+			sb.WriteString(strings.Join(l.modifier.IgnoringOption.IncludeLabels, ","))
+			sb.WriteString(")")
+		default:
+			// do nothing
+		}
+		sb.WriteString(" ")
+	}
+
+	if l.modifier.OnOption.Enabled {
+		sb.WriteString("on")
+		sb.WriteString("(")
+		sb.WriteString(strings.Join(l.modifier.OnOption.Labels, ","))
+		sb.WriteString(")")
+
+		switch l.modifier.OnOption.GroupingType {
+		case GroupLeftOption:
+			sb.WriteString(" ")
+			sb.WriteString(string(GroupLeftOption))
+			sb.WriteString("(")
+			sb.WriteString(strings.Join(l.modifier.OnOption.IncludeLabels, ","))
+			sb.WriteString(")")
+		case GroupRightOption:
+			sb.WriteString(" ")
+			sb.WriteString(string(GroupRightOption))
+			sb.WriteString("(")
+			sb.WriteString(strings.Join(l.modifier.OnOption.IncludeLabels, ","))
+			sb.WriteString(")")
+		default:
+			// do nothing
+		}
+
 		sb.WriteString(" ")
 	}
 
@@ -676,3 +770,20 @@ func newLogOffsetExpr(offset time.Duration) *LogOffsetExpr {
 		Offset: offset,
 	}
 }
+
+type VectorExpr struct {
+	defaultLogQLExpr // nolint:unused
+	Value            string
+}
+
+func (*VectorExpr) logQLExpr() {}
+
+func newVectorExpr(val string) *VectorExpr {
+	return &VectorExpr{Value: val}
+}
+
+func (v *VectorExpr) String() string {
+	return v.Value
+}
+
+func (v *VectorExpr) Walk(fn WalkFn) { fn(v) }

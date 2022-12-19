@@ -63,11 +63,12 @@ import (
 
 %token  <str>      IDENTIFIER STRING RANGE NUMBER
 %token  <duration> DURATION
-%token  <val>      MATCHERS LABELS EQ RE NRE OPEN_BRACE CLOSE_BRACE OPEN_BRACKET CLOSE_BRACKET COMMA
-                   OPEN_PARENTHESIS CLOSE_PARENTHESIS COUNT_OVER_TIME RATE SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK
+%token  <val>      MATCHERS LABELS EQ RE NRE OPEN_BRACE CLOSE_BRACE OPEN_BRACKET CLOSE_BRACKET COMMA DOT
+                   OPEN_PARENTHESIS CLOSE_PARENTHESIS COUNT_OVER_TIME RATE RATE_COUNTER SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK
                    BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                    MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME FIRST_OVER_TIME LAST_OVER_TIME ABSENT_OVER_TIME
-                   BY WITHOUT LABEL_REPLACE IP UNPACK PATTERN OFFSET BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV
+                   BY WITHOUT VECTOR LABEL_REPLACE IP UNPACK PATTERN OFFSET BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV ON IGNORING GROUP_LEFT GROUP_RIGHT
+                   DECOLORIZE
 
 %left <binaryOp> OR
 %left <binaryOp> AND UNLESS
@@ -113,6 +114,7 @@ logPipelineStageExpr:
         |       PIPE REGEXP STRING                                                        { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserRegExp, $3, ""), nil)                  }
         |       PIPE PATTERN STRING                                                       { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserPattern, $3, ""), nil)                 }
         |       PIPE LINE_FMT STRING                                                      { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserLineFormat, $3, ""), nil)              }
+        |       PIPE DECOLORIZE                                                           { $$ = newLogPipelineStageExpr(newLogDecolorizeExpr(), nil)                                  }
         |       PIPE LABEL_FMT logFormatExpr                                              { $$ = newLogPipelineStageExpr($3, nil)                                                      }
         |       PIPE IDENTIFIER comparisonOp STRING                                       { $$ = newLogPipelineStageExpr(nil, LogFiltersExpr{newLogFilterExpr("|", $2, $3, "", $4)})   }
         |       PIPE IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogPipelineStageExpr(nil, LogFiltersExpr{newLogFilterExpr("|", $2, $3, OpIP, $6)}) }
@@ -175,6 +177,7 @@ logMetricExpr:
         |       metricOp grouping OPEN_PARENTHESIS NUMBER COMMA logBinaryOpExpr CLOSE_PARENTHESIS                                    { $$ = newLogMetricExpr($6, nil, $1, $4, $2, true, nil, nil)                                  }
         |       metricOp grouping OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS                                                 { $$ = newLogMetricExpr($4, nil, $1, "", $2, true, nil, nil)                                  }
         |       LABEL_REPLACE OPEN_PARENTHESIS logBinaryOpExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, false, []string{$5,$7,$9,$11}, nil) }
+        |       metricOp OPEN_PARENTHESIS NUMBER CLOSE_PARENTHESIS                                                                   { $$ = newLogMetricExpr(newVectorExpr($3), nil, OpTypeVector, "", nil, false, nil, nil)       }
         |       OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                                     { $$ = $2                                                                                     }
                 ;
 
@@ -206,6 +209,106 @@ logNumberExpr:
 binaryOpOptions:
                 { $$ = BinaryOpOptions{} }
         |       BOOL { $$ = BinaryOpOptions{ ReturnBool: true } }
+        |       binaryOpOptions ON OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, Labels: $4}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, Labels: $4, GroupingType: GroupLeftOption}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, Labels: $4, GroupingType: GroupLeftOption, IncludeLabels: $8}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, Labels: $4, GroupingType: GroupRightOption}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, Labels: $4, GroupingType: GroupRightOption, IncludeLabels: $8}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, GroupingType: GroupLeftOption}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, GroupingType: GroupLeftOption, IncludeLabels: $7}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, GroupingType: GroupRightOption}
+                }
+        |       binaryOpOptions ON OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.OnOption=OnOption{Enabled:true, GroupingType: GroupRightOption, IncludeLabels: $7}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, Labels: $4}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, Labels: $4, GroupingType: GroupLeftOption}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, Labels: $4, GroupingType: GroupLeftOption, IncludeLabels: $8}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, Labels: $4, GroupingType: GroupRightOption}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS labels CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, Labels: $4, GroupingType: GroupRightOption, IncludeLabels: $8}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, GroupingType: GroupLeftOption}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_LEFT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, GroupingType: GroupLeftOption, IncludeLabels: $7}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, GroupingType: GroupRightOption}
+                }
+        |       binaryOpOptions IGNORING OPEN_PARENTHESIS CLOSE_PARENTHESIS GROUP_RIGHT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS
+                {
+                   $$ = $1
+                   $$.IgnoringOption=IgnoringOption{Enabled:true, GroupingType: GroupRightOption, IncludeLabels: $7}
+                }
                 ;
 
 selector:
@@ -227,29 +330,31 @@ matcher:
                 ;
 
 metricOp:
-                COUNT_OVER_TIME    { $$ = RangeOpTypeCount     }
-        |       RATE               { $$ = RangeOpTypeRate      }
-        |       BYTES_OVER_TIME    { $$ = RangeOpTypeBytes     }
-        |       BYTES_RATE         { $$ = RangeOpTypeBytesRate }
-        |       AVG_OVER_TIME      { $$ = RangeOpTypeAvg       }
-        |       SUM_OVER_TIME      { $$ = RangeOpTypeSum       }
-        |       MIN_OVER_TIME      { $$ = RangeOpTypeMin       }
-        |       MAX_OVER_TIME      { $$ = RangeOpTypeMax       }
-        |       STDVAR_OVER_TIME   { $$ = RangeOpTypeStdvar    }
-        |       STDDEV_OVER_TIME   { $$ = RangeOpTypeStddev    }
-        |       QUANTILE_OVER_TIME { $$ = RangeOpTypeQuantile  }
-        |       FIRST_OVER_TIME    { $$ = RangeOpTypeFirst     }
-        |       LAST_OVER_TIME     { $$ = RangeOpTypeLast      }
-        |       ABSENT_OVER_TIME   { $$ = RangeOpTypeAbsent    }
-        |       SUM                { $$ = VectorOpTypeSum      }
-        |       AVG                { $$ = VectorOpTypeAvg      }
-        |       COUNT              { $$ = VectorOpTypeCount    }
-        |       MAX                { $$ = VectorOpTypeMax      }
-        |       MIN                { $$ = VectorOpTypeMin      }
-        |       STDDEV             { $$ = VectorOpTypeStddev   }
-        |       STDVAR             { $$ = VectorOpTypeStdvar   }
-        |       BOTTOMK            { $$ = VectorOpTypeBottomK  }
-        |       TOPK               { $$ = VectorOpTypeTopK     }
+                COUNT_OVER_TIME    { $$ = RangeOpTypeCount       }
+        |       RATE               { $$ = RangeOpTypeRate        }
+        |       RATE_COUNTER       { $$ = RangeOpTypeRateCounter }
+        |       BYTES_OVER_TIME    { $$ = RangeOpTypeBytes       }
+        |       BYTES_RATE         { $$ = RangeOpTypeBytesRate   }
+        |       AVG_OVER_TIME      { $$ = RangeOpTypeAvg         }
+        |       SUM_OVER_TIME      { $$ = RangeOpTypeSum         }
+        |       MIN_OVER_TIME      { $$ = RangeOpTypeMin         }
+        |       MAX_OVER_TIME      { $$ = RangeOpTypeMax         }
+        |       STDVAR_OVER_TIME   { $$ = RangeOpTypeStdvar      }
+        |       STDDEV_OVER_TIME   { $$ = RangeOpTypeStddev      }
+        |       QUANTILE_OVER_TIME { $$ = RangeOpTypeQuantile    }
+        |       FIRST_OVER_TIME    { $$ = RangeOpTypeFirst       }
+        |       LAST_OVER_TIME     { $$ = RangeOpTypeLast        }
+        |       ABSENT_OVER_TIME   { $$ = RangeOpTypeAbsent      }
+        |       SUM                { $$ = VectorOpTypeSum        }
+        |       AVG                { $$ = VectorOpTypeAvg        }
+        |       COUNT              { $$ = VectorOpTypeCount      }
+        |       MAX                { $$ = VectorOpTypeMax        }
+        |       MIN                { $$ = VectorOpTypeMin        }
+        |       STDDEV             { $$ = VectorOpTypeStddev     }
+        |       STDVAR             { $$ = VectorOpTypeStdvar     }
+        |       BOTTOMK            { $$ = VectorOpTypeBottomK    }
+        |       TOPK               { $$ = VectorOpTypeTopK       }
+        |       VECTOR             { $$ = OpTypeVector           }
                 ;
 
 filter:
