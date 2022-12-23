@@ -500,14 +500,14 @@ func main() {
 		r.Use(middleware.RealIP)
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
+		r.Use(func(handler http.Handler) http.Handler {
+			return server.NewInstrumentedHandlerFactory(reg).NewHandler(nil, handler)
+		})
 		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
 		// With default value of zero backlog concurrent requests crossing a rate-limit result in non-200 HTTP response.
 		r.Use(middleware.ThrottleBacklog(cfg.middleware.concurrentRequestLimit,
 			cfg.middleware.backLogLimitConcurrentRequests, cfg.middleware.backLogDurationConcurrentRequests))
 		r.Use(server.Logger(logger))
-
-		hardcodedLabels := []string{"group", "handler"}
-		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
 
 		var (
 			tenantIDs   = map[string]string{}
@@ -619,7 +619,6 @@ func main() {
 						metricsUpstreamClientCert,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
-						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
@@ -635,7 +634,6 @@ func main() {
 						metricsUpstreamClientCert,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
-						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
 						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
@@ -666,7 +664,6 @@ func main() {
 								logsUpstreamClientCert,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
-								logsv1.WithHandlerInstrumenter(instrumenter),
 								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
@@ -711,7 +708,6 @@ func main() {
 								tracesUpstreamClientCert,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
-								tracesv1.WithHandlerInstrumenter(instrumenter),
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
 								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
@@ -1247,6 +1243,7 @@ func blockNonDefinedMethods() http.HandlerFunc {
 }
 
 // Permissions required for each gRPC method.
+//
 //nolint:gochecknoglobals (this would be a const if Golang allowed const maps)
 var gRPCRBAC = authorization.GRPCRBac{
 	// "opentelemetry.proto.collector.trace.v1.TraceService/Export" requires "traces" "write" perm.
