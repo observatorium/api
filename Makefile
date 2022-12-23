@@ -8,7 +8,7 @@ OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
 GOARCH ?= $(shell go env GOARCH)
 BIN_NAME ?= observatorium-api
-FILES_TO_FMT ?= $(shell find . -path ./vendor -path ./gubernator -prune -o -name '*.go' -print)
+FILES_TO_FMT ?= $(filter-out ./ratelimit/gubernator/gubernator.pb.go, $(shell find . -path ./vendor -not -prune -o -name '*.go' -print))
 
 VERSION := $(strip $(shell [ -d .git ] && git describe --always --tags --dirty))
 BUILD_DATE := $(shell date -u +"%Y-%m-%d")
