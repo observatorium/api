@@ -38,7 +38,7 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 		// This is with the new authenticators setup.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
 			e2emon.Greater(0),
-			[]string{"observatorium_api_tenants_failed_registrations"},
+			[]string{"observatorium_api_tenants_failed_registrations_total"},
 			e2emon.WaitMissingMetrics(),
 			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", defaultTenantName),
@@ -49,7 +49,7 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 		// Test a tenant with legacy configuration setup.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
 			e2emon.Greater(0),
-			[]string{"observatorium_api_tenants_failed_registrations"},
+			[]string{"observatorium_api_tenants_failed_registrations_total"},
 			e2emon.WaitMissingMetrics(),
 			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-attacker"),
