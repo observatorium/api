@@ -55,7 +55,7 @@ const (
 	OpLabelReplace = "label_replace"
 	OpIP           = "ip"
 
-	// conversion Op
+	// conversion Op.
 	OpConvBytes           = "bytes"
 	OpConvDuration        = "duration"
 	OpConvDurationSeconds = "duration_seconds"

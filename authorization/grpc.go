@@ -25,7 +25,7 @@ type AccessRequirement struct {
 // requires "write" permission for "traces".
 type GRPCRBac map[string]AccessRequirement
 
-// WithGRPCAuthorizers is the gRPC version of WithAuthorizers
+// WithGRPCAuthorizers is the gRPC version of WithAuthorizers.
 func WithGRPCAuthorizers(authorizers map[string]rbac.Authorizer, methReq GRPCRBac, logger log.Logger) grpc_middleware_auth.AuthFunc {
 	return func(ctx context.Context) (context.Context, error) {
 		fullMethodName, ok := grpc.Method(ctx)

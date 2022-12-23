@@ -259,7 +259,7 @@ func main() {
 	skippedTenants := promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
 		Namespace: "observatorium",
 		Subsystem: "api",
-		Name:      "tenants_skipped_invalid_configuration",
+		Name:      "tenants_skipped_invalid_configuration_total",
 		Help:      "The number of tenants which have not been configured due to an invalid configuration.",
 	}, []string{"tenant"})
 
@@ -1244,7 +1244,8 @@ func blockNonDefinedMethods() http.HandlerFunc {
 }
 
 // Permissions required for each gRPC method.
-//nolint:gochecknoglobals (this would be a const if Golang allowed const maps)
+//
+//nolint:gochecknoglobals
 var gRPCRBAC = authorization.GRPCRBac{
 	// "opentelemetry.proto.collector.trace.v1.TraceService/Export" requires "traces" "write" perm.
 	tracesv1.TraceRoute: {

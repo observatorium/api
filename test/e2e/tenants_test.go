@@ -72,7 +72,7 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
-		// Check that we succesfully hit API after re-registration.
+		// Check that we successfully hit API after re-registration.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
 			e2emon.Greater(0),
 			[]string{"http_requests_total"},

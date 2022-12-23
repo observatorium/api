@@ -186,6 +186,7 @@ type LogFormatExpr struct {
 	operation        string
 }
 
+//nolint:unparam
 func newLogFormatExpr(sep string, kv LogFormatValues, operation string) LogStageExpr {
 	return &LogFormatExpr{sep: sep, kv: kv, operation: operation}
 }

@@ -39,7 +39,7 @@ func InitTracer(
 	if endpointType == EndpointTypeAgent {
 		host, port, err := net.SplitHostPort(endpoint)
 		if err != nil {
-			return fmt.Errorf("initialising tracer failed for agent endpoint type: %w", err)
+			return fmt.Errorf("initializing tracer failed for agent endpoint type: %w", err)
 		}
 
 		endpointOption = jaeger.WithAgentEndpoint(

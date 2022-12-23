@@ -95,13 +95,13 @@ func tlsCipherSuites() map[string]uint16 {
 
 func parseTLSVersion(rawTLSVersion string) (uint16, error) {
 	switch rawTLSVersion {
-	case "VersionTLS10": 
+	case "VersionTLS10":
 		return tls.VersionTLS10, nil
-	case "VersionTLS11": 
+	case "VersionTLS11":
 		return tls.VersionTLS11, nil
-	case "VersionTLS12": 
+	case "VersionTLS12":
 		return tls.VersionTLS12, nil
-	case "VersionTLS13": 
+	case "VersionTLS13":
 		return tls.VersionTLS13, nil
 	default:
 		return 0, fmt.Errorf("unknown TLSVersion: %s", rawTLSVersion)

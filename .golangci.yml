@@ -5,6 +5,42 @@ run:
   deadline: 3m
   tests: true
 
+  # exit code when at least one issue was found, default is 1
+  issues-exit-code: 1
+  skip-dirs:
+    - vendor
+
+# output configuration options
+output:
+  # colored-line-number|line-number|json|tab|checkstyle, default is "colored-line-number"
+  format: colored-line-number
+
+  # print lines of code with issue, default is true
+  print-issued-lines: true
+
+  # print linter name in the end of issue text, default is true
+  print-linter-name: true
+
+linters:
+  enable:
+    # Sorted alphabetically.
+    - errcheck
+    - gochecknoglobals
+    - goconst
+    - godot
+    - gofmt
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - typecheck
+    - unparam
+    - unused
+    - exportloopref
+    - promlinter
+
 linters-settings:
   errcheck:
     exclude: .errcheck_excludes
@@ -13,3 +49,7 @@ linters-settings:
   funlen:
     lines: 140
     statements: 60
+  misspell:
+    locale: US
+  goconst:
+    min-occurrences: 5
