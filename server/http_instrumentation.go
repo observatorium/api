@@ -79,26 +79,22 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		next.ServeHTTP(rw, r)
 
 		tenant, _ := authentication.GetTenantID(r.Context())
-		m.metricsCollector.requestCounter.
-			MustCurryWith(extraLabels).
-			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
-			Inc()
-
+		statusCode := strconv.Itoa(rw.Status())
+		method := r.Method
+		group, ok := extraLabels["group"]
+		if !ok {
+			group = "unknown"
+		}
+		handler, ok := extraLabels["handler"]
+		if !ok {
+			handler = "unknown"
+		}
 		size := computeApproximateRequestSize(r)
-		m.metricsCollector.requestSize.
-			MustCurryWith(extraLabels).
-			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
-			Observe(float64(size))
 
-		m.metricsCollector.requestDuration.
-			MustCurryWith(extraLabels).
-			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
-			Observe(time.Since(now).Seconds())
-
-		m.metricsCollector.responseSize.
-			MustCurryWith(extraLabels).
-			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
-			Observe(float64(rw.BytesWritten()))
+		m.metricsCollector.requestCounter.WithLabelValues(group, handler, statusCode, method, tenant).Inc()
+		m.metricsCollector.requestSize.WithLabelValues(group, handler, statusCode, method, tenant).Observe(float64(size))
+		m.metricsCollector.requestDuration.WithLabelValues(group, handler, statusCode, method, tenant).Observe(time.Since(now).Seconds())
+		m.metricsCollector.responseSize.WithLabelValues(group, handler, statusCode, method, tenant).Observe(float64(rw.BytesWritten()))
 	}
 }
 
