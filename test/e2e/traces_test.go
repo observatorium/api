@@ -69,7 +69,7 @@ const (
 func TestTracesExport(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envTracesName)
+	e, err := e2e.New(e2e.WithName(envTracesName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -260,7 +260,7 @@ func requestWithRetry(t *testing.T, testLabel string, client *http.Client, reque
 func TestTracesTemplateQuery(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envTracesTemplateName)
+	e, err := e2e.New(e2e.WithName(envTracesTemplateName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 

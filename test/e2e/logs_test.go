@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	e2emon "github.com/efficientgo/e2e/monitoring"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,7 +17,7 @@ import (
 func TestLogs(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envLogsName)
+	e, err := e2e.New(e2e.WithName(envLogsName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -45,9 +46,9 @@ func TestLogs(t *testing.T) {
 
 		// Wait until 5 queries are run.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(5),
+			e2emon.Equals(5),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
 		// Check that up metrics are correct.
@@ -103,9 +104,9 @@ func TestLogs(t *testing.T) {
 
 		// Wait until the first query is run.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(1),
+			e2emon.GreaterOrEqual(1),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
 		testutil.Ok(t, up.Stop())

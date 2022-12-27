@@ -5,7 +5,8 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"github.com/efficientgo/e2e/matchers"
+	e2emon "github.com/efficientgo/e2e/monitoring"
+	"github.com/efficientgo/e2e/monitoring/matchers"
 	"net/http"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ import (
 func TestMetricsReadAndWrite(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envMetricsName)
+	e, err := e2e.New(e2e.WithName(envMetricsName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -48,11 +49,11 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
-		// Wait until the first query is run.
+		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(1),
+			e2emon.GreaterOrEqual(1),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
@@ -112,9 +113,9 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 		// Wait until the first query is run.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(1),
+			e2emon.Equals(1),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
@@ -128,7 +129,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 		errorMetrics, err := up.SumMetrics(
 			[]string{"up_remote_writes_total"},
-			e2e.WithLabelMatchers(
+			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "http_code", "400"),
 			),
 		)
