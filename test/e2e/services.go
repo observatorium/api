@@ -306,6 +306,7 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 
 	args := e2e.BuildArgs(map[string]string{
 		"--server": "",
+		filepath.Join(e.SharedDir(), configSharedDir): "",
 		"--ignore": "*.json",
 	})
 
