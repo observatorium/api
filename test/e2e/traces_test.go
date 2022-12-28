@@ -99,8 +99,9 @@ func TestTracesExport(t *testing.T) {
 		otel := e.Runnable("otel-fwd-collector").
 			WithPorts(
 				map[string]int{
-					"http": 4318,
-					"grpc": 4317,
+					"http":         4318,
+					"grpc":         4317,
+					"health_check": 13133,
 				}).
 			Init(e2e.StartOptions{
 				Image: otelFwdCollectorImage,
@@ -111,6 +112,12 @@ func TestTracesExport(t *testing.T) {
 				Command: e2e.Command{
 					Args: []string{"--config=/conf/forwarding-collector.yaml"},
 				},
+				Readiness: e2e.NewHTTPReadinessProbe(
+					"health_check",
+					"/health/status",
+					200,
+					200,
+				),
 			})
 
 		testutil.Ok(t, e2e.StartAndWaitReady(otel))
@@ -290,8 +297,9 @@ func TestTracesTemplateQuery(t *testing.T) {
 		otel := e.Runnable("otel-fwd-collector").
 			WithPorts(
 				map[string]int{
-					"http": 4318,
-					"grpc": 4317,
+					"http":         4318,
+					"grpc":         4317,
+					"health_check": 13133,
 				}).
 			Init(e2e.StartOptions{
 				Image: otelFwdCollectorImage,
@@ -302,6 +310,12 @@ func TestTracesTemplateQuery(t *testing.T) {
 				Command: e2e.Command{
 					Args: []string{"--config=/conf/forwarding-collector.yaml"},
 				},
+				Readiness: e2e.NewHTTPReadinessProbe(
+					"health_check",
+					"/health/status",
+					200,
+					200,
+				),
 			})
 
 		testutil.Ok(t, e2e.StartAndWaitReady(otel))

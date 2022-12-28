@@ -285,7 +285,11 @@ exporters:
         # is unable to do OIDC password grant.)
         authorization: bearer %[2]s
 
+extensions:
+  health_check:
+
 service:
+    extensions: [health_check]
     telemetry:
       metrics:
         address: localhost:8889
