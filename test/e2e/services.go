@@ -63,39 +63,8 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 
 func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
 	// Create S3 replacement for rules backend
-	bucket := "obs_rules_test"
-	userID := strconv.Itoa(os.Getuid())
-	ports := map[string]int{e2edb.AccessPortName: 8090}
-	envVars := []string{
-		"MINIO_ROOT_USER=" + e2edb.MinioAccessKey,
-		"MINIO_ROOT_PASSWORD=" + e2edb.MinioSecretKey,
-		"MINIO_BROWSER=" + "off",
-		"ENABLE_HTTPS=" + "0",
-		// https://docs.min.io/docs/minio-kms-quickstart-guide.html
-		"MINIO_KMS_KES_ENDPOINT=" + "https://play.min.io:7373",
-		"MINIO_KMS_KES_KEY_FILE=" + "root.key",
-		"MINIO_KMS_KES_CERT_FILE=" + "root.cert",
-		"MINIO_KMS_KES_KEY_NAME=" + "my-minio-key",
-	}
-	builder := e.Runnable("rules-minio").WithPorts(ports)
-	minioRunnable := builder.Init(
-		e2e.StartOptions{
-			Image: "minio/minio:RELEASE.2022-03-03T21-21-16Z",
-			// Create the required bucket before starting minio.
-			Command: e2e.NewCommandWithoutEntrypoint("sh", "-c", fmt.Sprintf(
-				// Hacky: Create user that matches ID with host ID to be able to remove .minio.sys details on the start.
-				// Proper solution would be to contribute/create our own minio image which is non root.
-				"useradd -G root -u %v me && mkdir -p %s && chown -R me %s &&"+
-					"curl -sSL --tlsv1.2 -O 'https://raw.githubusercontent.com/minio/kes/master/root.key' -O 'https://raw.githubusercontent.com/minio/kes/master/root.cert' && "+
-					"cp root.* /home/me/ && "+
-					"su - me -s /bin/sh -c 'mkdir -p %s && %s /opt/bin/minio server --address :%v --quiet %v'",
-				userID, builder.Future().Dir(), builder.Future().Dir(), filepath.Join(builder.Future().Dir(), bucket), strings.Join(envVars, " "), ports[e2edb.AccessPortName], builder.Future().Dir()),
-			),
-			Readiness: e2e.NewHTTPReadinessProbe(e2edb.AccessPortName, "/minio/health/live", 200, 200),
-		},
-	)
-	runnable := e2emon.AsInstrumented(minioRunnable, e2edb.AccessPortName)
-
+	const bucket = "obs-rules-test"
+	runnable := e2edb.NewMinio(e, "rules-minio", bucket)
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
 
 	createRulesYAML(t, e, bucket, runnable.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
