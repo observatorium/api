@@ -41,7 +41,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	t.Run("metrics-read-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-metrics-read-write", metrics,
-			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/",
 			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/receive",
 			withToken(token),
 			withRunParameters(&runParams{period: "500ms", threshold: "1", latency: "10s", duration: "0"}),

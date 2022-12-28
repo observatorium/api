@@ -21,9 +21,9 @@ const (
 	apiImage = "quay.io/observatorium/api:local_e2e_test" // Image that is built if you run `make container-test`.
 
 	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
-	thanosImage = "quay.io/thanos/thanos:main-2021-09-23-177b4f23"
+	thanosImage = "quay.io/thanos/thanos:main-2022-12-21-c378043"
 	lokiImage   = "grafana/loki:2.6.1"
-	upImage     = "quay.io/observatorium/up:master-2022-07-13-7f0630b"
+	upImage     = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
@@ -32,10 +32,11 @@ const (
 	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
 	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
 
-	dexImage              = "dexidp/dex:v2.30.0"
-	opaImage              = "openpolicyagent/opa:0.31.0"
-	gubernatorImage       = "thrawn01/gubernator:1.0.0-rc.8"
-	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
+	dexImage        = "dexidp/dex:v2.30.0"
+	opaImage        = "openpolicyagent/opa:0.47.4-static"
+	gubernatorImage = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
+	// TODO: upgrade when fully migrated to multi-arch
+	rulesObjectStoreImage = "quay.io/douglascamata/rules-obj-store-test"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
