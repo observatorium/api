@@ -61,9 +61,11 @@ func TestLogs(t *testing.T) {
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
-		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
-		testutil.Ok(t, err)
-		testutil.Equals(t, float64(24), apiMetrics[0])
+		testutil.Ok(t, api.WaitSumMetricsWithOptions(
+			e2emon.Equals(24),
+			[]string{"http_requests_total"},
+			e2emon.WaitMissingMetrics(),
+		))
 
 		// Simple test to check if we can query Loki for logs.
 		r, err := http.NewRequest(
