@@ -130,8 +130,8 @@ storage:
     file: /tmp/dex.db
 web:
   https: 0.0.0.0:5556
-  tlsCert: /shared/certs/dex.pem
-  tlsKey: /shared/certs/dex.key
+  tlsCert: %s
+  tlsKey: %s
 telemetry:
   http: 0.0.0.0:5558
 logger:
@@ -162,6 +162,8 @@ func createDexYAML(
 	yamlContent := []byte(fmt.Sprintf(
 		dexYAMLTpl,
 		issuer,
+		filepath.Join(e.SharedDir(), certsSharedDir, "dex.pem"),
+		filepath.Join(e.SharedDir(), certsSharedDir, "dex.key"),
 		redirectURI,
 	))
 
