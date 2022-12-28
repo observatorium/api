@@ -233,7 +233,7 @@ func newThanosReceiveService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--receive.hashrings-file":    filepath.Join(configsContainerPath, "hashrings.json"),
+		"--receive.hashrings-file":    filepath.Join(e.SharedDir(), configSharedDir, "hashrings.json"),
 		"--receive.local-endpoint":    "0.0.0.0:" + strconv.Itoa(ports["grpc"]),
 		"--label":                     "receive_replica=\"0\"",
 		"--receive.default-tenant-id": defaultTenantID,
@@ -250,9 +250,6 @@ func newThanosReceiveService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 			Command:   e2e.NewCommand("receive", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/-/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
-			Volumes: []string{
-				fmt.Sprintf("%s:%s", e.SharedDir(), dockerLocalSharedDir),
-			},
 		},
 	), "http")
 }
@@ -261,7 +258,7 @@ func newLokiService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 3100, "grpc": 9095}
 
 	args := e2e.BuildArgs(map[string]string{
-		"-config.file":                filepath.Join(configsContainerPath, "loki.yml"),
+		"-config.file":                filepath.Join(e.SharedDir(), configSharedDir, "loki.yml"),
 		"-server.grpc-listen-address": "0.0.0.0",
 		"-server.grpc-listen-port":    strconv.Itoa(ports["grpc"]),
 		"-server.http-listen-address": "0.0.0.0",
@@ -279,9 +276,6 @@ func newLokiService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 			// 503 here as well to save time.
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/ready", 200, 503),
 			User:      strconv.Itoa(os.Getuid()),
-			Volumes: []string{
-				fmt.Sprintf("%s:%s", e.SharedDir(), dockerLocalSharedDir),
-			},
 		},
 	), "http")
 }
@@ -294,7 +288,7 @@ func newRulesBackendService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 		"--web.listen":           ":" + strconv.Itoa(ports["http"]),
 		"--web.internal.listen":  ":" + strconv.Itoa(ports["internal"]),
 		"--web.healthchecks.url": "http://127.0.0.1:" + strconv.Itoa(ports["http"]),
-		"--objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
+		"--objstore.config-file": filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
 	})
 
 	return e2emon.AsInstrumented(e.Runnable("rules_objstore").WithPorts(ports).Init(
@@ -303,9 +297,6 @@ func newRulesBackendService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 			Command:   e2e.NewCommand("", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("internal", "/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
-			Volumes: []string{
-				fmt.Sprintf("%s:%s", e.SharedDir(), dockerLocalSharedDir),
-			},
 		},
 	), "internal")
 }
@@ -314,9 +305,8 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--server":           "",
-		configsContainerPath: "",
-		"--ignore":           "*.json",
+		"--server": "",
+		"--ignore": "*.json",
 	})
 
 	return e2emon.AsInstrumented(e.Runnable("opa").WithPorts(ports).Init(
@@ -412,11 +402,11 @@ func newObservatoriumAPIService(
 		"--web.listen":                      ":" + strconv.Itoa(ports["https"]),
 		"--web.internal.listen":             ":" + strconv.Itoa(ports["http-internal"]),
 		"--web.healthchecks.url":            "https://127.0.0.1:8443",
-		"--tls.server.cert-file":            filepath.Join(certsContainerPath, "server.pem"),
-		"--tls.server.key-file":             filepath.Join(certsContainerPath, "server.key"),
-		"--tls.healthchecks.server-ca-file": filepath.Join(certsContainerPath, "ca.pem"),
-		"--rbac.config":                     filepath.Join(configsContainerPath, "rbac.yaml"),
-		"--tenants.config":                  filepath.Join(configsContainerPath, "tenants.yaml"),
+		"--tls.server.cert-file":            filepath.Join(e.SharedDir(), certsSharedDir, "server.pem"),
+		"--tls.server.key-file":             filepath.Join(e.SharedDir(), certsSharedDir, "server.key"),
+		"--tls.healthchecks.server-ca-file": filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"),
+		"--rbac.config":                     filepath.Join(e.SharedDir(), configSharedDir, "rbac.yaml"),
+		"--tenants.config":                  filepath.Join(e.SharedDir(), configSharedDir, "tenants.yaml"),
 		"--log.level":                       logLevelDebug,
 	})
 
@@ -522,9 +512,9 @@ func newUpRun(
 	args := e2e.BuildArgs(map[string]string{
 		"--listen":                      "0.0.0.0:" + strconv.Itoa(ports["http"]),
 		"--endpoint-type":               string(tt),
-		"--tls-ca-file":                 filepath.Join(certsContainerPath, "ca.pem"),
-		"--tls-client-cert-file":        filepath.Join(certsContainerPath, "client.pem"),
-		"--tls-client-private-key-file": filepath.Join(certsContainerPath, "client.key"),
+		"--tls-ca-file":                 filepath.Join(env.SharedDir(), certsSharedDir, "ca.pem"),
+		"--tls-client-cert-file":        filepath.Join(env.SharedDir(), certsSharedDir, "client.pem"),
+		"--tls-client-private-key-file": filepath.Join(env.SharedDir(), certsSharedDir, "client.key"),
 		"--endpoint-read":               readEndpoint,
 		"--endpoint-write":              writeEndpoint,
 		"--log.level":                   logLevelError,
@@ -560,12 +550,9 @@ func newUpRun(
 
 	return e2emon.AsInstrumented(env.Runnable(name).WithPorts(ports).Init(
 		e2e.StartOptions{
-			Image:   upImage,
-			Command: e2e.NewCommandWithoutEntrypoint("up", args...),
-			User:    strconv.Itoa(os.Getuid()),
-			Volumes: []string{
-				fmt.Sprintf("%s:%s", env.SharedDir(), dockerLocalSharedDir),
-			},
+			Image:     upImage,
+			Command:   e2e.NewCommandWithoutEntrypoint("up", args...),
+			User:      strconv.Itoa(os.Getuid()),
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/metrics", 200, 200),
 		},
 	), "http"), nil

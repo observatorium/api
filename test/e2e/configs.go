@@ -25,12 +25,8 @@ const (
 	tenants        testType = "tenants"
 	interactive    testType = "interactive"
 
-	dockerLocalSharedDir = "/shared"
-	certsSharedDir       = "certs"
-	configSharedDir      = "config"
-
-	certsContainerPath   = dockerLocalSharedDir + "/" + certsSharedDir
-	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
+	certsSharedDir  = "certs"
+	configSharedDir = "config"
 
 	envMetricsName        = "metrics"
 	envRulesAPIName       = "rules-api"
@@ -109,11 +105,11 @@ func createTenantsYAML(
 ) {
 	yamlContent := []byte(fmt.Sprintf(
 		tenantsYamlTpl,
-		filepath.Join(certsContainerPath, "ca.pem"),
+		filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"),
 		path.Join(issuerURL, "dex"),
-		filepath.Join(configsContainerPath, "observatorium.rego"),
-		filepath.Join(configsContainerPath, "rbac.yaml"),
-		filepath.Join(certsContainerPath, "ca.pem"),
+		filepath.Join(e.SharedDir(), configSharedDir, "observatorium.rego"),
+		filepath.Join(e.SharedDir(), configSharedDir, "rbac.yaml"),
+		filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"),
 		path.Join(opaURL, "v1/data/observatorium/allow"),
 		apiServiceHostname,
 	))
