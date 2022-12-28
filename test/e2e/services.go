@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
 	e2edb "github.com/efficientgo/e2e/db"
 	"github.com/efficientgo/e2e/monitoring"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 const (

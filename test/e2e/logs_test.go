@@ -3,14 +3,15 @@
 package e2e
 
 import (
-	e2emon "github.com/efficientgo/e2e/monitoring"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
 
+	e2emon "github.com/efficientgo/e2e/monitoring"
+
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/gorilla/websocket"
 )
 

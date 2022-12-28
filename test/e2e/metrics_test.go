@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 	promapi "github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
