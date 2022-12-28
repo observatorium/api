@@ -6,9 +6,9 @@ import (
 	e2emon "github.com/efficientgo/e2e/monitoring"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
 	"github.com/efficientgo/e2e/monitoring/matchers"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {

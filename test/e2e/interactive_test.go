@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
 	e2einteractive "github.com/efficientgo/e2e/interactive"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestInteractiveSetup(t *testing.T) {

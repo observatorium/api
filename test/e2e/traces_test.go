@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/core/backoff"
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/backoff"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 const (

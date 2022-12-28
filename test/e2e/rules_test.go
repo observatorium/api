@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 const logsAlertingRuleYamlTpl = `
