@@ -55,8 +55,8 @@ func TestLogs(t *testing.T) {
 		// Check that up metrics are correct.
 		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, float64(5), upMetrics[0])
-		testutil.Equals(t, float64(12), upMetrics[1])
+		testutil.Assert(t, upMetrics[0] >= float64(5))
+		testutil.Assert(t, upMetrics[1] >= float64(12))
 
 		testutil.Ok(t, up.Stop())
 

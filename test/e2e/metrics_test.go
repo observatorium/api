@@ -61,14 +61,14 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		testutil.Ok(t, err)
 		totalQueries := float64(1)
 		totalWrites := float64(21)
-		testutil.Equals(t, totalQueries, upMetrics[0])
-		testutil.Equals(t, totalWrites, upMetrics[1])
+		testutil.Assert(t, upMetrics[0] >= totalQueries)
+		testutil.Assert(t, upMetrics[1] >= totalWrites)
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
 		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
 		testutil.Ok(t, err)
-		testutil.Equals(t, totalQueries+totalWrites, apiMetrics[0])
+		testutil.Assert(t, apiMetrics[0] >= totalQueries+totalWrites)
 
 		// Query Thanos to ensure we have correct metrics and labels.
 		a, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
