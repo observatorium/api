@@ -50,25 +50,31 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
+		minimumExpectedQueries := float64(1)
+		minimumExpectedWrites := float64(21)
+
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2emon.GreaterOrEqual(1),
+			e2emon.GreaterOrEqual(minimumExpectedQueries),
 			[]string{"up_queries_total"},
 			e2emon.WaitMissingMetrics(),
 		))
 
-		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
+		testutil.Ok(t, up.WaitSumMetricsWithOptions(
+			e2emon.GreaterOrEqual(minimumExpectedWrites),
+			[]string{"up_remote_writes_total"},
+		))
+
 		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
-		testutil.Ok(t, err)
-		totalQueries := float64(1)
-		totalWrites := float64(21)
-		testutil.Assert(t, upMetrics[0] >= totalQueries)
-		testutil.Assert(t, upMetrics[1] >= totalWrites)
+		totalQueries := upMetrics[0]
+		totalWrites := upMetrics[1]
+
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
-		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
-		testutil.Ok(t, err)
-		testutil.Assert(t, apiMetrics[0] >= totalQueries+totalWrites)
+		testutil.Ok(t, api.WaitSumMetricsWithOptions(
+			e2emon.Equals(totalQueries+totalWrites),
+			[]string{"http_requests_total"},
+		))
 
 		// Query Thanos to ensure we have correct metrics and labels.
 		a, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})

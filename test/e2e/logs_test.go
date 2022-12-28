@@ -45,18 +45,18 @@ func TestLogs(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
-		// Wait until 5 queries are run.
+		// Check that up metrics are correct.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2emon.Equals(5),
+			e2emon.GreaterOrEqual(5),
 			[]string{"up_queries_total"},
 			e2emon.WaitMissingMetrics(),
 		))
 
-		// Check that up metrics are correct.
-		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
-		testutil.Ok(t, err)
-		testutil.Assert(t, upMetrics[0] >= float64(5))
-		testutil.Assert(t, upMetrics[1] >= float64(12))
+		testutil.Ok(t, up.WaitSumMetricsWithOptions(
+			e2emon.GreaterOrEqual(12),
+			[]string{"up_remote_writes_total"},
+			e2emon.WaitMissingMetrics(),
+		))
 
 		testutil.Ok(t, up.Stop())
 
