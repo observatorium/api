@@ -192,7 +192,7 @@ func newDexService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	return e2emon.AsInstrumented(e.Runnable("dex").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:   dexImage,
-			Command: e2e.NewCommand("dex", "serve", filepath.Join(configsContainerPath, "dex.yaml")),
+			Command: e2e.NewCommand("dex", "serve", filepath.Join(e.SharedDir(), configSharedDir, "dex.yaml")),
 			Readiness: e2e.NewCmdReadinessProbe(e2e.NewCommand(
 				"wget",
 				"--no-check-certificate",
