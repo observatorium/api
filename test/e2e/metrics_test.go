@@ -5,12 +5,13 @@ package e2e
 import (
 	"context"
 	"fmt"
-	e2emon "github.com/efficientgo/e2e/monitoring"
-	"github.com/efficientgo/e2e/monitoring/matchers"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	e2emon "github.com/efficientgo/e2e/monitoring"
+	"github.com/efficientgo/e2e/monitoring/matchers"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"

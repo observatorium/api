@@ -3,8 +3,9 @@
 package e2e
 
 import (
-	e2emon "github.com/efficientgo/e2e/monitoring"
 	"testing"
+
+	e2emon "github.com/efficientgo/e2e/monitoring"
 
 	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
