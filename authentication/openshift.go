@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/efficientgo/tools/core/pkg/backoff"
+	"github.com/efficientgo/core/backoff"
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"

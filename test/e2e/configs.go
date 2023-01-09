@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 type testType string
@@ -25,20 +25,16 @@ const (
 	tenants        testType = "tenants"
 	interactive    testType = "interactive"
 
-	dockerLocalSharedDir = "/shared"
-	certsSharedDir       = "certs"
-	configSharedDir      = "config"
+	certsSharedDir  = "certs"
+	configSharedDir = "config"
 
-	certsContainerPath   = dockerLocalSharedDir + "/" + certsSharedDir
-	configsContainerPath = dockerLocalSharedDir + "/" + configSharedDir
-
-	envMetricsName        = "e2e_metrics_read_write"
-	envRulesAPIName       = "e2e_rules_api"
-	envLogsName           = "e2e_logs_read_write_tail"
-	envTracesName         = "e2e_traces_read_export"
-	envTracesTemplateName = "e2e_traces_template_query"
-	envTenantsName        = "e2e_tenants"
-	envInteractive        = "e2e_interactive"
+	envMetricsName        = "metrics"
+	envRulesAPIName       = "rules-api"
+	envLogsName           = "logs-tail"
+	envTracesName         = "traces-export"
+	envTracesTemplateName = "traces-template"
+	envTenantsName        = "tenants"
+	envInteractive        = "interactive"
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
@@ -109,11 +105,11 @@ func createTenantsYAML(
 ) {
 	yamlContent := []byte(fmt.Sprintf(
 		tenantsYamlTpl,
-		filepath.Join(certsContainerPath, "ca.pem"),
+		filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"),
 		path.Join(issuerURL, "dex"),
-		filepath.Join(configsContainerPath, "observatorium.rego"),
-		filepath.Join(configsContainerPath, "rbac.yaml"),
-		filepath.Join(certsContainerPath, "ca.pem"),
+		filepath.Join(e.SharedDir(), configSharedDir, "observatorium.rego"),
+		filepath.Join(e.SharedDir(), configSharedDir, "rbac.yaml"),
+		filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"),
 		path.Join(opaURL, "v1/data/observatorium/allow"),
 		apiServiceHostname,
 	))
@@ -134,8 +130,8 @@ storage:
     file: /tmp/dex.db
 web:
   https: 0.0.0.0:5556
-  tlsCert: /shared/certs/dex.pem
-  tlsKey: /shared/certs/dex.key
+  tlsCert: %s
+  tlsKey: %s
 telemetry:
   http: 0.0.0.0:5558
 logger:
@@ -166,6 +162,8 @@ func createDexYAML(
 	yamlContent := []byte(fmt.Sprintf(
 		dexYAMLTpl,
 		issuer,
+		filepath.Join(e.SharedDir(), certsSharedDir, "dex.pem"),
+		filepath.Join(e.SharedDir(), certsSharedDir, "dex.key"),
 		redirectURI,
 	))
 
@@ -285,7 +283,11 @@ exporters:
         # is unable to do OIDC password grant.)
         authorization: bearer %[2]s
 
+extensions:
+  health_check:
+
 service:
+    extensions: [health_check]
     telemetry:
       metrics:
         address: localhost:8889

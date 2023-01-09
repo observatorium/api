@@ -5,15 +5,17 @@ package e2e
 import (
 	"testing"
 
+	e2emon "github.com/efficientgo/e2e/monitoring"
+
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/e2e/matchers"
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/e2e/monitoring/matchers"
 )
 
 func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envTenantsName)
+	e, err := e2e.New(e2e.WithName(envTenantsName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -35,10 +37,10 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 		// Check that retries metric increases eventually.
 		// This is with the new authenticators setup.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
-			e2e.Greater(0),
+			e2emon.Greater(0),
 			[]string{"observatorium_api_tenants_failed_registrations"},
-			e2e.WaitMissingMetrics(),
-			e2e.WithLabelMatchers(
+			e2emon.WaitMissingMetrics(),
+			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", defaultTenantName),
 				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
 			),
@@ -46,10 +48,10 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 
 		// Test a tenant with legacy configuration setup.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
-			e2e.Greater(0),
+			e2emon.Greater(0),
 			[]string{"observatorium_api_tenants_failed_registrations"},
-			e2e.WaitMissingMetrics(),
-			e2e.WithLabelMatchers(
+			e2emon.WaitMissingMetrics(),
+			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "tenant", "test-attacker"),
 				matchers.MustNewMatcher(matchers.MatchEqual, "provider", "oidc"),
 			),
@@ -72,10 +74,10 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 
 		// Check that we succesfully hit API after re-registration.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
-			e2e.Greater(0),
+			e2emon.Greater(0),
 			[]string{"http_requests_total"},
-			e2e.WaitMissingMetrics(),
-			e2e.WithLabelMatchers(
+			e2emon.WaitMissingMetrics(),
+			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "code", "200"),
 			),
 		))

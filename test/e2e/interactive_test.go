@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
 	e2einteractive "github.com/efficientgo/e2e/interactive"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Starting services...\n")
 
-	e, err := e2e.NewDockerEnvironment(envInteractive)
+	e, err := e2e.New(e2e.WithName(envInteractive))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 

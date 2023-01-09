@@ -11,18 +11,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
 	e2edb "github.com/efficientgo/e2e/db"
-	"github.com/efficientgo/tools/core/pkg/testutil"
+	"github.com/efficientgo/e2e/monitoring"
 )
 
 const (
 	apiImage = "quay.io/observatorium/api:local_e2e_test" // Image that is built if you run `make container-test`.
 
 	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
-	thanosImage = "quay.io/thanos/thanos:main-2021-09-23-177b4f23"
+	thanosImage = "quay.io/thanos/thanos:main-2022-12-21-c378043"
 	lokiImage   = "grafana/loki:2.6.1"
-	upImage     = "quay.io/observatorium/up:master-2022-07-13-7f0630b"
+	upImage     = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
@@ -31,10 +32,10 @@ const (
 	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
 	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
 
-	dexImage              = "dexidp/dex:v2.30.0"
-	opaImage              = "openpolicyagent/opa:0.31.0"
-	gubernatorImage       = "thrawn01/gubernator:1.0.0-rc.8"
-	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2022-01-19-8650540"
+	dexImage        = "dexidp/dex:v2.30.0"
+	opaImage        = "openpolicyagent/opa:0.47.4-static"
+	gubernatorImage = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
+  rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
@@ -61,38 +62,8 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 
 func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
 	// Create S3 replacement for rules backend
-	bucket := "obs_rules_test"
-	userID := strconv.Itoa(os.Getuid())
-	ports := map[string]int{e2edb.AccessPortName: 8090}
-	envVars := []string{
-		"MINIO_ROOT_USER=" + e2edb.MinioAccessKey,
-		"MINIO_ROOT_PASSWORD=" + e2edb.MinioSecretKey,
-		"MINIO_BROWSER=" + "off",
-		"ENABLE_HTTPS=" + "0",
-		// https://docs.min.io/docs/minio-kms-quickstart-guide.html
-		"MINIO_KMS_KES_ENDPOINT=" + "https://play.min.io:7373",
-		"MINIO_KMS_KES_KEY_FILE=" + "root.key",
-		"MINIO_KMS_KES_CERT_FILE=" + "root.cert",
-		"MINIO_KMS_KES_KEY_NAME=" + "my-minio-key",
-	}
-	f := e2e.NewInstrumentedRunnable(e, "rules-minio").WithPorts(ports, e2edb.AccessPortName)
-	runnable := f.Init(
-		e2e.StartOptions{
-			Image: "minio/minio:RELEASE.2022-03-03T21-21-16Z",
-			// Create the required bucket before starting minio.
-			Command: e2e.NewCommandWithoutEntrypoint("sh", "-c", fmt.Sprintf(
-				// Hacky: Create user that matches ID with host ID to be able to remove .minio.sys details on the start.
-				// Proper solution would be to contribute/create our own minio image which is non root.
-				"useradd -G root -u %v me && mkdir -p %s && chown -R me %s &&"+
-					"curl -sSL --tlsv1.2 -O 'https://raw.githubusercontent.com/minio/kes/master/root.key' -O 'https://raw.githubusercontent.com/minio/kes/master/root.cert' && "+
-					"cp root.* /home/me/ && "+
-					"su - me -s /bin/sh -c 'mkdir -p %s && %s /opt/bin/minio server --address :%v --quiet %v'",
-				userID, f.Future().InternalDir(), f.Future().InternalDir(), filepath.Join(f.Future().InternalDir(), bucket), strings.Join(envVars, " "), ports[e2edb.AccessPortName], f.Future().InternalDir()),
-			),
-			Readiness: e2e.NewHTTPReadinessProbe(e2edb.AccessPortName, "/minio/health/live", 200, 200),
-		},
-	)
-
+	const bucket = "obs-rules-test"
+	runnable := e2edb.NewMinio(e, "rules-minio", bucket)
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
 
 	createRulesYAML(t, e, bucket, runnable.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
@@ -110,36 +81,7 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 
 	// Create S3 replacement for rules backend
 	bucket := "loki_test"
-	userID := strconv.Itoa(os.Getuid())
-	ports := map[string]int{e2edb.AccessPortName: 8090}
-	envVars := []string{
-		"MINIO_ROOT_USER=" + e2edb.MinioAccessKey,
-		"MINIO_ROOT_PASSWORD=" + e2edb.MinioSecretKey,
-		"MINIO_BROWSER=" + "off",
-		"ENABLE_HTTPS=" + "0",
-		// https://docs.min.io/docs/minio-kms-quickstart-guide.html
-		"MINIO_KMS_KES_ENDPOINT=" + "https://play.min.io:7373",
-		"MINIO_KMS_KES_KEY_FILE=" + "root.key",
-		"MINIO_KMS_KES_CERT_FILE=" + "root.cert",
-		"MINIO_KMS_KES_KEY_NAME=" + "my-minio-key",
-	}
-	f := e2e.NewInstrumentedRunnable(e, "loki-minio").WithPorts(ports, e2edb.AccessPortName)
-	runnable := f.Init(
-		e2e.StartOptions{
-			Image: "minio/minio:RELEASE.2022-03-03T21-21-16Z",
-			// Create the required bucket before starting minio.
-			Command: e2e.NewCommandWithoutEntrypoint("sh", "-c", fmt.Sprintf(
-				// Hacky: Create user that matches ID with host ID to be able to remove .minio.sys details on the start.
-				// Proper solution would be to contribute/create our own minio image which is non root.
-				"useradd -G root -u %v me && mkdir -p %s && chown -R me %s &&"+
-					"curl -sSL --tlsv1.2 -O 'https://raw.githubusercontent.com/minio/kes/master/root.key' -O 'https://raw.githubusercontent.com/minio/kes/master/root.cert' && "+
-					"cp root.* /home/me/ && "+
-					"su - me -s /bin/sh -c 'mkdir -p %s && %s /opt/bin/minio server --address :%v --quiet %v'",
-				userID, f.Future().InternalDir(), f.Future().InternalDir(), filepath.Join(f.Future().InternalDir(), bucket), strings.Join(envVars, " "), ports[e2edb.AccessPortName], f.Future().InternalDir()),
-			),
-			Readiness: e2e.NewHTTPReadinessProbe(e2edb.AccessPortName, "/minio/health/live", 200, 200),
-		},
-	)
+	runnable := e2edb.NewMinio(e, "loki-minio", bucket)
 
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
 
@@ -190,7 +132,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, 
 
 // startBaseServices starts and waits until all base services required for the test are ready.
 func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (
-	dex e2e.InstrumentedRunnable,
+	dex *e2emon.InstrumentedRunnable,
 	token string,
 	rateLimiterAddr string,
 ) {
@@ -209,16 +151,16 @@ func startBaseServices(t *testing.T, e e2e.Environment, tt testType) (
 	return dex, token, gubernator.InternalEndpoint("grpc")
 }
 
-func newDexService(e e2e.Environment) e2e.InstrumentedRunnable {
+func newDexService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{
 		"https":          5556,
 		"http-telemetry": 5558,
 	}
 
-	return e2e.NewInstrumentedRunnable(e, "dex").WithPorts(ports, "http-telemetry").Init(
+	return e2emon.AsInstrumented(e.Runnable("dex").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:   dexImage,
-			Command: e2e.NewCommand("dex", "serve", filepath.Join(configsContainerPath, "dex.yaml")),
+			Command: e2e.NewCommand("dex", "serve", filepath.Join(e.SharedDir(), configSharedDir, "dex.yaml")),
 			Readiness: e2e.NewCmdReadinessProbe(e2e.NewCommand(
 				"wget",
 				"--no-check-certificate",
@@ -228,16 +170,15 @@ func newDexService(e e2e.Environment) e2e.InstrumentedRunnable {
 			)),
 			User: strconv.Itoa(os.Getuid()),
 		},
-	)
+	), "http-telemetry")
 }
 
-func newGubernatorService(e e2e.Environment) e2e.InstrumentedRunnable {
+func newGubernatorService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{
 		"http": 8880,
 		"grpc": 8881,
 	}
-
-	return e2e.NewInstrumentedRunnable(e, "gubernator").WithPorts(ports, "http").Init(
+	return e2emon.AsInstrumented(e.Runnable("gubernator").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image: gubernatorImage,
 			EnvVars: map[string]string{
@@ -249,10 +190,10 @@ func newGubernatorService(e e2e.Environment) e2e.InstrumentedRunnable {
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/v1/HealthCheck", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
 		},
-	)
+	), "http")
 }
 
-func newThanosReceiveService(e e2e.Environment) e2e.InstrumentedRunnable {
+func newThanosReceiveService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{
 		"http":         10902,
 		"grpc":         10901,
@@ -260,7 +201,7 @@ func newThanosReceiveService(e e2e.Environment) e2e.InstrumentedRunnable {
 	}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--receive.hashrings-file":    filepath.Join(configsContainerPath, "hashrings.json"),
+		"--receive.hashrings-file":    filepath.Join(e.SharedDir(), configSharedDir, "hashrings.json"),
 		"--receive.local-endpoint":    "0.0.0.0:" + strconv.Itoa(ports["grpc"]),
 		"--label":                     "receive_replica=\"0\"",
 		"--receive.default-tenant-id": defaultTenantID,
@@ -271,21 +212,21 @@ func newThanosReceiveService(e e2e.Environment) e2e.InstrumentedRunnable {
 		"--tsdb.path":                 "/tmp",
 	})
 
-	return e2e.NewInstrumentedRunnable(e, "thanos-receive").WithPorts(ports, "http").Init(
+	return e2emon.AsInstrumented(e.Runnable("thanos-receive").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:     thanosImage,
 			Command:   e2e.NewCommand("receive", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/-/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
 		},
-	)
+	), "http")
 }
 
-func newLokiService(e e2e.Environment) e2e.InstrumentedRunnable {
+func newLokiService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 3100, "grpc": 9095}
 
 	args := e2e.BuildArgs(map[string]string{
-		"-config.file":                filepath.Join(configsContainerPath, "loki.yml"),
+		"-config.file":                filepath.Join(e.SharedDir(), configSharedDir, "loki.yml"),
 		"-server.grpc-listen-address": "0.0.0.0",
 		"-server.grpc-listen-port":    strconv.Itoa(ports["grpc"]),
 		"-server.http-listen-address": "0.0.0.0",
@@ -294,7 +235,7 @@ func newLokiService(e e2e.Environment) e2e.InstrumentedRunnable {
 		"-log.level":                  logLevelError,
 	})
 
-	return e2e.NewInstrumentedRunnable(e, "loki").WithPorts(ports, "http").Init(
+	return e2emon.AsInstrumented(e.Runnable("loki").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:   lokiImage,
 			Command: e2e.NewCommandWithoutEntrypoint("loki", args...),
@@ -304,10 +245,10 @@ func newLokiService(e e2e.Environment) e2e.InstrumentedRunnable {
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/ready", 200, 503),
 			User:      strconv.Itoa(os.Getuid()),
 		},
-	)
+	), "http")
 }
 
-func newRulesBackendService(e e2e.Environment) e2e.InstrumentedRunnable {
+func newRulesBackendService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 8080, "internal": 8081}
 
 	args := e2e.BuildArgs(map[string]string{
@@ -315,36 +256,36 @@ func newRulesBackendService(e e2e.Environment) e2e.InstrumentedRunnable {
 		"--web.listen":           ":" + strconv.Itoa(ports["http"]),
 		"--web.internal.listen":  ":" + strconv.Itoa(ports["internal"]),
 		"--web.healthchecks.url": "http://127.0.0.1:" + strconv.Itoa(ports["http"]),
-		"--objstore.config-file": filepath.Join(configsContainerPath, "rules-objstore.yaml"),
+		"--objstore.config-file": filepath.Join(e.SharedDir(), configSharedDir, "rules-objstore.yaml"),
 	})
 
-	return e2e.NewInstrumentedRunnable(e, "rules_objstore").WithPorts(ports, "internal").Init(
+	return e2emon.AsInstrumented(e.Runnable("rules_objstore").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:     rulesObjectStoreImage,
 			Command:   e2e.NewCommand("", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("internal", "/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
 		},
-	)
+	), "internal")
 }
 
-func newOPAService(e e2e.Environment) e2e.InstrumentedRunnable {
+func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--server":           "",
-		configsContainerPath: "",
-		"--ignore":           "*.json",
+		"--server": "",
+		filepath.Join(e.SharedDir(), configSharedDir): "",
+		"--ignore": "*.json",
 	})
 
-	return e2e.NewInstrumentedRunnable(e, "opa").WithPorts(ports, "http").Init(
+	return e2emon.AsInstrumented(e.Runnable("opa").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:     opaImage,
 			Command:   e2e.NewCommand("run", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/health", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
 		},
-	)
+	), "http")
 }
 
 type apiOptions struct {
@@ -415,7 +356,7 @@ func withRateLimiter(addr string) apiOption {
 func newObservatoriumAPIService(
 	e e2e.Environment,
 	options ...apiOption,
-) (e2e.InstrumentedRunnable, error) {
+) (*e2emon.InstrumentedRunnable, error) {
 	opts := apiOptions{}
 	for _, o := range options {
 		o(&opts)
@@ -430,11 +371,11 @@ func newObservatoriumAPIService(
 		"--web.listen":                      ":" + strconv.Itoa(ports["https"]),
 		"--web.internal.listen":             ":" + strconv.Itoa(ports["http-internal"]),
 		"--web.healthchecks.url":            "https://127.0.0.1:8443",
-		"--tls.server.cert-file":            filepath.Join(certsContainerPath, "server.pem"),
-		"--tls.server.key-file":             filepath.Join(certsContainerPath, "server.key"),
-		"--tls.healthchecks.server-ca-file": filepath.Join(certsContainerPath, "ca.pem"),
-		"--rbac.config":                     filepath.Join(configsContainerPath, "rbac.yaml"),
-		"--tenants.config":                  filepath.Join(configsContainerPath, "tenants.yaml"),
+		"--tls.server.cert-file":            filepath.Join(e.SharedDir(), certsSharedDir, "server.pem"),
+		"--tls.server.key-file":             filepath.Join(e.SharedDir(), certsSharedDir, "server.key"),
+		"--tls.healthchecks.server-ca-file": filepath.Join(e.SharedDir(), certsSharedDir, "ca.pem"),
+		"--rbac.config":                     filepath.Join(e.SharedDir(), configSharedDir, "rbac.yaml"),
+		"--tenants.config":                  filepath.Join(e.SharedDir(), configSharedDir, "tenants.yaml"),
 		"--log.level":                       logLevelDebug,
 	})
 
@@ -484,13 +425,13 @@ func newObservatoriumAPIService(
 		args = append(args, "--grpc.listen="+opts.gRPCListenEndpoint)
 	}
 
-	return e2e.NewInstrumentedRunnable(e, "observatorium_api").WithPorts(ports, "http-internal").Init(
+	return e2emon.AsInstrumented(e.Runnable("observatorium-api").WithPorts(ports).Init(
 		e2e.StartOptions{
 			Image:     apiImage,
 			Command:   e2e.NewCommandWithoutEntrypoint("observatorium-api", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http-internal", "/ready", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
-		}), nil
+		}), "http-internal"), nil
 }
 
 type runParams struct {
@@ -526,7 +467,7 @@ func newUpRun(
 	tt testType,
 	readEndpoint, writeEndpoint string,
 	options ...upOption,
-) (e2e.InstrumentedRunnable, error) {
+) (*e2emon.InstrumentedRunnable, error) {
 	opts := upOptions{}
 	for _, o := range options {
 		o(&opts)
@@ -540,9 +481,9 @@ func newUpRun(
 	args := e2e.BuildArgs(map[string]string{
 		"--listen":                      "0.0.0.0:" + strconv.Itoa(ports["http"]),
 		"--endpoint-type":               string(tt),
-		"--tls-ca-file":                 filepath.Join(certsContainerPath, "ca.pem"),
-		"--tls-client-cert-file":        filepath.Join(certsContainerPath, "client.pem"),
-		"--tls-client-private-key-file": filepath.Join(certsContainerPath, "client.key"),
+		"--tls-ca-file":                 filepath.Join(env.SharedDir(), certsSharedDir, "ca.pem"),
+		"--tls-client-cert-file":        filepath.Join(env.SharedDir(), certsSharedDir, "client.pem"),
+		"--tls-client-private-key-file": filepath.Join(env.SharedDir(), certsSharedDir, "client.key"),
 		"--endpoint-read":               readEndpoint,
 		"--endpoint-write":              writeEndpoint,
 		"--log.level":                   logLevelError,
@@ -576,11 +517,12 @@ func newUpRun(
 		}
 	}
 
-	return e2e.NewInstrumentedRunnable(env, name).WithPorts(ports, "http").Init(
+	return e2emon.AsInstrumented(env.Runnable(name).WithPorts(ports).Init(
 		e2e.StartOptions{
-			Image:   upImage,
-			Command: e2e.NewCommandWithoutEntrypoint("up", args...),
-			User:    strconv.Itoa(os.Getuid()),
+			Image:     upImage,
+			Command:   e2e.NewCommandWithoutEntrypoint("up", args...),
+			User:      strconv.Itoa(os.Getuid()),
+			Readiness: e2e.NewHTTPReadinessProbe("http", "/metrics", 200, 200),
 		},
-	), nil
+	), "http"), nil
 }

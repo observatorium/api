@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/efficientgo/core/backoff"
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/backoff"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 const (
@@ -69,7 +69,7 @@ const (
 func TestTracesExport(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envTracesName)
+	e, err := e2e.New(e2e.WithName(envTracesName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -99,8 +99,9 @@ func TestTracesExport(t *testing.T) {
 		otel := e.Runnable("otel-fwd-collector").
 			WithPorts(
 				map[string]int{
-					"http": 4318,
-					"grpc": 4317,
+					"http":         4318,
+					"grpc":         4317,
+					"health_check": 13133,
 				}).
 			Init(e2e.StartOptions{
 				Image: otelFwdCollectorImage,
@@ -111,6 +112,12 @@ func TestTracesExport(t *testing.T) {
 				Command: e2e.Command{
 					Args: []string{"--config=/conf/forwarding-collector.yaml"},
 				},
+				Readiness: e2e.NewHTTPReadinessProbe(
+					"health_check",
+					"/health/status",
+					200,
+					200,
+				),
 			})
 
 		testutil.Ok(t, e2e.StartAndWaitReady(otel))
@@ -260,7 +267,7 @@ func requestWithRetry(t *testing.T, testLabel string, client *http.Client, reque
 func TestTracesTemplateQuery(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envTracesTemplateName)
+	e, err := e2e.New(e2e.WithName(envTracesTemplateName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -290,8 +297,9 @@ func TestTracesTemplateQuery(t *testing.T) {
 		otel := e.Runnable("otel-fwd-collector").
 			WithPorts(
 				map[string]int{
-					"http": 4318,
-					"grpc": 4317,
+					"http":         4318,
+					"grpc":         4317,
+					"health_check": 13133,
 				}).
 			Init(e2e.StartOptions{
 				Image: otelFwdCollectorImage,
@@ -302,6 +310,12 @@ func TestTracesTemplateQuery(t *testing.T) {
 				Command: e2e.Command{
 					Args: []string{"--config=/conf/forwarding-collector.yaml"},
 				},
+				Readiness: e2e.NewHTTPReadinessProbe(
+					"health_check",
+					"/health/status",
+					200,
+					200,
+				),
 			})
 
 		testutil.Ok(t, e2e.StartAndWaitReady(otel))

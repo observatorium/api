@@ -5,14 +5,16 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"github.com/efficientgo/e2e/matchers"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	e2emon "github.com/efficientgo/e2e/monitoring"
+	"github.com/efficientgo/e2e/monitoring/matchers"
+
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 	promapi "github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -21,7 +23,7 @@ import (
 func TestMetricsReadAndWrite(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envMetricsName)
+	e, err := e2e.New(e2e.WithName(envMetricsName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -40,7 +42,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	t.Run("metrics-read-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-metrics-read-write", metrics,
-			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/query",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/",
 			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+defaultTenantName+"/api/v1/receive",
 			withToken(token),
 			withRunParameters(&runParams{period: "500ms", threshold: "1", latency: "10s", duration: "0"}),
@@ -48,26 +50,32 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
-		// Wait until the first query is run.
+		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
+		minimumExpectedQueries := float64(1)
+		minimumExpectedWrites := float64(21)
+
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(1),
+			e2emon.GreaterOrEqual(minimumExpectedQueries),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
-		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
+		testutil.Ok(t, up.WaitSumMetricsWithOptions(
+			e2emon.GreaterOrEqual(minimumExpectedWrites),
+			[]string{"up_remote_writes_total"},
+		))
+
 		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
-		testutil.Ok(t, err)
-		totalQueries := float64(1)
-		totalWrites := float64(21)
-		testutil.Equals(t, totalQueries, upMetrics[0])
-		testutil.Equals(t, totalWrites, upMetrics[1])
+		totalQueries := upMetrics[0]
+		totalWrites := upMetrics[1]
+
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
-		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
-		testutil.Ok(t, err)
-		testutil.Equals(t, totalQueries+totalWrites, apiMetrics[0])
+		testutil.Ok(t, api.WaitSumMetricsWithOptions(
+			e2emon.Equals(totalQueries+totalWrites),
+			[]string{"http_requests_total"},
+		))
 
 		// Query Thanos to ensure we have correct metrics and labels.
 		a, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
@@ -112,9 +120,9 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 		// Wait until the first query is run.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(1),
+			e2emon.Equals(1),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
@@ -128,7 +136,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 		errorMetrics, err := up.SumMetrics(
 			[]string{"up_remote_writes_total"},
-			e2e.WithLabelMatchers(
+			e2emon.WithLabelMatchers(
 				matchers.MustNewMatcher(matchers.MatchEqual, "http_code", "400"),
 			),
 		)

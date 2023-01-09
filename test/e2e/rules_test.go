@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 )
 
 const logsAlertingRuleYamlTpl = `
@@ -104,7 +104,7 @@ groups:
 func TestRulesAPI(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envRulesAPIName)
+	e, err := e2e.New(e2e.WithName(envRulesAPIName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 

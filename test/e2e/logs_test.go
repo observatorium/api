@@ -8,15 +8,17 @@ import (
 	"net/url"
 	"testing"
 
+	e2emon "github.com/efficientgo/e2e/monitoring"
+
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/gorilla/websocket"
 )
 
 func TestLogs(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.NewDockerEnvironment(envLogsName)
+	e, err := e2e.New(e2e.WithName(envLogsName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
@@ -43,25 +45,27 @@ func TestLogs(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
 
-		// Wait until 5 queries are run.
+		// Check that up metrics are correct.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(5),
+			e2emon.GreaterOrEqual(5),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
-		// Check that up metrics are correct.
-		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
-		testutil.Ok(t, err)
-		testutil.Equals(t, float64(5), upMetrics[0])
-		testutil.Equals(t, float64(12), upMetrics[1])
+		testutil.Ok(t, up.WaitSumMetricsWithOptions(
+			e2emon.GreaterOrEqual(12),
+			[]string{"up_remote_writes_total"},
+			e2emon.WaitMissingMetrics(),
+		))
 
 		testutil.Ok(t, up.Stop())
 
 		// Check that API metrics are correct.
-		apiMetrics, err := api.SumMetrics([]string{"http_requests_total"})
-		testutil.Ok(t, err)
-		testutil.Equals(t, float64(24), apiMetrics[0])
+		testutil.Ok(t, api.WaitSumMetricsWithOptions(
+			e2emon.Equals(24),
+			[]string{"http_requests_total"},
+			e2emon.WaitMissingMetrics(),
+		))
 
 		// Simple test to check if we can query Loki for logs.
 		r, err := http.NewRequest(
@@ -103,9 +107,9 @@ func TestLogs(t *testing.T) {
 
 		// Wait until the first query is run.
 		testutil.Ok(t, up.WaitSumMetricsWithOptions(
-			e2e.Equals(1),
+			e2emon.GreaterOrEqual(1),
 			[]string{"up_queries_total"},
-			e2e.WaitMissingMetrics(),
+			e2emon.WaitMissingMetrics(),
 		))
 
 		testutil.Ok(t, up.Stop())

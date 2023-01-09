@@ -16,8 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
-	"github.com/efficientgo/tools/core/pkg/testutil"
 	"github.com/observatorium/api/test/testtls"
 )
 
@@ -27,8 +27,8 @@ func prepareConfigsAndCerts(t *testing.T, tt testType, e e2e.Environment) {
 		t,
 		testtls.GenerateCerts(
 			filepath.Join(e.SharedDir(), certsSharedDir),
-			getContainerName(t, tt, "observatorium_api"),
-			[]string{getContainerName(t, tt, "observatorium_api"), "127.0.0.1"},
+			getContainerName(t, tt, "observatorium-api"),
+			[]string{getContainerName(t, tt, "observatorium-api"), "127.0.0.1"},
 			getContainerName(t, tt, "dex"),
 			[]string{getContainerName(t, tt, "dex"), "127.0.0.1"},
 		),
