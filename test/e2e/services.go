@@ -35,8 +35,7 @@ const (
 	dexImage        = "dexidp/dex:v2.30.0"
 	opaImage        = "openpolicyagent/opa:0.47.4-static"
 	gubernatorImage = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
-	// TODO: upgrade when fully migrated to multi-arch
-	rulesObjectStoreImage = "quay.io/douglascamata/rules-obj-store-test"
+  rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
