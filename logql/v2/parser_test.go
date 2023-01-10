@@ -14,10 +14,9 @@ import (
 //nolint:paralleltest,funlen
 func TestParseExpr(t *testing.T) {
 	type tt struct {
-		input            string
-		expr             Expr
-		err              error
-		doNotcheckString bool
+		input string
+		expr  Expr
+		err   error
 	}
 
 	tc := []tt{
@@ -545,6 +544,26 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `rate_counter({first="value"}[1m])`,
+			expr: &LogMetricExpr{
+				metricOp: "rate_counter",
+				left: &LogRangeQueryExpr{
+					rng: `[1m]`,
+					left: &LogQueryExpr{
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `sum(rate({first="value"}[1m]))`,
 			expr: &LogMetricExpr{
 				metricOp: "sum",
@@ -724,7 +743,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `max without (value) (count_over_time({first="value"}[10h]))`,
+			input: `max without(value) (count_over_time({first="value"}[10h]))`,
 			expr: &LogMetricExpr{
 				metricOp:        "max",
 				grouping:        &grouping{without: true, groups: []string{"value"}},
@@ -747,7 +766,6 @@ func TestParseExpr(t *testing.T) {
 					},
 				},
 			},
-			doNotcheckString: true,
 		},
 		// multi-line expressions
 		{
@@ -1042,6 +1060,110 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: `
+					sum by(lvl) (rate(({first="value"} | json | line_format "{{.message}}" | label_format lvl=level,txt="text: {{.message}}") [2m])) /
+					 ignoring(lvl) group_left() sum(rate(({first="value"} | json | line_format "{{.message}}" | label_format lvl=level,txt="text: {{.message}}") [2m]))
+				   `,
+			expr: LogBinaryOpExpr{
+				Expr: &LogMetricExpr{
+					metricOp:        "sum",
+					grouping:        &grouping{groups: []string{"lvl"}},
+					groupingAfterOp: true,
+					Expr: &LogMetricExpr{
+						metricOp: "rate",
+						left: &LogRangeQueryExpr{
+							rng:     "[2m]",
+							rngLast: true,
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Type:  labels.MatchEqual,
+											Name:  "first",
+											Value: "value",
+										},
+									},
+								},
+								filter: LogPipelineExpr{
+									{
+										expr: &LogParserExpr{
+											parser: "json",
+										},
+									},
+									{
+										expr: &LogParserExpr{
+											parser:     "line_format",
+											identifier: "{{.message}}",
+										},
+									},
+									{
+										expr: &LogFormatExpr{
+											sep: ",",
+											kv: LogFormatValues{
+												"lvl": LogFormatValue{Value: "level", IsIdentifier: true},
+												"txt": LogFormatValue{Value: "text: {{.message}}"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				op: "/",
+				modifier: BinaryOpOptions{
+					IgnoringOption: IgnoringOption{
+						Enabled:      true,
+						Labels:       []string{"lvl"},
+						GroupingType: GroupLeftOption,
+					},
+				},
+				right: &LogMetricExpr{
+					metricOp: "sum",
+					Expr: &LogMetricExpr{
+						metricOp: "rate",
+						left: &LogRangeQueryExpr{
+							rng:     "[2m]",
+							rngLast: true,
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Type:  labels.MatchEqual,
+											Name:  "first",
+											Value: "value",
+										},
+									},
+								},
+								filter: LogPipelineExpr{
+									{
+										expr: &LogParserExpr{
+											parser: "json",
+										},
+									},
+									{
+										expr: &LogParserExpr{
+											parser:     "line_format",
+											identifier: "{{.message}}",
+										},
+									},
+									{
+										expr: &LogFormatExpr{
+											sep: ",",
+											kv: LogFormatValues{
+												"lvl": LogFormatValue{Value: "level", IsIdentifier: true},
+												"txt": LogFormatValue{Value: "text: {{.message}}"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		// Log Number Expressions
 		{
 			input: "100 * -100",
@@ -1228,6 +1350,48 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		// vector
+		{
+			input: `vector(0)`,
+			expr: &LogMetricExpr{
+				metricOp: OpTypeVector,
+				Expr:     &VectorExpr{Value: "0"},
+			},
+		},
+		{
+			input: `vector(10) / vector(2)`,
+			expr: LogBinaryOpExpr{
+				Expr: &LogMetricExpr{
+					metricOp: OpTypeVector,
+					Expr:     &VectorExpr{Value: "10"},
+				},
+				op: "/",
+				right: &LogMetricExpr{
+					metricOp: OpTypeVector,
+					Expr:     &VectorExpr{Value: "2"},
+				},
+			},
+		},
+		// decolorize
+		{
+			input: `{first="value"} | decolorize`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					{
+						expr: &LogDecolorizeExpr{},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tc { //nolint:paralleltest
 		tc := tc
@@ -1242,13 +1406,11 @@ func TestParseExpr(t *testing.T) {
 				t.Fatalf("\ngot:  %#v\nwant: %#v", expr, tc.expr)
 			}
 
-			if !tc.doNotcheckString {
-				got := trimOutput(expr.String())
-				want := trimInput(tc.input)
+			got := trimOutput(expr.String())
+			want := trimInput(tc.input)
 
-				if want != got {
-					t.Fatalf("\ngot:  %s\nwant: %s", got, want)
-				}
+			if want != got {
+				t.Fatalf("\ngot:  %s\nwant: %s", got, want)
 			}
 		})
 	}
