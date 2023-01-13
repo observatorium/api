@@ -55,13 +55,9 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} |= "other"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						stages: LogFiltersExpr{
-							{
-								filter: "|=",
-								value:  "other",
-							},
-						},
+					&LogFilterExpr{
+						filter: "|=",
+						value:  "other",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -79,18 +75,14 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} |= "other" |= ip("8.8.8.8")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						stages: LogFiltersExpr{
-							{
-								filter: "|=",
-								value:  "other",
-							},
-							{
-								filter:   "|=",
-								filterOp: "ip",
-								value:    `8.8.8.8`,
-							},
-						},
+					&LogFilterExpr{
+						filter: "|=",
+						value:  "other",
+					},
+					&LogFilterExpr{
+						filter:   "|=",
+						filterOp: "ip",
+						value:    `8.8.8.8`,
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -108,21 +100,14 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | logfmt | addr>=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "logfmt",
-						},
+					&LogParserExpr{
+						parser: "logfmt",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  ">=",
-								filterOp: "ip",
-								value:    `1.1.1.1`,
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: ">=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -140,42 +125,25 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | logfmt | remote_addr=ip("10.0.0.0") | level="error" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "logfmt",
-						},
+					&LogParserExpr{
+						parser: "logfmt",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "remote_addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "10.0.0.0",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "remote_addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "10.0.0.0",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:  "|",
-								alias:   "level",
-								aliasOp: "=",
-								value:   "error",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue:   "error",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "1.1.1.1",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -193,25 +161,21 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} |= "other" |~ "loop" != "while" !~ "goto"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						stages: LogFiltersExpr{
-							{
-								filter: "|=",
-								value:  "other",
-							},
-							{
-								filter: "|~",
-								value:  "loop",
-							},
-							{
-								filter: "!=",
-								value:  "while",
-							},
-							{
-								filter: "!~",
-								value:  "goto",
-							},
-						},
+					&LogFilterExpr{
+						filter: "|=",
+						value:  "other",
+					},
+					&LogFilterExpr{
+						filter: "|~",
+						value:  "loop",
+					},
+					&LogFilterExpr{
+						filter: "!=",
+						value:  "while",
+					},
+					&LogFilterExpr{
+						filter: "!~",
+						value:  "goto",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -230,21 +194,14 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | logfmt | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "logfmt",
-						},
+					&LogParserExpr{
+						parser: "logfmt",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "1.1.1.1",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -262,21 +219,14 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | json | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "json",
-						},
+					&LogParserExpr{
+						parser: "json",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "1.1.1.1",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -294,19 +244,148 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | json | level=~"info|notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "json",
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=~",
+						labelValue:   "info|notice",
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
 						},
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:  "|",
-								alias:   "level",
-								aliasOp: "=~",
-								value:   "info|notice",
-							},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | level="info" and level="notice"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue:   "info",
+						chainOp:      "and",
+						right: &LogLabelFilterExpr{
+							labelName:    "level",
+							comparisonOp: "=",
+							labelValue:   "notice",
+							isNested:     true,
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | level="info" or level="notice" | other="info" and other="notice"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue:   "info",
+						chainOp:      "or",
+						right: &LogLabelFilterExpr{
+							labelName:    "level",
+							comparisonOp: "=",
+							labelValue:   "notice",
+							isNested:     true,
+						},
+					},
+					&LogLabelFilterExpr{
+						labelName:    "other",
+						comparisonOp: "=",
+						labelValue:   "info",
+						chainOp:      "and",
+						right: &LogLabelFilterExpr{
+							labelName:    "other",
+							comparisonOp: "=",
+							labelValue:   "notice",
+							isNested:     true,
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | level="info" or level="notice"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue:   "info",
+						chainOp:      "or",
+						right: &LogLabelFilterExpr{
+							labelName:    "level",
+							comparisonOp: "=",
+							labelValue:   "notice",
+							isNested:     true,
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | level="info", level="notice"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue:   "info",
+						chainOp:      ",",
+						right: &LogLabelFilterExpr{
+							labelName:    "level",
+							comparisonOp: "=",
+							labelValue:   "notice",
+							isNested:     true,
 						},
 					},
 				},
@@ -325,21 +404,14 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | unpack | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "unpack",
-						},
+					&LogParserExpr{
+						parser: "unpack",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "1.1.1.1",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -357,22 +429,15 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | regexp "(.)*" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser:     "regexp",
-							identifier: "(.)*",
-						},
+					&LogParserExpr{
+						parser:     "regexp",
+						identifier: "(.)*",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "1.1.1.1",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -390,16 +455,12 @@ func TestParseExpr(t *testing.T) {
 			input: `{log_type="application"} | json | pattern ` + "`" + `<_>:"<mytimestamp>",<_>` + "`",
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "json",
-						},
+					&LogParserExpr{
+						parser: "json",
 					},
-					{
-						expr: &LogParserExpr{
-							parser:     "pattern",
-							identifier: `<_>:"<mytimestamp>",<_>`,
-						},
+					&LogParserExpr{
+						parser:     "pattern",
+						identifier: `<_>:"<mytimestamp>",<_>`,
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -417,20 +478,13 @@ func TestParseExpr(t *testing.T) {
 			input: `{kubernetes_namespace_name="log-test-0"} | json | level=~"critical|emerg|fatal|alert|crit|error|err|eror"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "json",
-						},
+					&LogParserExpr{
+						parser: "json",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:  "|",
-								alias:   "level",
-								aliasOp: "=~",
-								value:   "critical|emerg|fatal|alert|crit|error|err|eror",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=~",
+						labelValue:   "critical|emerg|fatal|alert|crit|error|err|eror",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -448,22 +502,15 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | pattern "(.)*" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser:     "pattern",
-							identifier: "(.)*",
-						},
+					&LogParserExpr{
+						parser:     "pattern",
+						identifier: "(.)*",
 					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:   "|",
-								alias:    "addr",
-								aliasOp:  "=",
-								filterOp: "ip",
-								value:    "1.1.1.1",
-							},
-						},
+					&LogLabelFilterExpr{
+						labelName:    "addr",
+						comparisonOp: "=",
+						filterOp:     "ip",
+						labelValue:   "1.1.1.1",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -482,32 +529,22 @@ func TestParseExpr(t *testing.T) {
 			input: `{app="first"} |= "value" | json | line_format "loop{{ .first }}blop {{.status_code}}" | label_format first=value,status_code="blop{{.value}}"`, //nolint:lll
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						stages: LogFiltersExpr{
-							{
-								filter: "|=",
-								value:  "value",
-							},
-						},
+					&LogFilterExpr{
+						filter: "|=",
+						value:  "value",
 					},
-					{
-						expr: &LogParserExpr{
-							parser: "json",
-						},
+					&LogParserExpr{
+						parser: "json",
 					},
-					{
-						expr: &LogParserExpr{
-							parser:     "line_format",
-							identifier: "loop{{ .first }}blop {{.status_code}}",
-						},
+					&LogParserExpr{
+						parser:     "line_format",
+						identifier: "loop{{ .first }}blop {{.status_code}}",
 					},
-					{
-						expr: &LogFormatExpr{
-							sep: ",",
-							kv: LogFormatValues{
-								"first":       LogFormatValue{Value: "value", IsIdentifier: true},
-								"status_code": LogFormatValue{Value: "blop{{.value}}"},
-							},
+					&LogFormatExpr{
+						sep: ",",
+						kv: LogFormatValues{
+							"first":       LogFormatValue{Value: "value", IsIdentifier: true},
+							"status_code": LogFormatValue{Value: "blop{{.value}}"},
 						},
 					},
 				},
@@ -595,13 +632,9 @@ func TestParseExpr(t *testing.T) {
 					rng: `[24h]`,
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
-							{
-								stages: LogFiltersExpr{
-									{
-										filter: "|=",
-										value:  "error",
-									},
-								},
+							&LogFilterExpr{
+								filter: "|=",
+								value:  "error",
 							},
 						},
 						left: &StreamMatcherExpr{
@@ -626,13 +659,9 @@ func TestParseExpr(t *testing.T) {
 					rngLast: true,
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
-							{
-								stages: LogFiltersExpr{
-									{
-										filter: "|=",
-										value:  "error",
-									},
-								},
+							&LogFilterExpr{
+								filter: "|=",
+								value:  "error",
 							},
 						},
 						left: &StreamMatcherExpr{
@@ -657,25 +686,21 @@ func TestParseExpr(t *testing.T) {
 					rngLast: true,
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
-							{
-								stages: LogFiltersExpr{
-									{
-										filter: "|=",
-										value:  "other",
-									},
-									{
-										filter: "|~",
-										value:  "loop",
-									},
-									{
-										filter: "!=",
-										value:  "while",
-									},
-									{
-										filter: "!~",
-										value:  "goto",
-									},
-								},
+							&LogFilterExpr{
+								filter: "|=",
+								value:  "other",
+							},
+							&LogFilterExpr{
+								filter: "|~",
+								value:  "loop",
+							},
+							&LogFilterExpr{
+								filter: "!=",
+								value:  "while",
+							},
+							&LogFilterExpr{
+								filter: "!~",
+								value:  "goto",
 							},
 						},
 						left: &StreamMatcherExpr{
@@ -829,25 +854,21 @@ func TestParseExpr(t *testing.T) {
 						rngLast: true,
 						left: &LogQueryExpr{
 							filter: LogPipelineExpr{
-								{
-									stages: LogFiltersExpr{
-										{
-											filter: "|=",
-											value:  "other",
-										},
-										{
-											filter: "|~",
-											value:  "loop",
-										},
-										{
-											filter: "!=",
-											value:  "while",
-										},
-										{
-											filter: "!~",
-											value:  "goto",
-										},
-									},
+								&LogFilterExpr{
+									filter: "|=",
+									value:  "other",
+								},
+								&LogFilterExpr{
+									filter: "|~",
+									value:  "loop",
+								},
+								&LogFilterExpr{
+									filter: "!=",
+									value:  "while",
+								},
+								&LogFilterExpr{
+									filter: "!~",
+									value:  "goto",
 								},
 							},
 							left: &StreamMatcherExpr{
@@ -875,13 +896,9 @@ func TestParseExpr(t *testing.T) {
 						rngLast: true,
 						left: &LogQueryExpr{
 							filter: LogPipelineExpr{
-								{
-									stages: LogFiltersExpr{
-										{
-											filter: "|=",
-											value:  "level=error",
-										},
-									},
+								&LogFilterExpr{
+									filter: "|=",
+									value:  "level=error",
 								},
 							},
 							left: &StreamMatcherExpr{
@@ -937,13 +954,9 @@ func TestParseExpr(t *testing.T) {
 								rngLast: true,
 								left: &LogQueryExpr{
 									filter: LogPipelineExpr{
-										{
-											stages: LogFiltersExpr{
-												{
-													filter: "|=",
-													value:  "level=error",
-												},
-											},
+										&LogFilterExpr{
+											filter: "|=",
+											value:  "level=error",
 										},
 									},
 									left: &StreamMatcherExpr{
@@ -1086,24 +1099,18 @@ func TestParseExpr(t *testing.T) {
 									},
 								},
 								filter: LogPipelineExpr{
-									{
-										expr: &LogParserExpr{
-											parser: "json",
-										},
+									&LogParserExpr{
+										parser: "json",
 									},
-									{
-										expr: &LogParserExpr{
-											parser:     "line_format",
-											identifier: "{{.message}}",
-										},
+									&LogParserExpr{
+										parser:     "line_format",
+										identifier: "{{.message}}",
 									},
-									{
-										expr: &LogFormatExpr{
-											sep: ",",
-											kv: LogFormatValues{
-												"lvl": LogFormatValue{Value: "level", IsIdentifier: true},
-												"txt": LogFormatValue{Value: "text: {{.message}}"},
-											},
+									&LogFormatExpr{
+										sep: ",",
+										kv: LogFormatValues{
+											"lvl": LogFormatValue{Value: "level", IsIdentifier: true},
+											"txt": LogFormatValue{Value: "text: {{.message}}"},
 										},
 									},
 								},
@@ -1137,24 +1144,18 @@ func TestParseExpr(t *testing.T) {
 									},
 								},
 								filter: LogPipelineExpr{
-									{
-										expr: &LogParserExpr{
-											parser: "json",
-										},
+									&LogParserExpr{
+										parser: "json",
 									},
-									{
-										expr: &LogParserExpr{
-											parser:     "line_format",
-											identifier: "{{.message}}",
-										},
+									&LogParserExpr{
+										parser:     "line_format",
+										identifier: "{{.message}}",
 									},
-									{
-										expr: &LogFormatExpr{
-											sep: ",",
-											kv: LogFormatValues{
-												"lvl": LogFormatValue{Value: "level", IsIdentifier: true},
-												"txt": LogFormatValue{Value: "text: {{.message}}"},
-											},
+									&LogFormatExpr{
+										sep: ",",
+										kv: LogFormatValues{
+											"lvl": LogFormatValue{Value: "level", IsIdentifier: true},
+											"txt": LogFormatValue{Value: "text: {{.message}}"},
 										},
 									},
 								},
@@ -1199,11 +1200,9 @@ func TestParseExpr(t *testing.T) {
 					rngLast: true,
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
-							{
-								expr: &LogParserExpr{
-									parser:     "unwrap",
-									identifier: "value",
-								},
+							&LogParserExpr{
+								parser:     "unwrap",
+								identifier: "value",
 							},
 						},
 						left: &StreamMatcherExpr{
@@ -1229,12 +1228,10 @@ func TestParseExpr(t *testing.T) {
 					rngLast: true,
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
-							{
-								expr: &LogParserExpr{
-									parser:     "unwrap",
-									identifier: "value",
-									operation:  "bytes",
-								},
+							&LogParserExpr{
+								parser:     "unwrap",
+								identifier: "value",
+								operation:  "bytes",
 							},
 						},
 						left: &StreamMatcherExpr{
@@ -1255,18 +1252,14 @@ func TestParseExpr(t *testing.T) {
 			input: `{app="first"} | line_format "{{ __line__ }} bar {{.status_code}}" | label_format status_code="401"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser:     "line_format",
-							identifier: "{{ __line__ }} bar {{.status_code}}",
-						},
+					&LogParserExpr{
+						parser:     "line_format",
+						identifier: "{{ __line__ }} bar {{.status_code}}",
 					},
-					{
-						expr: &LogFormatExpr{
-							sep: "",
-							kv: LogFormatValues{
-								"status_code": LogFormatValue{Value: "401"},
-							},
+					&LogFormatExpr{
+						sep: "",
+						kv: LogFormatValues{
+							"status_code": LogFormatValue{Value: "401"},
 						},
 					},
 				},
@@ -1292,11 +1285,9 @@ func TestParseExpr(t *testing.T) {
 					rngLast: true,
 					left: &LogQueryExpr{
 						filter: LogPipelineExpr{
-							{
-								expr: &LogParserExpr{
-									parser:     "unwrap",
-									identifier: "value",
-								},
+							&LogParserExpr{
+								parser:     "unwrap",
+								identifier: "value",
 							},
 						},
 						left: &StreamMatcherExpr{
@@ -1329,11 +1320,9 @@ func TestParseExpr(t *testing.T) {
 						rngLast: true,
 						left: &LogQueryExpr{
 							filter: LogPipelineExpr{
-								{
-									expr: &LogParserExpr{
-										parser:     "unwrap",
-										identifier: "value",
-									},
+								&LogParserExpr{
+									parser:     "unwrap",
+									identifier: "value",
 								},
 							},
 							left: &StreamMatcherExpr{
@@ -1377,9 +1366,7 @@ func TestParseExpr(t *testing.T) {
 			input: `{first="value"} | decolorize`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
-					{
-						expr: &LogDecolorizeExpr{},
-					},
+					&LogDecolorizeExpr{},
 				},
 				left: &StreamMatcherExpr{
 					matchers: []*labels.Matcher{
@@ -1402,15 +1389,15 @@ func TestParseExpr(t *testing.T) {
 				t.Fatalf("unexpected err: %s", err)
 			}
 
-			if !reflect.DeepEqual(tc.expr, expr) {
-				t.Fatalf("\ngot:  %#v\nwant: %#v", expr, tc.expr)
-			}
-
 			got := trimOutput(expr.String())
 			want := trimInput(tc.input)
 
 			if want != got {
 				t.Fatalf("\ngot:  %s\nwant: %s", got, want)
+			}
+
+			if !reflect.DeepEqual(tc.expr, expr) {
+				t.Fatalf("\ngot:  %#v\nwant: %#v", expr, tc.expr)
 			}
 		})
 	}

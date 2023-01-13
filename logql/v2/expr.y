@@ -10,14 +10,14 @@ import (
 %union{
   Expr                 Expr
   LogBinaryOpExpr      LogBinaryOpExpr
-  LogFilterExpr        LogFilterExpr
-  LogFiltersExpr       LogFiltersExpr
-  LogFormatExpr        *LogFormatExpr
+  LogFilterExpr        LogStageExpr
+  LogLabelFilterExpr   LogStageExpr
+  LogFormatExpr        LogStageExpr
   LogQueryExpr         LogSelectorExpr
   LogMetricExpr        LogMetricSampleExpr
   LogNumberExpr        LogNumberExpr
   LogPipelineExpr      LogPipelineExpr
-  LogPipelineStageExpr LogPipelineStageExpr
+  LogStageExpr         LogStageExpr
   LogRangeQueryExpr    LogSelectorExpr
   LogOffsetExpr        *LogOffsetExpr
   Matcher              *labels.Matcher
@@ -45,13 +45,13 @@ import (
 %type <Labels>               labels
 %type <LogBinaryOpExpr>      logBinaryOpExpr
 %type <LogFilterExpr>        logFilterExpr
-%type <LogFiltersExpr>       logFiltersExpr
+%type <LogLabelFilterExpr>   logLabelFilterExpr
 %type <LogFormatExpr>        logFormatExpr
 %type <LogQueryExpr>         logQueryExpr
 %type <LogMetricExpr>        logMetricExpr
 %type <LogNumberExpr>        logNumberExpr
 %type <LogPipelineExpr>      logPipelineExpr
-%type <LogPipelineStageExpr> logPipelineStageExpr
+%type <LogStageExpr>         logStageExpr
 %type <LogRangeQueryExpr>    logRangeQueryExpr
 %type <LogOffsetExpr>        logOffsetExpr
 %type <Matcher>              matcher
@@ -94,8 +94,8 @@ logQueryExpr:
                 ;
 
 logPipelineExpr:
-                logPipelineStageExpr                 { $$ = LogPipelineExpr { $1 } }
-        |       logPipelineExpr logPipelineStageExpr { $$ = append($1, $2)         }
+                logStageExpr                 { $$ = LogPipelineExpr { $1 } }
+        |       logPipelineExpr logStageExpr { $$ = append($1, $2)         }
         ;
 
 convOp:
@@ -104,37 +104,57 @@ convOp:
         |   DURATION_SECONDS_CONV   { $$ = OpConvDurationSeconds }
         ;
 
-logPipelineStageExpr:
-                logFiltersExpr                                                            { $$ = newLogPipelineStageExpr(nil, $1)                                                      }
-        |       PIPE LOGFMT                                                               { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserLogFMT, "", ""), nil)                  }
-        |       PIPE JSON                                                                 { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserJSON, "", ""), nil)                    }
-        |       PIPE UNPACK                                                               { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserUnpack, "", ""), nil)                  }
-        |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserUnwrap, $3, ""), nil)                  }
-        |       PIPE UNWRAP convOp OPEN_PARENTHESIS IDENTIFIER CLOSE_PARENTHESIS          { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserUnwrap, $5, $3), nil)                  }
-        |       PIPE REGEXP STRING                                                        { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserRegExp, $3, ""), nil)                  }
-        |       PIPE PATTERN STRING                                                       { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserPattern, $3, ""), nil)                 }
-        |       PIPE LINE_FMT STRING                                                      { $$ = newLogPipelineStageExpr(newLogParserExpr(ParserLineFormat, $3, ""), nil)              }
-        |       PIPE DECOLORIZE                                                           { $$ = newLogPipelineStageExpr(newLogDecolorizeExpr(), nil)                                  }
-        |       PIPE LABEL_FMT logFormatExpr                                              { $$ = newLogPipelineStageExpr($3, nil)                                                      }
-        |       PIPE IDENTIFIER comparisonOp STRING                                       { $$ = newLogPipelineStageExpr(nil, LogFiltersExpr{newLogFilterExpr("|", $2, $3, "", $4)})   }
-        |       PIPE IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogPipelineStageExpr(nil, LogFiltersExpr{newLogFilterExpr("|", $2, $3, OpIP, $6)}) }
+logStageExpr:
+                logFilterExpr                                                             { $$ = $1                                         }
+        |       PIPE logLabelFilterExpr                                                   { $$ = $2                                         }
+        |       PIPE LOGFMT                                                               { $$ = newLogParserExpr(ParserLogFMT, "", "")     }
+        |       PIPE JSON                                                                 { $$ = newLogParserExpr(ParserJSON, "", "")       }
+        |       PIPE UNPACK                                                               { $$ = newLogParserExpr(ParserUnpack, "", "")     }
+        |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogParserExpr(ParserUnwrap, $3, "")     }
+        |       PIPE UNWRAP convOp OPEN_PARENTHESIS IDENTIFIER CLOSE_PARENTHESIS          { $$ = newLogParserExpr(ParserUnwrap, $5, $3)     }
+        |       PIPE REGEXP STRING                                                        { $$ = newLogParserExpr(ParserRegExp, $3, "")     }
+        |       PIPE PATTERN STRING                                                       { $$ = newLogParserExpr(ParserPattern, $3, "")    }
+        |       PIPE LINE_FMT STRING                                                      { $$ = newLogParserExpr(ParserLineFormat, $3, "") }
+        |       PIPE DECOLORIZE                                                           { $$ = newLogDecolorizeExpr()                     }
+        |       PIPE LABEL_FMT logFormatExpr                                              { $$ = $3                                         }
                 ;
-
-logFiltersExpr:
-                logFilterExpr                { $$= LogFiltersExpr{$1} }
-        |       logFiltersExpr logFilterExpr { $$= append($1, $2)     }
-        ;
 
 logFilterExpr:
-                filter STRING                                       { $$ = newLogFilterExpr($1, "", "", "", $2)   }
-        |       filter IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFilterExpr($1, "", "", OpIP, $4) }
+                filter STRING                                       { $$ = newLogFilterExpr($1, "", $2)   }
+        |       filter IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFilterExpr($1, OpIP, $4) }
                 ;
 
+logLabelFilterExpr:
+                IDENTIFIER comparisonOp STRING                                       { $$ = newLogLabelFilter($1, $2, "", $3) }
+        |       IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogLabelFilter($1, $2, OpIP, $5)}
+        |       logLabelFilterExpr AND logLabelFilterExpr
+                {
+                  $$ = $1
+                  $$.(*LogLabelFilterExpr).chainOp = "and"
+                  $$.(*LogLabelFilterExpr).right = $3.(*LogLabelFilterExpr)
+                  $$.(*LogLabelFilterExpr).right.isNested = true
+                }
+        |       logLabelFilterExpr OR logLabelFilterExpr
+                {
+                  $$ = $1
+                  $$.(*LogLabelFilterExpr).chainOp = "or"
+                  $$.(*LogLabelFilterExpr).right = $3.(*LogLabelFilterExpr)
+                  $$.(*LogLabelFilterExpr).right.isNested = true
+                }
+        |       logLabelFilterExpr COMMA logLabelFilterExpr
+                {
+                  $$ = $1
+                  $$.(*LogLabelFilterExpr).chainOp = ","
+                  $$.(*LogLabelFilterExpr).right = $3.(*LogLabelFilterExpr)
+                  $$.(*LogLabelFilterExpr).right.isNested = true
+                }
+        ;
+
 logFormatExpr:
-                IDENTIFIER EQ STRING                                       { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: $3}}, "").(*LogFormatExpr)                     }
-        |       IDENTIFIER EQ IDENTIFIER                                   { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: $3, IsIdentifier: true}}, "").(*LogFormatExpr) }
-        |       IDENTIFIER EQ IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: OpIP+"("+$5+")"}}, "").(*LogFormatExpr)        }
-        |       logFormatExpr COMMA logFormatExpr                          { $$ = newLogFormatExpr(",", mergeLogFormatValues($1.kv, $3.kv), "").(*LogFormatExpr)                                }
+                IDENTIFIER EQ STRING                                       { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: $3}}, "")                     }
+        |       IDENTIFIER EQ IDENTIFIER                                   { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: $3, IsIdentifier: true}}, "") }
+        |       IDENTIFIER EQ IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: OpIP+"("+$5+")"}}, "")        }
+        |       logFormatExpr COMMA logFormatExpr                          { $$ = newLogFormatExpr(",", mergeLogFormatValues($1.(*LogFormatExpr).kv, $3.(*LogFormatExpr).kv), "")                                }
         ;
 
 logOffsetExpr:

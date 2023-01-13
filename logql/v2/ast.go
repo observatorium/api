@@ -85,57 +85,26 @@ func newLabelMatcher(t labels.MatchType, n, v string) *labels.Matcher {
 	return m
 }
 
-type LogFiltersExpr []LogFilterExpr
-
-func (l *LogFiltersExpr) String() string {
-	var sb strings.Builder
-
-	for i, e := range *l {
-		sb.WriteString(e.String())
-
-		if i+1 != len(*l) {
-			sb.WriteString(" ")
-		}
-	}
-
-	return sb.String()
-}
-
-func (l *LogFiltersExpr) Walk(fn WalkFn) {
-	if l == nil {
-		return
-	}
-
-	for _, e := range *l {
-		fn(e)
-	}
-}
-
 type LogFilterExpr struct {
 	defaultLogQLExpr // nolint:unused
 	filter           string
-	alias            string
-	aliasOp          string
 	filterOp         string
 	value            string
 }
 
 func (LogFilterExpr) logQLExpr() {}
 
-func newLogFilterExpr(filter, alias, aliasOp, filterOp, value string) LogFilterExpr {
-	return LogFilterExpr{filter: filter, alias: alias, aliasOp: aliasOp, filterOp: filterOp, value: value}
+func (LogFilterExpr) logStageExpr() {}
+
+func newLogFilterExpr(filter, filterOp, value string) LogStageExpr {
+	return &LogFilterExpr{filter: filter, filterOp: filterOp, value: value}
 }
 
-func (l *LogFilterExpr) String() string {
+func (l LogFilterExpr) String() string {
 	var sb strings.Builder
 
 	sb.WriteString(l.filter)
 	sb.WriteString(" ")
-
-	if l.alias != "" {
-		sb.WriteString(l.alias)
-		sb.WriteString(l.aliasOp)
-	}
 
 	if l.filterOp != "" {
 		sb.WriteString(l.filterOp)
@@ -154,6 +123,68 @@ func (l *LogFilterExpr) String() string {
 }
 
 func (l *LogFilterExpr) Walk(fn WalkFn) {
+	fn(l)
+}
+
+type LogLabelFilterExpr struct {
+	labelName    string
+	comparisonOp string
+	filterOp     string
+	labelValue   string
+	chainOp      string
+	isNested     bool
+	right        *LogLabelFilterExpr
+}
+
+func newLogLabelFilter(identifier, comparisonOp, filterOp, value string) LogStageExpr {
+	return &LogLabelFilterExpr{labelName: identifier, comparisonOp: comparisonOp, filterOp: filterOp, labelValue: value}
+}
+
+func (LogLabelFilterExpr) logStageExpr() {}
+
+func (l LogLabelFilterExpr) String() string {
+	var sb strings.Builder
+
+	if !l.isNested {
+		sb.WriteString("| ")
+	}
+
+	sb.WriteString(l.labelName)
+	sb.WriteString(l.comparisonOp)
+
+	if l.filterOp != "" {
+		sb.WriteString(l.filterOp)
+		sb.WriteString("(")
+		sb.WriteString(`"`)
+		sb.WriteString(l.labelValue)
+		sb.WriteString(`"`)
+		sb.WriteString(")")
+	} else {
+		sb.WriteString(`"`)
+		sb.WriteString(l.labelValue)
+		sb.WriteString(`"`)
+	}
+
+	switch l.chainOp {
+	case "and", "or":
+		sb.WriteString(" ")
+		sb.WriteString(l.chainOp)
+		sb.WriteString(" ")
+		sb.WriteString(l.right.String())
+	case ",":
+		sb.WriteString(l.chainOp)
+		sb.WriteString(" ")
+		sb.WriteString(l.right.String())
+	}
+
+	if l.right != nil && l.right.right != nil {
+		sb.WriteString(" ")
+	}
+
+	return sb.String()
+}
+
+func (l *LogLabelFilterExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
@@ -195,11 +226,7 @@ func (LogFormatExpr) logQLExpr() {}
 
 func (LogFormatExpr) logStageExpr() {}
 
-func (l *LogFormatExpr) String() string {
-	if l == nil {
-		return ""
-	}
-
+func (l LogFormatExpr) String() string {
 	var (
 		sb strings.Builder
 		i  int
@@ -273,11 +300,7 @@ func (LogParserExpr) logQLExpr() {}
 
 func (LogParserExpr) logStageExpr() {}
 
-func (l *LogParserExpr) String() string {
-	if l == nil {
-		return ""
-	}
-
+func (l LogParserExpr) String() string {
 	var sb strings.Builder
 	sb.WriteString("| ")
 	sb.WriteString(l.parser)
@@ -331,7 +354,7 @@ func (LogDecolorizeExpr) logQLExpr() {}
 
 func (LogDecolorizeExpr) logStageExpr() {}
 
-func (l *LogDecolorizeExpr) String() string {
+func (l LogDecolorizeExpr) String() string {
 	return "| decolorize"
 }
 
@@ -339,7 +362,7 @@ func (l *LogDecolorizeExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
-type LogPipelineExpr []LogPipelineStageExpr
+type LogPipelineExpr []LogStageExpr
 
 func (LogPipelineExpr) logQLExpr() {}
 
@@ -365,39 +388,6 @@ func (l *LogPipelineExpr) Walk(fn WalkFn) {
 	for _, e := range *l {
 		fn(e)
 	}
-}
-
-type LogPipelineStageExpr struct {
-	expr   LogStageExpr
-	stages LogFiltersExpr
-}
-
-func newLogPipelineStageExpr(expr LogStageExpr, stage LogFiltersExpr) LogPipelineStageExpr {
-	return LogPipelineStageExpr{expr: expr, stages: stage}
-}
-
-func (LogPipelineStageExpr) logQLExpr() {}
-
-func (l *LogPipelineStageExpr) String() string {
-	var sb strings.Builder
-
-	if l.expr != nil {
-		sb.WriteString(l.expr.String())
-	}
-
-	for i, stage := range l.stages {
-		sb.WriteString(stage.String())
-
-		if i+1 != len(l.stages) {
-			sb.WriteString(" ")
-		}
-	}
-
-	return sb.String()
-}
-
-func (l *LogPipelineStageExpr) Walk(fn WalkFn) {
-	fn(l)
 }
 
 type LogQueryExpr struct {
