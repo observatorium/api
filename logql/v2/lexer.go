@@ -48,7 +48,7 @@ const (
 	RangeOpTypeAbsent      = "absent_over_time"
 	RangeOpTypeRateCounter = "rate_counter"
 
-	// vector op
+	// vector op.
 	OpTypeVector = "vector"
 
 	// Other ops.

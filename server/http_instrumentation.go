@@ -107,8 +107,10 @@ func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []s
 	}
 }
 
+type contextKey string
+
 // ExtraLabelContextKey is the key for the extra labels in the request context.
-const ExtraLabelContextKey = "extraLabels"
+const ExtraLabelContextKey contextKey = "extraLabels"
 
 // InstrumentationMiddleware calls the provided labelParser to parse the extra labels from the request and adds them to the context.
 func InstrumentationMiddleware(labelParser func(r *http.Request) prometheus.Labels) func(next http.Handler) http.Handler {

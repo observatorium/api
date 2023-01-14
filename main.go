@@ -1324,11 +1324,13 @@ type groupHandler struct {
 	handler string
 }
 
+// nolint: gochecknoglobals
 var legacyMetricsGroup = map[string]groupHandler{
 	metricslegacy.QueryRoute:      {"metricslegacy", "query"},
 	metricslegacy.QueryRangeRoute: {"metricslegacy", "query_range"},
 }
 
+// nolint: gochecknoglobals
 var metricsV1Group = map[string]groupHandler{
 	metricsv1.UIRoute:          {"metricsv1", "ui"},
 	metricsv1.QueryRoute:       {"metricsv1", "query"},
