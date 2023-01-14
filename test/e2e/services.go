@@ -14,7 +14,7 @@ import (
 	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
 	e2edb "github.com/efficientgo/e2e/db"
-	"github.com/efficientgo/e2e/monitoring"
+	e2emon "github.com/efficientgo/e2e/monitoring"
 )
 
 const (
@@ -32,10 +32,10 @@ const (
 	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
 	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
 
-	dexImage        = "dexidp/dex:v2.30.0"
-	opaImage        = "openpolicyagent/opa:0.47.4-static"
-	gubernatorImage = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
-  rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
+	dexImage              = "dexidp/dex:v2.30.0"
+	opaImage              = "openpolicyagent/opa:0.47.4-static"
+	gubernatorImage       = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
+	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
