@@ -584,22 +584,18 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
-				metricsMiddlewares := []func(http.Handler) http.Handler{
-					authentication.WithTenantMiddlewares(pm.Middlewares),
-					authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs),
-				}
-
-				// rateLimitMiddleware should be appended early onto the router middleware stack
-				// prior to any path stripping or other middleware that may alter the request path
-				// in order to avoid unexpected path matching issues.
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
 				if rateLimitClient != nil {
 					rateLimitMiddleware = ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...)
 				}
 
+				metricsMiddlewares := []func(http.Handler) http.Handler{
+					authentication.WithTenantMiddlewares(pm.Middlewares),
+					authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs),
+					rateLimitMiddleware,
+				}
+
 				r.Group(func(r chi.Router) {
-					r.Use(rateLimitMiddleware)
-					r.Use(metricsMiddlewares...)
 					r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
 						tenant, ok := authentication.GetTenant(r.Context())
 						if !ok {
@@ -612,13 +608,13 @@ func main() {
 				})
 
 				r.Group(func(r chi.Router) {
-					r.Use(rateLimitMiddleware)
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamCACert,
 						metricsUpstreamClientCert,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
+						metricslegacy.WithLabelParser(chiLabelParser),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
@@ -627,7 +623,7 @@ func main() {
 						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					))
 
-					r.Mount("/api/metrics/v1/{tenant}", stripTenantPrefix("/api/metrics/v1", metricsv1.NewHandler(
+					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						cfg.metrics.readEndpoint,
 						cfg.metrics.writeEndpoint,
 						cfg.metrics.rulesEndpoint,
@@ -635,19 +631,20 @@ func main() {
 						metricsUpstreamClientCert,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
+						metricsv1.WithLabelParser(chiLabelParser),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
 						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
+						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
 						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
-					)))
+					))
 				})
 			}
 
@@ -1319,4 +1316,61 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 	gs := grpc.NewServer(opts...)
 
 	return gs, nil
+}
+
+type groupHandler struct {
+	group   string
+	handler string
+}
+
+var legacyMetricsGroup = map[string]groupHandler{
+	metricslegacy.QueryRoute:      {"metricslegacy", "query"},
+	metricslegacy.QueryRangeRoute: {"metricslegacy", "query_range"},
+}
+
+var metricsV1Group = map[string]groupHandler{
+	metricsv1.UIRoute:          {"metricsv1", "ui"},
+	metricsv1.QueryRoute:       {"metricsv1", "query"},
+	metricsv1.QueryRangeRoute:  {"metricsv1", "query_range"},
+	metricsv1.SeriesRoute:      {"metricsv1", "series"},
+	metricsv1.LabelNamesRoute:  {"metricsv1", "labels"},
+	metricsv1.LabelValuesRoute: {"metricsv1", "labelvalues"},
+	metricsv1.ReceiveRoute:     {"metricsv1", "receive"},
+	metricsv1.RulesRoute:       {"metricsv1", "rules"},
+	metricsv1.RulesRawRoute:    {"metricsv1", "rules"},
+}
+
+func chiLabelParser(r *http.Request) prometheus.Labels {
+	extraLabels := prometheus.Labels{
+		"handler": "unknown",
+		"group":   "unknown",
+	}
+
+	routePattern := chi.RouteContext(r.Context()).RoutePattern()
+	tenant, ok := authentication.GetTenant(r.Context())
+	if !ok {
+		return extraLabels
+	}
+
+	var groupHandler map[string]groupHandler
+	switch routePattern {
+	case "/api/metrics/v1/{tenant}/*":
+		groupHandler = metricsV1Group
+	case "/api/v1/{tenant}/*":
+		groupHandler = legacyMetricsGroup
+	}
+
+	strippedPath := strings.Split(r.URL.Path, tenant)
+	if len(strippedPath) != 2 {
+		return extraLabels
+	}
+
+	gh, ok := groupHandler[strippedPath[1]]
+	if ok {
+		extraLabels = prometheus.Labels{
+			"group":   gh.group,
+			"handler": gh.handler,
+		}
+	}
+	return extraLabels
 }

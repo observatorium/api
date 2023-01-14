@@ -1,13 +1,15 @@
 package server
 
 import (
+	"context"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/go-chi/chi/middleware"
 	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 // httpMetricsCollector is responsible for collecting HTTP metrics with extra tenant labels.
@@ -62,6 +64,14 @@ type instrumentedHandlerFactory struct {
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
 func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// if extra labels are provided on the context, prefer them
+		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
+			ctxLabels, ok := labels.(prometheus.Labels)
+			if ok {
+				extraLabels = ctxLabels
+			}
+		}
+
 		rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		now := time.Now()
 		next.ServeHTTP(rw, r)
@@ -94,6 +104,20 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string) instrumentedHandlerFactory {
 	return instrumentedHandlerFactory{
 		metricsCollector: newHTTPMetricsCollector(req, hardcodedLabels),
+	}
+}
+
+// ExtraLabelContextKey is the key for the extra labels in the request context.
+const ExtraLabelContextKey = "extraLabels"
+
+// InstrumentationMiddleware calls the provided labelParser to parse the extra labels from the request and adds them to the context.
+func InstrumentationMiddleware(labelParser func(r *http.Request) prometheus.Labels) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			ctx := context.WithValue(r.Context(), ExtraLabelContextKey, labelParser(r))
+			next.ServeHTTP(rw, r.WithContext(ctx))
+		})
 	}
 }
 

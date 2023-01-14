@@ -14,10 +14,14 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/observatorium/api/proxy"
+	"github.com/observatorium/api/server"
 	"github.com/observatorium/api/tls"
 )
 
 const (
+	QueryRoute      = "/api/v1/query"
+	QueryRangeRoute = "/api/v1/query_range"
+
 	readTimeout = 15 * time.Minute
 )
 
@@ -28,6 +32,7 @@ type handlerConfiguration struct {
 	spanRoutePrefix  string
 	queryMiddlewares []func(http.Handler) http.Handler
 	uiMiddlewares    []func(http.Handler) http.Handler
+	labelParser      func(r *http.Request) prometheus.Labels
 }
 
 type HandlerOption func(h *handlerConfiguration)
@@ -79,6 +84,14 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+// WithLabelParser adds a custom label parser to the handler.
+// The label parser is used to parse prometheus.Labels from the request.
+func WithLabelParser(labelParser func(r *http.Request) prometheus.Labels) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.labelParser = labelParser
+	}
+}
+
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
@@ -101,6 +114,10 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 	}
 
 	r := chi.NewRouter()
+	r.Use(server.InstrumentationMiddleware(c.labelParser))
+	r.Use(func(handler http.Handler) http.Handler {
+		return c.instrument.NewHandler(nil, handler)
+	})
 
 	var legacyProxy http.Handler
 	{
@@ -126,19 +143,8 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 
 	r.Group(func(r chi.Router) {
 		r.Use(c.queryMiddlewares...)
-		const (
-			queryRoute      = "/api/v1/query"
-			queryRangeRoute = "/api/v1/query_range"
-		)
-
-		r.Handle(queryRoute, c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-			otelhttp.WithRouteTag(c.spanRoutePrefix+queryRoute, legacyProxy),
-		))
-		r.Handle(queryRangeRoute, c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-			otelhttp.WithRouteTag(c.spanRoutePrefix+queryRangeRoute, legacyProxy),
-		))
+		r.Handle(QueryRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+QueryRoute, legacyProxy))
+		r.Handle(QueryRangeRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+QueryRangeRoute, legacyProxy))
 	})
 
 	r.Group(func(r chi.Router) {
