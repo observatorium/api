@@ -117,8 +117,9 @@ func (rs resources) Authorize(subject string, groups []string, permission Permis
 	return http.StatusForbidden, false, ""
 }
 
-//nolint:gocognit
 // NewAuthorizer creates a new Authorizer.
+//
+//nolint:gocognit
 func NewAuthorizer(roles []Role, roleBindings []RoleBinding, logger log.Logger) Authorizer {
 	rs := make(map[string]Role)
 	for _, role := range roles {

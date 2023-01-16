@@ -12,12 +12,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-//nolint:gochecknoglobals
 // providerFactories map is used for the providers' self-registration.
+//
+//nolint:gochecknoglobals
 var providerFactories map[string]ProviderFactory
 
-//nolint:gochecknoglobals
 // providersMtx is used to protect the providerFactories.
+//
+//nolint:gochecknoglobals
 var providersMtx sync.RWMutex
 
 //nolint:gochecknoinits

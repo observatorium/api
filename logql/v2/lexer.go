@@ -48,14 +48,14 @@ const (
 	RangeOpTypeAbsent      = "absent_over_time"
 	RangeOpTypeRateCounter = "rate_counter"
 
-	// vector op
+	// vector op.
 	OpTypeVector = "vector"
 
 	// Other ops.
 	OpLabelReplace = "label_replace"
 	OpIP           = "ip"
 
-	// conversion Op
+	// conversion Op.
 	OpConvBytes           = "bytes"
 	OpConvDuration        = "duration"
 	OpConvDurationSeconds = "duration_seconds"

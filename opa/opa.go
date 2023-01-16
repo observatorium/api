@@ -25,12 +25,14 @@ const (
 	xForwardedAccessTokenHeader = "X-Forwarded-Access-Token" //nolint:gosec
 )
 
-//nolint:gochecknoglobals
 // regoFunctions map is used for the providers' self-registration.
+//
+//nolint:gochecknoglobals
 var regoFunctions map[string]func(log.Logger) func(*rego.Rego)
 
-//nolint:gochecknoglobals
 // regoFunctionsMtx is used to protect the providerFactories.
+//
+//nolint:gochecknoglobals
 var regoFunctionsMtx sync.RWMutex
 
 //nolint:gochecknoinits

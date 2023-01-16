@@ -38,7 +38,7 @@ const (
 	prometheusRulesRoute  = "/prometheus/api/v1/rules"
 	prometheusAlertsRoute = "/prometheus/api/v1/alerts"
 
-	// Legacy APIs for Grafana <= 6
+	// Legacy APIs for Grafana <= 6.
 
 	promQueryRoute             = "/api/prom/query"
 	promLabelRoute             = "/api/prom/label"

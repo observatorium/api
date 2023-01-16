@@ -2,6 +2,7 @@ package testtls
 
 import (
 	"fmt"
+	stdlog "log"
 	"os"
 	"path/filepath"
 	"time"
@@ -128,7 +129,7 @@ func generateCert(
 	commonName string, hosts []string, groups []string, profile string,
 	signingConfig *config.Signing, ca []byte, caKey []byte,
 ) (certBundle, error) {
-	fmt.Printf("cert generate, commonName=%s, hosts=%v, groups=%v, profile=%s, signingConfig=%+v\n",
+	stdlog.Printf("cert generate, commonName=%s, hosts=%v, groups=%v, profile=%s, signingConfig=%+v\n",
 		commonName, hosts, groups, profile, signingConfig)
 
 	names := make([]csr.Name, 0, len(groups))

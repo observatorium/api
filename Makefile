@@ -8,6 +8,7 @@ OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
 ARCH ?= $(shell uname -m)
 GOARCH ?= $(shell go env GOARCH)
 BIN_NAME ?= observatorium-api
+FILES_TO_FMT ?= $(filter-out ./ratelimit/gubernator/gubernator.pb.go, $(shell find . -path ./vendor -not -prune -o -name '*.go' -print))
 
 VERSION := $(strip $(shell [ -d .git ] && git describe --always --tags --dirty))
 BUILD_DATE := $(shell date -u +"%Y-%m-%d")
@@ -34,6 +35,27 @@ MOCKPROVIDER ?= $(BIN_DIR)/mockprovider
 
 PROTOC ?= $(TMP_DIR)/protoc
 PROTOC_VERSION ?= 3.13.0
+
+GIT ?= $(shell which git)
+
+define require_clean_work_tree
+	@git update-index -q --ignore-submodules --refresh
+
+    @if ! git diff-files --quiet --ignore-submodules --; then \
+        echo >&2 "$1: you have unstaged changes."; \
+        git diff-files --name-status -r --ignore-submodules -- >&2; \
+        echo >&2 "Please commit or stash them."; \
+        exit 1; \
+    fi
+
+    @if ! git diff-index --cached --quiet HEAD --ignore-submodules --; then \
+        echo >&2 "$1: your index contains uncommitted changes."; \
+        git diff-index --cached --name-status -r --ignore-submodules HEAD -- >&2; \
+        echo >&2 "Please commit or stash them."; \
+        exit 1; \
+    fi
+
+endef
 
 default: $(BIN_NAME)
 all: clean lint test $(BIN_NAME) generate validate
@@ -70,16 +92,37 @@ deps: go.mod go.sum
 	go mod verify
 
 .PHONY: format
-format: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run --fix --enable-all -c .golangci.yml
+format: ## Formats Go code.
+format: $(GOIMPORTS) $(GOLANGCI_LINT)
+	@echo ">> formatting code"
+	@gofmt -s -w $(FILES_TO_FMT)
+	@$(GOIMPORTS) -w $(FILES_TO_FMT)
+
+.PHONY: check-git
+check-git:
+ifneq ($(GIT),)
+	@test -x $(GIT) || (echo >&2 "No git executable binary found at $(GIT)."; exit 1)
+else
+	@echo >&2 "No git binary found."; exit 1
+endif
 
 .PHONY: shellcheck
 shellcheck: $(SHELLCHECK)
 	$(SHELLCHECK) $(shell find . -type f -name "*.sh" -not -path "*vendor*" -not -path "*tmp*")
 
 .PHONY: lint
-lint: $(GOLANGCI_LINT) deps shellcheck jsonnet-fmt
-	$(GOLANGCI_LINT) run -v --enable-all -c .golangci.yml
+lint: ## Runs various static analysis against our code.
+lint: $(FAILLINT) $(GOLANGCI_LINT) $(MISSPELL) build docs check-git deps shellcheck jsonnet-fmt format
+	$(call require_clean_work_tree,'detected not clean work tree before running lint, previous job changed something?')
+	@echo ">> verifying modules being imported"
+	@$(FAILLINT) -paths "fmt.{Print,Printf,Println},io/ioutil.{Discard,NopCloser,ReadAll,ReadDir,ReadFile,TempDir,TempFile,Writefile}" -ignore-tests ./...
+	@echo ">> examining all of the Go files"
+	@go vet -stdmethods=false ./...
+	@echo ">> linting all of the Go files GOGC=${GOGC}"
+	@$(GOLANGCI_LINT) run
+	@echo ">> detecting misspells"
+	@find . -type f | grep -v vendor/ | grep -vE '\./\..*' | xargs $(MISSPELL) -error
+	$(call require_clean_work_tree,'detected files without copyright, run make lint and commit changes')
 
 .PHONY: test
 test: build test-unit
