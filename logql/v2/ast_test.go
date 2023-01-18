@@ -136,3 +136,78 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 		}
 	}
 }
+
+func Test_AstWalker_AppendORMatcher(t *testing.T) {
+	type tt struct {
+		input  string
+		output string
+	}
+
+	l := []*labels.Matcher{
+		{
+			Type:  labels.MatchEqual,
+			Name:  "second",
+			Value: "next",
+		},
+		{
+			Type:  labels.MatchEqual,
+			Name:  "third",
+			Value: "next",
+		},
+	}
+
+	tc := []tt{
+		// log number expressions
+		{
+			input:  "100 * 100",
+			output: "100 * 100",
+		},
+		{
+			input:  "100 * -100",
+			output: "100 * -100",
+		},
+		// log selector expressions
+		{
+			input:  `{first="value"}`,
+			output: `{first="value", second="next"} or {first="value", third="next"}`,
+		},
+		{
+			input:  `{first="value"} |= "other" |= ip("8.8.8.8")`,
+			output: `{first="value", second="next"} or {first="value", third="next"} |= "other" |= ip("8.8.8.8")`,
+		},
+		{
+			input:  `{ first = "value" }|logfmt|addr>=ip("1.1.1.1")`,
+			output: `{first="value", second="next"} or {first="value", third="next"} | logfmt | addr>=ip("1.1.1.1")`,
+		},
+		// log metric expressions
+		{
+			input: `sum(rate({first="value"}[5m]))`,
+			// Check: is that correct??
+			output: `sum(rate({first="value", second="next"}[5m] or {first="value", third="next"}[5m]))`,
+		},
+		{
+			input:  `max without (second) (count_over_time({first="value"}[5h]))`,
+			output: `max without(second) (count_over_time({first="value", second="next"}[5h] or {first="value", third="next"}[5h]))`,
+		},
+	}
+	for _, tc := range tc {
+		tc := tc
+
+		expr, err := ParseExpr(tc.input)
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+
+		expr.Walk(func(e interface{}) {
+			switch ex := e.(type) { //nolint:gocritic
+			case *StreamMatcherExpr:
+				ex.AppendORMatchers(l)
+			}
+		})
+
+		got := expr.String()
+		if got != tc.output {
+			t.Fatalf("\ngot:  %s\nwant: %s", got, tc.output)
+		}
+	}
+}

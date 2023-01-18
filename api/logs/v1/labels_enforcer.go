@@ -12,6 +12,14 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
+// TODO: share with OPA?
+type MatchersInfo struct {
+	Matchers  []*labels.Matcher `json:"matchers,omitempty"`
+	LogicalOp string            `json:"logicalOp,omitempty"`
+}
+
+const logicalOr = "or"
+
 // WithEnforceAuthorizationLabels return a middleware that ensures every query
 // has a set of labels returned by the OPA authorizer enforced.
 func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
@@ -32,14 +40,14 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
-			var lm []*labels.Matcher
-			if err := json.Unmarshal([]byte(data), &lm); err != nil {
+			var matchersInfo MatchersInfo
+			if err := json.Unmarshal([]byte(data), &matchersInfo); err != nil {
 				httperr.PrometheusAPIError(w, "error parsing authorization label matchers", http.StatusInternalServerError)
 
 				return
 			}
 
-			q, err := enforceValues(lm, r.URL.Query())
+			q, err := enforceValues(matchersInfo, r.URL.Query())
 			if err != nil {
 				httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce authorization label matchers: %v", err), http.StatusInternalServerError)
 
@@ -54,7 +62,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 const queryParam = "query"
 
-func enforceValues(lm []*labels.Matcher, v url.Values) (values string, err error) {
+func enforceValues(mInfo MatchersInfo, v url.Values) (values string, err error) {
 	if v.Get(queryParam) == "" {
 		return v.Encode(), nil
 	}
@@ -67,7 +75,11 @@ func enforceValues(lm []*labels.Matcher, v url.Values) (values string, err error
 	expr.Walk(func(expr interface{}) {
 		switch le := expr.(type) {
 		case *logqlv2.StreamMatcherExpr:
-			le.AppendMatchers(lm)
+			if mInfo.LogicalOp == logicalOr {
+				le.AppendORMatchers(mInfo.Matchers)
+			} else {
+				le.AppendMatchers(mInfo.Matchers)
+			}
 		default:
 			// Do nothing
 		}
