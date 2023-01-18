@@ -49,6 +49,10 @@ func WithGRPCTenantHeader(header string, tenantIDs map[string]string, logger log
 			// codes.Unauthenticated and not explain about the tenant if this is a concern.)
 			return status.Error(codes.InvalidArgument, "unknown tenant")
 		}
+		// The tenant header contains the tenant name.
+		// It needs to be overridden to send the ID to match the HTTP functionality from openshift.WithTenantHeader.
+		md.Set(header, id)
+		ctx = metadata.NewIncomingContext(ctx, md)
 		ctx = context.WithValue(ctx, tenantIDKey, id)
 
 		wrapped := grpc_middleware.WrapServerStream(ss)
