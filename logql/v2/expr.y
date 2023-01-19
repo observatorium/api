@@ -10,9 +10,9 @@ import (
 %union{
   Expr                 Expr
   LogBinaryOpExpr      LogBinaryOpExpr
-  LogFilterExpr        LogStageExpr
-  LogLabelFilterExpr   LogStageExpr
-  LogFormatExpr        LogStageExpr
+  LogFilterExpr        *LogFilterExpr
+  LogLabelFilterExpr   *LogLabelFilterExpr
+  LogFormatExpr        *LogFormatExpr
   LogQueryExpr         LogSelectorExpr
   LogMetricExpr        LogMetricSampleExpr
   LogNumberExpr        LogNumberExpr
@@ -85,13 +85,13 @@ expr:
         |       logMetricExpr   { $$ = $1 }
         |       logBinaryOpExpr { $$ = $1 }
         |       logNumberExpr   { $$ = $1 }
-                ;
+        ;
 
 logQueryExpr:
                 selector                                         { $$ = newStreamMatcherExpr($1)                      }
         |       selector logPipelineExpr                         { $$ = newLogQueryExpr(newStreamMatcherExpr($1), $2) }
         |       OPEN_PARENTHESIS logQueryExpr CLOSE_PARENTHESIS  { $$ = $2                                            }
-                ;
+        ;
 
 logPipelineExpr:
                 logStageExpr                 { $$ = LogPipelineExpr { $1 } }
@@ -117,36 +117,36 @@ logStageExpr:
         |       PIPE LINE_FMT STRING                                                      { $$ = newLogParserExpr(ParserLineFormat, $3, "") }
         |       PIPE DECOLORIZE                                                           { $$ = newLogDecolorizeExpr()                     }
         |       PIPE LABEL_FMT logFormatExpr                                              { $$ = $3                                         }
-                ;
+        ;
 
 logFilterExpr:
                 filter STRING                                       { $$ = newLogFilterExpr($1, "", $2)   }
         |       filter IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFilterExpr($1, OpIP, $4) }
-                ;
+        ;
 
 logLabelFilterExpr:
-                IDENTIFIER comparisonOp STRING                                       { $$ = newLogLabelFilter($1, $2, "", $3) }
-        |       IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogLabelFilter($1, $2, OpIP, $5)}
+                IDENTIFIER comparisonOp STRING                                       { $$ = newLogLabelFilter($1, $2, "", $3)   }
+        |       IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogLabelFilter($1, $2, OpIP, $5) }
         |       logLabelFilterExpr AND logLabelFilterExpr
                 {
                   $$ = $1
-                  $$.(*LogLabelFilterExpr).chainOp = "and"
-                  $$.(*LogLabelFilterExpr).right = $3.(*LogLabelFilterExpr)
-                  $$.(*LogLabelFilterExpr).right.isNested = true
+                  $$.chainOp = "and"
+                  $$.right = $3
+                  $$.right.isNested = true
                 }
         |       logLabelFilterExpr OR logLabelFilterExpr
                 {
                   $$ = $1
-                  $$.(*LogLabelFilterExpr).chainOp = "or"
-                  $$.(*LogLabelFilterExpr).right = $3.(*LogLabelFilterExpr)
-                  $$.(*LogLabelFilterExpr).right.isNested = true
+                  $$.chainOp = "or"
+                  $$.right = $3
+                  $$.right.isNested = true
                 }
         |       logLabelFilterExpr COMMA logLabelFilterExpr
                 {
                   $$ = $1
-                  $$.(*LogLabelFilterExpr).chainOp = ","
-                  $$.(*LogLabelFilterExpr).right = $3.(*LogLabelFilterExpr)
-                  $$.(*LogLabelFilterExpr).right.isNested = true
+                  $$.chainOp = ","
+                  $$.right = $3
+                  $$.right.isNested = true
                 }
         ;
 
@@ -154,12 +154,12 @@ logFormatExpr:
                 IDENTIFIER EQ STRING                                       { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: $3}}, "")                     }
         |       IDENTIFIER EQ IDENTIFIER                                   { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: $3, IsIdentifier: true}}, "") }
         |       IDENTIFIER EQ IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFormatExpr("", LogFormatValues{$1: LogFormatValue{Value: OpIP+"("+$5+")"}}, "")        }
-        |       logFormatExpr COMMA logFormatExpr                          { $$ = newLogFormatExpr(",", mergeLogFormatValues($1.(*LogFormatExpr).kv, $3.(*LogFormatExpr).kv), "")                                }
+        |       logFormatExpr COMMA logFormatExpr                          { $$ = newLogFormatExpr(",", mergeLogFormatValues($1.kv, $3.kv), "")                                }
         ;
 
 logOffsetExpr:
-                OFFSET DURATION                                                            { { $$ = newLogOffsetExpr($2) } }
-                ;
+                OFFSET DURATION { $$ = newLogOffsetExpr($2) }
+        ;
 
 logRangeQueryExpr:
                 selector RANGE                                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), nil), $2, nil, false) }
@@ -199,8 +199,7 @@ logMetricExpr:
         |       LABEL_REPLACE OPEN_PARENTHESIS logBinaryOpExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, false, []string{$5,$7,$9,$11}, nil) }
         |       metricOp OPEN_PARENTHESIS NUMBER CLOSE_PARENTHESIS                                                                   { $$ = newLogMetricExpr(newVectorExpr($3), nil, OpTypeVector, "", nil, false, nil, nil)       }
         |       OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                                     { $$ = $2                                                                                     }
-                ;
-
+        ;
 
 logBinaryOpExpr:
                 expr OR binaryOpOptions expr     { $$ = newLogBinaryOpExpr("or", $3, $1, $4)     }
@@ -218,7 +217,7 @@ logBinaryOpExpr:
         |       expr GTE binaryOpOptions expr    { $$ = newLogBinaryOpExpr(">=", $3, $1, $4)     }
         |       expr LT binaryOpOptions expr     { $$ = newLogBinaryOpExpr("<", $3, $1, $4)      }
         |       expr LTE binaryOpOptions expr    { $$ = newLogBinaryOpExpr("<=", $3, $1, $4)     }
-                ;
+        ;
 
 logNumberExpr:
                 NUMBER     { $$ = newLogNumberExpr($1, false) }
@@ -329,25 +328,25 @@ binaryOpOptions:
                    $$ = $1
                    $$.IgnoringOption=IgnoringOption{Enabled:true, GroupingType: GroupRightOption, IncludeLabels: $7}
                 }
-                ;
+        ;
 
 selector:
                 OPEN_BRACE matchers CLOSE_BRACE { $$ = $2 }
         |       OPEN_BRACE matchers error       { $$ = $2 }
         |       OPEN_BRACE error CLOSE_BRACE    {         }
-                ;
+        ;
 
 matchers:
                 matcher                { $$ = []*labels.Matcher{$1} }
         |       matchers COMMA matcher { $$ = append($1, $3)        }
-                ;
+        ;
 
 matcher:
                 IDENTIFIER EQ STRING  { $$ = newLabelMatcher(labels.MatchEqual, $1, $3)     }
         |       IDENTIFIER NEQ STRING { $$ = newLabelMatcher(labels.MatchNotEqual, $1, $3)  }
         |       IDENTIFIER RE STRING  { $$ = newLabelMatcher(labels.MatchRegexp, $1, $3)    }
         |       IDENTIFIER NRE STRING { $$ = newLabelMatcher(labels.MatchNotRegexp, $1, $3) }
-                ;
+        ;
 
 metricOp:
                 COUNT_OVER_TIME    { $$ = RangeOpTypeCount       }
@@ -375,14 +374,14 @@ metricOp:
         |       BOTTOMK            { $$ = VectorOpTypeBottomK    }
         |       TOPK               { $$ = VectorOpTypeTopK       }
         |       VECTOR             { $$ = OpTypeVector           }
-                ;
+        ;
 
 filter:
                 PIPE_MATCH { $$ = "|~" }
         |       PIPE_EXACT { $$ = "|=" }
         |       NRE        { $$ = "!~" }
         |       NEQ        { $$ = "!=" }
-                ;
+        ;
 
 comparisonOp:
                 EQ  { $$ = "="  }
@@ -398,12 +397,12 @@ comparisonOp:
 labels:
                 IDENTIFIER              { $$ = []string{$1}   }
         |       labels COMMA IDENTIFIER { $$ = append($1, $3) }
-                ;
+        ;
 
 grouping:
                 BY OPEN_PARENTHESIS labels CLOSE_PARENTHESIS      { $$ = &grouping{without: false, groups: $3}  }
         |       WITHOUT OPEN_PARENTHESIS labels CLOSE_PARENTHESIS { $$ = &grouping{without: true, groups: $3}   }
         |       BY OPEN_PARENTHESIS CLOSE_PARENTHESIS             { $$ = &grouping{without: false, groups: nil} }
         |       WITHOUT OPEN_PARENTHESIS CLOSE_PARENTHESIS        { $$ = &grouping{without: true, groups: nil}  }
-                ;
+        ;
 %%

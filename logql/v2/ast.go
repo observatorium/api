@@ -96,11 +96,11 @@ func (LogFilterExpr) logQLExpr() {}
 
 func (LogFilterExpr) logStageExpr() {}
 
-func newLogFilterExpr(filter, filterOp, value string) LogStageExpr {
+func newLogFilterExpr(filter, filterOp, value string) *LogFilterExpr {
 	return &LogFilterExpr{filter: filter, filterOp: filterOp, value: value}
 }
 
-func (l LogFilterExpr) String() string {
+func (l *LogFilterExpr) String() string {
 	var sb strings.Builder
 
 	sb.WriteString(l.filter)
@@ -127,22 +127,25 @@ func (l *LogFilterExpr) Walk(fn WalkFn) {
 }
 
 type LogLabelFilterExpr struct {
-	labelName    string
-	comparisonOp string
-	filterOp     string
-	labelValue   string
-	chainOp      string
-	isNested     bool
-	right        *LogLabelFilterExpr
+	defaultLogQLExpr // nolint:unused
+	labelName        string
+	comparisonOp     string
+	filterOp         string
+	labelValue       string
+	chainOp          string
+	isNested         bool
+	right            *LogLabelFilterExpr
 }
 
-func newLogLabelFilter(identifier, comparisonOp, filterOp, value string) LogStageExpr {
+func newLogLabelFilter(identifier, comparisonOp, filterOp, value string) *LogLabelFilterExpr {
 	return &LogLabelFilterExpr{labelName: identifier, comparisonOp: comparisonOp, filterOp: filterOp, labelValue: value}
 }
 
+func (LogLabelFilterExpr) logQLExpr() {}
+
 func (LogLabelFilterExpr) logStageExpr() {}
 
-func (l LogLabelFilterExpr) String() string {
+func (l *LogLabelFilterExpr) String() string {
 	var sb strings.Builder
 
 	if !l.isNested {
@@ -186,6 +189,10 @@ func (l LogLabelFilterExpr) String() string {
 
 func (l *LogLabelFilterExpr) Walk(fn WalkFn) {
 	fn(l)
+
+	if l.right != nil {
+		fn(l.right)
+	}
 }
 
 type LogFormatValue struct {
@@ -218,7 +225,7 @@ type LogFormatExpr struct {
 }
 
 //nolint:unparam
-func newLogFormatExpr(sep string, kv LogFormatValues, operation string) LogStageExpr {
+func newLogFormatExpr(sep string, kv LogFormatValues, operation string) *LogFormatExpr {
 	return &LogFormatExpr{sep: sep, kv: kv, operation: operation}
 }
 
@@ -226,7 +233,7 @@ func (LogFormatExpr) logQLExpr() {}
 
 func (LogFormatExpr) logStageExpr() {}
 
-func (l LogFormatExpr) String() string {
+func (l *LogFormatExpr) String() string {
 	var (
 		sb strings.Builder
 		i  int
@@ -292,7 +299,7 @@ type LogParserExpr struct {
 	operation        string
 }
 
-func newLogParserExpr(parser, identifier, operation string) LogStageExpr {
+func newLogParserExpr(parser, identifier, operation string) *LogParserExpr {
 	return &LogParserExpr{parser: parser, identifier: identifier, operation: operation}
 }
 
@@ -300,7 +307,7 @@ func (LogParserExpr) logQLExpr() {}
 
 func (LogParserExpr) logStageExpr() {}
 
-func (l LogParserExpr) String() string {
+func (l *LogParserExpr) String() string {
 	var sb strings.Builder
 	sb.WriteString("| ")
 	sb.WriteString(l.parser)
@@ -346,7 +353,7 @@ type LogDecolorizeExpr struct {
 	defaultLogQLExpr // nolint:unused
 }
 
-func newLogDecolorizeExpr() LogStageExpr {
+func newLogDecolorizeExpr() *LogDecolorizeExpr {
 	return &LogDecolorizeExpr{}
 }
 

@@ -13,9 +13,9 @@ type exprSymType struct {
 	yys                int
 	Expr               Expr
 	LogBinaryOpExpr    LogBinaryOpExpr
-	LogFilterExpr      LogStageExpr
-	LogLabelFilterExpr LogStageExpr
-	LogFormatExpr      LogStageExpr
+	LogFilterExpr      *LogFilterExpr
+	LogLabelFilterExpr *LogLabelFilterExpr
+	LogFormatExpr      *LogFormatExpr
 	LogQueryExpr       LogSelectorExpr
 	LogMetricExpr      LogMetricSampleExpr
 	LogNumberExpr      LogNumberExpr
@@ -954,25 +954,25 @@ exprdefault:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
 			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).chainOp = "and"
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).right = exprDollar[3].LogLabelFilterExpr.(*LogLabelFilterExpr)
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).right.isNested = true
+			exprVAL.LogLabelFilterExpr.chainOp = "and"
+			exprVAL.LogLabelFilterExpr.right = exprDollar[3].LogLabelFilterExpr
+			exprVAL.LogLabelFilterExpr.right.isNested = true
 		}
 	case 31:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
 			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).chainOp = "or"
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).right = exprDollar[3].LogLabelFilterExpr.(*LogLabelFilterExpr)
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).right.isNested = true
+			exprVAL.LogLabelFilterExpr.chainOp = "or"
+			exprVAL.LogLabelFilterExpr.right = exprDollar[3].LogLabelFilterExpr
+			exprVAL.LogLabelFilterExpr.right.isNested = true
 		}
 	case 32:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
 			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).chainOp = ","
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).right = exprDollar[3].LogLabelFilterExpr.(*LogLabelFilterExpr)
-			exprVAL.LogLabelFilterExpr.(*LogLabelFilterExpr).right.isNested = true
+			exprVAL.LogLabelFilterExpr.chainOp = ","
+			exprVAL.LogLabelFilterExpr.right = exprDollar[3].LogLabelFilterExpr
+			exprVAL.LogLabelFilterExpr.right.isNested = true
 		}
 	case 33:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
@@ -992,14 +992,12 @@ exprdefault:
 	case 36:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogFormatExpr = newLogFormatExpr(",", mergeLogFormatValues(exprDollar[1].LogFormatExpr.(*LogFormatExpr).kv, exprDollar[3].LogFormatExpr.(*LogFormatExpr).kv), "")
+			exprVAL.LogFormatExpr = newLogFormatExpr(",", mergeLogFormatValues(exprDollar[1].LogFormatExpr.kv, exprDollar[3].LogFormatExpr.kv), "")
 		}
 	case 37:
 		exprDollar = exprS[exprpt-2 : exprpt+1]
 		{
-			{
-				exprVAL.LogOffsetExpr = newLogOffsetExpr(exprDollar[2].duration)
-			}
+			exprVAL.LogOffsetExpr = newLogOffsetExpr(exprDollar[2].duration)
 		}
 	case 38:
 		exprDollar = exprS[exprpt-2 : exprpt+1]
