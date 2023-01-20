@@ -2,11 +2,12 @@
 
 package v2
 
-import (
-	__yyfmt__ "fmt"
-	"time"
+import __yyfmt__ "fmt"
 
+
+import (
 	"github.com/prometheus/prometheus/pkg/labels"
+	"time"
 )
 
 type exprSymType struct {
@@ -217,6 +218,7 @@ var exprStatenames = [...]string{}
 const exprEofCode = 1
 const exprErrCode = 2
 const exprInitialStackSize = 16
+
 
 var exprExca = [...]int{
 	-1, 1,
@@ -475,6 +477,7 @@ var exprErrorMessages = [...]struct {
 	token int
 	msg   string
 }{}
+
 
 /*	parser for yacc output	*/
 
@@ -953,26 +956,17 @@ exprdefault:
 	case 30:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.chainOp = "and"
-			exprVAL.LogLabelFilterExpr.right = exprDollar[3].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.right.isNested = true
+			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr.chain("and", exprDollar[3].LogLabelFilterExpr)
 		}
 	case 31:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.chainOp = "or"
-			exprVAL.LogLabelFilterExpr.right = exprDollar[3].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.right.isNested = true
+			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr.chain("or", exprDollar[3].LogLabelFilterExpr)
 		}
 	case 32:
 		exprDollar = exprS[exprpt-3 : exprpt+1]
 		{
-			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.chainOp = ","
-			exprVAL.LogLabelFilterExpr.right = exprDollar[3].LogLabelFilterExpr
-			exprVAL.LogLabelFilterExpr.right.isNested = true
+			exprVAL.LogLabelFilterExpr = exprDollar[1].LogLabelFilterExpr.chain(",", exprDollar[3].LogLabelFilterExpr)
 		}
 	case 33:
 		exprDollar = exprS[exprpt-3 : exprpt+1]

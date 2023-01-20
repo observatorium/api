@@ -132,9 +132,9 @@ type LogLabelFilterExpr struct {
 	comparisonOp     string
 	filterOp         string
 	labelValue       string
-	chainOp          string
 	isNested         bool
-	right            *LogLabelFilterExpr
+	chainOp          string
+	right            []*LogLabelFilterExpr
 }
 
 func newLogLabelFilter(identifier, comparisonOp, filterOp, value string) *LogLabelFilterExpr {
@@ -144,6 +144,14 @@ func newLogLabelFilter(identifier, comparisonOp, filterOp, value string) *LogLab
 func (LogLabelFilterExpr) logQLExpr() {}
 
 func (LogLabelFilterExpr) logStageExpr() {}
+
+func (l *LogLabelFilterExpr) chain(op string, expr *LogLabelFilterExpr) *LogLabelFilterExpr {
+	expr.isNested = true
+	expr.chainOp = op
+	l.right = append(l.right, expr)
+
+	return l
+}
 
 func (l *LogLabelFilterExpr) String() string {
 	var sb strings.Builder
@@ -168,20 +176,22 @@ func (l *LogLabelFilterExpr) String() string {
 		sb.WriteString(`"`)
 	}
 
-	switch l.chainOp {
-	case "and", "or":
-		sb.WriteString(" ")
-		sb.WriteString(l.chainOp)
-		sb.WriteString(" ")
-		sb.WriteString(l.right.String())
-	case ",":
-		sb.WriteString(l.chainOp)
-		sb.WriteString(" ")
-		sb.WriteString(l.right.String())
-	}
+	for i, r := range l.right {
+		switch r.chainOp {
+		case "and", "or":
+			sb.WriteString(" ")
+			sb.WriteString(r.chainOp)
+			sb.WriteString(" ")
+			sb.WriteString(r.String())
+		case ",":
+			sb.WriteString(r.chainOp)
+			sb.WriteString(" ")
+			sb.WriteString(r.String())
+		}
 
-	if l.right != nil && l.right.right != nil {
-		sb.WriteString(" ")
+		if i == len(l.right) {
+			sb.WriteString(" ")
+		}
 	}
 
 	return sb.String()
@@ -190,8 +200,8 @@ func (l *LogLabelFilterExpr) String() string {
 func (l *LogLabelFilterExpr) Walk(fn WalkFn) {
 	fn(l)
 
-	if l.right != nil {
-		fn(l.right)
+	for _, r := range l.right {
+		fn(r)
 	}
 }
 

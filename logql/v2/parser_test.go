@@ -265,6 +265,46 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | json | level="info" and level="notice" and level="information"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue:   "info",
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue:   "notice",
+								isNested:     true,
+								chainOp:      "and",
+							},
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue:   "information",
+								isNested:     true,
+								chainOp:      "and",
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | json | level="info" and level="notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
@@ -275,12 +315,14 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "level",
 						comparisonOp: "=",
 						labelValue:   "info",
-						chainOp:      "and",
-						right: &LogLabelFilterExpr{
-							labelName:    "level",
-							comparisonOp: "=",
-							labelValue:   "notice",
-							isNested:     true,
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue:   "notice",
+								isNested:     true,
+								chainOp:      "and",
+							},
 						},
 					},
 				},
@@ -306,24 +348,29 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "level",
 						comparisonOp: "=",
 						labelValue:   "info",
-						chainOp:      "or",
-						right: &LogLabelFilterExpr{
-							labelName:    "level",
-							comparisonOp: "=",
-							labelValue:   "notice",
-							isNested:     true,
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue:   "notice",
+								isNested:     true,
+
+								chainOp: "or",
+							},
 						},
 					},
 					&LogLabelFilterExpr{
 						labelName:    "other",
 						comparisonOp: "=",
 						labelValue:   "info",
-						chainOp:      "and",
-						right: &LogLabelFilterExpr{
-							labelName:    "other",
-							comparisonOp: "=",
-							labelValue:   "notice",
-							isNested:     true,
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "other",
+								comparisonOp: "=",
+								labelValue:   "notice",
+								isNested:     true,
+								chainOp:      "and",
+							},
 						},
 					},
 				},
@@ -349,12 +396,14 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "level",
 						comparisonOp: "=",
 						labelValue:   "info",
-						chainOp:      "or",
-						right: &LogLabelFilterExpr{
-							labelName:    "level",
-							comparisonOp: "=",
-							labelValue:   "notice",
-							isNested:     true,
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue:   "notice",
+								isNested:     true,
+								chainOp:      "or",
+							},
 						},
 					},
 				},
@@ -380,12 +429,14 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "level",
 						comparisonOp: "=",
 						labelValue:   "info",
-						chainOp:      ",",
-						right: &LogLabelFilterExpr{
-							labelName:    "level",
-							comparisonOp: "=",
-							labelValue:   "notice",
-							isNested:     true,
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue:   "notice",
+								isNested:     true,
+								chainOp:      ",",
+							},
 						},
 					},
 				},

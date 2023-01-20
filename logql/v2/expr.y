@@ -127,27 +127,9 @@ logFilterExpr:
 logLabelFilterExpr:
                 IDENTIFIER comparisonOp STRING                                       { $$ = newLogLabelFilter($1, $2, "", $3)   }
         |       IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogLabelFilter($1, $2, OpIP, $5) }
-        |       logLabelFilterExpr AND logLabelFilterExpr
-                {
-                  $$ = $1
-                  $$.chainOp = "and"
-                  $$.right = $3
-                  $$.right.isNested = true
-                }
-        |       logLabelFilterExpr OR logLabelFilterExpr
-                {
-                  $$ = $1
-                  $$.chainOp = "or"
-                  $$.right = $3
-                  $$.right.isNested = true
-                }
-        |       logLabelFilterExpr COMMA logLabelFilterExpr
-                {
-                  $$ = $1
-                  $$.chainOp = ","
-                  $$.right = $3
-                  $$.right.isNested = true
-                }
+        |       logLabelFilterExpr AND logLabelFilterExpr                            { $$ = $1.chain("and", $3)                 }
+        |       logLabelFilterExpr OR logLabelFilterExpr                             { $$ = $1.chain("or", $3)                  }
+        |       logLabelFilterExpr COMMA logLabelFilterExpr                          { $$ = $1.chain(",", $3)                   }
         ;
 
 logFormatExpr:
