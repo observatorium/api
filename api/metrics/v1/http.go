@@ -294,7 +294,6 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodGet, RulesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRawRoute, http.HandlerFunc(rh.get)))
 			r.Method(http.MethodGet, RulesRawRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRawRoute, http.HandlerFunc(rh.get)))
 		})
 
