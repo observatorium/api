@@ -13,7 +13,7 @@ import (
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rules"
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 )
 

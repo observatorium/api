@@ -4,7 +4,7 @@ package v2
 import (
 	"testing"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 func Test_AstWalker_SimpleCountExpr(t *testing.T) {
