@@ -63,39 +63,32 @@ func (s *StreamMatcherExpr) Walk(fn WalkFn) {
 	fn(s)
 }
 
-func singleStreamString(matchers []*labels.Matcher) string {
+func (s *StreamMatcherExpr) String() string {
 	var sb strings.Builder
 
 	sb.WriteString("{")
-
-	for i, m := range matchers {
-		sb.WriteString(m.String())
-
-		if i+1 != len(matchers) {
-			sb.WriteString(", ")
-		}
-	}
+	sb.WriteString(matchersToString(s.matchers, ", "))
 
 	sb.WriteString("}")
+
+	if len(s.orMatchers) > 0 {
+		sb.WriteString(" | ")
+		sb.WriteString(matchersToString(s.orMatchers, " or "))
+	}
 
 	return sb.String()
 }
 
-func (s *StreamMatcherExpr) String() string {
-	if len(s.orMatchers) == 0 {
-		return singleStreamString(s.matchers)
+func matchersToString(matchers []*labels.Matcher, sep string) string {
+	var sb strings.Builder
+	for i, m := range matchers {
+		sb.WriteString(m.String())
+
+		if i+1 != len(matchers) {
+			sb.WriteString(sep)
+		}
 	}
-	// TODO: this won't work, as "or" operator only works with vectors.
-	// Options:
-	// 1. split into several queries, then merge results
-	// 2. use line filters
-	//   E.g: {app="netobserv-flowcollector"} | SrcK8S_Namespace=~"netobserv|default" or DstK8S_Namespace=~"netobserv|default"
-	// Option 1. is probably more performant as it uses indexed stream selectors; but more complex
-	var parts []string
-	for _, orMatcher := range s.orMatchers {
-		parts = append(parts, singleStreamString(append(s.matchers, orMatcher)))
-	}
-	return strings.Join(parts, " or ")
+	return sb.String()
 }
 
 func newLabelMatcher(t labels.MatchType, n, v string) *labels.Matcher {
@@ -496,7 +489,7 @@ func (l *LogRangeQueryExpr) String() string {
 		sb.WriteString(") ")
 		sb.WriteString(l.rng)
 	} else {
-		sl := strings.ReplaceAll(l.left.String(), "}", fmt.Sprintf("}%s", l.rng))
+		sl := strings.Replace(l.left.String(), "}", fmt.Sprintf("}%s", l.rng), 1)
 		sb.WriteString(sl)
 	}
 

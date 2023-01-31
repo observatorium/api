@@ -169,25 +169,25 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 		// log selector expressions
 		{
 			input:  `{first="value"}`,
-			output: `{first="value", second="next"} or {first="value", third="next"}`,
+			output: `{first="value"} | second="next" or third="next"`,
 		},
 		{
 			input:  `{first="value"} |= "other" |= ip("8.8.8.8")`,
-			output: `{first="value", second="next"} or {first="value", third="next"} |= "other" |= ip("8.8.8.8")`,
+			output: `{first="value"} | second="next" or third="next" |= "other" |= ip("8.8.8.8")`,
 		},
 		{
 			input:  `{ first = "value" }|logfmt|addr>=ip("1.1.1.1")`,
-			output: `{first="value", second="next"} or {first="value", third="next"} | logfmt | addr>=ip("1.1.1.1")`,
+			output: `{first="value"} | second="next" or third="next" | logfmt | addr>=ip("1.1.1.1")`,
 		},
 		// log metric expressions
 		{
 			input: `sum(rate({first="value"}[5m]))`,
 			// Check: is that correct??
-			output: `sum(rate({first="value", second="next"}[5m] or {first="value", third="next"}[5m]))`,
+			output: `sum(rate({first="value"}[5m] | second="next" or third="next"))`,
 		},
 		{
 			input:  `max without (second) (count_over_time({first="value"}[5h]))`,
-			output: `max without(second) (count_over_time({first="value", second="next"}[5h] or {first="value", third="next"}[5h]))`,
+			output: `max without(second) (count_over_time({first="value"}[5h] | second="next" or third="next"))`,
 		},
 	}
 	for _, tc := range tc {

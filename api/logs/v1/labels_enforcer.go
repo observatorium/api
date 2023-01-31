@@ -12,8 +12,7 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-// TODO: share with OPA?
-type MatchersInfo struct {
+type AuthzResponseData struct {
 	Matchers  []*labels.Matcher `json:"matchers,omitempty"`
 	LogicalOp string            `json:"logicalOp,omitempty"`
 }
@@ -40,7 +39,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
-			var matchersInfo MatchersInfo
+			var matchersInfo AuthzResponseData
 			if err := json.Unmarshal([]byte(data), &matchersInfo); err != nil {
 				httperr.PrometheusAPIError(w, "error parsing authorization label matchers", http.StatusInternalServerError)
 
@@ -62,7 +61,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 const queryParam = "query"
 
-func enforceValues(mInfo MatchersInfo, v url.Values) (values string, err error) {
+func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err error) {
 	if v.Get(queryParam) == "" {
 		return v.Encode(), nil
 	}
