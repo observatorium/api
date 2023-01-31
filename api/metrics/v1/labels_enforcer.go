@@ -34,7 +34,7 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 				return
 			}
 
-			e := injectproxy.NewEnforcer([]*labels.Matcher{{
+			e := injectproxy.NewEnforcer(false, []*labels.Matcher{{
 				Name:  label,
 				Type:  labels.MatchEqual,
 				Value: id,
@@ -121,7 +121,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
-			e := injectproxy.NewEnforcer(lm...)
+			e := injectproxy.NewEnforcer(false, lm...)
 			// If we cannot enforce, don't continue.
 			if ok := enforceRequestQueryLabels(e, w, r); !ok {
 				return

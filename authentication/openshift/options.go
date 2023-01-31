@@ -82,7 +82,7 @@ type DelegatingAuthenticationOptions struct {
 }
 
 func (s *DelegatingAuthenticationOptions) ToAuthenticationConfig() (af.DelegatingAuthenticatorConfig, error) {
-	tokenClient, err := s.newTokenAccessReview()
+	tokenClient, err := s.newAuthenticationClient()
 	if err != nil {
 		return af.DelegatingAuthenticatorConfig{}, err
 	}
@@ -138,7 +138,7 @@ func (s *DelegatingAuthenticationOptions) getRequestHeader() (*RequestHeaderAuth
 	return nil, fmt.Errorf("no request header config")
 }
 
-func (s *DelegatingAuthenticationOptions) newTokenAccessReview() (authenticationclient.TokenReviewInterface, error) {
+func (s *DelegatingAuthenticationOptions) newAuthenticationClient() (authenticationclient.AuthenticationV1Interface, error) {
 	clientConfig, err := getClientConfig(s.RemoteKubeConfigFile)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (s *DelegatingAuthenticationOptions) newTokenAccessReview() (authentication
 		return nil, err
 	}
 
-	return client.TokenReviews(), nil
+	return client, nil
 }
 
 func getClientConfig(remoteKubeConfigFile string) (*rest.Config, error) {

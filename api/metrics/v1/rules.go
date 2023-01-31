@@ -19,7 +19,7 @@ import (
 
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
 	// creates new tenant label enforcer
-	e := injectproxy.NewEnforcer([]*labels.Matcher{{
+	e := injectproxy.NewEnforcer(false, []*labels.Matcher{{
 		Name:  tenantLabel,
 		Type:  labels.MatchEqual,
 		Value: tenantID,
