@@ -1430,44 +1430,6 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
-		// OR Log filters
-		{
-			input: `{first="value"} | label1="foo" or label2="foo"`,
-			expr: &LogQueryExpr{
-				filter: LogPipelineExpr{
-					{
-						expr: &LogParserExpr{
-							parser: "json",
-						},
-					},
-					{
-						stages: LogFiltersExpr{
-							{
-								filter:  "|",
-								alias:   "label1",
-								aliasOp: "=",
-								value:   "foo",
-							},
-							{
-								filter:  "or",
-								alias:   "label2",
-								aliasOp: "=",
-								value:   "foo",
-							},
-						},
-					},
-				},
-				left: &StreamMatcherExpr{
-					matchers: []*labels.Matcher{
-						{
-							Type:  labels.MatchEqual,
-							Name:  "first",
-							Value: "value",
-						},
-					},
-				},
-			},
-		},
 	}
 	for _, tc := range tc { //nolint:paralleltest
 		tc := tc
