@@ -6,7 +6,7 @@ import (
 	__yyfmt__ "fmt"
 	"time"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 type exprSymType struct {

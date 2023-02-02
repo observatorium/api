@@ -13,13 +13,13 @@ import (
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rules"
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 )
 
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
 	// creates new tenant label enforcer
-	e := injectproxy.NewEnforcer([]*labels.Matcher{{
+	e := injectproxy.NewEnforcer(false, []*labels.Matcher{{
 		Name:  tenantLabel,
 		Type:  labels.MatchEqual,
 		Value: tenantID,

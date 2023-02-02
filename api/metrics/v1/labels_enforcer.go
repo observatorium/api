@@ -12,7 +12,7 @@ import (
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 )
 
@@ -34,7 +34,7 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 				return
 			}
 
-			e := injectproxy.NewEnforcer([]*labels.Matcher{{
+			e := injectproxy.NewEnforcer(false, []*labels.Matcher{{
 				Name:  label,
 				Type:  labels.MatchEqual,
 				Value: id,
@@ -121,7 +121,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
-			e := injectproxy.NewEnforcer(lm...)
+			e := injectproxy.NewEnforcer(false, lm...)
 			// If we cannot enforce, don't continue.
 			if ok := enforceRequestQueryLabels(e, w, r); !ok {
 				return

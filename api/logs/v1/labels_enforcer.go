@@ -9,7 +9,7 @@ import (
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
 	logqlv2 "github.com/observatorium/api/logql/v2"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 // WithEnforceAuthorizationLabels return a middleware that ensures every query
