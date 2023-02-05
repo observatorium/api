@@ -7,7 +7,6 @@ import (
 	"text/scanner"
 )
 
-//nolint:gochecknoglobals
 var (
 	parserPool = sync.Pool{
 		New: func() interface{} {
@@ -23,7 +22,6 @@ var (
 	errNotCompatibleParserImpl = errors.New("not compatible parser implementation")
 )
 
-//nolint:gochecknoinits
 func init() {
 	exprErrorVerbose = true
 	exprDebug = 0

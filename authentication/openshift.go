@@ -37,7 +37,6 @@ import (
 
 const OpenShiftAuthenticatorType = "openshift"
 
-//nolint:gochecknoglobals
 const (
 	jwtSigningKey    = "ILoveObservatorium"
 	defaultJWTExpiry = 15 * time.Minute
@@ -47,7 +46,6 @@ const (
 	defaultOAuthScopeListProjects    = "user:list-projects"
 )
 
-//nolint:gochecknoinits
 func init() {
 	onboardNewProvider(OpenShiftAuthenticatorType, newOpenshiftAuthenticator)
 }

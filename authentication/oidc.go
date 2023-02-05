@@ -33,7 +33,6 @@ import (
 // OIDCAuthenticatorType represents the oidc authentication provider type.
 const OIDCAuthenticatorType = "oidc"
 
-//nolint:gochecknoinits
 func init() {
 	onboardNewProvider(OIDCAuthenticatorType, newOIDCAuthenticator)
 }

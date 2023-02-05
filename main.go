@@ -1244,8 +1244,6 @@ func blockNonDefinedMethods() http.HandlerFunc {
 }
 
 // Permissions required for each gRPC method.
-//
-//nolint:gochecknoglobals
 var gRPCRBAC = authorization.GRPCRBac{
 	// "opentelemetry.proto.collector.trace.v1.TraceService/Export" requires "traces" "write" perm.
 	tracesv1.TraceRoute: {
@@ -1324,13 +1322,11 @@ type groupHandler struct {
 	handler string
 }
 
-// nolint: gochecknoglobals
 var legacyMetricsGroup = map[string]groupHandler{
 	metricslegacy.QueryRoute:      {"metricslegacy", "query"},
 	metricslegacy.QueryRangeRoute: {"metricslegacy", "query_range"},
 }
 
-// nolint: gochecknoglobals
 var metricsV1Group = map[string]groupHandler{
 	metricsv1.UIRoute:          {"metricsv1", "ui"},
 	metricsv1.QueryRoute:       {"metricsv1", "query"},

@@ -22,7 +22,6 @@ import (
 // MTLSAuthenticatorType represents the mTLS authentication provider type.
 const MTLSAuthenticatorType = "mtls"
 
-//nolint:gochecknoinits
 func init() {
 	onboardNewProvider(MTLSAuthenticatorType, newMTLSAuthenticator)
 }
