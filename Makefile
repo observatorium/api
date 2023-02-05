@@ -112,7 +112,7 @@ shellcheck: $(SHELLCHECK)
 
 .PHONY: lint
 lint: ## Runs various static analysis against our code.
-lint: $(FAILLINT) $(GOLANGCI_LINT) $(MISSPELL) build docs check-git deps shellcheck jsonnet-fmt format
+lint: $(FAILLINT) $(GOLANGCI_LINT) $(MISSPELL) generate format deps build check-git shellcheck jsonnet-fmt
 	$(call require_clean_work_tree,'detected not clean work tree before running lint, previous job changed something?')
 	@echo ">> verifying modules being imported"
 	@$(FAILLINT) -paths "fmt.{Print,Printf,Println},io/ioutil.{Discard,NopCloser,ReadAll,ReadDir,ReadFile,TempDir,TempFile,Writefile}" -ignore-tests ./...
