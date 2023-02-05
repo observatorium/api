@@ -21,7 +21,6 @@ const (
 	testTenant  = "test-tenant"
 )
 
-// nolint: gochecknoglobals
 var mockResetTime = time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 
 type pathTestParams struct {

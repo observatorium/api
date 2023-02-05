@@ -26,16 +26,11 @@ const (
 )
 
 // regoFunctions map is used for the providers' self-registration.
-//
-//nolint:gochecknoglobals
 var regoFunctions map[string]func(log.Logger) func(*rego.Rego)
 
 // regoFunctionsMtx is used to protect the providerFactories.
-//
-//nolint:gochecknoglobals
 var regoFunctionsMtx sync.RWMutex
 
-//nolint:gochecknoinits
 func init() {
 	regoFunctions = make(map[string]func(log.Logger) func(*rego.Rego))
 }

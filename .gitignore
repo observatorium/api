@@ -19,4 +19,5 @@ vendor
 .envrc
 .bin
 .idea
+.vscode
 e2e_*

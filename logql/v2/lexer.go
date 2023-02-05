@@ -61,7 +61,6 @@ const (
 	OpConvDurationSeconds = "duration_seconds"
 )
 
-// nolint:gochecknoglobals
 var tokens = map[string]int{
 	",":                   COMMA,
 	".":                   DOT,
@@ -111,7 +110,6 @@ var tokens = map[string]int{
 	OpConvDurationSeconds: DURATION_SECONDS_CONV,
 }
 
-// nolint:gochecknoglobals
 var funcTokens = map[string]int{
 	// range vec ops
 	RangeOpTypeRate:        RATE,
