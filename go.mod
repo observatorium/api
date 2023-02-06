@@ -3,7 +3,7 @@ module github.com/observatorium/api
 go 1.18
 
 require (
-	github.com/brancz/kube-rbac-proxy v0.11.0
+	github.com/brancz/kube-rbac-proxy v0.14.0
 	github.com/cloudflare/cfssl v1.6.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.12.4
@@ -139,7 +139,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
-	github.com/spf13/cobra v1.6.0 // indirect
+	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 // indirect
