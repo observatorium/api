@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/prometheus/prometheus/model/labels"
+	"github.com/stretchr/testify/require"
 )
 
 //nolint:paralleltest,funlen
@@ -386,6 +387,36 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | second=~"foo|bar" or third=~"foo|bar"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelFilterExpr{
+						labelName:    "second",
+						comparisonOp: "=~",
+						labelValue:   "foo|bar",
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "third",
+								comparisonOp: "=~",
+								labelValue:   "foo|bar",
+								isNested:     true,
+								chainOp:      "or",
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | json | level="info" or level="notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
@@ -438,6 +469,26 @@ func TestParseExpr(t *testing.T) {
 								chainOp:      ",",
 							},
 						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} |~ "key\":\"val\""`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogFilterExpr{
+						filter: "|~",
+						value:  "key\":\"val\"",
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -1476,4 +1527,14 @@ func trimOutput(s string) string {
 		s = strings.TrimSuffix(s, ")")
 	}
 	return s
+}
+
+func TestQuotesEncode(t *testing.T) {
+	expr, err := ParseExpr(`{app="test"}`)
+	require.NoError(t, err)
+	require.Equal(t, `{app="test"}`, expr.String())
+
+	expr, err = ParseExpr("{app=\"test\"}|~`key\":\"val\"`")
+	require.NoError(t, err)
+	require.Equal(t, `{app="test"} |~ "key\":\"val\""`, expr.String())
 }

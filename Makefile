@@ -37,6 +37,11 @@ PROTOC ?= $(TMP_DIR)/protoc
 PROTOC_VERSION ?= 3.13.0
 
 GIT ?= $(shell which git)
+ifeq (,$(shell which podman 2>/dev/null))
+OCI_BIN ?= docker
+else
+OCI_BIN ?= podman
+endif
 
 define require_clean_work_tree
 	@git update-index -q --ignore-submodules --refresh
@@ -182,26 +187,26 @@ endif
 
 .PHONY: container
 container: Dockerfile
-	@docker build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
 		--build-arg DOCKERFILE_PATH="/Dockerfile" \
 		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
-	@docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
+	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
 
 .PHONY: container-push
 container-push: container
-	docker push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
-	docker push $(DOCKER_REPO):latest
+	$(OCI_BIN) push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
+	$(OCI_BIN) push $(DOCKER_REPO):latest
 
 .PHONY: container-release
 container-release: VERSION_TAG = $(strip $(shell [ -d .git ] && git tag --points-at HEAD))
 container-release: container
 	# https://git-scm.com/docs/git-tag#Documentation/git-tag.txt---points-atltobjectgt
-	@docker tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION_TAG)
-	docker push $(DOCKER_REPO):$(VERSION_TAG)
-	docker push $(DOCKER_REPO):latest
+	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION_TAG)
+	$(OCI_BIN) push $(DOCKER_REPO):$(VERSION_TAG)
+	$(OCI_BIN) push $(DOCKER_REPO):latest
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)

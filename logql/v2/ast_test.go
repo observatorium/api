@@ -145,14 +145,14 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 
 	l := []*labels.Matcher{
 		{
-			Type:  labels.MatchEqual,
+			Type:  labels.MatchRegexp,
 			Name:  "second",
-			Value: "next",
+			Value: "foo|bar",
 		},
 		{
-			Type:  labels.MatchEqual,
+			Type:  labels.MatchRegexp,
 			Name:  "third",
-			Value: "next",
+			Value: "foo|bar",
 		},
 	}
 
@@ -169,25 +169,24 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 		// log selector expressions
 		{
 			input:  `{first="value"}`,
-			output: `{first="value"} | second="next" or third="next"`,
+			output: `{first="value"} | second=~"foo|bar" or third=~"foo|bar"`,
 		},
 		{
 			input:  `{first="value"} |= "other" |= ip("8.8.8.8")`,
-			output: `{first="value"} | second="next" or third="next" |= "other" |= ip("8.8.8.8")`,
+			output: `{first="value"} | second=~"foo|bar" or third=~"foo|bar" |= "other" |= ip("8.8.8.8")`,
 		},
 		{
 			input:  `{ first = "value" }|logfmt|addr>=ip("1.1.1.1")`,
-			output: `{first="value"} | second="next" or third="next" | logfmt | addr>=ip("1.1.1.1")`,
+			output: `{first="value"} | second=~"foo|bar" or third=~"foo|bar" | logfmt | addr>=ip("1.1.1.1")`,
 		},
 		// log metric expressions
 		{
-			input: `sum(rate({first="value"}[5m]))`,
-			// Check: is that correct??
-			output: `sum(rate({first="value"}[5m] | second="next" or third="next"))`,
+			input:  `sum(rate({first="value"}[5m]))`,
+			output: `sum(rate({first="value"}[5m] | second=~"foo|bar" or third=~"foo|bar"))`,
 		},
 		{
 			input:  `max without (second) (count_over_time({first="value"}[5h]))`,
-			output: `max without(second) (count_over_time({first="value"}[5h] | second="next" or third="next"))`,
+			output: `max without(second) (count_over_time({first="value"}[5h] | second=~"foo|bar" or third=~"foo|bar"))`,
 		},
 	}
 	for _, tc := range tc {
