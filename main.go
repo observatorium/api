@@ -1336,7 +1336,7 @@ var metricsV1Group = map[string]groupHandler{
 	metricsv1.LabelValuesRoute: {"metricsv1", "labelvalues"},
 	metricsv1.ReceiveRoute:     {"metricsv1", "receive"},
 	metricsv1.RulesRoute:       {"metricsv1", "rules"},
-	metricsv1.RulesRawRoute:    {"metricsv1", "rules"},
+	metricsv1.RulesRawRoute:    {"metricsv1", "rules-raw"},
 }
 
 func chiLabelParser(r *http.Request) prometheus.Labels {
