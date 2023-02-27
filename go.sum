@@ -600,8 +600,8 @@ github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de
 github.com/grpc-ecosystem/go-grpc-middleware v1.2.2/go.mod h1:EaizFBKfUKtMIF5iaDEhniwNedqGo9FuLFzppDr3uwI=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 h1:+9834+KizmvFV7pXQGSXQTsaWhq2GjuNUt0aUU0YBYw=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0/go.mod h1:z0ButlSOZa5vEBq9m2m2hlwIgKw+rp3sdCBRoJY+30Y=
-github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.2.0.20211207221722-a5b9e0b0458c h1:7EiDBX4Vu3/AqgvkV+8IcVLCk20eV52Rtc/rlANuYUg=
-github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.2.0.20211207221722-a5b9e0b0458c/go.mod h1:hTxjzRcX49ogbTGVJ1sM5mz5s+SSgiGIyL3jjPxl32E=
+github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3 h1:o95KDiV/b1xdkumY5YbLR0/n2+wBxUpgf3HgfKgTyLI=
+github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3/go.mod h1:hTxjzRcX49ogbTGVJ1sM5mz5s+SSgiGIyL3jjPxl32E=
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92BcuyuQ/YW4NSIpoGtfXNho=
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway v1.8.5/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
