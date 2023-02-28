@@ -14,7 +14,7 @@ import (
 
 type AuthzResponseData struct {
 	Matchers  []*labels.Matcher `json:"matchers,omitempty"`
-	LogicalOp string            `json:"logicalOp,omitempty"`
+	MatcherOp string            `json:"matcherOp,omitempty"`
 }
 
 const logicalOr = "or"
@@ -71,7 +71,7 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 		return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
 	}
 
-	switch mInfo.LogicalOp {
+	switch mInfo.MatcherOp {
 	case logicalOr:
 		// Logical "OR" to combine multiple matchers needs to be done via LogQueryExpr > LogPipelineExpr
 		expr.Walk(func(expr interface{}) {
