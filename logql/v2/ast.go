@@ -107,9 +107,7 @@ func (l *LogFilterExpr) String() string {
 	if l.filterOp != "" {
 		sb.WriteString(l.filterOp)
 		sb.WriteString("(")
-		sb.WriteString(`"`)
-		sb.WriteString(l.value)
-		sb.WriteString(`"`)
+		sb.WriteString(strconv.Quote(l.value))
 		sb.WriteString(")")
 	} else {
 		sb.WriteString(strconv.Quote(l.value))
