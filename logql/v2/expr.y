@@ -88,9 +88,9 @@ expr:
         ;
 
 logQueryExpr:
-                selector                                         { $$ = newStreamMatcherExpr($1)                      }
-        |       selector logPipelineExpr                         { $$ = newLogQueryExpr(newStreamMatcherExpr($1), $2) }
-        |       OPEN_PARENTHESIS logQueryExpr CLOSE_PARENTHESIS  { $$ = $2                                            }
+                selector                                         { $$ = newLogQueryExpr(newStreamMatcherExpr($1), nil) }
+        |       selector logPipelineExpr                         { $$ = newLogQueryExpr(newStreamMatcherExpr($1), $2)  }
+        |       OPEN_PARENTHESIS logQueryExpr CLOSE_PARENTHESIS  { $$ = $2                                             }
         ;
 
 logPipelineExpr:

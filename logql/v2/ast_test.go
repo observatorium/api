@@ -199,8 +199,8 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 
 		expr.Walk(func(e interface{}) {
 			switch ex := e.(type) { //nolint:gocritic
-			case *StreamMatcherExpr:
-				ex.AppendORMatchers(l)
+			case *LogQueryExpr:
+				ex.AppendPipelineMatchers(l, "or")
 			}
 		})
 

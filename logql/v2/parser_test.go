@@ -24,7 +24,7 @@ func TestParseExpr(t *testing.T) {
 		// log selector expressions
 		{
 			input: `{first="value"}`,
-			expr: &StreamMatcherExpr{
+			expr: &LogQueryExpr{left: &StreamMatcherExpr{
 				matchers: []*labels.Matcher{
 					{
 						Type:  labels.MatchEqual,
@@ -32,11 +32,11 @@ func TestParseExpr(t *testing.T) {
 						Value: "value",
 					},
 				},
-			},
+			}},
 		},
 		{
 			input: `{first="value", value!="other"}`,
-			expr: &StreamMatcherExpr{
+			expr: &LogQueryExpr{left: &StreamMatcherExpr{
 				matchers: []*labels.Matcher{
 					{
 						Type:  labels.MatchEqual,
@@ -49,7 +49,7 @@ func TestParseExpr(t *testing.T) {
 						Value: "other",
 					},
 				},
-			},
+			}},
 		},
 		// log query expressions with filter
 		{
