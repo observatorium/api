@@ -61,7 +61,8 @@ func (s *StreamMatcherExpr) Walk(fn WalkFn) {
 func (s *StreamMatcherExpr) String() string {
 	var sb strings.Builder
 
-	sb.WriteRune('{')
+	sb.WriteString("{")
+
 	for i, m := range s.matchers {
 		sb.WriteString(m.String())
 
@@ -69,7 +70,8 @@ func (s *StreamMatcherExpr) String() string {
 			sb.WriteString(", ")
 		}
 	}
-	sb.WriteRune('}')
+
+	sb.WriteString("}")
 
 	return sb.String()
 }
