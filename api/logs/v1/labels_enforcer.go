@@ -66,6 +66,17 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 		return v.Encode(), nil
 	}
 
+	lm := mInfo.Matchers
+	// Fix label matchers to include a non nil FastRegexMatcher for regex types.
+	for i, m := range lm {
+		nm, err := labels.NewMatcher(m.Type, m.Name, m.Value)
+		if err != nil {
+			return "", fmt.Errorf("failed parsing label matcher: %w", err)
+		}
+
+		lm[i] = nm
+	}
+
 	expr, err := logqlv2.ParseExpr(v.Get(queryParam))
 	if err != nil {
 		return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
@@ -86,7 +97,24 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 		expr.Walk(func(expr interface{}) {
 			switch le := expr.(type) {
 			case *logqlv2.StreamMatcherExpr:
-				le.AppendMatchers(mInfo.Matchers)
+				matchers := make([]*labels.Matcher, 0)
+				matchersMap := make(map[string]*labels.Matcher)
+				for _, em := range le.Matchers() {
+					matchersMap[em.Name] = em
+				}
+
+				for _, m := range lm {
+					matcher := matchersMap[m.Name]
+					if matcher == nil || !m.Matches(matcher.Value) {
+						matchersMap[m.Name] = m
+					}
+				}
+
+				for _, m := range matchersMap {
+					matchers = append(matchers, m)
+				}
+
+				le.SetMatchers(matchers)
 			default:
 				// Do nothing
 			}
