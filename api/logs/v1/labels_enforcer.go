@@ -125,3 +125,25 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 
 	return v.Encode(), nil
 }
+
+// Combine the query label matcher and the authorization label matcher.
+func combineLabelMatchers(queryMatchers, authzMatchers []*labels.Matcher) []*labels.Matcher {
+	queryMatchersMap := make(map[string]*labels.Matcher)
+	for _, qm := range queryMatchers {
+		queryMatchersMap[qm.Name] = qm
+	}
+
+	matchers := make([]*labels.Matcher, 0)
+	for _, am := range authzMatchers {
+		qm := queryMatchersMap[am.Name]
+		if qm == nil || !am.Matches(qm.Value) {
+			queryMatchersMap[am.Name] = am
+		}
+	}
+
+	for _, m := range queryMatchersMap {
+		matchers = append(matchers, m)
+	}
+
+	return matchers
+}
