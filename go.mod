@@ -28,7 +28,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/prom-label-proxy v0.6.0
 	github.com/prometheus/client_golang v1.14.0
-	github.com/prometheus/common v0.40.0
+	github.com/prometheus/common v0.41.0
 	github.com/prometheus/prometheus v0.42.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.opentelemetry.io/contrib/propagators/jaeger v1.14.0
