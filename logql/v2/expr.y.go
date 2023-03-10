@@ -833,7 +833,7 @@ exprdefault:
 	case 6:
 		exprDollar = exprS[exprpt-1 : exprpt+1]
 		{
-			exprVAL.LogQueryExpr = newStreamMatcherExpr(exprDollar[1].Selector)
+			exprVAL.LogQueryExpr = newLogQueryExpr(newStreamMatcherExpr(exprDollar[1].Selector), nil)
 		}
 	case 7:
 		exprDollar = exprS[exprpt-2 : exprpt+1]

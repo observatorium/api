@@ -23,7 +23,7 @@ func TestParseExpr(t *testing.T) {
 		// log selector expressions
 		{
 			input: `{first="value"}`,
-			expr: &StreamMatcherExpr{
+			expr: &LogQueryExpr{left: &StreamMatcherExpr{
 				matchers: []*labels.Matcher{
 					{
 						Type:  labels.MatchEqual,
@@ -31,11 +31,11 @@ func TestParseExpr(t *testing.T) {
 						Value: "value",
 					},
 				},
-			},
+			}},
 		},
 		{
 			input: `{first="value", value!="other"}`,
-			expr: &StreamMatcherExpr{
+			expr: &LogQueryExpr{left: &StreamMatcherExpr{
 				matchers: []*labels.Matcher{
 					{
 						Type:  labels.MatchEqual,
@@ -48,7 +48,7 @@ func TestParseExpr(t *testing.T) {
 						Value: "other",
 					},
 				},
-			},
+			}},
 		},
 		// log query expressions with filter
 		{
@@ -1476,4 +1476,38 @@ func trimOutput(s string) string {
 		s = strings.TrimSuffix(s, ")")
 	}
 	return s
+}
+
+func TestQuotesEncode(t *testing.T) {
+
+	type tt struct {
+		name  string
+		input string
+		want  string
+	}
+
+	tc := []tt{{
+		name:  "parsed-backticks",
+		input: "{app=\"test\"}|~`key\":\"val\"`",
+		want:  `{app="test"} |~ "key\":\"val\""`,
+	}, {
+		name:  "parsed-double-quotes",
+		input: `{app="test"}|~"key\":\"val\""`,
+		want:  `{app="test"} |~ "key\":\"val\""`,
+	}}
+
+	for _, tc := range tc {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			expr, err := ParseExpr(tc.input)
+			if err != nil {
+				t.Fatalf("unexpected err: %s", err)
+			}
+			got := expr.String()
+
+			if tc.want != got {
+				t.Fatalf("\ngot:  %s\nwant: %s", got, tc.want)
+			}
+		})
+	}
 }

@@ -109,14 +109,10 @@ func (l *LogFilterExpr) String() string {
 	if l.filterOp != "" {
 		sb.WriteString(l.filterOp)
 		sb.WriteString("(")
-		sb.WriteString(`"`)
-		sb.WriteString(l.value)
-		sb.WriteString(`"`)
+		sb.WriteString(strconv.Quote(l.value))
 		sb.WriteString(")")
 	} else {
-		sb.WriteString(`"`)
-		sb.WriteString(l.value)
-		sb.WriteString(`"`)
+		sb.WriteString(strconv.Quote(l.value))
 	}
 
 	return sb.String()
@@ -422,6 +418,27 @@ func (LogQueryExpr) logQLExpr() {}
 
 func (l *LogQueryExpr) Matchers() []*labels.Matcher {
 	return l.left.matchers
+}
+
+func (l *LogQueryExpr) AppendPipelineMatchers(matchers []*labels.Matcher, chainOp string) {
+	if len(matchers) == 0 {
+		return
+	}
+	matchersFilter := LogLabelFilterExpr{
+		labelName:    matchers[0].Name,
+		comparisonOp: matchers[0].Type.String(),
+		labelValue:   matchers[0].Value,
+	}
+	for _, m := range matchers[1:] {
+		matchersFilter.right = append(matchersFilter.right, &LogLabelFilterExpr{
+			labelName:    m.Name,
+			comparisonOp: m.Type.String(),
+			labelValue:   m.Value,
+			isNested:     true,
+			chainOp:      chainOp,
+		})
+	}
+	l.filter = append(LogPipelineExpr{&matchersFilter}, l.filter...)
 }
 
 func (l *LogQueryExpr) String() string {
