@@ -9,7 +9,6 @@ import (
 
 	logqlv2 "github.com/observatorium/api/logql/v2"
 	"github.com/prometheus/prometheus/model/labels"
-	"github.com/stretchr/testify/require"
 )
 
 func TestEnforceValues(t *testing.T) {
@@ -91,7 +90,7 @@ func TestEnforceValues(t *testing.T) {
 
 			if len(tc.urlValues.Encode()) == 0 {
 				// Url values are empty, non need to do more checks.
-				require.Len(t, v, 0)
+				testutil.Equals(t, len(v), 0)
 				return
 			}
 
@@ -104,10 +103,10 @@ func TestEnforceValues(t *testing.T) {
 			expected, err := logqlv2.ParseExpr(tc.expValues.Get("query"))
 			testutil.Ok(t, err)
 
-			smExpr, ok := expr.(*logqlv2.StreamMatcherExpr)
+			smExpr, ok := expr.(*logqlv2.LogQueryExpr)
 			testutil.Assert(t, ok)
 
-			smExpected, ok := expected.(*logqlv2.StreamMatcherExpr)
+			smExpected, ok := expected.(*logqlv2.LogQueryExpr)
 			testutil.Assert(t, ok)
 
 			m := smExpr.Matchers()

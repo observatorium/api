@@ -97,23 +97,7 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 		expr.Walk(func(expr interface{}) {
 			switch le := expr.(type) {
 			case *logqlv2.StreamMatcherExpr:
-				matchers := make([]*labels.Matcher, 0)
-				matchersMap := make(map[string]*labels.Matcher)
-				for _, em := range le.Matchers() {
-					matchersMap[em.Name] = em
-				}
-
-				for _, m := range lm {
-					matcher := matchersMap[m.Name]
-					if matcher == nil || !m.Matches(matcher.Value) {
-						matchersMap[m.Name] = m
-					}
-				}
-
-				for _, m := range matchersMap {
-					matchers = append(matchers, m)
-				}
-
+				matchers := combineLabelMatchers(le.Matchers(), lm)
 				le.SetMatchers(matchers)
 			default:
 				// Do nothing
