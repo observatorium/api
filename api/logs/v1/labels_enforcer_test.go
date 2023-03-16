@@ -2,11 +2,13 @@ package http
 
 import (
 	"net/url"
+	"sort"
 	"testing"
+
+	"github.com/efficientgo/core/testutil"
 
 	logqlv2 "github.com/observatorium/api/logql/v2"
 	"github.com/prometheus/prometheus/model/labels"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,7 +87,7 @@ func TestEnforceValues(t *testing.T) {
 			t.Parallel()
 
 			v, err := enforceValues(AuthzResponseData{Matchers: tc.accessMatchers}, tc.urlValues)
-			require.Nil(t, err)
+			testutil.Ok(t, err)
 
 			if len(tc.urlValues.Encode()) == 0 {
 				// Url values are empty, non need to do more checks.
@@ -94,21 +96,32 @@ func TestEnforceValues(t *testing.T) {
 			}
 
 			u, err := url.ParseQuery(v)
-			require.Nil(t, err)
+			testutil.Ok(t, err)
 
 			expr, err := logqlv2.ParseExpr(u.Get("query"))
-			require.Nil(t, err)
+			testutil.Ok(t, err)
 
 			expected, err := logqlv2.ParseExpr(tc.expValues.Get("query"))
-			require.Nil(t, err)
+			testutil.Ok(t, err)
 
-			smExpr := expr.(*logqlv2.StreamMatcherExpr)
-			require.NotNil(t, smExpr)
+			smExpr, ok := expr.(*logqlv2.StreamMatcherExpr)
+			testutil.Assert(t, ok)
 
-			smExpected := expected.(*logqlv2.StreamMatcherExpr)
-			require.NotNil(t, smExpected)
+			smExpected, ok := expected.(*logqlv2.StreamMatcherExpr)
+			testutil.Assert(t, ok)
 
-			assert.ElementsMatch(t, smExpected.Matchers(), smExpr.Matchers())
+			m := smExpr.Matchers()
+			mExp := smExpected.Matchers()
+
+			sort.Slice(m, func(i, j int) bool {
+				return m[i].Name < m[j].Name
+			})
+
+			sort.Slice(mExp, func(i, j int) bool {
+				return mExp[i].Name < mExp[j].Name
+			})
+
+			testutil.Equals(t, m, mExp)
 		})
 	}
 }
