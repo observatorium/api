@@ -66,6 +66,17 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 		return v.Encode(), nil
 	}
 
+	lm := mInfo.Matchers
+	// Fix label matchers to include a non nil FastRegexMatcher for regex types.
+	for i, m := range lm {
+		nm, err := labels.NewMatcher(m.Type, m.Name, m.Value)
+		if err != nil {
+			return "", fmt.Errorf("failed parsing label matcher: %w", err)
+		}
+
+		lm[i] = nm
+	}
+
 	expr, err := logqlv2.ParseExpr(v.Get(queryParam))
 	if err != nil {
 		return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
@@ -86,7 +97,8 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 		expr.Walk(func(expr interface{}) {
 			switch le := expr.(type) {
 			case *logqlv2.StreamMatcherExpr:
-				le.AppendMatchers(mInfo.Matchers)
+				matchers := combineLabelMatchers(le.Matchers(), lm)
+				le.SetMatchers(matchers)
 			default:
 				// Do nothing
 			}
@@ -96,4 +108,26 @@ func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err er
 	v.Set(queryParam, expr.String())
 
 	return v.Encode(), nil
+}
+
+// Combine the query label matcher and the authorization label matcher.
+func combineLabelMatchers(queryMatchers, authzMatchers []*labels.Matcher) []*labels.Matcher {
+	queryMatchersMap := make(map[string]*labels.Matcher)
+	for _, qm := range queryMatchers {
+		queryMatchersMap[qm.Name] = qm
+	}
+
+	matchers := make([]*labels.Matcher, 0)
+	for _, am := range authzMatchers {
+		qm := queryMatchersMap[am.Name]
+		if qm == nil || !am.Matches(qm.Value) {
+			queryMatchersMap[am.Name] = am
+		}
+	}
+
+	for _, m := range queryMatchersMap {
+		matchers = append(matchers, m)
+	}
+
+	return matchers
 }

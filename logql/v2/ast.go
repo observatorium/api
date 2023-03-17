@@ -54,6 +54,10 @@ func (s *StreamMatcherExpr) AppendMatchers(m []*labels.Matcher) {
 	s.matchers = append(s.matchers, m...)
 }
 
+func (s *StreamMatcherExpr) SetMatchers(m []*labels.Matcher) {
+	s.matchers = m
+}
+
 func (s *StreamMatcherExpr) Walk(fn WalkFn) {
 	fn(s)
 }
