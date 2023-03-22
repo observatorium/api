@@ -40,7 +40,7 @@ require (
 	golang.org/x/oauth2 v0.6.0
 	google.golang.org/genproto v0.0.0-20230124163310-31e0e69b6fc2
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 	k8s.io/apimachinery v0.26.3
 	k8s.io/apiserver v0.26.2
 	k8s.io/client-go v0.26.2
