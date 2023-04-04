@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	ReadTimeout  = 15 * time.Minute
-	WriteTimeout = time.Minute
+	dialTimeout = 30 * time.Second // Set as in http.DefaultTransport
 )
 
 const (
@@ -163,7 +162,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: ReadTimeout,
+					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
@@ -231,7 +230,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: ReadTimeout,
+					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
@@ -324,7 +323,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: ReadTimeout,
+					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
@@ -360,7 +359,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: WriteTimeout,
+					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}

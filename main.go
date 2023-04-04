@@ -65,11 +65,21 @@ import (
 )
 
 const (
-	readTimeout  = 15 * time.Minute
-	writeTimeout = 2 * time.Minute
-	gracePeriod
-	middlewareTimeout
+	// Global HTTP server request/response timeouts.
+	readHeaderTimeout = 1 * time.Second
+	readTimeout       = 5 * time.Second
+	writeTimeout      = 12 * time.Minute // Aligned with the slowest middleware handler.
+
+	// Per Handler request context timeout.
+	logsMiddlewareTimeout    = 10 * time.Minute
+	metricsMiddlewareTimeout = 2 * time.Minute
+	tracesMiddlewareTimeout  = 2 * time.Minute
+
+	// GRPC dial timeout for traces handlers.
 	grpcDialTimeout = 1 * time.Second
+
+	// Server shutdown grace period.
+	gracePeriod = 2 * time.Minute
 )
 
 type config struct {
@@ -500,7 +510,7 @@ func main() {
 		r.Use(middleware.RealIP)
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
-		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler.
+
 		// With default value of zero backlog concurrent requests crossing a rate-limit result in non-200 HTTP response.
 		r.Use(middleware.ThrottleBacklog(cfg.middleware.concurrentRequestLimit,
 			cfg.middleware.backLogLimitConcurrentRequests, cfg.middleware.backLogDurationConcurrentRequests))
@@ -608,6 +618,7 @@ func main() {
 				})
 
 				r.Group(func(r chi.Router) {
+					r.Use(middleware.Timeout(metricsMiddlewareTimeout))
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamCACert,
@@ -651,6 +662,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
+					r.Use(middleware.Timeout(logsMiddlewareTimeout))
 					r.Mount("/api/logs/v1/{tenant}",
 						stripTenantPrefix("/api/logs/v1",
 							logsv1.NewHandler(
@@ -685,6 +697,7 @@ func main() {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
+					r.Use(middleware.Timeout(tracesMiddlewareTimeout))
 
 					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
 					if !cfg.metrics.enabled {
@@ -758,10 +771,11 @@ func main() {
 		s := http.Server{
 			Addr: cfg.server.listen,
 			// otel HTTP handler with global trace provider
-			Handler:      otelhttp.NewHandler(r, "api"),
-			TLSConfig:    tlsConfig,
-			ReadTimeout:  readTimeout,  // best set per handler.
-			WriteTimeout: writeTimeout, // best set per handler.
+			Handler:           otelhttp.NewHandler(r, "api"),
+			TLSConfig:         tlsConfig,
+			ReadHeaderTimeout: readHeaderTimeout,
+			ReadTimeout:       readTimeout,
+			WriteTimeout:      writeTimeout,
 		}
 
 		g.Add(func() error {

@@ -21,8 +21,7 @@ import (
 )
 
 const (
-	readTimeout  = 15 * time.Minute
-	writeTimeout = time.Minute
+	dialTimeout = 30 * time.Second // Set as in http.DefaultTransport
 )
 
 const (
@@ -182,7 +181,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				Transport: otelhttp.NewTransport(
 					&http.Transport{
 						DialContext: (&net.Dialer{
-							Timeout: readTimeout,
+							Timeout: dialTimeout,
 						}).DialContext,
 					},
 				),
@@ -206,7 +205,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: readTimeout,
+					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
@@ -264,7 +263,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
-					Timeout: writeTimeout,
+					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}

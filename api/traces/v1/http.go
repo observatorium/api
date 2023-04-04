@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	ReadTimeout = 15 * time.Minute
+	dialTimeout = 30 * time.Second // Set as in http.DefaultTransport
 )
 
 type handlerConfiguration struct {
@@ -135,7 +135,7 @@ func NewV2Handler(read *url.URL, readTemplate string, upstreamCA []byte, upstrea
 
 		t := &http.Transport{
 			DialContext: (&net.Dialer{
-				Timeout: ReadTimeout,
+				Timeout: dialTimeout,
 			}).DialContext,
 			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 		}
