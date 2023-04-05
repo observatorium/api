@@ -22,7 +22,7 @@ const (
 	QueryRoute      = "/api/v1/query"
 	QueryRangeRoute = "/api/v1/query_range"
 
-	readTimeout = 15 * time.Minute
+	dialTimeout = 30 * time.Second // Set as in http.DefaultTransport
 )
 
 type handlerConfiguration struct {
@@ -129,7 +129,7 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 
 		t := &http.Transport{
 			DialContext: (&net.Dialer{
-				Timeout: readTimeout,
+				Timeout: dialTimeout,
 			}).DialContext,
 			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 		}
