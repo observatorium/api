@@ -3,7 +3,7 @@ module github.com/observatorium/api
 go 1.18
 
 require (
-	github.com/brancz/kube-rbac-proxy v0.14.0
+	github.com/brancz/kube-rbac-proxy v0.14.1
 	github.com/cloudflare/cfssl v1.6.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.12.4
