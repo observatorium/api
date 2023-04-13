@@ -315,7 +315,7 @@ binaryOpOptions:
 selector:
                 OPEN_BRACE matchers CLOSE_BRACE { $$ = $2 }
         |       OPEN_BRACE matchers error       { $$ = $2 }
-        |       OPEN_BRACE error CLOSE_BRACE    {         }
+        |       OPEN_BRACE CLOSE_BRACE          {         }
         ;
 
 matchers:
