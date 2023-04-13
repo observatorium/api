@@ -3,7 +3,7 @@ package v2
 
 import (
   "time"
-  "github.com/prometheus/prometheus/pkg/labels"
+  "github.com/prometheus/prometheus/model/labels"
 )
 %}
 
@@ -64,7 +64,7 @@ import (
 %token  <str>      IDENTIFIER STRING RANGE NUMBER
 %token  <duration> DURATION
 %token  <val>      MATCHERS LABELS EQ RE NRE OPEN_BRACE CLOSE_BRACE OPEN_BRACKET CLOSE_BRACKET COMMA DOT
-                   OPEN_PARENTHESIS CLOSE_PARENTHESIS COUNT_OVER_TIME RATE RATE_COUNTER SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK
+                   OPEN_PARENTHESIS CLOSE_PARENTHESIS COUNT_OVER_TIME RATE RATE_COUNTER SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK SORT SORT_DESC
                    BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                    MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME FIRST_OVER_TIME LAST_OVER_TIME ABSENT_OVER_TIME
                    BY WITHOUT VECTOR LABEL_REPLACE IP UNPACK PATTERN OFFSET BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV ON IGNORING GROUP_LEFT GROUP_RIGHT
@@ -355,6 +355,8 @@ metricOp:
         |       STDVAR             { $$ = VectorOpTypeStdvar     }
         |       BOTTOMK            { $$ = VectorOpTypeBottomK    }
         |       TOPK               { $$ = VectorOpTypeTopK       }
+        |       SORT               { $$ = VectorOpTypeSort       }
+        |       SORT_DESC          { $$ = VectorOpTypeSortDesc   }
         |       VECTOR             { $$ = OpTypeVector           }
         ;
 

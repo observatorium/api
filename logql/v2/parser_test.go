@@ -660,6 +660,52 @@ func TestParseExpr(t *testing.T) {
 					left: &LogRangeQueryExpr{
 						rng: `[1m]`,
 						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `sort(rate({first="value"}[1m]))`,
+			expr: &LogMetricExpr{
+				metricOp: "sort",
+				Expr: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: `[1m]`,
+						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `sort_desc(rate({first="value"}[1m]))`,
+			expr: &LogMetricExpr{
+				metricOp: "sort_desc",
+				Expr: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: `[1m]`,
+						left: &LogQueryExpr{
 
 							left: &StreamMatcherExpr{
 								matchers: []*labels.Matcher{
