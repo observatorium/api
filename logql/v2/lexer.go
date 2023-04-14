@@ -33,6 +33,7 @@ const (
 	ParserPattern     = "pattern"
 	ParserLineFormat  = "line_format"
 	ParserLabelFormat = "label_format"
+	ParserDrop        = "drop"
 
 	RangeOpTypeCount       = "count_over_time"
 	RangeOpTypeRate        = "rate"
@@ -78,6 +79,7 @@ var tokens = map[string]int{
 	"|=":                  PIPE_EXACT,
 	"|~":                  PIPE_MATCH,
 	"decolorize":          DECOLORIZE,
+	"drop":                DROP,
 	"by":                  BY,
 	"without":             WITHOUT,
 	"on":                  ON,

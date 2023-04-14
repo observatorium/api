@@ -20,6 +20,7 @@ import (
   LogStageExpr         LogStageExpr
   LogRangeQueryExpr    LogSelectorExpr
   LogOffsetExpr        *LogOffsetExpr
+  LogDropLabels        LogLabelList
   Matcher              *labels.Matcher
   Matchers             []*labels.Matcher
   MetricOp             string
@@ -54,6 +55,7 @@ import (
 %type <LogStageExpr>         logStageExpr
 %type <LogRangeQueryExpr>    logRangeQueryExpr
 %type <LogOffsetExpr>        logOffsetExpr
+%type <LogDropLabels>        logDropLabels
 %type <Matcher>              matcher
 %type <Matchers>             matchers
 %type <MetricOp>             metricOp
@@ -68,7 +70,7 @@ import (
                    BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                    MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME FIRST_OVER_TIME LAST_OVER_TIME ABSENT_OVER_TIME
                    BY WITHOUT VECTOR LABEL_REPLACE IP UNPACK PATTERN OFFSET BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV ON IGNORING GROUP_LEFT GROUP_RIGHT
-                   DECOLORIZE
+                   DECOLORIZE DROP
 
 %left <binaryOp> OR
 %left <binaryOp> AND UNLESS
@@ -117,6 +119,7 @@ logStageExpr:
         |       PIPE LINE_FMT STRING                                                      { $$ = newLogParserExpr(ParserLineFormat, $3, "") }
         |       PIPE DECOLORIZE                                                           { $$ = newLogDecolorizeExpr()                     }
         |       PIPE LABEL_FMT logFormatExpr                                              { $$ = $3                                         }
+        |       PIPE DROP logDropLabels                                                   { $$ = newLogLabelExpr(ParserDrop, $3)            }
         ;
 
 logFilterExpr:
@@ -205,6 +208,12 @@ logNumberExpr:
                 NUMBER     { $$ = newLogNumberExpr($1, false) }
         |       ADD NUMBER { $$ = newLogNumberExpr($2, false) }
         |       SUB NUMBER { $$ = newLogNumberExpr($2, true)  }
+        ;
+
+logDropLabels:
+                IDENTIFIER                              { $$ = newLogLabelList(newLogLabel($1, nil)) }
+        |       matcher                                 { $$ = newLogLabelList(newLogLabel("", $1))  }
+        |       logDropLabels COMMA logDropLabels       { $$ = mergeLabels($1, $3)                   }
         ;
 
 binaryOpOptions:

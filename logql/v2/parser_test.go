@@ -575,6 +575,70 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: `{first="value"} | json | drop addr`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelExpr{
+						parser: "drop",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | drop addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelExpr{
+						parser: "drop",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
 		// log query expressions with format expressions
 		{
 			input: `{app="first"} |= "value" | json | line_format "loop{{ .first }}blop {{.status_code}}" | label_format first=value,status_code="blop{{.value}}"`, //nolint:lll
