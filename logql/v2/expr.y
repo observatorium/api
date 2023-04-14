@@ -21,6 +21,7 @@ import (
   LogRangeQueryExpr    LogSelectorExpr
   LogOffsetExpr        *LogOffsetExpr
   LogDropLabels        LogLabelList
+  LogFMTLabels         LogLabelList
   Matcher              *labels.Matcher
   Matchers             []*labels.Matcher
   MetricOp             string
@@ -56,6 +57,7 @@ import (
 %type <LogRangeQueryExpr>    logRangeQueryExpr
 %type <LogOffsetExpr>        logOffsetExpr
 %type <LogDropLabels>        logDropLabels
+%type <LogFMTLabels>         logFMTLabels
 %type <Matcher>              matcher
 %type <Matchers>             matchers
 %type <MetricOp>             metricOp
@@ -110,6 +112,7 @@ logStageExpr:
                 logFilterExpr                                                             { $$ = $1                                         }
         |       PIPE logLabelFilterExpr                                                   { $$ = $2                                         }
         |       PIPE LOGFMT                                                               { $$ = newLogParserExpr(ParserLogFMT, "", "")     }
+        |       PIPE LOGFMT logFMTLabels                                                  { $$ = newLogLabelExpr(ParserLogFMT, $3)          }
         |       PIPE JSON                                                                 { $$ = newLogParserExpr(ParserJSON, "", "")       }
         |       PIPE UNPACK                                                               { $$ = newLogParserExpr(ParserUnpack, "", "")     }
         |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogParserExpr(ParserUnwrap, $3, "")     }
@@ -214,6 +217,12 @@ logDropLabels:
                 IDENTIFIER                              { $$ = newLogLabelList(newLogLabel($1, nil)) }
         |       matcher                                 { $$ = newLogLabelList(newLogLabel("", $1))  }
         |       logDropLabels COMMA logDropLabels       { $$ = mergeLabels($1, $3)                   }
+        ;
+
+logFMTLabels:
+                IDENTIFIER                              { $$ = newLogLabelList(newLogLabel($1, nil))                                         }
+        |       IDENTIFIER EQ STRING                    { $$ = newLogLabelList(newLogLabel("", newLabelMatcher(labels.MatchEqual, $1, $3)))  }
+        |       logFMTLabels COMMA logFMTLabels         { $$ = mergeLabels($1, $3)                                                           }
         ;
 
 binaryOpOptions:

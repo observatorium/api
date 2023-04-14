@@ -122,6 +122,64 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | logfmt addr`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | logfmt addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | logfmt | remote_addr=ip("10.0.0.0") | level="error" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
