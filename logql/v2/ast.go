@@ -379,6 +379,75 @@ func (l *LogDecolorizeExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
+type LogLabel struct {
+	identifier string
+	matcher    *labels.Matcher
+}
+
+func newLogLabel(identifier string, matcher *labels.Matcher) LogLabel {
+	return LogLabel{
+		identifier: identifier,
+		matcher:    matcher,
+	}
+}
+
+type LogLabelList []LogLabel
+
+func newLogLabelList(label LogLabel) LogLabelList {
+	return []LogLabel{label}
+}
+
+func mergeLabels(lhs, rhs LogLabelList) LogLabelList {
+	return append(lhs, rhs...)
+}
+
+type LogLabelExpr struct {
+	defaultLogQLExpr // nolint:unused
+	parser           string
+	labels           LogLabelList
+}
+
+func newLogLabelExpr(parser string, labels LogLabelList) *LogLabelExpr {
+	return &LogLabelExpr{
+		parser: parser,
+		labels: labels,
+	}
+}
+
+func (LogLabelExpr) logQLExpr() {}
+
+func (LogLabelExpr) logStageExpr() {}
+
+func (l LogLabelExpr) String() string {
+	var sb strings.Builder
+	labelCount := len(l.labels)
+
+	sb.WriteString("| ")
+	sb.WriteString(l.parser)
+
+	for i, label := range l.labels {
+		if label.identifier != "" {
+			sb.WriteString(" ")
+			sb.WriteString(label.identifier)
+		}
+
+		if label.matcher != nil {
+			sb.WriteString(" ")
+			sb.WriteString(label.matcher.String())
+		}
+
+		if i != labelCount-1 {
+			sb.WriteString(",")
+		}
+	}
+
+	return sb.String()
+}
+
+func (l *LogLabelExpr) Walk(fn WalkFn) {
+	fn(l)
+}
+
 type LogPipelineExpr []LogStageExpr
 
 func (LogPipelineExpr) logQLExpr() {}

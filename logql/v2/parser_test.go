@@ -122,6 +122,64 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | logfmt addr`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | logfmt addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | logfmt | remote_addr=ip("10.0.0.0") | level="error" | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
@@ -575,6 +633,70 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: `{first="value"} | json | drop addr`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelExpr{
+						parser: "drop",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | drop addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelExpr{
+						parser: "drop",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
 		// log query expressions with format expressions
 		{
 			input: `{app="first"} |= "value" | json | line_format "loop{{ .first }}blop {{.status_code}}" | label_format first=value,status_code="blop{{.value}}"`, //nolint:lll
@@ -655,6 +777,52 @@ func TestParseExpr(t *testing.T) {
 			input: `sum(rate({first="value"}[1m]))`,
 			expr: &LogMetricExpr{
 				metricOp: "sum",
+				Expr: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: `[1m]`,
+						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `sort(rate({first="value"}[1m]))`,
+			expr: &LogMetricExpr{
+				metricOp: "sort",
+				Expr: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: `[1m]`,
+						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `sort_desc(rate({first="value"}[1m]))`,
+			expr: &LogMetricExpr{
+				metricOp: "sort_desc",
 				Expr: &LogMetricExpr{
 					metricOp: "rate",
 					left: &LogRangeQueryExpr{

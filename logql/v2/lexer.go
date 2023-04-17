@@ -13,15 +13,17 @@ import (
 )
 
 const (
-	VectorOpTypeSum     = "sum"
-	VectorOpTypeAvg     = "avg"
-	VectorOpTypeMax     = "max"
-	VectorOpTypeMin     = "min"
-	VectorOpTypeCount   = "count"
-	VectorOpTypeStddev  = "stddev"
-	VectorOpTypeStdvar  = "stdvar"
-	VectorOpTypeBottomK = "bottomk"
-	VectorOpTypeTopK    = "topk"
+	VectorOpTypeSum      = "sum"
+	VectorOpTypeAvg      = "avg"
+	VectorOpTypeMax      = "max"
+	VectorOpTypeMin      = "min"
+	VectorOpTypeCount    = "count"
+	VectorOpTypeStddev   = "stddev"
+	VectorOpTypeStdvar   = "stdvar"
+	VectorOpTypeBottomK  = "bottomk"
+	VectorOpTypeTopK     = "topk"
+	VectorOpTypeSort     = "sort"
+	VectorOpTypeSortDesc = "sort_desc"
 
 	ParserLogFMT      = "logfmt"
 	ParserJSON        = "json"
@@ -31,6 +33,7 @@ const (
 	ParserPattern     = "pattern"
 	ParserLineFormat  = "line_format"
 	ParserLabelFormat = "label_format"
+	ParserDrop        = "drop"
 
 	RangeOpTypeCount       = "count_over_time"
 	RangeOpTypeRate        = "rate"
@@ -76,6 +79,7 @@ var tokens = map[string]int{
 	"|=":                  PIPE_EXACT,
 	"|~":                  PIPE_MATCH,
 	"decolorize":          DECOLORIZE,
+	"drop":                DROP,
 	"by":                  BY,
 	"without":             WITHOUT,
 	"on":                  ON,
@@ -130,15 +134,17 @@ var funcTokens = map[string]int{
 	OpTypeVector:           VECTOR,
 
 	// vector ops
-	VectorOpTypeSum:     SUM,
-	VectorOpTypeAvg:     AVG,
-	VectorOpTypeMax:     MAX,
-	VectorOpTypeMin:     MIN,
-	VectorOpTypeCount:   COUNT,
-	VectorOpTypeStddev:  STDDEV,
-	VectorOpTypeStdvar:  STDVAR,
-	VectorOpTypeBottomK: BOTTOMK,
-	VectorOpTypeTopK:    TOPK,
+	VectorOpTypeSum:      SUM,
+	VectorOpTypeAvg:      AVG,
+	VectorOpTypeMax:      MAX,
+	VectorOpTypeMin:      MIN,
+	VectorOpTypeCount:    COUNT,
+	VectorOpTypeStddev:   STDDEV,
+	VectorOpTypeStdvar:   STDVAR,
+	VectorOpTypeBottomK:  BOTTOMK,
+	VectorOpTypeTopK:     TOPK,
+	VectorOpTypeSort:     SORT,
+	VectorOpTypeSortDesc: SORT_DESC,
 
 	OpLabelReplace: LABEL_REPLACE,
 	OpIP:           IP,
