@@ -30,7 +30,15 @@ func WithEnforceTenantAsRuleNamespace() func(http.Handler) http.Handler {
 				return
 			}
 
+			// Exclude ruler discovery calls from Grafana:
+			// See: https://github.com/grafana/grafana/blob/842ce144292bdf6b51ba2e13961c0986969005e4/public/app/features/alerting/unified/api/ruler.ts#L93-L100
+			group := chi.URLParam(r, "groupName")
 			namespace := chi.URLParam(r, "namespace")
+			if namespace == "test" && group == "test" {
+				httperr.PrometheusAPIError(w, "page not found", http.StatusNotFound)
+				return
+			}
+
 			if namespace != "" && tenant != namespace {
 				httperr.PrometheusAPIError(w, "error tenant not matching namespace", http.StatusBadRequest)
 				return
