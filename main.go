@@ -684,6 +684,7 @@ func main() {
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
 								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
+								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceRulesNamespaceLabel()),
 								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
 								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceRuleLabels(cfg.logs.tenantLabel)),
 							),
