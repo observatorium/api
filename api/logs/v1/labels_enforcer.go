@@ -46,6 +46,12 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
+			if len(matchersInfo.Matchers) == 0 {
+				httperr.PrometheusAPIError(w, "empty authorization label matchers", http.StatusInternalServerError)
+
+				return
+			}
+
 			q, err := enforceValues(matchersInfo, r.URL.Query())
 			if err != nil {
 				httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce authorization label matchers: %v", err), http.StatusInternalServerError)
