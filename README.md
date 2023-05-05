@@ -109,6 +109,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -logs.tls.key-file string
     	File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.
+  -logs.write-timeout duration
+    	The HTTP write timeout for proxied requests to the logs endpoint. (default 10m0s)
   -logs.write.endpoint string
     	The endpoint against which to make write requests for logs.
   -metrics.read.endpoint string
@@ -125,6 +127,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -metrics.tls.key-file string
     	File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.
+  -metrics.write-timeout duration
+    	The HTTP write timeout for proxied requests to the metrics endpoint. (default 2m0s)
   -metrics.write.endpoint string
     	The endpoint against which to make write requests for metrics.
   -middleware.backlog-duration-concurrent-requests duration
@@ -137,6 +141,12 @@ Usage of ./observatorium-api:
     	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
   -rbac.config string
     	Path to the RBAC configuration file. (default "rbac.yaml")
+  -server.read-header-timeout duration
+    	Global server read header timeout. (default 1s)
+  -server.read-timeout duration
+    	Global server read timeout. (default 5s)
+  -server.write-timeout duration
+    	Global server read timeout. (default 12m0s)
   -tenants.config string
     	Path to the tenants file. (default "tenants.yaml")
   -tls.cipher-suites string
@@ -171,6 +181,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -traces.tls.key-file string
     	File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.
+  -traces.write-timeout duration
+    	The HTTP write timeout for proxied requests to the traces endpoint. (default 2m0s)
   -traces.write.endpoint string
     	The endpoint against which to make gRPC write requests for traces.
   -web.healthchecks.url string

@@ -106,10 +106,13 @@ type debugConfig struct {
 }
 
 type serverConfig struct {
-	listen         string
-	listenInternal string
-	healthcheckURL string
-	grpcListen     string
+	listen            string
+	listenInternal    string
+	healthcheckURL    string
+	grpcListen        string
+	readHeaderTimeout time.Duration
+	readTimeout       time.Duration
+	writeTimeout      time.Duration
 }
 
 type tlsConfig struct {
@@ -130,28 +133,30 @@ type tlsConfig struct {
 }
 
 type metricsConfig struct {
-	readEndpoint     *url.URL
-	writeEndpoint    *url.URL
-	rulesEndpoint    *url.URL
-	upstreamCAFile   string
-	upstreamCertFile string
-	upstreamKeyFile  string
-	tenantHeader     string
-	tenantLabel      string
+	readEndpoint         *url.URL
+	writeEndpoint        *url.URL
+	rulesEndpoint        *url.URL
+	upstreamWriteTimeout time.Duration
+	upstreamCAFile       string
+	upstreamCertFile     string
+	upstreamKeyFile      string
+	tenantHeader         string
+	tenantLabel          string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
 	enabled bool
 }
 
 type logsConfig struct {
-	readEndpoint     *url.URL
-	writeEndpoint    *url.URL
-	tailEndpoint     *url.URL
-	rulesEndpoint    *url.URL
-	upstreamCAFile   string
-	upstreamCertFile string
-	upstreamKeyFile  string
-	tenantHeader     string
-	tenantLabel      string
+	readEndpoint         *url.URL
+	writeEndpoint        *url.URL
+	tailEndpoint         *url.URL
+	rulesEndpoint        *url.URL
+	upstreamWriteTimeout time.Duration
+	upstreamCAFile       string
+	upstreamCertFile     string
+	upstreamKeyFile      string
+	tenantHeader         string
+	tenantLabel          string
 	// Allow only read-only access on rules
 	rulesReadOnly bool
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
@@ -162,12 +167,13 @@ type tracesConfig struct {
 	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686".
 	readTemplateEndpoint string
 
-	readEndpoint     *url.URL
-	writeEndpoint    string
-	upstreamCAFile   string
-	upstreamCertFile string
-	upstreamKeyFile  string
-	tenantHeader     string
+	readEndpoint         *url.URL
+	writeEndpoint        string
+	upstreamWriteTimeout time.Duration
+	upstreamCAFile       string
+	upstreamCertFile     string
+	upstreamKeyFile      string
+	tenantHeader         string
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
 	enabled bool
 }
@@ -618,7 +624,7 @@ func main() {
 				})
 
 				r.Group(func(r chi.Router) {
-					r.Use(middleware.Timeout(metricsMiddlewareTimeout))
+					r.Use(middleware.Timeout(cfg.metrics.upstreamWriteTimeout))
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamCACert,
@@ -662,7 +668,7 @@ func main() {
 			// Logs.
 			if cfg.logs.enabled {
 				r.Group(func(r chi.Router) {
-					r.Use(middleware.Timeout(logsMiddlewareTimeout))
+					r.Use(middleware.Timeout(cfg.logs.upstreamWriteTimeout))
 					r.Mount("/api/logs/v1/{tenant}",
 						stripTenantPrefix("/api/logs/v1",
 							logsv1.NewHandler(
@@ -697,7 +703,7 @@ func main() {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
-					r.Use(middleware.Timeout(tracesMiddlewareTimeout))
+					r.Use(middleware.Timeout(cfg.traces.upstreamWriteTimeout))
 
 					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
 					if !cfg.metrics.enabled {
@@ -773,9 +779,9 @@ func main() {
 			// otel HTTP handler with global trace provider
 			Handler:           otelhttp.NewHandler(r, "api"),
 			TLSConfig:         tlsConfig,
-			ReadHeaderTimeout: readHeaderTimeout,
-			ReadTimeout:       readTimeout,
-			WriteTimeout:      writeTimeout,
+			ReadHeaderTimeout: cfg.server.readHeaderTimeout,
+			ReadTimeout:       cfg.server.readTimeout,
+			WriteTimeout:      cfg.server.writeTimeout,
 		}
 
 		g.Add(func() error {
@@ -866,11 +872,12 @@ func main() {
 		}
 
 		s := http.Server{
-			Addr:         cfg.server.listenInternal,
-			Handler:      h,
-			TLSConfig:    internalTLSConfig,
-			ReadTimeout:  readTimeout,  // best set per handler.
-			WriteTimeout: writeTimeout, // best set per handler.
+			Addr:              cfg.server.listenInternal,
+			Handler:           h,
+			TLSConfig:         internalTLSConfig,
+			ReadHeaderTimeout: cfg.server.readHeaderTimeout,
+			ReadTimeout:       cfg.server.readTimeout,
+			WriteTimeout:      cfg.server.writeTimeout,
 		}
 
 		g.Add(func() error {
@@ -973,6 +980,9 @@ func parseFlags() (config, error) {
 		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL against which to run healthchecks.")
+	flag.DurationVar(&cfg.server.readHeaderTimeout, "server.read-header-timeout", readHeaderTimeout, "Global server read header timeout.")
+	flag.DurationVar(&cfg.server.readTimeout, "server.read-timeout", readTimeout, "Global server read timeout.")
+	flag.DurationVar(&cfg.server.writeTimeout, "server.write-timeout", writeTimeout, "Global server read timeout.")
 	flag.StringVar(&rawLogsTailEndpoint, "logs.tail.endpoint", "",
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
@@ -981,6 +991,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make rules requests for logs.")
 	flag.BoolVar(&cfg.logs.rulesReadOnly, "logs.rules.read-only", false,
 		"Allow only read-only rule requests for logs.")
+	flag.DurationVar(&cfg.logs.upstreamWriteTimeout, "logs.write-timeout", logsMiddlewareTimeout,
+		"The HTTP write timeout for proxied requests to the logs endpoint.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream logs servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.logs.upstreamCertFile, "logs.tls.cert-file", "",
@@ -999,6 +1011,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
+	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,
+		"The HTTP write timeout for proxied requests to the metrics endpoint.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream metrics servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.metrics.upstreamCertFile, "metrics.tls.cert-file", "",
@@ -1015,6 +1029,8 @@ func parseFlags() (config, error) {
 		"A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
 		"The endpoint against which to make gRPC write requests for traces.")
+	flag.DurationVar(&cfg.traces.upstreamWriteTimeout, "traces.write-timeout", tracesMiddlewareTimeout,
+		"The HTTP write timeout for proxied requests to the traces endpoint.")
 	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
 		"File containing the TLS CA against which to upstream traces servers. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.traces.upstreamCertFile, "traces.tls.cert-file", "",
