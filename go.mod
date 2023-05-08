@@ -30,12 +30,12 @@ require (
 	github.com/prometheus/client_golang v1.15.0
 	github.com/prometheus/common v0.42.0
 	github.com/prometheus/prometheus v0.43.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
-	go.opentelemetry.io/contrib/propagators/jaeger v1.15.0
-	go.opentelemetry.io/otel v1.14.0
-	go.opentelemetry.io/otel/exporters/jaeger v1.14.0
-	go.opentelemetry.io/otel/sdk v1.14.0
-	go.opentelemetry.io/otel/trace v1.14.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.41.1
+	go.opentelemetry.io/contrib/propagators/jaeger v1.16.1
+	go.opentelemetry.io/otel v1.15.1
+	go.opentelemetry.io/otel/exporters/jaeger v1.15.1
+	go.opentelemetry.io/otel/sdk v1.15.1
+	go.opentelemetry.io/otel/trace v1.15.1
 	go.uber.org/automaxprocs v1.5.2
 	golang.org/x/oauth2 v0.7.0
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4
@@ -60,7 +60,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
-	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cncf/udpa/go v0.0.0-20220112060539-c52dc94e7fbe // indirect
@@ -164,11 +164,11 @@ require (
 	go.etcd.io/etcd/tests/v3 v3.5.5 // indirect
 	go.etcd.io/etcd/v3 v3.5.5 // indirect
 	go.mongodb.org/mongo-driver v1.11.2 // indirect
-	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.35.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.14.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.14.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.14.0 // indirect
-	go.opentelemetry.io/otel/metric v0.37.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.41.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.15.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.15.1 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.15.1 // indirect
+	go.opentelemetry.io/otel/metric v0.38.1 // indirect
 	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
