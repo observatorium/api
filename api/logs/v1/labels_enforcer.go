@@ -77,8 +77,7 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 		return "", err
 	}
 
-	var expr logqlv2.Expr = &logqlv2.StreamMatcherExpr{}
-	expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
+	var expr logqlv2.Expr
 
 	if q := v.Get(queryParam); q != "" {
 		expr, err = logqlv2.ParseExpr(q)
@@ -86,13 +85,13 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 			return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
 		}
 
-		switch le := expr.(type) {
-		case *logqlv2.LogQueryExpr:
+		if le, ok := expr.(*logqlv2.LogQueryExpr); ok {
 			matchers := combineLabelMatchers(le.Matchers(), lm)
 			le.SetMatchers(matchers)
-		default:
-			// Do nothing
 		}
+	} else {
+		expr = &logqlv2.StreamMatcherExpr{}
+		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
 	}
 
 	v.Set(queryParam, expr.String())
