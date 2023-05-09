@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
@@ -46,7 +47,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
-			q, err := enforceValues(matchersInfo, r.URL.Query())
+			q, err := enforceValues(matchersInfo, r.URL)
 			if err != nil {
 				httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce authorization label matchers: %v", err), http.StatusInternalServerError)
 
@@ -61,20 +62,51 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 const queryParam = "query"
 
-func enforceValues(mInfo AuthzResponseData, v url.Values) (values string, err error) {
+func enforceValues(mInfo AuthzResponseData, u *url.URL) (values string, err error) {
+	switch {
+	case strings.HasSuffix(u.Path, "/values"):
+		return enforceValuesOnLabelValues(mInfo, u.Query())
+	default:
+		return enforceValuesOnQuery(mInfo, u.Query())
+	}
+}
+
+func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values string, err error) {
+	lm, err := initAuthzMatchers(mInfo.Matchers)
+	if err != nil {
+		return "", err
+	}
+
+	var expr logqlv2.Expr
+
+	if q := v.Get(queryParam); q != "" {
+		expr, err = logqlv2.ParseExpr(q)
+		if err != nil {
+			return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
+		}
+
+		if le, ok := expr.(*logqlv2.LogQueryExpr); ok {
+			matchers := combineLabelMatchers(le.Matchers(), lm)
+			le.SetMatchers(matchers)
+		}
+	} else {
+		expr = &logqlv2.StreamMatcherExpr{}
+		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
+	}
+
+	v.Set(queryParam, expr.String())
+
+	return v.Encode(), nil
+}
+
+func enforceValuesOnQuery(mInfo AuthzResponseData, v url.Values) (values string, err error) {
 	if v.Get(queryParam) == "" {
 		return v.Encode(), nil
 	}
 
-	lm := mInfo.Matchers
-	// Fix label matchers to include a non nil FastRegexMatcher for regex types.
-	for i, m := range lm {
-		nm, err := labels.NewMatcher(m.Type, m.Name, m.Value)
-		if err != nil {
-			return "", fmt.Errorf("failed parsing label matcher: %w", err)
-		}
-
-		lm[i] = nm
+	lm, err := initAuthzMatchers(mInfo.Matchers)
+	if err != nil {
+		return "", err
 	}
 
 	expr, err := logqlv2.ParseExpr(v.Get(queryParam))
@@ -130,4 +162,18 @@ func combineLabelMatchers(queryMatchers, authzMatchers []*labels.Matcher) []*lab
 	}
 
 	return matchers
+}
+
+func initAuthzMatchers(lm []*labels.Matcher) ([]*labels.Matcher, error) {
+	// Fix label matchers to include a non nil FastRegexMatcher for regex types.
+	for i, m := range lm {
+		nm, err := labels.NewMatcher(m.Type, m.Name, m.Value)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing label matcher: %w", err)
+		}
+
+		lm[i] = nm
+	}
+
+	return lm, nil
 }

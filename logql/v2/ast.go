@@ -493,6 +493,10 @@ func (l *LogQueryExpr) Matchers() []*labels.Matcher {
 	return l.left.matchers
 }
 
+func (l *LogQueryExpr) SetMatchers(lm []*labels.Matcher) {
+	l.left.SetMatchers(lm)
+}
+
 func (l *LogQueryExpr) AppendPipelineMatchers(matchers []*labels.Matcher, chainOp string) {
 	if len(matchers) == 0 {
 		return
