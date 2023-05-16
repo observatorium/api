@@ -805,7 +805,16 @@ func main() {
 		})
 
 		if cfg.server.grpcListen != "" {
-			gs, err := newGRPCServer(&cfg, cfg.traces.tenantHeader, tenantIDs, pm.GRPCMiddlewares, authorizers, logger)
+			gs, err := newGRPCServer(
+				&cfg,
+				cfg.traces.tenantHeader,
+				tenantIDs,
+				pm.GRPCMiddlewares,
+				authorizers,
+				logger,
+				tracesUpstreamCACert,
+				tracesUpstreamClientCert,
+			)
 			if err != nil {
 				stdlog.Fatalf("failed to initialize gRPC server: %v", err)
 			}
@@ -1285,10 +1294,11 @@ var gRPCRBAC = authorization.GRPCRBac{
 }
 
 func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
-	authorizers map[string]rbac.Authorizer, logger log.Logger) (*grpc.Server, error) {
+	authorizers map[string]rbac.Authorizer, logger log.Logger, tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate) (*grpc.Server, error) {
 	connOtel, err := tracesv1.NewOTelConnection(
 		cfg.traces.writeEndpoint,
 		tracesv1.WithLogger(logger),
+		tracesv1.WithUpstreamTLS(tracesUpstreamCA, tracesUpstreamCert),
 	)
 	if err != nil {
 		return nil, err
