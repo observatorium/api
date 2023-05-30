@@ -1,0 +1,121 @@
+{
+    "status": "success",
+    "data": {
+        "groups": [
+            {
+                "name": "LogTestErrors10m",
+                "file": "log-test-0-log-test-0-717f2906-d28f-4175-9597-f3a40ed64936.yaml",
+                "rules": [
+                    {
+                        "name": "application:logtest0:errors:rate10m",
+                        "query": "sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[10m]))",
+                        "labels": {
+                        },
+                        "health": "ok",
+                        "lastError": "",
+                        "type": "recording",
+                        "lastEvaluation": "2023-05-31T16:02:33.697904344Z",
+                        "evaluationTime": 0.002222441
+                    },
+                    {
+                        "name": "application:logtest1:errors:rate10m",
+                        "query": "sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[10m]))",
+                        "labels": {
+                        },
+                        "health": "unknown",
+                        "lastError": "",
+                        "type": "recording",
+                        "lastEvaluation": "0001-01-01T00:00:00Z",
+                        "evaluationTime": 0
+                    }
+                ],
+                "interval": 600,
+                "lastEvaluation": "2023-05-31T16:02:33.697883585Z",
+                "evaluationTime": 0.002247922
+            },
+            {
+                "name": "LogTestAAA",
+                "file": "log-test-0-log-test-0-8221e8bb-4cab-4f21-adad-1d197aaf0dee.yaml",
+                "rules": [
+                    {
+                        "state": "inactive",
+                        "name": "HighPercentageErrorAAA",
+                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"}[1m]))) u003e 0.01)",
+                        "duration": 10,
+                        "labels": {
+                            "namespace": "log-test-0",
+                            "severity": "critical",
+                            "tenantId": "application"
+                        },
+                        "annotations": {
+                            "description": "High Log Test Errors",
+                            "summary": "High Log Test Errors"
+                        },
+                        "alerts": [],
+                        "health": "ok",
+                        "lastError": "",
+                        "type": "alerting",
+                        "lastEvaluation": "2023-05-31T16:03:22.223755769Z",
+                        "evaluationTime": 0.002617669
+                    }
+                ],
+                "interval": 60,
+                "lastEvaluation": "2023-05-31T16:03:22.223732169Z",
+                "evaluationTime": 0.002646403
+            },
+            {
+                "name": "LogTest",
+                "file": "log-test-1-log-test-1-e9f1b6ba-ea21-4604-a58e-38f0772e0f77.yaml",
+                "rules": [
+                    {
+                        "state": "inactive",
+                        "name": "HighPercentageError",
+                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"}[1m]))) u003e 0.01)",
+                        "duration": 10,
+                        "labels": {
+                            "namespace": "log-test-1",
+                            "severity": "critical",
+                            "tenantId": "application"
+                        },
+                        "annotations": {
+                            "description": "High Log Test Errors",
+                            "summary": "High Log Test Errors"
+                        },
+                        "alerts": [],
+                        "health": "ok",
+                        "lastError": "",
+                        "type": "alerting",
+                        "lastEvaluation": "2023-05-31T16:03:31.743038365Z",
+                        "evaluationTime": 0.002428888
+                    },
+                    {
+                        "state": "inactive",
+                        "name": "HighPercentageError",
+                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"}[1m]))) u003e 0.01)",
+                        "duration": 10,
+                        "labels": {
+                            "namespace": "log-test-0",
+                            "severity": "critical",
+                            "tenantId": "application"
+                        },
+                        "annotations": {
+                            "description": "High Log Test Errors",
+                            "summary": "High Log Test Errors"
+                        },
+                        "alerts": [],
+                        "health": "ok",
+                        "lastError": "",
+                        "type": "alerting",
+                        "lastEvaluation": "2023-05-31T16:03:39.007922731Z",
+                        "evaluationTime": 0.003047885
+                    }
+                ],
+                "interval": 60,
+                "lastEvaluation": "2023-05-31T16:03:31.743028184Z",
+                "evaluationTime": 0.002444145
+            }
+        ]
+    },
+    "errorType": "",
+    "error": ""
+}

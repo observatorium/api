@@ -54,6 +54,7 @@ type handlerConfiguration struct {
 	registry              *prometheus.Registry
 	instrument            handlerInstrumenter
 	spanRoutePrefix       string
+	rulesLabelFilters     map[string][]string
 	readMiddlewares       []func(http.Handler) http.Handler
 	writeMiddlewares      []func(http.Handler) http.Handler
 	rulesReadMiddlewares  []func(http.Handler) http.Handler
@@ -88,6 +89,13 @@ func WithHandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.spanRoutePrefix = spanRoutePrefix
+	}
+}
+
+// WithSpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+func WithRulesLabelFilters(f map[string][]string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesLabelFilters = f
 	}
 }
 
@@ -219,7 +227,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 	}
 
 	if rules != nil {
-		var proxyRules http.Handler
+		var proxyReadRules, proxyWriteRules http.Handler
 		{
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(rules),
@@ -235,7 +243,14 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 			}
 
-			proxyRules = &httputil.ReverseProxy{
+			proxyReadRules = &httputil.ReverseProxy{
+				Director:       middlewares,
+				ErrorLog:       proxy.Logger(c.logger),
+				Transport:      otelhttp.NewTransport(t),
+				ModifyResponse: newModifyResponse(c.logger, c.rulesLabelFilters),
+			}
+
+			proxyWriteRules = &httputil.ReverseProxy{
 				Director:  middlewares,
 				ErrorLog:  proxy.Logger(c.logger),
 				Transport: otelhttp.NewTransport(t),
@@ -246,35 +261,35 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 			r.Use(c.rulesReadMiddlewares...)
 			r.Get(rulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesRoute, proxyReadRules),
 			))
 			r.Get(rulesPerNamespaceRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyReadRules),
 			))
 			r.Get(rulesPerGroupNameRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyReadRules),
 			))
 			r.Get(prometheusRulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusRulesRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusRulesRoute, proxyReadRules),
 			))
 			r.Get(prometheusAlertsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "alerts"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusAlertsRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusAlertsRoute, proxyReadRules),
 			))
 			r.Get(promRulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesRoute, proxyReadRules),
 			))
 			r.Get(promRulesPerNamespaceRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyReadRules),
 			))
 			r.Get(promRulesPerGroupNameRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyReadRules),
 			))
 		})
 
@@ -284,28 +299,28 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				r.Use(c.rulesWriteMiddlewares...)
 				r.Post(rulesPerNamespaceRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
-					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyWriteRules),
 				))
 				r.Delete(rulesPerNamespaceRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
-					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyRules),
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerNamespaceRoute, proxyWriteRules),
 				))
 				r.Delete(rulesPerGroupNameRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
-					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyRules),
+					otelhttp.WithRouteTag(c.spanRoutePrefix+rulesPerGroupNameRoute, proxyWriteRules),
 				))
 
 				r.Post(promRulesPerNamespaceRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
-					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
+					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyWriteRules),
 				))
 				r.Delete(promRulesPerNamespaceRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
-					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyRules),
+					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerNamespaceRoute, proxyWriteRules),
 				))
 				r.Delete(promRulesPerGroupNameRoute, c.instrument.NewHandler(
 					prometheus.Labels{"group": "logsv1", "handler": "rules"},
-					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyRules),
+					otelhttp.WithRouteTag(c.spanRoutePrefix+promRulesPerGroupNameRoute, proxyWriteRules),
 				))
 			})
 		}

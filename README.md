@@ -95,6 +95,8 @@ Usage of ./observatorium-api:
     	The endpoint against which to make read requests for logs.
   -logs.rules.endpoint string
     	The endpoint against which to make rules requests for logs.
+  -logs.rules.label-filters string
+    	Allow the following filters to be applied to user rules queries per tenant (e.g. tenantA:namespace,severity;tenantB:severity).
   -logs.rules.read-only
     	Allow only read-only rule requests for logs.
   -logs.rules.tenant-label string

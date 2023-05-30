@@ -1,0 +1,53 @@
+log-test-0-log-test-0-5d36c48b-c5d4-477d-a565-a0c4513c29f1.yaml:
+    - name: LogTest
+      interval: 1m
+      rules:
+        - alert: HighPercentageError
+          expr: |
+            sum(rate({kubernetes_namespace_name="log-test-0", kubernetes_pod_name=~"logger.*"} |= "error" [1m]))
+              /
+            sum(rate({kubernetes_namespace_name="log-test-0", kubernetes_pod_name=~"logger.*"}[1m]))
+              > 0.01
+          for: 10s
+          labels:
+            namespace: log-test-0
+            severity: critical
+            tenantId: application
+          annotations:
+            description: High Log Test Errors
+            summary: High Log Test Errors
+    - name: LogTestAAA
+      interval: 1m
+      rules:
+        - alert: HighPercentageErrorAAA
+          expr: |
+            sum(rate({kubernetes_namespace_name="log-test-0", kubernetes_pod_name=~"logger.*"} |= "error" [1m]))
+              /
+            sum(rate({kubernetes_namespace_name="log-test-0", kubernetes_pod_name=~"logger.*"}[1m]))
+              > 0.01
+          for: 10s
+          labels:
+            namespace: log-test-0
+            severity: critical
+            tenantId: application
+          annotations:
+            description: High Log Test Errors
+            summary: High Log Test Errors
+log-test-1-log-test-1-b00ddae9-26ed-46dc-a8f4-b46a8f9e7a14.yaml:
+    - name: LogTest
+      interval: 1m
+      rules:
+        - alert: HighPercentageError
+          expr: |
+            sum(rate({kubernetes_namespace_name="log-test-1", kubernetes_pod_name=~"logger.*"} |= "error" [1m]))
+              /
+            sum(rate({kubernetes_namespace_name="log-test-1", kubernetes_pod_name=~"logger.*"}[1m]))
+              > 0.01
+          for: 10s
+          labels:
+            namespace: log-test-1
+            severity: critical
+            tenantId: application
+          annotations:
+            description: High Log Test Errors
+            summary: High Log Test Errors
