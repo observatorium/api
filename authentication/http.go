@@ -29,7 +29,8 @@ const (
 	// tenantKey is the key that holds the tenant in a request context.
 	tenantKey contextKey = "tenant"
 	// tenantIDKey is the key that holds the tenant ID in a request context.
-	tenantIDKey contextKey = "tenantID"
+	tenantIDKey   contextKey = "tenantID"
+	namespacesKey contextKey = "namespaces"
 )
 
 // WithTenant finds the tenant from the URL parameters and adds it to the request context.
@@ -90,6 +91,28 @@ func WithTenantHeader(header string, tenantIDs map[string]string) Middleware {
 	}
 }
 
+func WithQueryNamespaces() Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			query := r.URL.Query().Get("query")
+			if query == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			namespaces, err := parseQueryNamespaces(query)
+			if err != nil {
+				httperr.PrometheusAPIError(w, "error getting query namespaces", http.StatusBadRequest)
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(
+				context.WithValue(r.Context(), namespacesKey, namespaces),
+			))
+		})
+	}
+}
+
 // GetTenant extracts the tenant from provided context.
 func GetTenant(ctx context.Context) (string, bool) {
 	value := ctx.Value(tenantKey)
@@ -128,6 +151,13 @@ func GetAccessToken(ctx context.Context) (string, bool) {
 	token, ok := value.(string)
 
 	return token, ok
+}
+
+func GetNamespaces(ctx context.Context) ([]string, bool) {
+	value := ctx.Value(namespacesKey)
+	namespaces, ok := value.([]string)
+
+	return namespaces, ok
 }
 
 // Middleware is a convenience type for functions that wrap http.Handlers.

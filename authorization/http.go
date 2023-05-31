@@ -2,6 +2,8 @@ package authorization
 
 import (
 	"context"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"net/http"
 
 	"github.com/observatorium/api/authentication"
@@ -33,7 +35,7 @@ func WithData(ctx context.Context, data string) context.Context {
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
-func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
+func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string, logger log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -73,6 +75,12 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 
 				return
 			}
+
+			namespaces, ok := authentication.GetNamespaces(r.Context())
+			if !ok {
+				namespaces = []string{""}
+			}
+			level.Debug(logger).Log("msg", "found namespaces", "namespaces", namespaces)
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
 			if !ok {
