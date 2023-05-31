@@ -5,6 +5,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"net/http"
+	"strings"
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
@@ -80,8 +81,17 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			if !ok {
 				namespaces = []string{""}
 			}
-			level.Debug(logger).Log("msg", "found namespaces", "namespaces", namespaces)
 
+			level.Debug(logger).Log("msg", "authorizing request",
+				"subject", subject,
+				"groups", groups,
+				"permission", permission,
+				"resource", resource,
+				"tenant", tenant,
+				"tenantID", tenantID,
+				"token", token,
+				"namespaces", strings.Join(namespaces, ","),
+			)
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
 			if !ok {
 				// Send 403 http.StatusForbidden
