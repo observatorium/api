@@ -92,7 +92,7 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				"token", token,
 				"namespaces", strings.Join(namespaces, ","),
 			)
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces)
 			if !ok {
 				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)
