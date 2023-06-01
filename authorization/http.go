@@ -3,13 +3,10 @@ package authorization
 import (
 	"context"
 	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-	"net/http"
-	"strings"
-
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
+	"net/http"
 )
 
 // contextKey to use when setting context values in the HTTP package.
@@ -82,16 +79,6 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				namespaces = []string{""}
 			}
 
-			level.Debug(logger).Log("msg", "authorizing request",
-				"subject", subject,
-				"groups", groups,
-				"permission", permission,
-				"resource", resource,
-				"tenant", tenant,
-				"tenantID", tenantID,
-				"token", token,
-				"namespaces", strings.Join(namespaces, ","),
-			)
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces)
 			if !ok {
 				// Send 403 http.StatusForbidden
