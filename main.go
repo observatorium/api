@@ -692,6 +692,7 @@ func main() {
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
 								logsv1.WithRulesLabelFilters(cfg.logs.rulesLabelFilters),
 								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
+								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceRulesLabelFilters(cfg.logs.rulesLabelFilters)),
 								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
 								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceRuleLabels(cfg.logs.tenantLabel)),
 							),
