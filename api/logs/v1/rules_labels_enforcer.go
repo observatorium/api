@@ -113,7 +113,8 @@ func (r *rule) UnmarshalJSON(b []byte) error {
 }
 
 type rulesData struct {
-	RuleGroups []*ruleGroup `json:"groups"`
+	RuleGroups []*ruleGroup `json:"groups,omitempty"`
+	Alerts     []*alert     `json:"alerts,omitempty"`
 }
 
 type prometheusRulesResponse struct {
@@ -204,7 +205,7 @@ func filterRules(body []byte, contentType string, matchers map[string]string) ([
 			return nil, err
 		}
 
-		return json.Marshal(filterPrometheusRules(res, matchers))
+		return json.Marshal(filterPrometheusResponse(res, matchers))
 
 	case contentTypeApplicationYAML:
 		var res lokiRulesResponse
@@ -219,22 +220,35 @@ func filterRules(body []byte, contentType string, matchers map[string]string) ([
 	}
 }
 
-func filterPrometheusRules(res prometheusRulesResponse, matchers map[string]string) prometheusRulesResponse {
+func filterPrometheusResponse(res prometheusRulesResponse, matchers map[string]string) prometheusRulesResponse {
 	if len(matchers) == 0 {
 		res.Data = rulesData{}
 		return res
 	}
 
+	if len(res.Data.RuleGroups) > 0 {
+		filtered := filterPrometheusRuleGroups(res.Data.RuleGroups, matchers)
+		res.Data = rulesData{RuleGroups: filtered}
+	}
+
+	if len(res.Data.Alerts) > 0 {
+		filtered := filterPrometheusAlerts(res.Data.Alerts, matchers)
+		res.Data = rulesData{Alerts: filtered}
+	}
+
+	return res
+}
+
+func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string) []*ruleGroup {
 	var filtered []*ruleGroup
 
-	for _, rg := range res.Data.RuleGroups {
+	for _, group := range groups {
 		var filteredRules []rule
 
 	rules:
-		for _, rule := range rg.Rules {
+		for _, rule := range group.Rules {
 			for key, value := range matchers {
-				ls := rule.Labels()
-				if !ls.Has(key) || ls.Get(key) != value {
+				if !rule.Labels().Has(key) || rule.Labels().Get(key) != value {
 					continue rules
 				}
 			}
@@ -243,14 +257,29 @@ func filterPrometheusRules(res prometheusRulesResponse, matchers map[string]stri
 		}
 
 		if len(filteredRules) > 0 {
-			rg.Rules = filteredRules
-			filtered = append(filtered, rg)
+			group.Rules = filteredRules
+			filtered = append(filtered, group)
 		}
 	}
 
-	res.Data = rulesData{RuleGroups: filtered}
+	return filtered
+}
 
-	return res
+func filterPrometheusAlerts(alerts []*alert, matchers map[string]string) []*alert {
+	var filtered []*alert
+
+alerts:
+	for _, alert := range alerts {
+		for key, value := range matchers {
+			if !alert.Labels.Has(key) || alert.Labels.Get(key) != value {
+				continue alerts
+			}
+		}
+
+		filtered = append(filtered, alert)
+	}
+
+	return filtered
 }
 
 func filterLokiRules(res lokiRulesResponse, matchers map[string]string) lokiRulesResponse {

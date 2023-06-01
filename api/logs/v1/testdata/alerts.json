@@ -1,0 +1,54 @@
+{
+  "status": "success",
+  "data": {
+    "alerts": [
+      {
+        "labels": {
+          "alertname": "HighPercentageErrorAAA",
+          "namespace": "log-test-0",
+          "severity": "critical",
+          "tenantId": "application"
+        },
+        "annotations": {
+          "description": "High Log Test Errors",
+          "summary": "High Log Test Errors"
+        },
+        "state": "pending",
+        "activeAt": "2023-06-01T15:19:21.177797693Z",
+        "value": "3.898305084745763e-01"
+      },
+      {
+        "labels": {
+          "alertname": "HighPercentageError",
+          "namespace": "log-test-0",
+          "severity": "critical",
+          "tenantId": "application"
+        },
+        "annotations": {
+          "description": "High Log Test Errors",
+          "summary": "High Log Test Errors"
+        },
+        "state": "firing",
+        "activeAt": "2023-06-01T15:18:49.705316346Z",
+        "value": "4.203389830508475e-01"
+      },
+      {
+        "labels": {
+          "alertname": "HighPercentageError",
+          "namespace": "log-test-1",
+          "severity": "critical",
+          "tenantId": "application"
+        },
+        "annotations": {
+          "description": "High Log Test Errors",
+          "summary": "High Log Test Errors"
+        },
+        "state": "firing",
+        "activeAt": "2023-06-01T15:18:36.80636328Z",
+        "value": "4.3050847457627117e-01"
+      }
+    ]
+  },
+  "errorType": "",
+  "error": ""
+}

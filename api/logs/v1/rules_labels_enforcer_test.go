@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-func TestFilterRules_WithPrometheusAPIResponseBody(t *testing.T) {
+func TestFilterRules_WithPrometheusAPIRulesResponseBody(t *testing.T) {
 	contentType := "application/json"
 
 	body, err := os.ReadFile("testdata/rules.json")
@@ -37,6 +37,35 @@ func TestFilterRules_WithPrometheusAPIResponseBody(t *testing.T) {
 			if val := rule.Labels().Get("namespace"); val != "log-test-0" {
 				t.Errorf("invalid rule for label: %s and value: %s", "namespace", val)
 			}
+		}
+	}
+}
+
+func TestFilterRules_WithPrometheusAPIAlertsResponseBody(t *testing.T) {
+	contentType := "application/json"
+
+	body, err := os.ReadFile("testdata/alerts.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matchers := map[string]string{
+		"namespace": "log-test-0",
+	}
+
+	b, err := filterRules(body, contentType, matchers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got prometheusRulesResponse
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, alert := range got.Data.Alerts {
+		if val := alert.Labels.Get("namespace"); val != "log-test-0" {
+			t.Errorf("invalid rule for label: %s and value: %s", "namespace", val)
 		}
 	}
 }
@@ -213,7 +242,7 @@ func TestFilterPrometheusRules(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			got := filterPrometheusRules(tc.res, tc.matchers)
+			got := filterPrometheusResponse(tc.res, tc.matchers)
 
 			wantJSON, err := json.MarshalIndent(tc.want, "", "  ")
 			if err != nil {
