@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	errUnknownTenantKey        = errors.New("Uknown tenant key")
+	errUnknownTenantKey        = errors.New("Unknown tenant key")
 	errUnknownRulesContentType = errors.New("Unknown rules response content type")
 )
 

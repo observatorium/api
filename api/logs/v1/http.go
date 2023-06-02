@@ -92,7 +92,7 @@ func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
 	}
 }
 
-// WithSpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
+// WithRulesLabelFilters adds the slice of rule labels filters to the handler configuration.
 func WithRulesLabelFilters(f map[string][]string) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.rulesLabelFilters = f
