@@ -165,8 +165,7 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 			queryParams := r.URL.Query()
 			for _, key := range keys {
 				if !queryParams.Has(key) {
-					msg := fmt.Sprintf("missing URL parameter %s", key)
-					httperr.PrometheusAPIError(w, msg, http.StatusBadRequest)
+					httperr.PrometheusAPIError(w, fmt.Sprintf("missing URL parameter %s", key), http.StatusBadRequest)
 
 					return
 				}
@@ -193,6 +192,13 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 				return
 			}
 
+			matchers, err := initAuthzMatchers(matchersInfo.Matchers)
+			if err != nil {
+				httperr.PrometheusAPIError(w, "error initializing authorization label matchers", http.StatusInternalServerError)
+
+				return
+			}
+
 			// If the authorization endpoint provides any matchers, ensure that the URL parameter value
 			// matches an authorization matcher with the same URL parameter key.
 			for _, key := range keys {
@@ -201,7 +207,11 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 					matched = false
 				)
 
-				for _, matcher := range matchersInfo.Matchers {
+				for _, matcher := range matchers {
+					if matcher == nil {
+						continue
+					}
+
 					if matcher.Name == key && matcher.Matches(val) {
 						matched = true
 						break
@@ -209,8 +219,7 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 				}
 
 				if !matched {
-					msg := fmt.Sprintf("unauthorized access for URL parameter %q and value %q", key, val)
-					httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+					httperr.PrometheusAPIError(w, fmt.Sprintf("unauthorized access for URL parameter %q and value %q", key, val), http.StatusForbidden)
 
 					return
 				}
