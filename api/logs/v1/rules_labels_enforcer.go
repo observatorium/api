@@ -165,16 +165,6 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 				return
 			}
 
-			// Check that the user provides each label filter as a non-empty URL parameter
-			queryParams := r.URL.Query()
-			for _, key := range keys {
-				if !queryParams.Has(key) {
-					httperr.PrometheusAPIError(w, fmt.Sprintf("missing URL parameter %s", key), http.StatusBadRequest)
-
-					return
-				}
-			}
-
 			data, ok := authorization.GetData(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "error finding authorization label matcher", http.StatusInternalServerError)
@@ -205,6 +195,7 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 
 			// If the authorization endpoint provides any matchers, ensure that the URL parameter value
 			// matches an authorization matcher with the same URL parameter key.
+			queryParams := r.URL.Query()
 			for _, key := range keys {
 				var (
 					val     = queryParams.Get(key)
@@ -252,6 +243,17 @@ func newModifyResponse(logger log.Logger, labelKeys map[string][]string) func(*h
 			contentType = res.Header.Get("Content-Type")
 		)
 
+		data, ok := authorization.GetData(res.Request.Context())
+
+		var matchersInfo AuthzResponseData
+		if ok && data != "" {
+			if err := json.Unmarshal([]byte(data), &matchersInfo); err != nil {
+				return nil
+			}
+		}
+
+		strictMode := len(matchersInfo.Matchers) != 0
+
 		matcherStr := fmt.Sprintf("%s", matchers)
 		level.Debug(logger).Log("msg", "filtering using matchers", "tenant", tenant, "matchers", matcherStr)
 
@@ -262,7 +264,7 @@ func newModifyResponse(logger log.Logger, labelKeys map[string][]string) func(*h
 		}
 		res.Body.Close()
 
-		b, err := filterRules(body, contentType, matchers)
+		b, err := filterRules(body, contentType, matchers, strictMode)
 		if err != nil {
 			level.Error(logger).Log("msg", err)
 			return err
@@ -288,7 +290,7 @@ func extractMatchers(r *http.Request, l []string) map[string]string {
 	return matchers
 }
 
-func filterRules(body []byte, contentType string, matchers map[string]string) ([]byte, error) {
+func filterRules(body []byte, contentType string, matchers map[string]string, strictMode bool) ([]byte, error) {
 	switch contentType {
 	case contentTypeApplicationJSON:
 		var res prometheusRulesResponse
@@ -297,7 +299,7 @@ func filterRules(body []byte, contentType string, matchers map[string]string) ([
 			return nil, err
 		}
 
-		return json.Marshal(filterPrometheusResponse(res, matchers))
+		return json.Marshal(filterPrometheusResponse(res, matchers, strictMode))
 
 	case contentTypeApplicationYAML:
 		var res lokiRulesResponse
@@ -305,16 +307,19 @@ func filterRules(body []byte, contentType string, matchers map[string]string) ([
 			return nil, err
 		}
 
-		return yaml.Marshal(filterLokiRules(res, matchers))
+		return yaml.Marshal(filterLokiRules(res, matchers, strictMode))
 
 	default:
 		return nil, errUnknownRulesContentType
 	}
 }
 
-func filterPrometheusResponse(res prometheusRulesResponse, matchers map[string]string) prometheusRulesResponse {
+func filterPrometheusResponse(res prometheusRulesResponse, matchers map[string]string, strictEnforce bool) prometheusRulesResponse {
 	if len(matchers) == 0 {
-		res.Data = rulesData{}
+		if strictEnforce {
+			res.Data = rulesData{}
+		}
+
 		return res
 	}
 
@@ -377,9 +382,13 @@ func filterPrometheusAlerts(alerts []*alert, matchers map[string]string) []*aler
 	return filtered
 }
 
-func filterLokiRules(res lokiRulesResponse, matchers map[string]string) lokiRulesResponse {
+func filterLokiRules(res lokiRulesResponse, matchers map[string]string, strictEnforce bool) lokiRulesResponse {
 	if len(matchers) == 0 {
-		return nil
+		if strictEnforce {
+			return nil
+		}
+
+		return res
 	}
 
 	filtered := lokiRulesResponse{}

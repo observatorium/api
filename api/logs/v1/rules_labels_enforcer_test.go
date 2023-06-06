@@ -22,7 +22,7 @@ func TestFilterRules_WithPrometheusAPIRulesResponseBody(t *testing.T) {
 		"namespace": "log-test-0",
 	}
 
-	b, err := filterRules(body, contentType, matchers)
+	b, err := filterRules(body, contentType, matchers, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestFilterRules_WithPrometheusAPIAlertsResponseBody(t *testing.T) {
 		"namespace": "log-test-0",
 	}
 
-	b, err := filterRules(body, contentType, matchers)
+	b, err := filterRules(body, contentType, matchers, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestFilterRules_WithPrometheusAPIResponseBody_ReturnNothingOnParseError(t *
 		"key": "value",
 	}
 
-	b, err := filterRules(body, contentType, matchers)
+	b, err := filterRules(body, contentType, matchers, true)
 	if err == nil {
 		t.Error("missing parse error")
 	}
@@ -99,7 +99,7 @@ func TestFilterRules_WithLokiAPIResponseBody(t *testing.T) {
 		"namespace": "log-test-0",
 	}
 
-	b, err := filterRules(body, contentType, matchers)
+	b, err := filterRules(body, contentType, matchers, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -127,7 +127,7 @@ func TestFilterRules_WithokiAPIResponseBody_ReturnNothingOnParseError(t *testing
 		"key": "value",
 	}
 
-	b, err := filterRules(body, contentType, matchers)
+	b, err := filterRules(body, contentType, matchers, true)
 	if err == nil {
 		t.Error("missing parse error")
 	}
@@ -145,7 +145,7 @@ func TestFilterRules_WithUnknownContentType_ReturnsError(t *testing.T) {
 		matchers map[string]string
 	)
 
-	b, err := filterRules(body, contentType, matchers)
+	b, err := filterRules(body, contentType, matchers, true)
 	if !errors.Is(err, errUnknownRulesContentType) {
 		t.Errorf("want %s, got: %s", errUnknownRulesContentType, err)
 	}
@@ -157,13 +157,15 @@ func TestFilterRules_WithUnknownContentType_ReturnsError(t *testing.T) {
 
 func TestFilterPrometheusRules(t *testing.T) {
 	tt := []struct {
-		desc     string
-		matchers map[string]string
-		res      prometheusRulesResponse
-		want     prometheusRulesResponse
+		desc          string
+		matchers      map[string]string
+		strictEnforce bool
+		res           prometheusRulesResponse
+		want          prometheusRulesResponse
 	}{
 		{
-			desc: "without matchers",
+			desc:          "without matchers returns empty",
+			strictEnforce: true,
 			res: prometheusRulesResponse{
 				Data: rulesData{
 					RuleGroups: []*ruleGroup{
@@ -172,6 +174,23 @@ func TestFilterPrometheusRules(t *testing.T) {
 				},
 			},
 			want: prometheusRulesResponse{},
+		},
+		{
+			desc: "without matchers returns original response",
+			res: prometheusRulesResponse{
+				Data: rulesData{
+					RuleGroups: []*ruleGroup{
+						{Name: "group-a"},
+					},
+				},
+			},
+			want: prometheusRulesResponse{
+				Data: rulesData{
+					RuleGroups: []*ruleGroup{
+						{Name: "group-a"},
+					},
+				},
+			},
 		},
 		{
 			desc:     "only matching",
@@ -242,7 +261,7 @@ func TestFilterPrometheusRules(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			got := filterPrometheusResponse(tc.res, tc.matchers)
+			got := filterPrometheusResponse(tc.res, tc.matchers, tc.strictEnforce)
 
 			wantJSON, err := json.MarshalIndent(tc.want, "", "  ")
 			if err != nil {
@@ -263,14 +282,35 @@ func TestFilterPrometheusRules(t *testing.T) {
 
 func TestFilterLokiRules(t *testing.T) {
 	tt := []struct {
-		desc     string
-		matchers map[string]string
-		res      lokiRulesResponse
-		want     lokiRulesResponse
+		desc          string
+		matchers      map[string]string
+		strictEnforce bool
+		res           lokiRulesResponse
+		want          lokiRulesResponse
 	}{
 		{
-			desc: "without matchers",
+			desc:          "without matchers returns empty",
+			strictEnforce: true,
 			res: lokiRulesResponse{
+				"ns-1": []lokiRuleGroup{
+					{Name: "group-a"},
+				},
+				"ns-2": []lokiRuleGroup{
+					{Name: "group-b"},
+				},
+			},
+		},
+		{
+			desc: "without matchers returns original response",
+			res: lokiRulesResponse{
+				"ns-1": []lokiRuleGroup{
+					{Name: "group-a"},
+				},
+				"ns-2": []lokiRuleGroup{
+					{Name: "group-b"},
+				},
+			},
+			want: lokiRulesResponse{
 				"ns-1": []lokiRuleGroup{
 					{Name: "group-a"},
 				},
@@ -375,7 +415,7 @@ func TestFilterLokiRules(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			got := filterLokiRules(tc.res, tc.matchers)
+			got := filterLokiRules(tc.res, tc.matchers, tc.strictEnforce)
 
 			wantJSON, err := json.MarshalIndent(tc.want, "", "  ")
 			if err != nil {
