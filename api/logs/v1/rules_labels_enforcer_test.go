@@ -34,7 +34,7 @@ func TestFilterRules_WithPrometheusAPIRulesResponseBody(t *testing.T) {
 
 	for _, group := range got.Data.RuleGroups {
 		for _, rule := range group.Rules {
-			if val := rule.Labels().Get("namespace"); val != "log-test-0" {
+			if val := rule.GetLabels().Get("namespace"); val != "log-test-0" {
 				t.Errorf("invalid rule for label: %s and value: %s", "namespace", val)
 			}
 		}

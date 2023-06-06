@@ -36,6 +36,8 @@ type alert struct {
 	Value       string        `json:"value"`
 }
 
+func (a *alert) GetLabels() labels.Labels { return a.Labels }
+
 type alertingRule struct {
 	Name        string        `json:"name"`
 	Query       string        `json:"query"`
@@ -71,7 +73,7 @@ type rule struct {
 	*recordingRule
 }
 
-func (r *rule) Labels() labels.Labels {
+func (r *rule) GetLabels() labels.Labels {
 	if r.alertingRule != nil {
 		return r.alertingRule.Labels
 	}
@@ -134,6 +136,8 @@ type lokiRule struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
 }
+
+func (r *lokiRule) GetLabels() labels.Labels { return labels.FromMap(r.Labels) }
 
 type lokiRuleGroup struct {
 	Name     string     `json:"name"`
@@ -331,7 +335,7 @@ type labeledRule interface {
 	GetLabels() labels.Labels
 }
 
-func ruleLabelsMatcheMatchers(rule labeledRule, matchers map[string]string) bool {
+func hasMatchingLabels(rule labeledRule, matchers map[string]string) bool {
 	for key, value := range matchers {
 		labels := rule.GetLabels().Map()
 		val, ok := labels[key]
@@ -348,7 +352,7 @@ func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string)
 	for _, group := range groups {
 		var filteredRules []rule
 		for _, rule := range group.Rules {
-			if ruleLabelsMatcheMatchers(rule, matchers) {
+			if hasMatchingLabels(&rule, matchers) {
 				filteredRules = append(filteredRules, rule)
 			}
 		}
@@ -365,14 +369,13 @@ func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string)
 func filterPrometheusAlerts(alerts []*alert, matchers map[string]string) []*alert {
 	var filtered []*alert
 	for _, alert := range alerts {
-		if ruleLabelsMatcheMatchers(alert, matchers) {
+		if hasMatchingLabels(alert, matchers) {
 			filtered = append(filtered, alert)
 		}
 	}
 
 	return filtered
 }
-
 
 func filterLokiRules(res lokiRulesResponse, matchers map[string]string) lokiRulesResponse {
 	if len(matchers) == 0 {
@@ -387,7 +390,7 @@ func filterLokiRules(res lokiRulesResponse, matchers map[string]string) lokiRule
 		for _, group := range groups {
 			var filteredRules []lokiRule
 			for _, rule := range group.Rules {
-				if ruleLabelsMatcheMatchers(rule, matchers) {
+				if hasMatchingLabels(&rule, matchers) {
 					filteredRules = append(filteredRules, rule)
 				}
 			}
