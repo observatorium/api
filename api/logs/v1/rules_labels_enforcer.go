@@ -327,21 +327,30 @@ func filterPrometheusResponse(res prometheusRulesResponse, matchers map[string]s
 	return res
 }
 
+type labeledRule interface {
+	GetLabels() labels.Labels
+}
+
+func ruleLabelsMatcheMatchers(rule labeledRule, matchers map[string]string) bool {
+	for key, value := range matchers {
+		labels := rule.GetLabels().Map()
+		val, ok := labels[key]
+		if !ok || val != value {
+			return false
+		}
+	}
+	return true
+}
+
 func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string) []*ruleGroup {
 	var filtered []*ruleGroup
 
 	for _, group := range groups {
 		var filteredRules []rule
-
-	rules:
 		for _, rule := range group.Rules {
-			for key, value := range matchers {
-				if !rule.Labels().Has(key) || rule.Labels().Get(key) != value {
-					continue rules
-				}
+			if ruleLabelsMatcheMatchers(rule, matchers) {
+				filteredRules = append(filteredRules, rule)
 			}
-
-			filteredRules = append(filteredRules, rule)
 		}
 
 		if len(filteredRules) > 0 {
@@ -355,20 +364,15 @@ func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string)
 
 func filterPrometheusAlerts(alerts []*alert, matchers map[string]string) []*alert {
 	var filtered []*alert
-
-alerts:
 	for _, alert := range alerts {
-		for key, value := range matchers {
-			if !alert.Labels.Has(key) || alert.Labels.Get(key) != value {
-				continue alerts
-			}
+		if ruleLabelsMatcheMatchers(alert, matchers) {
+			filtered = append(filtered, alert)
 		}
-
-		filtered = append(filtered, alert)
 	}
 
 	return filtered
 }
+
 
 func filterLokiRules(res lokiRulesResponse, matchers map[string]string) lokiRulesResponse {
 	if len(matchers) == 0 {
@@ -382,17 +386,10 @@ func filterLokiRules(res lokiRulesResponse, matchers map[string]string) lokiRule
 
 		for _, group := range groups {
 			var filteredRules []lokiRule
-
-		rules:
 			for _, rule := range group.Rules {
-				for key, value := range matchers {
-					val, ok := rule.Labels[key]
-					if !ok || val != value {
-						continue rules
-					}
+				if ruleLabelsMatcheMatchers(rule, matchers) {
+					filteredRules = append(filteredRules, rule)
 				}
-
-				filteredRules = append(filteredRules, rule)
 			}
 
 			if len(filteredRules) > 0 {
