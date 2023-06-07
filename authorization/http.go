@@ -2,7 +2,7 @@ package authorization
 
 import (
 	"context"
-	"github.com/go-kit/log"
+	"fmt"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
@@ -33,7 +33,7 @@ func WithData(ctx context.Context, data string) context.Context {
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
-func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string, logger log.Logger) func(http.Handler) http.Handler {
+func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -74,9 +74,11 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			namespaces, ok := authentication.GetNamespaces(r.Context())
-			if !ok {
-				namespaces = []string{""}
+			namespaces, err := extractQueryNamespaces(r.URL.Query())
+			if err != nil {
+				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
+
+				return
 			}
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces)

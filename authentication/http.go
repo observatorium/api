@@ -3,8 +3,6 @@ package authentication
 import (
 	"context"
 	"fmt"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"net/http"
 	"strings"
 
@@ -89,30 +87,6 @@ func WithTenantHeader(header string, tenantIDs map[string]string) Middleware {
 			tenant := chi.URLParam(r, "tenant")
 			r.Header.Set(header, tenantIDs[tenant])
 			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-func WithQueryNamespaces(logger log.Logger) Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			query := r.URL.Query().Get("query")
-			if query == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
-			level.Debug(logger).Log("msg", "found query", "query", query)
-
-			namespaces, err := parseQueryNamespaces(query)
-			if err != nil {
-				httperr.PrometheusAPIError(w, "error getting query namespaces", http.StatusBadRequest)
-				return
-			}
-			level.Debug(logger).Log("msg", "found query namespaces", "query", query, "namespaces", strings.Join(namespaces, ","))
-
-			next.ServeHTTP(w, r.WithContext(
-				context.WithValue(r.Context(), namespacesKey, namespaces),
-			))
 		})
 	}
 }

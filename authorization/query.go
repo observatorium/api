@@ -1,9 +1,10 @@
-package authentication
+package authorization
 
 import (
 	"errors"
 	logqlv2 "github.com/observatorium/api/logql/v2"
 	"github.com/prometheus/prometheus/model/labels"
+	"net/url"
 	"strings"
 )
 
@@ -14,6 +15,20 @@ const (
 var (
 	errWildcardRegexp = errors.New("regular expression with wildcards found")
 )
+
+func extractQueryNamespaces(values url.Values) ([]string, error) {
+	query := values.Get("query")
+	if query == "" {
+		return []string{""}, nil
+	}
+
+	namespaces, err := parseQueryNamespaces(query)
+	if err != nil {
+		return nil, err
+	}
+
+	return namespaces, nil
+}
 
 func parseQueryNamespaces(query string) ([]string, error) {
 	expr, err := logqlv2.ParseExpr(query)
@@ -58,10 +73,6 @@ func parseQueryNamespaces(query string) ([]string, error) {
 
 	if failWildcard {
 		return nil, errWildcardRegexp
-	}
-
-	if len(namespaces) == 0 {
-		return nil, errors.New("no namespaces found")
 	}
 
 	return namespaces, nil
