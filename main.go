@@ -158,7 +158,8 @@ type logsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// Allow only read-only access on rules
-	rulesReadOnly bool
+	rulesReadOnly     bool
+	rulesLabelFilters map[string][]string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -689,7 +690,9 @@ func main() {
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
+								logsv1.WithRulesLabelFilters(cfg.logs.rulesLabelFilters),
 								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
+								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceRulesLabelFilters(cfg.logs.rulesLabelFilters)),
 								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
 								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceRuleLabels(cfg.logs.tenantLabel)),
 							),
@@ -943,6 +946,7 @@ func parseFlags() (config, error) {
 		rawLogsRulesEndpoint    string
 		rawLogsTailEndpoint     string
 		rawLogsWriteEndpoint    string
+		rawLogsRuleLabelFilters string
 		rawTracesReadEndpoint   string
 		rawTracesWriteEndpoint  string
 		rawTracingEndpointType  string
@@ -991,6 +995,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make rules requests for logs.")
 	flag.BoolVar(&cfg.logs.rulesReadOnly, "logs.rules.read-only", false,
 		"Allow only read-only rule requests for logs.")
+	flag.StringVar(&rawLogsRuleLabelFilters, "logs.rules.label-filters", "",
+		"Allow the following filters to be applied to user rules queries per tenant (e.g. tenantA:namespace,severity;tenantB:severity).")
 	flag.DurationVar(&cfg.logs.upstreamWriteTimeout, "logs.write-timeout", logsMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the logs endpoint.")
 	flag.StringVar(&cfg.logs.upstreamCAFile, "logs.tls.ca-file", "",
@@ -1131,6 +1137,18 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.rulesEndpoint = logsRulesEndpoint
+	}
+
+	if rawLogsRuleLabelFilters != "" {
+		cfg.logs.rulesLabelFilters = map[string][]string{}
+		tenantFilters := strings.Split(rawLogsRuleLabelFilters, ";")
+
+		for _, f := range tenantFilters {
+			parts := strings.Split(f, ":")
+
+			tenant := parts[0]
+			cfg.logs.rulesLabelFilters[tenant] = strings.Split(parts[1], ",")
+		}
 	}
 
 	if rawLogsTailEndpoint != "" {
