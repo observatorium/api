@@ -29,8 +29,7 @@ const (
 	// tenantKey is the key that holds the tenant in a request context.
 	tenantKey contextKey = "tenant"
 	// tenantIDKey is the key that holds the tenant ID in a request context.
-	tenantIDKey   contextKey = "tenantID"
-	namespacesKey contextKey = "namespaces"
+	tenantIDKey contextKey = "tenantID"
 )
 
 // WithTenant finds the tenant from the URL parameters and adds it to the request context.
@@ -129,13 +128,6 @@ func GetAccessToken(ctx context.Context) (string, bool) {
 	token, ok := value.(string)
 
 	return token, ok
-}
-
-func GetNamespaces(ctx context.Context) ([]string, bool) {
-	value := ctx.Value(namespacesKey)
-	namespaces, ok := value.([]string)
-
-	return namespaces, ok
 }
 
 // Middleware is a convenience type for functions that wrap http.Handlers.
