@@ -42,6 +42,7 @@ OCI_BIN ?= docker
 else
 OCI_BIN ?= podman
 endif
+
 define require_clean_work_tree
 	@git update-index -q --ignore-submodules --refresh
 
