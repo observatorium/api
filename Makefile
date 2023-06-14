@@ -186,7 +186,7 @@ endif
 
 .PHONY: container-build
 container-build:
-#	 git update-index --refresh
+	git update-index --refresh
 	$(OCI_BIN) buildx build \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
@@ -201,7 +201,7 @@ container-build:
 
 .PHONY: container-build-push
 container-build-push:
-	#git update-index --refresh
+	git update-index --refresh
 	$(OCI_BIN) buildx build \
 		--push \
 		--platform linux/amd64,linux/arm64 \
