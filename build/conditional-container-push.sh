@@ -47,7 +47,7 @@ image_exists_in_repo() {
             echo "Image ${image_uri} exists with digest $digest."
             return 0
         fi
-        echo "Unexpected error: docker inspect failed after docker pull succeded."
+        echo "Unexpected error: docker inspect failed after docker pull succeeded."
         echo "Here's the output:"
         echo "$report"
         exit 1
