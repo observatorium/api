@@ -1,0 +1,51 @@
+name: publish
+on:
+  push:
+    branches:
+      - 'master'
+      - 'main'
+    tags:
+      - 'v*'
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Import environment variables from file
+        run: cat ".github/env" >> $GITHUB_ENV
+
+      - name: Login to image registry
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache for Docker's buildx
+        uses: actions/cache@v3
+        with:
+          path: .buildxcache/
+          key: ${{ runner.os }}-buildx-${{ hashFiles('**/*.go', 'Dockerfile', 'go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Snapshot container buid & push
+        run: make conditional-container-build-push
+
+      - name: Check semver tag
+        id: check-semver-tag
+        # The regex below comes from https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string.
+        run: |
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$ ]]; then
+              echo ::set-output name=match::true
+          fi
+      - name: Release container build & push
+        if: steps.check-semver-tag.outputs.match == 'true'
+        run: make container-release-build-push

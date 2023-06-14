@@ -37,11 +37,7 @@ PROTOC ?= $(TMP_DIR)/protoc
 PROTOC_VERSION ?= 3.13.0
 
 GIT ?= $(shell which git)
-ifeq (,$(shell which podman 2>/dev/null))
 OCI_BIN ?= docker
-else
-OCI_BIN ?= podman
-endif
 
 define require_clean_work_tree
 	@git update-index -q --ignore-submodules --refresh
@@ -185,9 +181,13 @@ container-test:
 		-t $(DOCKER_REPO):local_e2e_test .
 endif
 
-.PHONY: container
-container: Dockerfile
-	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+.PHONY: container-build
+container-build:
+	# git update-index --refresh
+	$(OCI_BIN) buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--cache-to type=local,dest=./.buildxcache/ \
+	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
@@ -195,18 +195,42 @@ container: Dockerfile
 		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
 	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
 
-.PHONY: container-push
-container-push: container
-	$(OCI_BIN) push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
-	$(OCI_BIN) push $(DOCKER_REPO):latest
+.PHONY: container-build-push
+container-build-push:
+	#git update-index --refresh
+	$(OCI_BIN) buildx build \
+		--push \
+		--platform linux/amd64,linux/arm64 \
+		--cache-to type=local,dest=./.buildxcache/ \
+	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) \
+		-t $(DOCKER_REPO):latest \
+		.
 
-.PHONY: container-release
-container-release: VERSION_TAG = $(strip $(shell [ -d .git ] && git tag --points-at HEAD))
-container-release: container
+.PHONY: conditional-container-build-push
+conditional-container-build-push:
+	build/conditional-container-push.sh $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
+
+.PHONY: container-release-build-push
+container-release-build-push: VERSION_TAG = $(strip $(shell [ -d .git ] && git tag --points-at HEAD))
+container-release-build-push: container-build-push
 	# https://git-scm.com/docs/git-tag#Documentation/git-tag.txt---points-atltobjectgt
-	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION_TAG)
-	$(OCI_BIN) push $(DOCKER_REPO):$(VERSION_TAG)
-	$(OCI_BIN) push $(DOCKER_REPO):latest
+	@docker buildx build \
+		--push \
+		--platform linux/amd64,linux/arm64 \
+		--cache-from type=local,src=./.buildxcache/ \
+	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		-t $(DOCKER_REPO):$(VERSION_TAG) \
+		-t $(DOCKER_REPO):latest \
+		.
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
