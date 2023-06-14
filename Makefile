@@ -257,7 +257,7 @@ $(PROMREMOTEBENCH): | deps $(BIN_DIR)
 	mv $(TMP_DIR)/src/promremotebench/promremotebench $@
 
 $(SHELLCHECK): $(BIN_DIR)
-	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
+	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(shell uname -m).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 $(MOCKPROVIDER): | deps $(BIN_DIR)
 	go build -tags tools -o $@ github.com/observatorium/api/test/mock
