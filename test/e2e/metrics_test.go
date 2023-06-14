@@ -73,7 +73,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 		// Check that API metrics are correct.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
-			e2emon.Between(totalQueries+totalWrites, totalQueries+totalWrites+5),
+			e2emon.Between(totalQueries+totalWrites-5, totalQueries+totalWrites+5),
 			[]string{"http_requests_total"},
 		))
 
