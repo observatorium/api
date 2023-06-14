@@ -8,7 +8,7 @@ RUN apk add --update --no-cache ca-certificates tzdata git make bash && update-c
 ADD . /opt
 WORKDIR /opt
 
-RUN make build OS=${TARGETOS} ARCH=${TARGETARCH}
+RUN git update-index --refresh; make build OS=${TARGETOS} ARCH=${TARGETARCH}
 
 FROM alpine:3.16 as runner
 
