@@ -37,8 +37,11 @@ PROTOC ?= $(TMP_DIR)/protoc
 PROTOC_VERSION ?= 3.13.0
 
 GIT ?= $(shell which git)
+ifeq (,$(shell which podman 2>/dev/null))
 OCI_BIN ?= docker
-
+else
+OCI_BIN ?= podman
+endif
 define require_clean_work_tree
 	@git update-index -q --ignore-submodules --refresh
 
