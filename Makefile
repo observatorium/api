@@ -4,9 +4,8 @@ SHELL=/usr/bin/env bash -o pipefail
 TMP_DIR := $(shell pwd)/tmp
 BIN_DIR ?= $(TMP_DIR)/bin
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
-OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
-ARCH ?= $(shell uname -m)
-GOARCH ?= $(shell go env GOARCH)
+OS ?= $(shell go env GOOS)
+ARCH ?= $(shell go env GOARCH)
 BIN_NAME ?= observatorium-api
 FILES_TO_FMT ?= $(filter-out ./ratelimit/gubernator/gubernator.pb.go, $(shell find . -path ./vendor -not -prune -o -name '*.go' -print))
 
@@ -80,7 +79,7 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	$(EMBEDMD) -w docs/benchmark.md
 
 $(BIN_NAME): deps main.go rules/rules.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
 
 %.y.go: %.y | $(GOYACC)
 	$(GOYACC) -p $(basename $(notdir $<)) -o $@ $<
