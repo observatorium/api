@@ -177,7 +177,7 @@ container-test:
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
-		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile.e2e-test" \
 		-t $(DOCKER_REPO):local_e2e_test .
 
 .PHONY: container
