@@ -178,7 +178,9 @@ container-test:
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
 		--build-arg DOCKERFILE_PATH="/Dockerfile.e2e-test" \
-		-t $(DOCKER_REPO):local_e2e_test Dockerfile.e2e-test
+		-t $(DOCKER_REPO):local_e2e_test  \
+		-f Dockerfile.e2e-test \
+		.
 
 .PHONY: container
 container: Dockerfile
