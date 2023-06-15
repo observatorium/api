@@ -184,6 +184,16 @@ container-test:
 		-t $(DOCKER_REPO):local_e2e_test .
 endif
 
+.PHONY: container
+container: Dockerfile
+	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
+	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
+
 .PHONY: container-build
 container-build:
 	git update-index --refresh
