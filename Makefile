@@ -172,7 +172,8 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 
 .PHONY: container-test
 container-test: 
-	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+	$(OCI_BIN) build \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
@@ -181,7 +182,8 @@ container-test:
 
 .PHONY: container
 container: Dockerfile
-	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+	$(OCI_BIN) build \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
