@@ -8,7 +8,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.13.0
 	github.com/efficientgo/core v1.0.0-rc.2
-	github.com/efficientgo/e2e v0.14.1-0.20221212162046-e34bb59f5e53
+	github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.8

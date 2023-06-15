@@ -4,9 +4,8 @@ SHELL=/usr/bin/env bash -o pipefail
 TMP_DIR := $(shell pwd)/tmp
 BIN_DIR ?= $(TMP_DIR)/bin
 FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
-OS ?= $(shell uname -s | tr '[A-Z]' '[a-z]')
-ARCH ?= $(shell uname -m)
-GOARCH ?= $(shell go env GOARCH)
+OS ?= $(shell go env GOOS)
+ARCH ?= $(shell go env GOARCH)
 BIN_NAME ?= observatorium-api
 FILES_TO_FMT ?= $(filter-out ./ratelimit/gubernator/gubernator.pb.go, $(shell find . -path ./vendor -not -prune -o -name '*.go' -print))
 
@@ -80,7 +79,7 @@ benchmark.md: $(EMBEDMD) tmp/load_help.txt
 	$(EMBEDMD) -w docs/benchmark.md
 
 $(BIN_NAME): deps main.go rules/rules.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(GOARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w' -o $(BIN_NAME) .
 
 %.y.go: %.y | $(GOYACC)
 	$(GOYACC) -p $(basename $(notdir $<)) -o $@ $<
@@ -185,28 +184,57 @@ container-test:
 		-t $(DOCKER_REPO):local_e2e_test .
 endif
 
-.PHONY: container
-container: Dockerfile
-	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+.PHONY: container-build
+container-build:
+	git update-index --refresh
+	$(OCI_BIN) buildx build \
+		--platform linux/amd64,linux/arm64 \
+		--cache-to type=local,dest=./.buildxcache/ \
+	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
 		--build-arg DOCKERFILE_PATH="/Dockerfile" \
-		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
-	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
+		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) \
+		-t $(DOCKER_REPO):latest \
+		.
 
-.PHONY: container-push
-container-push: container
-	$(OCI_BIN) push $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
-	$(OCI_BIN) push $(DOCKER_REPO):latest
+.PHONY: container-build-push
+container-build-push:
+	git update-index --refresh
+	$(OCI_BIN) buildx build \
+		--push \
+		--platform linux/amd64,linux/arm64 \
+		--cache-to type=local,dest=./.buildxcache/ \
+	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) \
+		-t $(DOCKER_REPO):latest \
+		.
 
-.PHONY: container-release
-container-release: VERSION_TAG = $(strip $(shell [ -d .git ] && git tag --points-at HEAD))
-container-release: container
+.PHONY: conditional-container-build-push
+conditional-container-build-push:
+	build/conditional-container-push.sh $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION)
+
+.PHONY: container-release-build-push
+container-release-build-push: VERSION_TAG = $(strip $(shell [ -d .git ] && git tag --points-at HEAD))
+container-release-build-push: container-build-push
 	# https://git-scm.com/docs/git-tag#Documentation/git-tag.txt---points-atltobjectgt
-	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):$(VERSION_TAG)
-	$(OCI_BIN) push $(DOCKER_REPO):$(VERSION_TAG)
-	$(OCI_BIN) push $(DOCKER_REPO):latest
+	@docker buildx build \
+		--push \
+		--platform linux/amd64,linux/arm64 \
+		--cache-from type=local,src=./.buildxcache/ \
+	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		-t $(DOCKER_REPO):$(VERSION_TAG) \
+		-t $(DOCKER_REPO):latest \
+		.
 
 .PHONY: load-test-dependencies
 load-test-dependencies: $(PROMREMOTEBENCH) $(PROMETHEUS) $(STYX) $(MOCKPROVIDER)
@@ -229,7 +257,7 @@ $(PROMREMOTEBENCH): | deps $(BIN_DIR)
 	mv $(TMP_DIR)/src/promremotebench/promremotebench $@
 
 $(SHELLCHECK): $(BIN_DIR)
-	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(ARCH).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
+	curl -sNL "https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.$(OS).$(shell uname -m).tar.xz" | tar --strip-components=1 -xJf - -C $(BIN_DIR)
 
 $(MOCKPROVIDER): | deps $(BIN_DIR)
 	go build -tags tools -o $@ github.com/observatorium/api/test/mock

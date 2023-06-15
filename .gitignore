@@ -21,3 +21,5 @@ vendor
 .idea
 .vscode
 e2e_*
+
+.buildxcache/

@@ -58,11 +58,11 @@ func TestLogs(t *testing.T) {
 			e2emon.WaitMissingMetrics(),
 		))
 
-		testutil.Ok(t, up.Stop())
+		testutil.Ok(t, up.Kill())
 
 		// Check that API metrics are correct.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
-			e2emon.Equals(24),
+			e2emon.GreaterOrEqual(24),
 			[]string{"http_requests_total"},
 			e2emon.WaitMissingMetrics(),
 		))

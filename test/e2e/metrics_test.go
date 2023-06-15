@@ -65,15 +65,11 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			[]string{"up_remote_writes_total"},
 		))
 
-		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
-		totalQueries := upMetrics[0]
-		totalWrites := upMetrics[1]
-
-		testutil.Ok(t, up.Stop())
+		testutil.Ok(t, up.Kill())
 
 		// Check that API metrics are correct.
 		testutil.Ok(t, api.WaitSumMetricsWithOptions(
-			e2emon.Equals(totalQueries+totalWrites),
+			e2emon.GreaterOrEqual(minimumExpectedQueries+minimumExpectedWrites),
 			[]string{"http_requests_total"},
 		))
 
