@@ -172,9 +172,11 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 
 .PHONY: container-test
 container-test: 
-	@docker build \
-		-f Dockerfile.e2e-test \
-		--build-arg TARGETOS="linux" \
+	$(OCI_BIN) build --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
 		-t $(DOCKER_REPO):local_e2e_test .
 
 .PHONY: container
