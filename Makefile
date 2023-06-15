@@ -190,7 +190,7 @@ container: Dockerfile
 .PHONY: container-build
 container-build:
 	git update-index --refresh
-	$(OCI_BIN) buildx build \
+	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
 	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
@@ -205,7 +205,7 @@ container-build:
 .PHONY: container-build-push
 container-build-push:
 	git update-index --refresh
-	$(OCI_BIN) buildx build \
+	docker buildx build \
 		--push \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
