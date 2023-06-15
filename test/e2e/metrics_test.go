@@ -65,10 +65,6 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			[]string{"up_remote_writes_total"},
 		))
 
-		upMetrics, err := up.SumMetrics([]string{"up_queries_total", "up_remote_writes_total"})
-		totalQueries := upMetrics[0]
-		totalWrites := upMetrics[1]
-
 		testutil.Ok(t, up.Kill())
 
 		// Check that API metrics are correct.
