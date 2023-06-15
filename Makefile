@@ -171,18 +171,11 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin scripts/generate_proto.sh
 
 .PHONY: container-test
-container-test: # Use 'shortcut' to build test image if on Linux, otherwise full build.
-ifeq ($(OS), linux)
-container-test: build
+container-test: 
 	@docker build \
 		-f Dockerfile.e2e-test \
+		--build-arg TARGETOS="linux" \
 		-t $(DOCKER_REPO):local_e2e_test .
-else
-container-test:
-	@docker build \
-		-f Dockerfile \
-		-t $(DOCKER_REPO):local_e2e_test .
-endif
 
 .PHONY: container
 container: Dockerfile
