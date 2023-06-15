@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Snapshot container buid & push
-        run: make conditional-container-build-push
+        run: make conditional-container-build-push OCI_BIN=docker
 
       - name: Check semver tag
         id: check-semver-tag
@@ -46,4 +46,5 @@ jobs:
           fi
       - name: Release container build & push
         if: steps.check-semver-tag.outputs.match == 'true'
-        run: make container-release-build-push
+        run: make container-release-build-push OCI_BIN=docker
+
