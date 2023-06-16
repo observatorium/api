@@ -171,23 +171,32 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin scripts/generate_proto.sh
 
 .PHONY: container-test
-container-test: # Use 'shortcut' to build test image if on Linux, otherwise full build.
-ifeq ($(OS), linux)
-container-test: build
-	@docker build \
+container-test: 
+	$(OCI_BIN) build \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile.e2e-test" \
+		-t $(DOCKER_REPO):local_e2e_test  \
 		-f Dockerfile.e2e-test \
-		-t $(DOCKER_REPO):local_e2e_test .
-else
-container-test:
-	@docker build \
-		-f Dockerfile \
-		-t $(DOCKER_REPO):local_e2e_test .
-endif
+		.
+
+.PHONY: container
+container: Dockerfile
+	$(OCI_BIN) build \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg VERSION="$(VERSION)" \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
+		--build-arg DOCKERFILE_PATH="/Dockerfile" \
+		-t $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) .
+	$(OCI_BIN) tag $(DOCKER_REPO):$(VCS_BRANCH)-$(BUILD_DATE)-$(VERSION) $(DOCKER_REPO):latest
 
 .PHONY: container-build
 container-build:
 	git update-index --refresh
-	$(OCI_BIN) buildx build \
+	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
 	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
@@ -202,7 +211,7 @@ container-build:
 .PHONY: container-build-push
 container-build-push:
 	git update-index --refresh
-	$(OCI_BIN) buildx build \
+	docker buildx build \
 		--push \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
