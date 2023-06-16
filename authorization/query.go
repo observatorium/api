@@ -19,7 +19,7 @@ var (
 func extractQueryNamespaces(values url.Values) ([]string, error) {
 	query := values.Get("query")
 	if query == "" {
-		return []string{""}, nil
+		return []string{}, nil
 	}
 
 	namespaces, err := parseQueryNamespaces(query)
