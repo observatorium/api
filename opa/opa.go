@@ -53,6 +53,7 @@ type Input struct {
 	TenantID   string          `json:"tenantID"`
 	Token      string          `json:"token"`
 	Namespaces []string        `json:"namespaces"`
+	Path       string          `json:"path"`
 }
 
 type config struct {
@@ -100,7 +101,7 @@ func (a *restAuthorizer) Authorize(
 	groups []string,
 	permission rbac.Permission,
 	resource, tenant, tenantID, token string,
-	namespaces []string,
+	namespaces []string, path string,
 ) (int, bool, string) {
 	var i interface{} = Input{
 		Groups:     groups,
@@ -110,6 +111,7 @@ func (a *restAuthorizer) Authorize(
 		Tenant:     tenant,
 		TenantID:   tenantID,
 		Namespaces: namespaces,
+		Path:       path,
 	}
 
 	dreq := types.DataRequestV1{
@@ -250,7 +252,7 @@ func (a *inProcessAuthorizer) Authorize(
 	groups []string,
 	permission rbac.Permission,
 	resource, tenant, tenantID, token string,
-	namespaces []string,
+	namespaces []string, path string,
 ) (int, bool, string) {
 	var i interface{} = Input{
 		Groups:     groups,
@@ -261,6 +263,7 @@ func (a *inProcessAuthorizer) Authorize(
 		TenantID:   tenantID,
 		Token:      token,
 		Namespaces: namespaces,
+		Path:       path,
 	}
 
 	res, err := a.query.Eval(context.Background(), rego.EvalInput(i))
