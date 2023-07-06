@@ -1,15 +1,22 @@
-FROM golang:1.18-alpine3.15 as builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.18-linux AS builder
 
-RUN apk add --update --no-cache ca-certificates tzdata git make bash && update-ca-certificates
+ADD go.mod /opt/go.mod
+ADD go.sum /opt/go.sum
+ADD Makefile /opt/Makefile
+ADD main.go /opt/main.go
+ADD tools.go /opt/tools.go
+ADD sonar-project.properties /opt/sonar-project.properties
+ADD internal /opt/internal
+ADD jsonnet /opt/jsonnet
+ADD rbac /opt/rbac
+ADD test /opt/test
 
-ADD . /opt
 WORKDIR /opt
 
 RUN git update-index --refresh; make observatorium
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as runner
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS runner
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /opt/observatorium /bin/observatorium
 
 ARG BUILD_DATE
