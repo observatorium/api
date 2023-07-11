@@ -27,6 +27,18 @@ spec:
         app.kubernetes.io/name: observatorium-api
         app.kubernetes.io/version: master-2020-09-04-v0.1.1-131-ga4c5a9c
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - observatorium-api
+              topologyKey: kubernetes.io/hostname
+            weight: 100
       containers:
       - args:
         - --web.listen=0.0.0.0:8080

@@ -102,6 +102,29 @@ function(params) {
       template: {
         metadata: { labels: api.config.commonLabels },
         spec: {
+          affinity: {
+            podAntiAffinity: {
+              preferredDuringSchedulingIgnoredDuringExecution: [
+                {
+                  weight: 100,
+                  podAffinityTerm: {
+                    labelSelector: {
+                      matchExpressions: [
+                        {
+                          key: 'app.kubernetes.io/name',
+                          operator: 'In',
+                          values: [
+                            'observatorium-api',
+                          ],
+                        },
+                      ],
+                    },
+                    topologyKey: 'kubernetes.io/hostname',
+                  },
+                },
+              ],
+            },
+          },
           serviceAccountName: api.serviceAccount.metadata.name,
           containers: [
             {
