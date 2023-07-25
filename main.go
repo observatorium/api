@@ -541,7 +541,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&cfg.tls.healthchecksServerName, "tls.healthchecks.server-name", "",
 		"Server name is used to verify the hostname of the certificates returned by the server."+
 			" If no server name is specified, the server name will be inferred from the healthcheck URL.")
-	flag.StringVar(&cfg.tls.minVersion, "tls.min-version", "VersionTLS13",
+	flag.StringVar(&cfg.tls.minVersion, "tls.min-version", "VersionTLS12",
 		"Minimum TLS version supported. Value must match version names from https://golang.org/pkg/crypto/tls/#pkg-constants.")
 	flag.StringVar(&rawTLSCipherSuites, "tls.cipher-suites", "",
 		"Comma-separated list of cipher suites for the server."+
