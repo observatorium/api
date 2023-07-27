@@ -2,12 +2,15 @@ package v1
 
 import (
 	"context"
+	stdtls "crypto/tls"
 	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
+	"github.com/observatorium/api/tls"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -15,7 +18,9 @@ import (
 const TraceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
 
 type connOptions struct {
-	logger log.Logger
+	logger             log.Logger
+	tracesUpstreamCert *stdtls.Certificate
+	tracesUpstreamCA   []byte
 }
 
 // ClientOption modifies the connection's configuration.
@@ -26,6 +31,21 @@ func WithLogger(logger log.Logger) ClientOption {
 	return func(h *connOptions) {
 		h.logger = logger
 	}
+}
+
+func WithUpstreamTLS(tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate) ClientOption {
+	return func(h *connOptions) {
+		h.tracesUpstreamCA = tracesUpstreamCA
+		h.tracesUpstreamCert = tracesUpstreamCert
+	}
+}
+
+func newCredentials(upstreamCA []byte, upstreamCert *stdtls.Certificate) credentials.TransportCredentials {
+	tlsConfig := tls.NewClientConfig(upstreamCA, upstreamCert)
+	if tlsConfig == nil {
+		return insecure.NewCredentials()
+	}
+	return credentials.NewTLS(tlsConfig)
 }
 
 // NewOTelConnection creates new GRPC connection to OTel handler.
@@ -50,5 +70,5 @@ func NewOTelConnection(write string, opts ...ClientOption) (*grpc.ClientConn, er
 		// because the codec we need to register is also deprecated.  A better fix, is the newer
 		// version of mwitkow/grpc-proxy, but that version doesn't (currently) work with OTel protocol.
 		grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
+		grpc.WithTransportCredentials(newCredentials(c.tracesUpstreamCA, c.tracesUpstreamCert)))
 }
