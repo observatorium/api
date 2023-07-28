@@ -1378,19 +1378,19 @@ type groupHandler struct {
 	handler string
 }
 
-var legacyMetricsGroup = map[string]groupHandler{
-	metricslegacy.QueryRoute:      {"metricslegacy", "query"},
-	metricslegacy.QueryRangeRoute: {"metricslegacy", "query_range"},
+var legacyMetricsGroup = []groupHandler{
+	{"metricslegacy", "query"},
+	{"metricslegacy", "query_range"},
 }
 
-var metricsV1Group = map[string]groupHandler{
-	metricsv1.UIRoute:          {"metricsv1", "ui"},
-	metricsv1.QueryRoute:       {"metricsv1", "query"},
-	metricsv1.QueryRangeRoute:  {"metricsv1", "query_range"},
-	metricsv1.SeriesRoute:      {"metricsv1", "series"},
-	metricsv1.LabelNamesRoute:  {"metricsv1", "labels"},
-	metricsv1.LabelValuesRoute: {"metricsv1", "labelvalues"},
-	metricsv1.ReceiveRoute:     {"metricsv1", "receive"},
-	metricsv1.RulesRoute:       {"metricsv1", "rules"},
-	metricsv1.RulesRawRoute:    {"metricsv1", "rules-raw"},
+var metricsV1Group = []groupHandler{
+	{"metricsv1", "ui"},
+	{"metricsv1", "query"},
+	{"metricsv1", "query_range"},
+	{"metricsv1", "series"},
+	{"metricsv1", "labels"},
+	{"metricsv1", "labelvalues"},
+	{"metricsv1", "receive"},
+	{"metricsv1", "rules"},
+	{"metricsv1", "rules-raw"},
 }
