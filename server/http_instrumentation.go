@@ -18,11 +18,27 @@ type httpMetricsCollector struct {
 	requestSize     *prometheus.SummaryVec
 	requestDuration *prometheus.HistogramVec
 	responseSize    *prometheus.HistogramVec
+	hardcodedLabels []string
+}
+
+func (m httpMetricsCollector) initializeMetrics(labels prometheus.Labels) {
+	// Check is all hardcodedLabels are present in labels
+	for _, hardcodedLabel := range m.hardcodedLabels {
+		if _, ok := labels[hardcodedLabel]; !ok {
+			panic("missing hardcoded label: " + hardcodedLabel)
+		}
+	}
+
+	m.requestCounter.MustCurryWith(labels).WithLabelValues("", "", "")
+	m.requestSize.MustCurryWith(labels).WithLabelValues("", "", "")
+	m.requestDuration.MustCurryWith(labels).WithLabelValues("", "", "")
+	m.responseSize.MustCurryWith(labels).WithLabelValues("", "", "")
 }
 
 // newHTTPMetricsCollector creates a new httpMetricsCollector.
 func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string) httpMetricsCollector {
 	m := httpMetricsCollector{
+		hardcodedLabels: hardcodedLabels,
 		requestCounter: promauto.With(reg).NewCounterVec(prometheus.CounterOpts{
 			Name: "http_requests_total",
 			Help: "Counter of HTTP requests.",
@@ -61,14 +77,21 @@ type instrumentedHandlerFactory struct {
 	metricsCollector httpMetricsCollector
 }
 
+func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) {
+	m.metricsCollector.initializeMetrics(labels)
+}
+
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
 func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// if extra labels are provided on the context, prefer them
+		extraLabels := prometheus.Labels{"group": "unknown", "handler": "unknown"}
 		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
 			ctxLabels, ok := labels.(prometheus.Labels)
 			if ok {
-				extraLabels = ctxLabels
+				for k, v := range ctxLabels {
+					extraLabels[k] = v
+				}
 			}
 		}
 
@@ -120,6 +143,13 @@ func InstrumentationMiddleware(labelParser func(r *http.Request) prometheus.Labe
 			ctx := context.WithValue(r.Context(), ExtraLabelContextKey, labelParser(r))
 			next.ServeHTTP(rw, r.WithContext(ctx))
 		})
+	}
+}
+
+func InjectLabelsCtx(labels prometheus.Labels, handler http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), ExtraLabelContextKey, labels)
+		handler.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
 

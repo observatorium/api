@@ -526,6 +526,16 @@ func main() {
 		hardcodedLabels := []string{"group", "handler"}
 		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
 
+		// Initializing the metrics of all handler to ensure Pyrra's `MetricSLOAbsent`
+		// alerts won't fire for endpoints with no traffic for a while after a
+		// restart of the application.
+		for _, groupHandler := range metricsV1Group {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
+		for _, groupHandler := range legacyMetricsGroup {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
+
 		var (
 			tenantIDs   = map[string]string{}
 			authorizers = map[string]rbac.Authorizer{}
@@ -632,7 +642,6 @@ func main() {
 						metricsUpstreamClientCert,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
-						metricslegacy.WithLabelParser(chiLabelParser),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
@@ -649,7 +658,6 @@ func main() {
 						metricsUpstreamClientCert,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
-						metricsv1.WithLabelParser(chiLabelParser),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
@@ -1385,39 +1393,4 @@ var metricsV1Group = map[string]groupHandler{
 	metricsv1.ReceiveRoute:     {"metricsv1", "receive"},
 	metricsv1.RulesRoute:       {"metricsv1", "rules"},
 	metricsv1.RulesRawRoute:    {"metricsv1", "rules-raw"},
-}
-
-func chiLabelParser(r *http.Request) prometheus.Labels {
-	extraLabels := prometheus.Labels{
-		"handler": "unknown",
-		"group":   "unknown",
-	}
-
-	routePattern := chi.RouteContext(r.Context()).RoutePattern()
-	tenant, ok := authentication.GetTenant(r.Context())
-	if !ok {
-		return extraLabels
-	}
-
-	var groupHandler map[string]groupHandler
-	switch routePattern {
-	case "/api/metrics/v1/{tenant}/*":
-		groupHandler = metricsV1Group
-	case "/api/v1/{tenant}/*":
-		groupHandler = legacyMetricsGroup
-	}
-
-	strippedPath := strings.Split(r.URL.Path, tenant)
-	if len(strippedPath) != 2 {
-		return extraLabels
-	}
-
-	gh, ok := groupHandler[strippedPath[1]]
-	if ok {
-		extraLabels = prometheus.Labels{
-			"group":   gh.group,
-			"handler": gh.handler,
-		}
-	}
-	return extraLabels
 }

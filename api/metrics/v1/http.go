@@ -190,8 +190,24 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.queryMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(QueryRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+QueryRoute, proxyQuery))
-			r.Handle(QueryRangeRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+QueryRangeRoute, proxyQuery))
+			r.Handle(QueryRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+QueryRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "query"},
+						proxyQuery,
+					),
+				),
+			)
+			r.Handle(QueryRangeRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+QueryRangeRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
+						proxyQuery,
+					),
+				),
+			)
 		})
 
 		var proxyRead http.Handler
@@ -219,12 +235,45 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(SeriesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+SeriesRoute, proxyRead))
-			r.Handle(LabelNamesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+LabelNamesRoute, proxyRead))
-			r.Handle(LabelValuesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+LabelValuesRoute, proxyRead))
+			r.Handle(RulesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRoute, proxyRead))
+			r.Handle(SeriesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+SeriesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "series"},
+						proxyRead,
+					),
+				),
+			)
+			r.Handle(LabelNamesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+LabelNamesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "label_names"},
+						proxyRead,
+					),
+				),
+			)
+			r.Handle(LabelValuesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+LabelValuesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "label_values"},
+						proxyRead,
+					),
+				),
+			)
 			// Thanos Query Rules API supports matchers from v0.25 so the WithEnforceTenancyOnMatchers
 			// middleware will not work here if prior versions are used.
-			r.Handle(RulesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRoute, proxyRead))
+			r.Handle(RulesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+RulesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+						proxyRead,
+					),
+				),
+			)
 		})
 
 		var uiProxy http.Handler
@@ -247,7 +296,15 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Mount(UIRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+UIRoute, uiProxy))
+			r.Handle(UIRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+UIRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "ui"},
+						uiProxy,
+					),
+				),
+			)
 		})
 	}
 
@@ -277,7 +334,15 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(ReceiveRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+ReceiveRoute, proxyWrite))
+			r.Handle(ReceiveRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+ReceiveRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "receive"},
+						proxyWrite,
+					),
+				),
+			)
 		})
 	}
 
@@ -293,13 +358,29 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodGet, RulesRawRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRawRoute, http.HandlerFunc(rh.get)))
+			r.Method(http.MethodGet, RulesRawRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+RulesRawRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+						http.HandlerFunc(rh.get),
+					),
+				),
+			)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodPut, RulesRawRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRawRoute, http.HandlerFunc(rh.put)))
+			r.Method(http.MethodPut, RulesRawRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+RulesRawRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
+						http.HandlerFunc(rh.put),
+					),
+				),
+			)
 		})
 	}
 
