@@ -22,7 +22,7 @@ type httpMetricsCollector struct {
 }
 
 func (m httpMetricsCollector) initializeMetrics(labels prometheus.Labels) {
-	// Check is all hardcodedLabels are present in labels
+	// Check if all hardcodedLabels are present in labels
 	for _, hardcodedLabel := range m.hardcodedLabels {
 		if _, ok := labels[hardcodedLabel]; !ok {
 			panic("missing hardcoded label: " + hardcodedLabel)
