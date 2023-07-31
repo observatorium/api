@@ -524,7 +524,7 @@ func main() {
 		r.Use(server.Logger(logger))
 
 		hardcodedLabels := []string{"group", "handler"}
-		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels, logger)
+		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
 
 		// Initializing the metrics of all handler to ensure Pyrra's `MetricSLOAbsent`
 		// alerts won't fire for endpoints with no traffic for a while after a

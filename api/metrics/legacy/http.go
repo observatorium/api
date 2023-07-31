@@ -146,7 +146,6 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRoute,
 				server.InjectLabelsCtx(
-					c.logger,
 					prometheus.Labels{"group": "metricslegacy", "handler": "query"},
 					legacyProxy,
 				),
@@ -156,7 +155,6 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRangeRoute,
 				server.InjectLabelsCtx(
-					c.logger,
 					prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
 					legacyProxy,
 				),
