@@ -2,11 +2,13 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-kit/log"
 	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -75,6 +77,7 @@ func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 // instrumentedHandlerFactory is a factory for creating HTTP handlers instrumented by httpMetricsCollector.
 type instrumentedHandlerFactory struct {
 	metricsCollector httpMetricsCollector
+	logger           log.Logger
 }
 
 func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) {
@@ -82,22 +85,26 @@ func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) 
 }
 
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
-func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
+func (m instrumentedHandlerFactory) NewHandler(_ prometheus.Labels, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// if extra labels are provided on the context, prefer them
 		extraLabels := prometheus.Labels{"group": "unknown", "handler": "unknown"}
-		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
-			ctxLabels, ok := labels.(prometheus.Labels)
-			if ok {
-				for k, v := range ctxLabels {
-					extraLabels[k] = v
-				}
-			}
-		}
+		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabels))
 
 		rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		now := time.Now()
 		next.ServeHTTP(rw, r)
+		latency := time.Since(now)
+
+		// if extra labels are provided on the context, merge them
+		m.logger.Log("label from map", fmt.Sprintf("%s", extraLabels))
+		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
+			ctxLabels := labels.(prometheus.Labels)
+			for k, v := range ctxLabels {
+				extraLabels[k] = v
+			}
+			m.logger.Log("extraLabels from context", fmt.Sprintf("%s", extraLabels))
+		}
+		m.logger.Log("extraLabels", fmt.Sprintf("%s", extraLabels))
 
 		tenant, _ := authentication.GetTenantID(r.Context())
 		m.metricsCollector.requestCounter.
@@ -114,7 +121,7 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		m.metricsCollector.requestDuration.
 			MustCurryWith(extraLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
-			Observe(time.Since(now).Seconds())
+			Observe(latency.Seconds())
 
 		m.metricsCollector.responseSize.
 			MustCurryWith(extraLabels).
@@ -124,9 +131,10 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 }
 
 // NewInstrumentedHandlerFactory creates a new instrumentedHandlerFactory.
-func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string) instrumentedHandlerFactory {
+func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string, logger log.Logger) instrumentedHandlerFactory {
 	return instrumentedHandlerFactory{
 		metricsCollector: newHTTPMetricsCollector(req, hardcodedLabels),
+		logger:           logger,
 	}
 }
 
@@ -135,22 +143,25 @@ type contextKey string
 // ExtraLabelContextKey is the key for the extra labels in the request context.
 const ExtraLabelContextKey contextKey = "extraLabels"
 
-// InstrumentationMiddleware calls the provided labelParser to parse the extra labels from the request and adds them to the context.
-func InstrumentationMiddleware(labelParser func(r *http.Request) prometheus.Labels) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-			ctx := context.WithValue(r.Context(), ExtraLabelContextKey, labelParser(r))
-			next.ServeHTTP(rw, r.WithContext(ctx))
-		})
-	}
-}
-
-func InjectLabelsCtx(labels prometheus.Labels, handler http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), ExtraLabelContextKey, labels)
-		handler.ServeHTTP(w, r.WithContext(ctx))
-	}
+func InjectLabelsCtx(logger log.Logger, labels prometheus.Labels, handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		extraLabels := r.Context().Value(ExtraLabelContextKey).(prometheus.Labels)
+		for k, v := range labels {
+			extraLabels[k] = v
+		}
+		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabels))
+		//newCtx := context.WithValue(r.Context(), ExtraLabelContextKey, labels)
+		//logger.Log("extraLabels from inject", fmt.Sprintf("%s", labels))
+		//if labels := newCtx.Value(ExtraLabelContextKey); labels != nil {
+		//	ctxLabels := labels.(prometheus.Labels)
+		//	logger.Log("extraLabels from context at inject", fmt.Sprintf("%s", ctxLabels))
+		//}
+		handler.ServeHTTP(w, r)
+		//if labels := newCtx.Value(ExtraLabelContextKey); labels != nil {
+		//	ctxLabels := labels.(prometheus.Labels)
+		//	logger.Log("extraLabels from context after serving", fmt.Sprintf("%s", ctxLabels))
+		//}
+	})
 }
 
 // Copied from https://github.com/prometheus/client_golang/blob/9075cdf61646b5adf54d3ba77a0e4f6c65cb4fd7/prometheus/promhttp/instrument_server.go#L350

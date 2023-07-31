@@ -46,7 +46,6 @@ type handlerConfiguration struct {
 	readMiddlewares  []func(http.Handler) http.Handler
 	uiMiddlewares    []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
-	labelParser      func(r *http.Request) prometheus.Labels
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -125,14 +124,6 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-// WithLabelParser adds a custom label parser to the handler.
-// The label parser is used to parse prometheus.Labels from the request.
-func WithLabelParser(labelParser func(r *http.Request) prometheus.Labels) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.labelParser = labelParser
-	}
-}
-
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
@@ -150,9 +141,6 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
-		labelParser: func(r *http.Request) prometheus.Labels {
-			return nil
-		},
 	}
 
 	for _, o := range opts {
@@ -160,7 +148,6 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 	}
 
 	r := chi.NewRouter()
-	r.Use(server.InstrumentationMiddleware(c.labelParser))
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})
@@ -194,6 +181,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+QueryRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "query"},
 						proxyQuery,
 					),
@@ -203,6 +191,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+QueryRangeRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
 						proxyQuery,
 					),
@@ -240,6 +229,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+SeriesRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "series"},
 						proxyRead,
 					),
@@ -249,6 +239,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+LabelNamesRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "label_names"},
 						proxyRead,
 					),
@@ -258,6 +249,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+LabelValuesRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "label_values"},
 						proxyRead,
 					),
@@ -269,6 +261,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
 						proxyRead,
 					),
@@ -300,6 +293,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+UIRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "ui"},
 						uiProxy,
 					),
@@ -338,6 +332,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+ReceiveRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "receive"},
 						proxyWrite,
 					),
@@ -362,6 +357,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRawRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
 						http.HandlerFunc(rh.get),
 					),
@@ -376,6 +372,7 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRawRoute,
 					server.InjectLabelsCtx(
+						c.logger,
 						prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
 						http.HandlerFunc(rh.put),
 					),

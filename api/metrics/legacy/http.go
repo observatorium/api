@@ -114,7 +114,6 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 	}
 
 	r := chi.NewRouter()
-	r.Use(server.InstrumentationMiddleware(c.labelParser))
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})
@@ -147,6 +146,7 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRoute,
 				server.InjectLabelsCtx(
+					c.logger,
 					prometheus.Labels{"group": "metricslegacy", "handler": "query"},
 					legacyProxy,
 				),
@@ -156,6 +156,7 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRangeRoute,
 				server.InjectLabelsCtx(
+					c.logger,
 					prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
 					legacyProxy,
 				),
