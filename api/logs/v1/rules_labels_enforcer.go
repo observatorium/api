@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -39,33 +40,40 @@ type alert struct {
 func (a *alert) GetLabels() labels.Labels { return a.Labels }
 
 type alertingRule struct {
-	Name        string        `json:"name"`
-	Query       string        `json:"query"`
-	Duration    float64       `json:"duration"`
-	Labels      labels.Labels `json:"labels"`
-	Annotations labels.Labels `json:"annotations"`
-	Alerts      []*alert      `json:"alerts"`
-	Health      string        `json:"health"`
-	LastError   string        `json:"lastError,omitempty"`
+	State          string        `json:"state"`
+	Name           string        `json:"name"`
+	Query          string        `json:"query"`
+	Duration       float64       `json:"duration"`
+	Labels         labels.Labels `json:"labels"`
+	Annotations    labels.Labels `json:"annotations"`
+	Alerts         []*alert      `json:"alerts"`
+	Health         string        `json:"health"`
+	LastError      string        `json:"lastError"`
+	LastEvaluation string        `json:"lastEvaluation"`
+	EvaluationTime float64       `json:"evaluationTime"`
 	// Type of an alertingRule is always "alerting".
 	Type string `json:"type"`
 }
 
 type recordingRule struct {
-	Name      string        `json:"name"`
-	Query     string        `json:"query"`
-	Labels    labels.Labels `json:"labels,omitempty"`
-	Health    string        `json:"health"`
-	LastError string        `json:"lastError,omitempty"`
+	Name           string        `json:"name"`
+	Query          string        `json:"query"`
+	Labels         labels.Labels `json:"labels"`
+	Health         string        `json:"health"`
+	LastError      string        `json:"lastError"`
+	LastEvaluation string        `json:"lastEvaluation"`
+	EvaluationTime float64       `json:"evaluationTime"`
 	// Type of a recordingRule is always "recording".
 	Type string `json:"type"`
 }
 
 type ruleGroup struct {
-	Name     string  `json:"name"`
-	File     string  `json:"file"`
-	Rules    []rule  `json:"rules"`
-	Interval float64 `json:"interval"`
+	Name           string  `json:"name"`
+	File           string  `json:"file"`
+	Rules          []rule  `json:"rules"`
+	Interval       float64 `json:"interval"`
+	LastEvaluation string  `json:"lastEvaluation"`
+	EvaluationTime float64 `json:"evaluationTime"`
 }
 
 type rule struct {
@@ -272,6 +280,7 @@ func newModifyResponse(logger log.Logger, labelKeys map[string][]string) func(*h
 
 		res.Body = io.NopCloser(bytes.NewReader(b))
 		res.ContentLength = int64(len(b))
+		res.Header.Set("Content-Length", strconv.FormatInt(res.ContentLength, 10))
 
 		return nil
 	}

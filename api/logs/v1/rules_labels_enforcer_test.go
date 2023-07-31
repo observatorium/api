@@ -1,12 +1,20 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
 	"os"
 	"testing"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-chi/chi"
+	"github.com/go-kit/log"
+	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/prometheus/model/labels"
 )
 
@@ -432,4 +440,63 @@ func TestFilterLokiRules(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModifyResponse(t *testing.T) {
+	l := log.NewNopLogger()
+	lk := map[string][]string{
+		"fake": {"namespace"},
+	}
+
+	rules, err := os.ReadFile("testdata/rules.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originanLen := int64(len(rules))
+
+	filtered, err := os.ReadFile("testdata/rules-log-test-0.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filteredLen := int64(len(filtered))
+
+	headers := make(http.Header)
+	headers.Add("Content-Type", "application/json")
+
+	res := &http.Response{
+		StatusCode:    http.StatusOK,
+		Header:        headers,
+		Body:          io.NopCloser(bytes.NewReader(rules)),
+		ContentLength: originanLen,
+	}
+
+	proxy := &httputil.ReverseProxy{
+		Director:       func(r *http.Request) {},
+		Transport:      staticResponseRoundTripper{res},
+		ModifyResponse: newModifyResponse(l, lk),
+	}
+
+	r := chi.NewRouter()
+	r.Handle("/rules/{tenant}", authentication.WithTenant(proxy))
+
+	rr := httptest.NewRecorder()
+	r.ServeHTTP(rr, httptest.NewRequest("GET", "/rules/fake?namespace=log-test-0", nil))
+
+	result := rr.Result()
+	if result.StatusCode != http.StatusOK {
+		t.Errorf("Broken routing: %s", rr.Result().Status)
+	}
+
+	if result.ContentLength == originanLen || result.ContentLength != filteredLen {
+		t.Errorf("failed to filter rules, original len: %d, want: %d, got: %d", originanLen, filteredLen, result.ContentLength)
+	}
+}
+
+type staticResponseRoundTripper struct {
+	res *http.Response
+}
+
+func (rt staticResponseRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	rt.res.Request = r
+	return rt.res, nil
 }
