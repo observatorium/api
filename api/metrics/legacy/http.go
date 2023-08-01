@@ -114,7 +114,6 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 	}
 
 	r := chi.NewRouter()
-	r.Use(server.InstrumentationMiddleware(c.labelParser))
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})

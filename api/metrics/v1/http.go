@@ -46,7 +46,6 @@ type handlerConfiguration struct {
 	readMiddlewares  []func(http.Handler) http.Handler
 	uiMiddlewares    []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
-	labelParser      func(r *http.Request) prometheus.Labels
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -125,14 +124,6 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-// WithLabelParser adds a custom label parser to the handler.
-// The label parser is used to parse prometheus.Labels from the request.
-func WithLabelParser(labelParser func(r *http.Request) prometheus.Labels) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.labelParser = labelParser
-	}
-}
-
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
@@ -150,9 +141,6 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
-		labelParser: func(r *http.Request) prometheus.Labels {
-			return nil
-		},
 	}
 
 	for _, o := range opts {
@@ -160,7 +148,6 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 	}
 
 	r := chi.NewRouter()
-	r.Use(server.InstrumentationMiddleware(c.labelParser))
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})
