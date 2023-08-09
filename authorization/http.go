@@ -2,11 +2,11 @@ package authorization
 
 import (
 	"context"
-	"net/http"
-
+	"fmt"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
+	"net/http"
 )
 
 // contextKey to use when setting context values in the HTTP package.
@@ -74,7 +74,14 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
+			namespaces, err := extractQueryNamespaces(r.URL.Query())
+			if err != nil {
+				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
+
+				return
+			}
+
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces, r.URL.Path)
 			if !ok {
 				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)
