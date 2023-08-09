@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/middleware"
@@ -75,6 +76,7 @@ func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 // instrumentedHandlerFactory is a factory for creating HTTP handlers instrumented by httpMetricsCollector.
 type instrumentedHandlerFactory struct {
 	metricsCollector httpMetricsCollector
+	labelsMutex      *sync.RWMutex
 }
 
 func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) {
@@ -83,7 +85,12 @@ func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) 
 
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
 func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
+	m.labelsMutex = &sync.RWMutex{}
+
 	return func(w http.ResponseWriter, r *http.Request) {
+		m.labelsMutex.Lock()
+		defer m.labelsMutex.Unlock()
+
 		// Default group and handler to "unknown" if no extra labels are provided as a parameter.
 		if extraLabels == nil {
 			extraLabels = prometheus.Labels{"group": "unknown", "handler": "unknown"}
