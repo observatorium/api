@@ -85,8 +85,6 @@ func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) 
 
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
 func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
-	m.labelsMutex = &sync.RWMutex{}
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		m.labelsMutex.Lock()
 		defer m.labelsMutex.Unlock()
@@ -138,6 +136,7 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string) instrumentedHandlerFactory {
 	return instrumentedHandlerFactory{
 		metricsCollector: newHTTPMetricsCollector(req, hardcodedLabels),
+		labelsMutex:      &sync.RWMutex{},
 	}
 }
 
