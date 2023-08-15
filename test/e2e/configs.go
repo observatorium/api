@@ -19,6 +19,7 @@ type testType string
 const (
 	metrics        testType = "metrics"
 	rules          testType = "rules"
+	alerts         testType = "alerts"
 	logs           testType = "logs"
 	traces         testType = "traces"
 	tracesTemplate testType = "tracesTemplate"
@@ -30,6 +31,7 @@ const (
 
 	envMetricsName        = "metrics"
 	envRulesAPIName       = "rules-api"
+	envAlertmanagerName   = "alertmanager-api"
 	envLogsName           = "logs-tail"
 	envTracesName         = "traces-export"
 	envTracesTemplateName = "traces-template"
