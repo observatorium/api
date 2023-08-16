@@ -52,7 +52,7 @@ func TestAlertmanagerApiProxy(t *testing.T) {
 
 	t.Run("alerts-check-then-write-then-read", func(t *testing.T) {
 		// create a alertmanager that goes through the gateway proxy and requires auth token
-		runtime := httptransport.New(api.Endpoint("https"), "/api/metrics/v1/test-oidc"+client2.DefaultBasePath, []string{"https"})
+		runtime := httptransport.New(api.Endpoint("https"), "/api/metrics/v1/test-oidc/am"+client2.DefaultBasePath, []string{"https"})
 		tenantAlertmanagerClient := alert.New(runtime, strfmt.Default)
 
 		// create an alertmanager client that goes directly to the alertmanager
@@ -152,7 +152,7 @@ func TestAlertmanagerApiProxy(t *testing.T) {
 
 	t.Run("silence-check-then-write-then-read", func(t *testing.T) {
 		// create a alertmanager that goes through the gateway proxy and requires auth token
-		runtime := httptransport.New(api.Endpoint("https"), "/api/metrics/v1/test-oidc"+client2.DefaultBasePath, []string{"https"})
+		runtime := httptransport.New(api.Endpoint("https"), "/api/metrics/v1/test-oidc/am"+client2.DefaultBasePath, []string{"https"})
 		tenantSilenceClient := silence.New(runtime, strfmt.Default)
 
 		// create an alertmanager client that goes directly to the alertmanager
