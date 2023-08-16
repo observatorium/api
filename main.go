@@ -136,6 +136,7 @@ type metricsConfig struct {
 	readEndpoint         *url.URL
 	writeEndpoint        *url.URL
 	rulesEndpoint        *url.URL
+	alertmanagerEndpoint *url.URL
 	upstreamWriteTimeout time.Duration
 	upstreamCAFile       string
 	upstreamCertFile     string
@@ -611,6 +612,13 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
+				eps := metricsv1.Endpoints{
+					ReadEndpoint:         cfg.metrics.readEndpoint,
+					WriteEndpoint:        cfg.metrics.writeEndpoint,
+					RulesEndpoint:        cfg.metrics.rulesEndpoint,
+					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
+				}
+
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
 				if rateLimitClient != nil {
 					rateLimitMiddleware = ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...)
@@ -651,9 +659,7 @@ func main() {
 					))
 
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
-						cfg.metrics.readEndpoint,
-						cfg.metrics.writeEndpoint,
-						cfg.metrics.rulesEndpoint,
+						eps,
 						metricsUpstreamCACert,
 						metricsUpstreamClientCert,
 						metricsv1.WithLogger(logger),
@@ -670,7 +676,20 @@ func main() {
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-					))
+						metricsv1.WithAlertmanagerAlertsReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
+							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
+						),
+						metricsv1.WithAlertmanagerSilenceReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
+							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
+						),
+						metricsv1.WithAlertmanagerSilenceWriteMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
+							metricsv1.WithEnforceTenancyOnSilenceMatchers(cfg.metrics.tenantLabel),
+						),
+					),
+					)
 				})
 			}
 
@@ -955,18 +974,19 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 //nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
-		rawTLSCipherSuites      string
-		rawMetricsReadEndpoint  string
-		rawMetricsWriteEndpoint string
-		rawMetricsRulesEndpoint string
-		rawLogsReadEndpoint     string
-		rawLogsRulesEndpoint    string
-		rawLogsTailEndpoint     string
-		rawLogsWriteEndpoint    string
-		rawLogsRuleLabelFilters string
-		rawTracesReadEndpoint   string
-		rawTracesWriteEndpoint  string
-		rawTracingEndpointType  string
+		rawTLSCipherSuites             string
+		rawMetricsReadEndpoint         string
+		rawMetricsWriteEndpoint        string
+		rawMetricsRulesEndpoint        string
+		rawMetricsAlertmanagerEndpoint string
+		rawLogsReadEndpoint            string
+		rawLogsRulesEndpoint           string
+		rawLogsTailEndpoint            string
+		rawLogsWriteEndpoint           string
+		rawLogsRuleLabelFilters        string
+		rawTracesReadEndpoint          string
+		rawTracesWriteEndpoint         string
+		rawTracingEndpointType         string
 	)
 
 	cfg := config{}
@@ -1034,6 +1054,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
+	flag.StringVar(&rawMetricsAlertmanagerEndpoint, "metrics.alertmanager.endpoint", "",
+		"The endpoint against which to make requests for alerts and silences")
 	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the metrics endpoint.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
@@ -1132,6 +1154,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.metrics.rulesEndpoint = metricsRulesEndpoint
+	}
+
+	if rawMetricsAlertmanagerEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		alertmanagerEndpoint, err := url.ParseRequestURI(rawMetricsAlertmanagerEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.alertmanager.endpoint %q is invalid: %w", rawMetricsAlertmanagerEndpoint, err)
+		}
+
+		cfg.metrics.alertmanagerEndpoint = alertmanagerEndpoint
 	}
 
 	if rawLogsReadEndpoint != "" {
@@ -1403,4 +1436,6 @@ var metricsV1Group = []groupHandler{
 	{"metricsv1", "receive"},
 	{"metricsv1", "rules"},
 	{"metricsv1", "rules-raw"},
+	{"metricsv1", "alerts"},
+	{"metricsv1", "silences"},
 }
