@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
@@ -52,6 +53,22 @@ func StripTenantPrefix(prefix string) func(http.Handler) http.Handler {
 			}
 
 			tenantPrefix := path.Join("/", prefix, tenant)
+			http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
+		})
+	}
+}
+
+func StripTenantPrefixWithSubRoute(prefix, route string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant, ok := authentication.GetTenant(r.Context())
+			if !ok {
+				httperr.PrometheusAPIError(w, "tenant not found", http.StatusInternalServerError)
+				return
+			}
+
+			route = strings.TrimPrefix(route, "/")
+			tenantPrefix := path.Join("/", prefix, tenant, route)
 			http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
 		})
 	}

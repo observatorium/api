@@ -35,8 +35,8 @@ const (
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
 
-	AlertmanagerAlertsRoute   = "/api/v2/alerts"
-	AlertmanagerSilencesRoute = "/api/v2/silences"
+	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
+	AlertmanagerSilencesRoute = "/am/api/v2/silences"
 )
 
 type alertmanagerMiddleware struct {
@@ -435,7 +435,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.alertmanagerMiddleware.alertsReadMiddlewares...)
-			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodGet, AlertmanagerAlertsRoute, otelhttp.WithRouteTag(
 				c.spanRoutePrefix+AlertmanagerAlertsRoute,
@@ -448,7 +448,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
-			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodGet, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
 				c.spanRoutePrefix+AlertmanagerSilencesRoute,
@@ -461,7 +461,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.alertmanagerMiddleware.silenceWriteMiddlewares...)
-			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodPost, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
 				c.spanRoutePrefix+AlertmanagerSilencesRoute,
