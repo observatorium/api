@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/middleware"
@@ -76,7 +75,6 @@ func newHTTPMetricsCollector(reg *prometheus.Registry, hardcodedLabels []string)
 // instrumentedHandlerFactory is a factory for creating HTTP handlers instrumented by httpMetricsCollector.
 type instrumentedHandlerFactory struct {
 	metricsCollector httpMetricsCollector
-	labelsMutex      *sync.RWMutex
 }
 
 func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) {
@@ -85,15 +83,18 @@ func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) 
 
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
 func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m.labelsMutex.Lock()
-		defer m.labelsMutex.Unlock()
+	// Default group and handler to "unknown" if no extra labels are provided as a parameter.
+	if extraLabels == nil {
+		extraLabels = prometheus.Labels{"group": "unknown", "handler": "unknown"}
+	}
 
-		// Default group and handler to "unknown" if no extra labels are provided as a parameter.
-		if extraLabels == nil {
-			extraLabels = prometheus.Labels{"group": "unknown", "handler": "unknown"}
+	return func(w http.ResponseWriter, r *http.Request) {
+		extraLabelsCopy := make(prometheus.Labels, len(extraLabels))
+		for k, v := range extraLabels {
+			extraLabelsCopy[k] = v
 		}
-		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabels))
+
+		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabelsCopy))
 
 		rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		now := time.Now()
@@ -104,29 +105,29 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
 			ctxLabels := labels.(prometheus.Labels)
 			for k, v := range ctxLabels {
-				extraLabels[k] = v
+				extraLabelsCopy[k] = v
 			}
 		}
 
 		tenant, _ := authentication.GetTenantID(r.Context())
 		m.metricsCollector.requestCounter.
-			MustCurryWith(extraLabels).
+			MustCurryWith(extraLabelsCopy).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Inc()
 
 		size := computeApproximateRequestSize(r)
 		m.metricsCollector.requestSize.
-			MustCurryWith(extraLabels).
+			MustCurryWith(extraLabelsCopy).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(size))
 
 		m.metricsCollector.requestDuration.
-			MustCurryWith(extraLabels).
+			MustCurryWith(extraLabelsCopy).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(latency.Seconds())
 
 		m.metricsCollector.responseSize.
-			MustCurryWith(extraLabels).
+			MustCurryWith(extraLabelsCopy).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(rw.BytesWritten()))
 	}
@@ -136,7 +137,6 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 func NewInstrumentedHandlerFactory(req *prometheus.Registry, hardcodedLabels []string) instrumentedHandlerFactory {
 	return instrumentedHandlerFactory{
 		metricsCollector: newHTTPMetricsCollector(req, hardcodedLabels),
-		labelsMutex:      &sync.RWMutex{},
 	}
 }
 
