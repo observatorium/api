@@ -83,12 +83,18 @@ func (m instrumentedHandlerFactory) InitializeMetrics(labels prometheus.Labels) 
 
 // NewHandler creates a new instrumented HTTP handler with the given extra labels and calling the "next" handlers.
 func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, next http.Handler) http.HandlerFunc {
+	// Default group and handler to "unknown" if no extra labels are provided as a parameter.
+	if extraLabels == nil {
+		extraLabels = prometheus.Labels{"group": "unknown", "handler": "unknown"}
+	}
+
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Default group and handler to "unknown" if no extra labels are provided as a parameter.
-		if extraLabels == nil {
-			extraLabels = prometheus.Labels{"group": "unknown", "handler": "unknown"}
+		requestLabels := make(prometheus.Labels, len(extraLabels))
+		for k, v := range extraLabels {
+			requestLabels[k] = v
 		}
-		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabels))
+
+		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, requestLabels))
 
 		rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		now := time.Now()
@@ -99,29 +105,29 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
 			ctxLabels := labels.(prometheus.Labels)
 			for k, v := range ctxLabels {
-				extraLabels[k] = v
+				requestLabels[k] = v
 			}
 		}
 
 		tenant, _ := authentication.GetTenantID(r.Context())
 		m.metricsCollector.requestCounter.
-			MustCurryWith(extraLabels).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Inc()
 
 		size := computeApproximateRequestSize(r)
 		m.metricsCollector.requestSize.
-			MustCurryWith(extraLabels).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(size))
 
 		m.metricsCollector.requestDuration.
-			MustCurryWith(extraLabels).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(latency.Seconds())
 
 		m.metricsCollector.responseSize.
-			MustCurryWith(extraLabels).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(rw.BytesWritten()))
 	}
