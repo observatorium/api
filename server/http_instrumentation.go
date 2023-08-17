@@ -89,12 +89,12 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		extraLabelsCopy := make(prometheus.Labels, len(extraLabels))
+		requestLabels := make(prometheus.Labels, len(extraLabels))
 		for k, v := range extraLabels {
-			extraLabelsCopy[k] = v
+			requestLabels[k] = v
 		}
 
-		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabelsCopy))
+		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, requestLabels))
 
 		rw := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		now := time.Now()
@@ -105,29 +105,29 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
 			ctxLabels := labels.(prometheus.Labels)
 			for k, v := range ctxLabels {
-				extraLabelsCopy[k] = v
+				requestLabels[k] = v
 			}
 		}
 
 		tenant, _ := authentication.GetTenantID(r.Context())
 		m.metricsCollector.requestCounter.
-			MustCurryWith(extraLabelsCopy).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Inc()
 
 		size := computeApproximateRequestSize(r)
 		m.metricsCollector.requestSize.
-			MustCurryWith(extraLabelsCopy).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(size))
 
 		m.metricsCollector.requestDuration.
-			MustCurryWith(extraLabelsCopy).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(latency.Seconds())
 
 		m.metricsCollector.responseSize.
-			MustCurryWith(extraLabelsCopy).
+			MustCurryWith(requestLabels).
 			WithLabelValues(strconv.Itoa(rw.Status()), r.Method, tenant).
 			Observe(float64(rw.BytesWritten()))
 	}
