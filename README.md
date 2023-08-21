@@ -115,6 +115,8 @@ Usage of ./observatorium-api:
     	The HTTP write timeout for proxied requests to the logs endpoint. (default 10m0s)
   -logs.write.endpoint string
     	The endpoint against which to make write requests for logs.
+  -metrics.alertmanager.endpoint string
+    	The endpoint against which to make requests for alerts and silences
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
   -metrics.rules.endpoint string
