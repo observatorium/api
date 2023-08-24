@@ -3,10 +3,11 @@ package authorization
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
-	"net/http"
 )
 
 // contextKey to use when setting context values in the HTTP package.

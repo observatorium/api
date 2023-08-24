@@ -2,10 +2,11 @@ package authorization
 
 import (
 	"errors"
-	logqlv2 "github.com/observatorium/api/logql/v2"
-	"github.com/prometheus/prometheus/model/labels"
 	"net/url"
 	"strings"
+
+	logqlv2 "github.com/observatorium/api/logql/v2"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 const (
