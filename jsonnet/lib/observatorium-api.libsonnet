@@ -20,6 +20,7 @@ local defaults = {
   logs: {},
   metrics: {},
   traces: {},
+  alertmanager: {},
   rbac: {},
   tenants: {},
   tls: {},
@@ -132,49 +133,57 @@ function(params) {
               image: api.config.image,
               imagePullPolicy: api.config.imagePullPolicy,
               args: [
-                '--web.listen=0.0.0.0:%s' % api.config.ports.public.port,
-                '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal.port,
-                '--log.level=%s' % api.config.logLevel,
-              ] + (
-                if api.config.metrics != {} then
-                  [
-                    '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
-                    '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
-                  ] + (
-                    if std.objectHas(api.config.metrics, 'rulesEndpoint') then [
-                      '--metrics.rules.endpoint=' + api.config.metrics.rulesEndpoint,
-                    ]
-                    else []
-                  )
-                else []
-              ) + (
-                if api.config.logs != {} then
-                  ([
-                     '--logs.read.endpoint=' + api.config.logs.readEndpoint,
-                     '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
-                     '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
-                   ] +
-                   if std.objectHas(api.config.logs, 'rulesEndpoint') && api.config.logs.rulesEndpoint != '' then [
-                     '--logs.rules.endpoint=' + api.config.logs.rulesEndpoint,
-                   ] else []) else []
-              ) + (
-                // Only offer tracing if it has been configured
-                if api.config.traces != {} then
-                  []
-                  + (if std.get(api.config.traces, 'writeEndpoint', '') != '' then [
-                       '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
-                       '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'].port,
-                     ] else [])
-                  + (if std.get(api.config.traces, 'readEndpoint', '') != '' then [
-                       '--traces.read.endpoint=' + api.config.traces.readEndpoint,
-                     ] else [])
-                  + (if std.get(api.config.traces, 'templateEndpoint', '') != '' then [
-                       '--experimental.traces.read.endpoint-template=' + api.config.traces.templateEndpoint,
-                     ] else [])
-                else []
-              ) + (
-                if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []
-              ) + (
+                      '--web.listen=0.0.0.0:%s' % api.config.ports.public.port,
+                      '--web.internal.listen=0.0.0.0:%s' % api.config.ports.internal.port,
+                      '--log.level=%s' % api.config.logLevel,
+                    ] + (
+                      if api.config.metrics != {} then
+                        [
+                          '--metrics.read.endpoint=' + api.config.metrics.readEndpoint,
+                          '--metrics.write.endpoint=' + api.config.metrics.writeEndpoint,
+                        ] + (
+                          if std.objectHas(api.config.metrics, 'rulesEndpoint') then [
+                            '--metrics.rules.endpoint=' + api.config.metrics.rulesEndpoint,
+                          ]
+                          else []
+                        )
+                      else []
+                    ) + (
+                      if api.config.logs != {} then
+                        ([
+                           '--logs.read.endpoint=' + api.config.logs.readEndpoint,
+                           '--logs.tail.endpoint=' + api.config.logs.tailEndpoint,
+                           '--logs.write.endpoint=' + api.config.logs.writeEndpoint,
+                         ] +
+                         if std.objectHas(api.config.logs, 'rulesEndpoint') && api.config.logs.rulesEndpoint != '' then [
+                           '--logs.rules.endpoint=' + api.config.logs.rulesEndpoint,
+                         ] else []) else []
+                    ) + (
+                      // Only offer tracing if it has been configured
+                      if api.config.traces != {} then
+                        []
+                        + (if std.get(api.config.traces, 'writeEndpoint', '') != '' then [
+                             '--traces.write.endpoint=' + api.config.traces.writeEndpoint,
+                             '--grpc.listen=0.0.0.0:' + api.config.ports['grpc-public'].port,
+                           ] else [])
+                        + (if std.get(api.config.traces, 'readEndpoint', '') != '' then [
+                             '--traces.read.endpoint=' + api.config.traces.readEndpoint,
+                           ] else [])
+                        + (if std.get(api.config.traces, 'templateEndpoint', '') != '' then [
+                             '--experimental.traces.read.endpoint-template=' + api.config.traces.templateEndpoint,
+                           ] else [])
+                      else []
+                    ) +
+                    (
+                      if api.config.alertmanager != {} then
+                        [
+                          '--metrics.alertmanager.endpoint=' + api.config.alertmanager.endpoint,
+                        ]
+                      else []
+                    )
+                    + (
+                      if api.config.rbac != {} then ['--rbac.config=/etc/observatorium/rbac.yaml'] else []
+                    ) + (
                 if api.config.tenants != {} then ['--tenants.config=/etc/observatorium/tenants.yaml'] else []
               ) + (
                 if api.config.tls != {} then
