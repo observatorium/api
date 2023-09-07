@@ -17,6 +17,9 @@ const (
 	// authorizationDataKey is the key that holds the authorization response data
 	// in a request context.
 	authorizationDataKey contextKey = "authzData"
+
+	// authorizationNamespacesKey is the key that holds the LogQL query namespaces in a request context.
+	authorizationNamespacesKey contextKey = "logqlQueryNamespaces"
 )
 
 // GetData extracts the authz response data from provided context.
@@ -30,6 +33,42 @@ func GetData(ctx context.Context) (string, bool) {
 // WithData extends the provided context with the authz response data.
 func WithData(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, authorizationDataKey, data)
+}
+
+// GetNamespaces extracts the query namespaces from the provided context.
+func GetNamespaces(ctx context.Context) ([]string, bool) {
+	value := ctx.Value(authorizationNamespacesKey)
+	namespaces, ok := value.([]string)
+
+	return namespaces, ok
+}
+
+// WithNamespaces extends the provided context with the query namespaces.
+func WithNamespaces(ctx context.Context, namespaces []string) context.Context {
+	return context.WithValue(ctx, authorizationNamespacesKey, namespaces)
+}
+
+// WithLogsQueryNamespaceExtractor returns a middleware that, when enabled, tries to extract
+// the list of namespaces it queries from a LogQL expression.
+func WithLogsQueryNamespaceExtractor(enabled bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !enabled {
+				next.ServeHTTP(w, r)
+
+				return
+			}
+
+			namespaces, err := extractQueryNamespaces(r.URL.Query())
+			if err != nil {
+				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
+
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(WithNamespaces(r.Context(), namespaces)))
+		})
+	}
 }
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
@@ -75,11 +114,9 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			namespaces, err := extractQueryNamespaces(r.URL.Query())
-			if err != nil {
-				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
-
-				return
+			namespaces, ok := GetNamespaces(r.Context())
+			if !ok {
+				namespaces = []string{}
 			}
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces, r.URL.Path)

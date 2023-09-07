@@ -161,6 +161,7 @@ type logsConfig struct {
 	// Allow only read-only access on rules
 	rulesReadOnly     bool
 	rulesLabelFilters map[string][]string
+	extractNamespaces bool
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -714,6 +715,7 @@ func main() {
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
+								logsv1.WithReadMiddleware(authorization.WithLogsQueryNamespaceExtractor(cfg.logs.extractNamespaces)),
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
@@ -1048,6 +1050,7 @@ func parseFlags() (config, error) {
 		"The name of the rules label that should hold the tenant ID in logs upstreams.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
 		"The endpoint against which to make write requests for logs.")
+	flag.BoolVar(&cfg.logs.extractNamespaces, "logs.extract-namespaces", false, "Extract list of namespaces from LogQL query.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
