@@ -77,6 +77,7 @@ func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, re
 			Limit:     req.limit,
 			Duration:  req.duration,
 			Algorithm: gubernator.Algorithm_LEAKY_BUCKET,
+			Behavior:  gubernator.Behavior_GLOBAL,
 		}},
 	})
 	if err != nil {
