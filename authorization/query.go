@@ -9,21 +9,17 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-const (
-	namespaceMatcherKey = "kubernetes_namespace_name"
-)
-
 var (
 	errWildcardRegexp = errors.New("regular expression with wildcards found")
 )
 
-func extractQueryNamespaces(values url.Values) ([]string, error) {
+func extractQueryNamespaces(namespaceLabels map[string]bool, values url.Values) ([]string, error) {
 	query := values.Get("query")
 	if query == "" {
 		return []string{}, nil
 	}
 
-	namespaces, err := parseQueryNamespaces(query)
+	namespaces, err := parseQueryNamespaces(namespaceLabels, query)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +27,7 @@ func extractQueryNamespaces(values url.Values) ([]string, error) {
 	return namespaces, nil
 }
 
-func parseQueryNamespaces(query string) ([]string, error) {
+func parseQueryNamespaces(namespaceLabels map[string]bool, query string) ([]string, error) {
 	expr, err := logqlv2.ParseExpr(query)
 	if err != nil {
 		return nil, err
@@ -43,7 +39,7 @@ func parseQueryNamespaces(query string) ([]string, error) {
 		switch le := expr.(type) {
 		case *logqlv2.StreamMatcherExpr:
 			for _, m := range le.Matchers() {
-				if m.Name != namespaceMatcherKey {
+				if _, ok := namespaceLabels[m.Name]; !ok {
 					continue
 				}
 

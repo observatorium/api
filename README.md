@@ -91,6 +91,8 @@ Usage of ./observatorium-api:
     	The log format to use. Options: 'logfmt', 'json'. (default "logfmt")
   -log.level string
     	The log filtering level. Options: 'error', 'warn', 'info', 'debug'. (default "info")
+  -logs.extract-namespace-labels string
+    	Comma-separated list of query labels that should be treated as namespaces for authorization.
   -logs.read.endpoint string
     	The endpoint against which to make read requests for logs.
   -logs.rules.endpoint string

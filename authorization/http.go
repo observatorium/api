@@ -50,7 +50,14 @@ func WithNamespaces(ctx context.Context, namespaces []string) context.Context {
 
 // WithLogsQueryNamespaceExtractor returns a middleware that, when enabled, tries to extract
 // the list of namespaces it queries from a LogQL expression.
-func WithLogsQueryNamespaceExtractor(enabled bool) func(http.Handler) http.Handler {
+func WithLogsQueryNamespaceExtractor(namespaceLabels []string) func(http.Handler) http.Handler {
+	enabled := len(namespaceLabels) > 0
+
+	namespaceLabelMap := make(map[string]bool, len(namespaceLabels))
+	for _, l := range namespaceLabels {
+		namespaceLabelMap[l] = true
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !enabled {
@@ -59,7 +66,7 @@ func WithLogsQueryNamespaceExtractor(enabled bool) func(http.Handler) http.Handl
 				return
 			}
 
-			namespaces, err := extractQueryNamespaces(r.URL.Query())
+			namespaces, err := extractQueryNamespaces(namespaceLabelMap, r.URL.Query())
 			if err != nil {
 				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
 
