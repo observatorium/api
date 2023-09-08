@@ -119,7 +119,9 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				namespaces = []string{}
 			}
 
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces, r.URL.Path)
+			metadataOnly := isMetadataRequest(r.URL.Path)
+
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces, metadataOnly)
 			if !ok {
 				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)
