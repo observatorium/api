@@ -101,6 +101,10 @@ groups:
         annotations: {}
 `
 
+const metricsEmptyRulesYamlTpl = `
+groups: []
+`
+
 func TestRulesAPI(t *testing.T) {
 	t.Parallel()
 
@@ -286,6 +290,21 @@ func TestRulesAPI(t *testing.T) {
 		res, err := client.Do(r)
 		testutil.Ok(t, err)
 		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
+	})
+
+	t.Run("metrics-write-empty-rules", func(t *testing.T) {
+		// set empty rules
+		emptyRules := []byte(metricsEmptyRulesYamlTpl)
+		r, err := http.NewRequest(
+			http.MethodPut,
+			metricsRulesURL,
+			bytes.NewReader(emptyRules),
+		)
+		testutil.Ok(t, err)
+
+		res, err := client.Do(r)
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusOK, res.StatusCode)
 	})
 
 	t.Run("logs-write-then-read-alerting-rules", func(t *testing.T) {
