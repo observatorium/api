@@ -45,6 +45,7 @@ func NewClient(reg prometheus.Registerer) *Client {
 			grpc_middleware.ChainStreamClient(grpcMetrics.StreamClientInterceptor()),
 		),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`),
 	}
 
 	if reg != nil {
