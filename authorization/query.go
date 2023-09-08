@@ -55,11 +55,6 @@ func parseQueryNamespaces(namespaceLabels map[string]bool, query string) ([]stri
 						namespaces = append(namespaces, v)
 					}
 				}
-
-				if m.Type != labels.MatchEqual {
-					continue
-				}
-
 			}
 		default:
 			// Do nothing
