@@ -22,6 +22,17 @@ const (
 	authorizationNamespacesKey contextKey = "logqlQueryNamespaces"
 )
 
+type NamespaceInfo struct {
+	Namespaces  []string
+	HasWildcard bool
+}
+
+var (
+	emptyNamespaceInfo = &NamespaceInfo{
+		Namespaces: []string{},
+	}
+)
+
 // GetData extracts the authz response data from provided context.
 func GetData(ctx context.Context) (string, bool) {
 	value := ctx.Value(authorizationDataKey)
@@ -35,17 +46,17 @@ func WithData(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, authorizationDataKey, data)
 }
 
-// GetNamespaces extracts the query namespaces from the provided context.
-func GetNamespaces(ctx context.Context) ([]string, bool) {
+// GetNamespaceInfo extracts the query namespaces from the provided context.
+func GetNamespaceInfo(ctx context.Context) (*NamespaceInfo, bool) {
 	value := ctx.Value(authorizationNamespacesKey)
-	namespaces, ok := value.([]string)
+	namespaces, ok := value.(*NamespaceInfo)
 
 	return namespaces, ok
 }
 
-// WithNamespaces extends the provided context with the query namespaces.
-func WithNamespaces(ctx context.Context, namespaces []string) context.Context {
-	return context.WithValue(ctx, authorizationNamespacesKey, namespaces)
+// WithNamespaceInfo extends the provided context with the query namespaces.
+func WithNamespaceInfo(ctx context.Context, info *NamespaceInfo) context.Context {
+	return context.WithValue(ctx, authorizationNamespacesKey, info)
 }
 
 // WithLogsQueryNamespaceExtractor returns a middleware that, when enabled, tries to extract
@@ -66,14 +77,14 @@ func WithLogsQueryNamespaceExtractor(namespaceLabels []string) func(http.Handler
 				return
 			}
 
-			namespaces, err := extractQueryNamespaces(namespaceLabelMap, r.URL.Query())
+			namespaceInfo, err := extractQueryNamespaces(namespaceLabelMap, r.URL.Query())
 			if err != nil {
 				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
 
 				return
 			}
 
-			next.ServeHTTP(w, r.WithContext(WithNamespaces(r.Context(), namespaces)))
+			next.ServeHTTP(w, r.WithContext(WithNamespaceInfo(r.Context(), namespaceInfo)))
 		})
 	}
 }
@@ -121,14 +132,15 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			namespaces, ok := GetNamespaces(r.Context())
+			namespaceInfo, ok := GetNamespaceInfo(r.Context())
 			if !ok {
-				namespaces = []string{}
+				namespaceInfo = emptyNamespaceInfo
 			}
 
 			metadataOnly := isMetadataRequest(r.URL.Path)
 
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, namespaces, metadataOnly)
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token,
+				namespaceInfo.Namespaces, namespaceInfo.HasWildcard, metadataOnly)
 			if !ok {
 				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)

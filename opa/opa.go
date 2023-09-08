@@ -45,15 +45,16 @@ func onboardNewFunction(regoFunctionName string, regoFunction func(log.Logger) f
 
 // Input models the data that is used for OPA input documents.
 type Input struct {
-	Groups       []string        `json:"groups"`
-	Permission   rbac.Permission `json:"permission"`
-	Resource     string          `json:"resource"`
-	Subject      string          `json:"subject"`
-	Tenant       string          `json:"tenant"`
-	TenantID     string          `json:"tenantID"`
-	Token        string          `json:"token"`
-	Namespaces   []string        `json:"namespaces,omitempty"`
-	MetadataOnly bool            `json:"metadataOnly,omitempty"`
+	Groups             []string        `json:"groups"`
+	Permission         rbac.Permission `json:"permission"`
+	Resource           string          `json:"resource"`
+	Subject            string          `json:"subject"`
+	Tenant             string          `json:"tenant"`
+	TenantID           string          `json:"tenantID"`
+	Token              string          `json:"token"`
+	Namespaces         []string        `json:"namespaces,omitempty"`
+	WildcardNamespaces bool            `json:"wildcardNamespaces,omitempty"`
+	MetadataOnly       bool            `json:"metadataOnly,omitempty"`
 }
 
 type config struct {
@@ -101,17 +102,18 @@ func (a *restAuthorizer) Authorize(
 	groups []string,
 	permission rbac.Permission,
 	resource, tenant, tenantID, token string,
-	namespaces []string, metadataOnly bool,
+	namespaces []string, wildcardNamespaces, metadataOnly bool,
 ) (int, bool, string) {
 	var i interface{} = Input{
-		Groups:       groups,
-		Permission:   permission,
-		Resource:     resource,
-		Subject:      subject,
-		Tenant:       tenant,
-		TenantID:     tenantID,
-		Namespaces:   namespaces,
-		MetadataOnly: metadataOnly,
+		Groups:             groups,
+		Permission:         permission,
+		Resource:           resource,
+		Subject:            subject,
+		Tenant:             tenant,
+		TenantID:           tenantID,
+		Namespaces:         namespaces,
+		WildcardNamespaces: wildcardNamespaces,
+		MetadataOnly:       metadataOnly,
 	}
 
 	dreq := types.DataRequestV1{
@@ -252,18 +254,19 @@ func (a *inProcessAuthorizer) Authorize(
 	groups []string,
 	permission rbac.Permission,
 	resource, tenant, tenantID, token string,
-	namespaces []string, metadataOnly bool,
+	namespaces []string, wildcardNamespaces, metadataOnly bool,
 ) (int, bool, string) {
 	var i interface{} = Input{
-		Groups:       groups,
-		Permission:   permission,
-		Resource:     resource,
-		Subject:      subject,
-		Tenant:       tenant,
-		TenantID:     tenantID,
-		Token:        token,
-		Namespaces:   namespaces,
-		MetadataOnly: metadataOnly,
+		Groups:             groups,
+		Permission:         permission,
+		Resource:           resource,
+		Subject:            subject,
+		Tenant:             tenant,
+		TenantID:           tenantID,
+		Token:              token,
+		Namespaces:         namespaces,
+		WildcardNamespaces: wildcardNamespaces,
+		MetadataOnly:       metadataOnly,
 	}
 
 	res, err := a.query.Eval(context.Background(), rego.EvalInput(i))

@@ -1,7 +1,6 @@
 package authorization
 
 import (
-	"errors"
 	"net/url"
 	"strings"
 
@@ -9,32 +8,31 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-var (
-	errWildcardRegexp = errors.New("regular expression with wildcards found")
-)
-
-func extractQueryNamespaces(namespaceLabels map[string]bool, values url.Values) ([]string, error) {
+func extractQueryNamespaces(namespaceLabels map[string]bool, values url.Values) (*NamespaceInfo, error) {
 	query := values.Get("query")
 	if query == "" {
-		return []string{}, nil
+		return emptyNamespaceInfo, nil
 	}
 
-	namespaces, err := parseQueryNamespaces(namespaceLabels, query)
+	namespaces, hasWildcard, err := parseQueryNamespaces(namespaceLabels, query)
 	if err != nil {
 		return nil, err
 	}
 
-	return namespaces, nil
+	return &NamespaceInfo{
+		Namespaces:  namespaces,
+		HasWildcard: hasWildcard,
+	}, nil
 }
 
-func parseQueryNamespaces(namespaceLabels map[string]bool, query string) ([]string, error) {
+func parseQueryNamespaces(namespaceLabels map[string]bool, query string) ([]string, bool, error) {
 	expr, err := logqlv2.ParseExpr(query)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	namespaces := []string{}
-	failWildcard := false
+	hasWildcard := false
 	expr.Walk(func(expr interface{}) {
 		switch le := expr.(type) {
 		case *logqlv2.StreamMatcherExpr:
@@ -50,7 +48,7 @@ func parseQueryNamespaces(namespaceLabels map[string]bool, query string) ([]stri
 					values := strings.Split(m.Value, "|")
 					for _, v := range values {
 						if strings.ContainsAny(v, ".+*") {
-							failWildcard = true
+							hasWildcard = true
 							continue
 						}
 
@@ -68,9 +66,5 @@ func parseQueryNamespaces(namespaceLabels map[string]bool, query string) ([]stri
 		}
 	})
 
-	if failWildcard {
-		return nil, errWildcardRegexp
-	}
-
-	return namespaces, nil
+	return namespaces, hasWildcard, nil
 }
