@@ -57,6 +57,7 @@ func NewClient(reg prometheus.Registerer) *Client {
 
 // Dial connects the client to gubernator.
 func (c *Client) Dial(ctx context.Context, address string) error {
+	address = fmt.Sprintf("dns:///%s", address)
 	conn, err := grpc.DialContext(ctx, address, c.dialOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to dial gubernator with %q: %v", address, err)
