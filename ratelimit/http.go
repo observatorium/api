@@ -18,7 +18,7 @@ import (
 
 const (
 	requestName    = "observatorium:tenant_per_endpoint"
-	requestTimeout = time.Millisecond * 500
+	requestTimeout = time.Second * 2
 
 	headerKeyRemaining = "X-RateLimit-Remaining"
 	headerKeyLimit     = "X-RateLimit-Limit"
