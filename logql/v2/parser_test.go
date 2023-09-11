@@ -274,6 +274,108 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | logfmt --strict addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						flags:  []string{"--strict"},
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | logfmt --keep-empty addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						flags:  []string{"--keep-empty"},
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | logfmt --keep-empty --strict addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "logfmt",
+						flags:  []string{"--keep-empty", "--strict"},
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | json | addr=ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
@@ -670,6 +772,70 @@ func TestParseExpr(t *testing.T) {
 					},
 					&LogLabelExpr{
 						parser: "drop",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+							{
+								identifier: "",
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "first",
+									Value: "value",
+								},
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | keep addr`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelExpr{
+						parser: "keep",
+						labels: []LogLabel{
+							{
+								identifier: "addr",
+								matcher:    nil,
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | keep addr, first="value"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelExpr{
+						parser: "keep",
 						labels: []LogLabel{
 							{
 								identifier: "addr",

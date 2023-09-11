@@ -404,12 +404,14 @@ func mergeLabels(lhs, rhs LogLabelList) LogLabelList {
 type LogLabelExpr struct {
 	defaultLogQLExpr // nolint:unused
 	parser           string
+	flags            []string
 	labels           LogLabelList
 }
 
-func newLogLabelExpr(parser string, labels LogLabelList) *LogLabelExpr {
+func newLogLabelExpr(parser string, flags []string, labels LogLabelList) *LogLabelExpr {
 	return &LogLabelExpr{
 		parser: parser,
+		flags:  flags,
 		labels: labels,
 	}
 }
@@ -424,6 +426,11 @@ func (l LogLabelExpr) String() string {
 
 	sb.WriteString("| ")
 	sb.WriteString(l.parser)
+
+	for _, flag := range l.flags {
+		sb.WriteString(" ")
+		sb.WriteString(flag)
+	}
 
 	for i, label := range l.labels {
 		if label.identifier != "" {
@@ -442,6 +449,10 @@ func (l LogLabelExpr) String() string {
 	}
 
 	return sb.String()
+}
+
+func mergeParserFlags(lhs, rhs []string) []string {
+	return append(lhs, rhs...)
 }
 
 func (l *LogLabelExpr) Walk(fn WalkFn) {
