@@ -18,18 +18,18 @@ const (
 	// in a request context.
 	authorizationDataKey contextKey = "authzData"
 
-	// authorizationNamespacesKey is the key that holds the LogQL query namespaces in a request context.
-	authorizationNamespacesKey contextKey = "logqlQueryNamespaces"
+	// authorizationSelectorsKey is the key that holds the data about selectors present in the LogQL query.
+	authorizationSelectorsKey contextKey = "logqlQuerySelectors"
 )
 
-type NamespaceInfo struct {
-	Namespaces  []string
+type SelectorsInfo struct {
+	Selectors   map[string][]string
 	HasWildcard bool
 }
 
 var (
-	emptyNamespaceInfo = &NamespaceInfo{
-		Namespaces: []string{},
+	emptySelectorsInfo = &SelectorsInfo{
+		Selectors: map[string][]string{},
 	}
 )
 
@@ -46,27 +46,27 @@ func WithData(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, authorizationDataKey, data)
 }
 
-// GetNamespaceInfo extracts the query namespaces from the provided context.
-func GetNamespaceInfo(ctx context.Context) (*NamespaceInfo, bool) {
-	value := ctx.Value(authorizationNamespacesKey)
-	namespaces, ok := value.(*NamespaceInfo)
+// GetSelectorsInfo extracts the query namespaces from the provided context.
+func GetSelectorsInfo(ctx context.Context) (*SelectorsInfo, bool) {
+	value := ctx.Value(authorizationSelectorsKey)
+	namespaces, ok := value.(*SelectorsInfo)
 
 	return namespaces, ok
 }
 
-// WithNamespaceInfo extends the provided context with the query namespaces.
-func WithNamespaceInfo(ctx context.Context, info *NamespaceInfo) context.Context {
-	return context.WithValue(ctx, authorizationNamespacesKey, info)
+// WithSelectorsInfo extends the provided context with the query namespaces.
+func WithSelectorsInfo(ctx context.Context, info *SelectorsInfo) context.Context {
+	return context.WithValue(ctx, authorizationSelectorsKey, info)
 }
 
-// WithLogsQueryNamespaceExtractor returns a middleware that, when enabled, tries to extract
+// WithLogsQuerySelectorsExtractor returns a middleware that, when enabled, tries to extract
 // the list of namespaces it queries from a LogQL expression.
-func WithLogsQueryNamespaceExtractor(namespaceLabels []string) func(http.Handler) http.Handler {
-	enabled := len(namespaceLabels) > 0
+func WithLogsQuerySelectorsExtractor(selectorLabels []string) func(http.Handler) http.Handler {
+	enabled := len(selectorLabels) > 0
 
-	namespaceLabelMap := make(map[string]bool, len(namespaceLabels))
-	for _, l := range namespaceLabels {
-		namespaceLabelMap[l] = true
+	selectorLabelMap := make(map[string]bool, len(selectorLabels))
+	for _, l := range selectorLabels {
+		selectorLabelMap[l] = true
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -77,14 +77,14 @@ func WithLogsQueryNamespaceExtractor(namespaceLabels []string) func(http.Handler
 				return
 			}
 
-			namespaceInfo, err := extractQueryNamespaces(namespaceLabelMap, r.URL.Query())
+			selectorsInfo, err := extractQuerySelectors(selectorLabelMap, r.URL.Query())
 			if err != nil {
-				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query namespaces: %s", err), http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query selectors: %s", err), http.StatusInternalServerError)
 
 				return
 			}
 
-			next.ServeHTTP(w, r.WithContext(WithNamespaceInfo(r.Context(), namespaceInfo)))
+			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
 		})
 	}
 }
@@ -132,18 +132,18 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			namespaceInfo, ok := GetNamespaceInfo(r.Context())
+			selectorsInfo, ok := GetSelectorsInfo(r.Context())
 			if !ok {
-				namespaceInfo = emptyNamespaceInfo
+				selectorsInfo = emptySelectorsInfo
 			}
 
 			metadataOnly := isMetadataRequest(r.URL.Path)
 
 			extraAttributes := &rbac.ExtraAttributes{
 				Logs: &rbac.LogsExtraAttributes{
-					Namespaces:         namespaceInfo.Namespaces,
-					WildcardNamespaces: namespaceInfo.HasWildcard,
-					MetadataOnly:       metadataOnly,
+					Selectors:         selectorsInfo.Selectors,
+					WildcardSelectors: selectorsInfo.HasWildcard,
+					MetadataOnly:      metadataOnly,
 				},
 			}
 

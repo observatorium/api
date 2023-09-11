@@ -56,9 +56,9 @@ type ExtraAttributes struct {
 
 // LogsExtraAttributes contains extra attributes about a logs request.
 type LogsExtraAttributes struct {
-	Namespaces         []string `json:"namespaces,omitempty"`
-	WildcardNamespaces bool     `json:"wildcardNamespaces,omitempty"`
-	MetadataOnly       bool     `json:"metadataOnly,omitempty"`
+	Selectors         map[string][]string `json:"selectors,omitempty"`
+	WildcardSelectors bool                `json:"wildcardSelectors,omitempty"`
+	MetadataOnly      bool                `json:"metadataOnly,omitempty"`
 }
 
 // Authorizer can authorize a subject's permission for a tenant's resource.
