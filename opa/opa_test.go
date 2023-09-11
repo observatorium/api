@@ -60,7 +60,7 @@ allow {
 	}
 
 	t.Run("successful authorize with rego built-in function", func(t *testing.T) {
-		_, isPermitted, data := authorizer.Authorize("example@example.com", []string{}, rbac.Write, "logs", "dummyTenant", "dummyTenantID", "", []string{}, false, false)
+		_, isPermitted, data := authorizer.Authorize("example@example.com", []string{}, rbac.Write, "logs", "dummyTenant", "dummyTenantID", "", nil)
 		if len(data) != 0 {
 			t.Fatalf("unexpected data: Got: %s, Wanted: %s", data, "")
 		}
@@ -71,7 +71,7 @@ allow {
 	})
 
 	t.Run("unsuccessful authorize with rego built-in function", func(t *testing.T) {
-		_, isPermitted, data := authorizer.Authorize("dummySubject", []string{}, rbac.Write, "logs", "dummyTenant", "dummyTenantID", "", []string{}, false, false)
+		_, isPermitted, data := authorizer.Authorize("dummySubject", []string{}, rbac.Write, "logs", "dummyTenant", "dummyTenantID", "", nil)
 		if len(data) != 0 {
 			t.Fatalf("unexpected data: Got: %s, Wanted: %s", data, "")
 		}

@@ -139,8 +139,15 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 
 			metadataOnly := isMetadataRequest(r.URL.Path)
 
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token,
-				namespaceInfo.Namespaces, namespaceInfo.HasWildcard, metadataOnly)
+			extraAttributes := &rbac.ExtraAttributes{
+				Logs: &rbac.LogsExtraAttributes{
+					Namespaces:         namespaceInfo.Namespaces,
+					WildcardNamespaces: namespaceInfo.HasWildcard,
+					MetadataOnly:       metadataOnly,
+				},
+			}
+
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, extraAttributes)
 			if !ok {
 				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)
