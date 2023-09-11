@@ -945,8 +945,8 @@ github.com/pquerna/cachecontrol v0.1.0/go.mod h1:NrUG3Z7Rdu85UNR3vm7SOsl1nFIeSiQ
 github.com/prashantv/gostub v1.1.0 h1:BTyx3RfQjRHnUWaGF9oQos79AlQ5k8WNktv7VGvVH4g=
 github.com/prometheus-community/prom-label-proxy v0.6.0 h1:vRY29tUex8qI2MEimovTzJdieEwiSko+f7GuPCLjFkI=
 github.com/prometheus-community/prom-label-proxy v0.6.0/go.mod h1:XyAyskjjhqEx0qnbGUVeAkYSz3Wm9gStT7/wXFxD8n0=
-github.com/prometheus/alertmanager v0.25.0 h1:vbXKUR6PYRiZPRIKfmXaG+dmCKG52RtPL4Btl8hQGvg=
-github.com/prometheus/alertmanager v0.25.0/go.mod h1:MEZ3rFVHqKZsw7IcNS/m4AWZeXThmJhumpiWR4eHU/w=
+github.com/prometheus/alertmanager v0.25.1 h1:LGBNMspOfv8h7brb+LWj2wnwBCg2ZuuKWTh6CAVw2/Y=
+github.com/prometheus/alertmanager v0.25.1/go.mod h1:MEZ3rFVHqKZsw7IcNS/m4AWZeXThmJhumpiWR4eHU/w=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829/go.mod h1:p2iRAGwDERtqlqzRXnrOVns+ignqQo//hLXqYxZYVNs=
 github.com/prometheus/client_golang v0.9.3/go.mod h1:/TN21ttK/J9q6uSwhBd54HahCDft0ttaMvbicHlPoso=

@@ -29,7 +29,7 @@ require (
 	github.com/open-policy-agent/opa v0.52.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/prom-label-proxy v0.6.0
-	github.com/prometheus/alertmanager v0.25.0
+	github.com/prometheus/alertmanager v0.25.1
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.44.0
