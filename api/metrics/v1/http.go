@@ -321,7 +321,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(UIRoute,
+			r.Mount(UIRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+UIRoute,
 					server.InjectLabelsCtx(
