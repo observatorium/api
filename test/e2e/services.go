@@ -32,6 +32,7 @@ const (
 	// the bearer token we would need
 	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
 	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
+	prometheusImage       = "prom/prometheus:v2.47.0"
 
 	dexImage              = "dexidp/dex:v2.30.0"
 	opaImage              = "openpolicyagent/opa:0.47.4-static"
@@ -95,6 +96,19 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 }
 
 func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, jaegerExternalHttpEndpoint, jaegerInternalHttpEndpoint string) {
+	prometheus := e.Runnable("prometheus").
+		WithPorts(
+			map[string]int{
+				"http": 9090,
+			}).
+		Init(e2e.StartOptions{Image: prometheusImage})
+	testutil.Ok(t, e2e.StartAndWaitReady(prometheus))
+
+	// The endpoint points to localhost
+	// parse the port and use it with host IP address later
+	promHttpEndpoint := prometheus.Endpoint("http")
+	promHostPort := promHttpEndpoint[strings.Index(promHttpEndpoint, ":")+1:]
+
 	jaeger := e.Runnable("jaeger").
 		WithPorts(
 			map[string]int{
@@ -102,7 +116,13 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, 
 				"grpc.query":  16685, // Query
 				"http.query":  16686, // Query
 			}).
-		Init(e2e.StartOptions{Image: jaegerAllInOneImage})
+		Init(e2e.StartOptions{
+			Image:   jaegerAllInOneImage,
+			EnvVars: map[string]string{"METRICS_STORAGE_TYPE": "prometheus"},
+			Command: e2e.Command{
+				Args: []string{"--prometheus.server-url=http://" + e.HostAddr() + ":" + promHostPort},
+			},
+		})
 
 	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
