@@ -8,13 +8,13 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-func extractQuerySelectors(selectorLabels map[string]bool, values url.Values) (*SelectorsInfo, error) {
+func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
 	query := values.Get("query")
 	if query == "" {
 		return emptySelectorsInfo, nil
 	}
 
-	selectors, hasWildcard, err := parseQueryNamespaces(selectorLabels, query)
+	selectors, hasWildcard, err := parseLogStreamSelectors(selectorNames, query)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func extractQuerySelectors(selectorLabels map[string]bool, values url.Values) (*
 	}, nil
 }
 
-func parseQueryNamespaces(selectorLabels map[string]bool, query string) (map[string][]string, bool, error) {
+func parseLogStreamSelectors(selectorNames map[string]bool, query string) (map[string][]string, bool, error) {
 	expr, err := logqlv2.ParseExpr(query)
 	if err != nil {
 		return nil, false, err
@@ -47,7 +47,7 @@ func parseQueryNamespaces(selectorLabels map[string]bool, query string) (map[str
 		switch le := expr.(type) {
 		case *logqlv2.StreamMatcherExpr:
 			for _, m := range le.Matchers() {
-				if _, ok := selectorLabels[m.Name]; !ok {
+				if _, ok := selectorNames[m.Name]; !ok {
 					continue
 				}
 

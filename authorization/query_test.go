@@ -50,15 +50,15 @@ func Test_parseQuerySelectors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.query, func(t *testing.T) {
-			gotNamespaces, gotHasWildcard, err := parseQueryNamespaces(testSelectorLabels, tt.query)
+			gotNamespaces, gotHasWildcard, err := parseLogStreamSelectors(testSelectorLabels, tt.query)
 			if err != nil {
-				t.Errorf("parseQueryNamespaces() error = %v", err)
+				t.Errorf("parseLogStreamSelectors() error = %v", err)
 			}
 			if !reflect.DeepEqual(gotNamespaces, tt.wantSelectors) {
-				t.Errorf("parseQueryNamespaces() got = %v, want %v", gotNamespaces, tt.wantSelectors)
+				t.Errorf("parseLogStreamSelectors() got = %v, want %v", gotNamespaces, tt.wantSelectors)
 			}
 			if gotHasWildcard != tt.wantHasWildcard {
-				t.Errorf("parseQueryNamespaces() got = %v, want %v", gotHasWildcard, tt.wantHasWildcard)
+				t.Errorf("parseLogStreamSelectors() got = %v, want %v", gotHasWildcard, tt.wantHasWildcard)
 			}
 		})
 	}

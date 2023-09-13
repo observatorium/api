@@ -18,8 +18,8 @@ const (
 	// in a request context.
 	authorizationDataKey contextKey = "authzData"
 
-	// authorizationSelectorsKey is the key that holds the data about selectors present in the LogQL query.
-	authorizationSelectorsKey contextKey = "logqlQuerySelectors"
+	// authorizationSelectorsKey is the key that holds the data about selectors present in the query.
+	authorizationSelectorsKey contextKey = "authzQuerySelectors"
 )
 
 type SelectorsInfo struct {
@@ -59,14 +59,14 @@ func WithSelectorsInfo(ctx context.Context, info *SelectorsInfo) context.Context
 	return context.WithValue(ctx, authorizationSelectorsKey, info)
 }
 
-// WithLogsQuerySelectorsExtractor returns a middleware that, when enabled, tries to extract
-// the list of namespaces it queries from a LogQL expression.
-func WithLogsQuerySelectorsExtractor(selectorLabels []string) func(http.Handler) http.Handler {
-	enabled := len(selectorLabels) > 0
+// WithLogsStreamSelectorsExtractor returns a middleware that, when enabled, tries to extract
+// stream selectors from queries, so that they can be used in authorizing the request.
+func WithLogsStreamSelectorsExtractor(selectorNames []string) func(http.Handler) http.Handler {
+	enabled := len(selectorNames) > 0
 
-	selectorLabelMap := make(map[string]bool, len(selectorLabels))
-	for _, l := range selectorLabels {
-		selectorLabelMap[l] = true
+	selectorNameMap := make(map[string]bool, len(selectorNames))
+	for _, l := range selectorNames {
+		selectorNameMap[l] = true
 	}
 
 	return func(next http.Handler) http.Handler {
@@ -77,9 +77,9 @@ func WithLogsQuerySelectorsExtractor(selectorLabels []string) func(http.Handler)
 				return
 			}
 
-			selectorsInfo, err := extractQuerySelectors(selectorLabelMap, r.URL.Query())
+			selectorsInfo, err := extractLogStreamSelectors(selectorNameMap, r.URL.Query())
 			if err != nil {
-				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting query selectors: %s", err), http.StatusInternalServerError)
+				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting selectors from query: %s", err), http.StatusInternalServerError)
 
 				return
 			}
