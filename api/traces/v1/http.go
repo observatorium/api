@@ -164,6 +164,9 @@ func NewV2Handler(read *url.URL, readTemplate string, upstreamCA []byte, upstrea
 		r.Get("/api/dependencies*", c.instrument.NewHandler(
 			prometheus.Labels{"group": "tracesv1api", "handler": "dependencies"},
 			proxyRead))
+		r.Get("/api/metrics*", c.instrument.NewHandler(
+			prometheus.Labels{"group": "metricsv1api", "handler": "metrics"},
+			proxyRead))
 		r.Get("/static/*", c.instrument.NewHandler(
 			prometheus.Labels{"group": "tracesv1static", "handler": "ui"},
 			proxyRead))
