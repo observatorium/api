@@ -34,6 +34,7 @@ const (
 	ParserLineFormat  = "line_format"
 	ParserLabelFormat = "label_format"
 	ParserDrop        = "drop"
+	ParserKeep        = "keep"
 
 	RangeOpTypeCount       = "count_over_time"
 	RangeOpTypeRate        = "rate"
@@ -62,6 +63,10 @@ const (
 	OpConvBytes           = "bytes"
 	OpConvDuration        = "duration"
 	OpConvDurationSeconds = "duration_seconds"
+
+	// Logfmt ops.
+	OpLogFMTStrict    = "--strict"
+	OpLogFMTKeepEmpty = "--keep-empty"
 )
 
 var tokens = map[string]int{
@@ -80,6 +85,7 @@ var tokens = map[string]int{
 	"|~":                  PIPE_MATCH,
 	"decolorize":          DECOLORIZE,
 	"drop":                DROP,
+	"keep":                KEEP,
 	"by":                  BY,
 	"without":             WITHOUT,
 	"on":                  ON,
@@ -112,6 +118,8 @@ var tokens = map[string]int{
 	OpConvBytes:           BYTES_CONV,
 	OpConvDuration:        DURATION_CONV,
 	OpConvDurationSeconds: DURATION_SECONDS_CONV,
+	OpLogFMTStrict:        LOGFMTSTRICT,
+	OpLogFMTKeepEmpty:     LOGFMTKEEPEMPTY,
 }
 
 var funcTokens = map[string]int{
@@ -172,6 +180,29 @@ func (l *lexer) Lex(lval *exprSymType) int {
 		}
 
 		return l.Lex(lval)
+
+	case '-':
+		if l.Peek() == '-' {
+			l.builder.Reset()
+			l.builder.WriteRune(r)
+
+			for r := l.Next(); !unicode.IsSpace(r); r = l.Next() {
+				_, _ = l.builder.WriteRune(r)
+			}
+
+			switch l.builder.String() {
+			case OpLogFMTStrict:
+				lval.str = OpLogFMTStrict
+
+				return LOGFMTSTRICT
+			case OpLogFMTKeepEmpty:
+				lval.str = OpLogFMTKeepEmpty
+
+				return LOGFMTKEEPEMPTY
+			}
+
+			return 0
+		}
 
 	case scanner.EOF:
 		return 0
