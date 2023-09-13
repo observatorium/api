@@ -51,11 +51,6 @@ type RoleBinding struct {
 
 // ExtraAttributes contains extra data about the request that can be used to make a more precise authorization decision.
 type ExtraAttributes struct {
-	Logs *LogsExtraAttributes `json:"logs,omitempty"`
-}
-
-// LogsExtraAttributes contains extra attributes about a logs request.
-type LogsExtraAttributes struct {
 	Selectors         map[string][]string `json:"selectors,omitempty"`
 	WildcardSelectors bool                `json:"wildcardSelectors,omitempty"`
 	MetadataOnly      bool                `json:"metadataOnly,omitempty"`

@@ -140,11 +140,9 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			metadataOnly := isMetadataRequest(r.URL.Path)
 
 			extraAttributes := &rbac.ExtraAttributes{
-				Logs: &rbac.LogsExtraAttributes{
-					Selectors:         selectorsInfo.Selectors,
-					WildcardSelectors: selectorsInfo.HasWildcard,
-					MetadataOnly:      metadataOnly,
-				},
+				Selectors:         selectorsInfo.Selectors,
+				WildcardSelectors: selectorsInfo.HasWildcard,
+				MetadataOnly:      metadataOnly,
 			}
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, extraAttributes)
