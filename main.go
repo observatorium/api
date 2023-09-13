@@ -159,9 +159,9 @@ type logsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// Allow only read-only access on rules
-	rulesReadOnly         bool
-	rulesLabelFilters     map[string][]string
-	extractSelectorLabels []string
+	rulesReadOnly        bool
+	rulesLabelFilters    map[string][]string
+	authExtractSelectors []string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -715,7 +715,7 @@ func main() {
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
-								logsv1.WithReadMiddleware(authorization.WithLogsQuerySelectorsExtractor(cfg.logs.extractSelectorLabels)),
+								logsv1.WithReadMiddleware(authorization.WithLogsQuerySelectorsExtractor(cfg.logs.authExtractSelectors)),
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
@@ -986,7 +986,7 @@ func parseFlags() (config, error) {
 		rawLogsTailEndpoint            string
 		rawLogsWriteEndpoint           string
 		rawLogsRuleLabelFilters        string
-		rawLogsExtractSelectorLabels   string
+		rawLogsAuthExtractSelectors    string
 		rawTracesReadEndpoint          string
 		rawTracesWriteEndpoint         string
 		rawTracingEndpointType         string
@@ -1051,8 +1051,8 @@ func parseFlags() (config, error) {
 		"The name of the rules label that should hold the tenant ID in logs upstreams.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
 		"The endpoint against which to make write requests for logs.")
-	flag.StringVar(&rawLogsExtractSelectorLabels, "logs.extract-selector-labels", "",
-		"Comma-separated list of query labels that should be treated as namespaces for authorization.")
+	flag.StringVar(&rawLogsAuthExtractSelectors, "logs.auth.extract-selectors", "",
+		"Comma-separated list of stream selectors that should be extracted from queries and sent to OPA during authorization.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
@@ -1182,8 +1182,8 @@ func parseFlags() (config, error) {
 
 		cfg.logs.readEndpoint = logsReadEndpoint
 
-		if rawLogsExtractSelectorLabels != "" {
-			cfg.logs.extractSelectorLabels = strings.Split(rawLogsExtractSelectorLabels, ",")
+		if rawLogsAuthExtractSelectors != "" {
+			cfg.logs.authExtractSelectors = strings.Split(rawLogsAuthExtractSelectors, ",")
 		}
 	}
 
