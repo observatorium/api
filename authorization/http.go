@@ -2,6 +2,7 @@ package authorization
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/observatorium/api/authentication"
@@ -16,6 +17,20 @@ const (
 	// authorizationDataKey is the key that holds the authorization response data
 	// in a request context.
 	authorizationDataKey contextKey = "authzData"
+
+	// authorizationSelectorsKey is the key that holds the data about selectors present in the query.
+	authorizationSelectorsKey contextKey = "authzQuerySelectors"
+)
+
+type SelectorsInfo struct {
+	Selectors   map[string][]string
+	HasWildcard bool
+}
+
+var (
+	emptySelectorsInfo = &SelectorsInfo{
+		Selectors: map[string][]string{},
+	}
 )
 
 // GetData extracts the authz response data from provided context.
@@ -29,6 +44,49 @@ func GetData(ctx context.Context) (string, bool) {
 // WithData extends the provided context with the authz response data.
 func WithData(ctx context.Context, data string) context.Context {
 	return context.WithValue(ctx, authorizationDataKey, data)
+}
+
+// GetSelectorsInfo extracts the query namespaces from the provided context.
+func GetSelectorsInfo(ctx context.Context) (*SelectorsInfo, bool) {
+	value := ctx.Value(authorizationSelectorsKey)
+	namespaces, ok := value.(*SelectorsInfo)
+
+	return namespaces, ok
+}
+
+// WithSelectorsInfo extends the provided context with the query namespaces.
+func WithSelectorsInfo(ctx context.Context, info *SelectorsInfo) context.Context {
+	return context.WithValue(ctx, authorizationSelectorsKey, info)
+}
+
+// WithLogsStreamSelectorsExtractor returns a middleware that, when enabled, tries to extract
+// stream selectors from queries, so that they can be used in authorizing the request.
+func WithLogsStreamSelectorsExtractor(selectorNames []string) func(http.Handler) http.Handler {
+	enabled := len(selectorNames) > 0
+
+	selectorNameMap := make(map[string]bool, len(selectorNames))
+	for _, l := range selectorNames {
+		selectorNameMap[l] = true
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !enabled {
+				next.ServeHTTP(w, r)
+
+				return
+			}
+
+			selectorsInfo, err := extractLogStreamSelectors(selectorNameMap, r.URL.Query())
+			if err != nil {
+				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting selectors from query: %s", err), http.StatusInternalServerError)
+
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
+		})
+	}
 }
 
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
@@ -74,7 +132,20 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				return
 			}
 
-			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token)
+			selectorsInfo, ok := GetSelectorsInfo(r.Context())
+			if !ok {
+				selectorsInfo = emptySelectorsInfo
+			}
+
+			metadataOnly := isMetadataRequest(r.URL.Path)
+
+			extraAttributes := &rbac.ExtraAttributes{
+				Selectors:         selectorsInfo.Selectors,
+				WildcardSelectors: selectorsInfo.HasWildcard,
+				MetadataOnly:      metadataOnly,
+			}
+
+			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, extraAttributes)
 			if !ok {
 				// Send 403 http.StatusForbidden
 				w.WriteHeader(statusCode)

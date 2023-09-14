@@ -45,13 +45,14 @@ func onboardNewFunction(regoFunctionName string, regoFunction func(log.Logger) f
 
 // Input models the data that is used for OPA input documents.
 type Input struct {
-	Groups     []string        `json:"groups"`
-	Permission rbac.Permission `json:"permission"`
-	Resource   string          `json:"resource"`
-	Subject    string          `json:"subject"`
-	Tenant     string          `json:"tenant"`
-	TenantID   string          `json:"tenantID"`
-	Token      string          `json:"token"`
+	Groups     []string              `json:"groups"`
+	Permission rbac.Permission       `json:"permission"`
+	Resource   string                `json:"resource"`
+	Subject    string                `json:"subject"`
+	Tenant     string                `json:"tenant"`
+	TenantID   string                `json:"tenantID"`
+	Token      string                `json:"token"`
+	Extras     *rbac.ExtraAttributes `json:"extras,omitempty"`
 }
 
 type config struct {
@@ -99,6 +100,7 @@ func (a *restAuthorizer) Authorize(
 	groups []string,
 	permission rbac.Permission,
 	resource, tenant, tenantID, token string,
+	extras *rbac.ExtraAttributes,
 ) (int, bool, string) {
 	var i interface{} = Input{
 		Groups:     groups,
@@ -107,6 +109,7 @@ func (a *restAuthorizer) Authorize(
 		Subject:    subject,
 		Tenant:     tenant,
 		TenantID:   tenantID,
+		Extras:     extras,
 	}
 
 	dreq := types.DataRequestV1{
@@ -247,6 +250,7 @@ func (a *inProcessAuthorizer) Authorize(
 	groups []string,
 	permission rbac.Permission,
 	resource, tenant, tenantID, token string,
+	extras *rbac.ExtraAttributes,
 ) (int, bool, string) {
 	var i interface{} = Input{
 		Groups:     groups,
@@ -256,6 +260,7 @@ func (a *inProcessAuthorizer) Authorize(
 		Tenant:     tenant,
 		TenantID:   tenantID,
 		Token:      token,
+		Extras:     extras,
 	}
 
 	res, err := a.query.Eval(context.Background(), rego.EvalInput(i))
