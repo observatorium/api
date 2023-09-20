@@ -992,7 +992,7 @@ func parseFlags() (config, error) {
 		rawLogsRuleLabelFilters        string
 		rawLogsAuthExtractSelectors    string
 		rawTracesReadEndpoint          string
-    rawTracesTempoEndpoint         string
+		rawTracesTempoEndpoint         string
 		rawTracesWriteEndpoint         string
 		rawTracingEndpointType         string
 	)
