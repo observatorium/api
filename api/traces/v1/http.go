@@ -126,6 +126,8 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 
 	r := chi.NewRouter()
 
+	middlewareMetrics := proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"})
+
 	if read != nil || readTemplate != "" {
 
 		var proxyRead http.Handler
@@ -143,7 +145,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 				upstreamMiddleware,
 				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
-				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
+				middlewareMetrics,
 			)
 
 			t := &http.Transport{
@@ -191,6 +193,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 
 	// if tempo upstream is enabled, configure proxy and route
 	if tempo != nil {
+		level.Debug(c.logger).Log("msg", "Configuring upstream Tempo", "queryv2", read)
 
 		t := &http.Transport{
 			DialContext: (&net.Dialer{
@@ -205,7 +208,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 			proxy.MiddlewareSetUpstream(tempo),
 			proxy.MiddlewareSetTempoPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
-			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
+			middlewareMetrics,
 		)
 
 		tempoProxyRead := &httputil.ReverseProxy{
