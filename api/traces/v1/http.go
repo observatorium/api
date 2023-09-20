@@ -193,7 +193,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 
 	// if tempo upstream is enabled, configure proxy and route
 	if tempo != nil {
-		level.Debug(c.logger).Log("msg", "Configuring upstream Tempo", "queryv2", read)
+		level.Debug(c.logger).Log("msg", "Configuring upstream Tempo", "queryv2", tempo)
 
 		t := &http.Transport{
 			DialContext: (&net.Dialer{
@@ -204,7 +204,6 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 
 		middlewares := proxy.Middlewares(
 			proxy.MiddlewareRemoveURLPrefix("tempo"),
-			proxy.MiddlewareAppendURLPrefix("api"),
 			proxy.MiddlewareSetUpstream(tempo),
 			proxy.MiddlewareSetTempoPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
