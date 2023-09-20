@@ -2,10 +2,12 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	stdlog "log"
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/log"
@@ -19,6 +21,8 @@ const (
 	prefixKey contextKey = "prefix"
 
 	PrefixHeader string = "X-Forwarded-Prefix"
+
+	TempoPrefixHeader string = "X-Scope-OrgID"
 )
 
 type Middleware func(r *http.Request)
@@ -31,6 +35,18 @@ func Middlewares(middlewares ...Middleware) func(r *http.Request) {
 	}
 }
 
+func MiddlewareRemoveURLPrefix(prefix string) Middleware {
+	return func(r *http.Request) {
+		r.URL.Path = fmt.Sprintf("/%s", strings.TrimLeft(strings.Trim(r.URL.Path, "/"), prefix))
+	}
+}
+
+func MiddlewareAppendURLPrefix(prefix string) Middleware {
+	return func(r *http.Request) {
+		r.URL.Path = fmt.Sprintf("/%s/%s", prefix, strings.TrimLeft(r.URL.Path, "/"))
+	}
+}
+
 func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 	return func(r *http.Request) {
 		r.URL.Scheme = upstream.Scheme
@@ -40,6 +56,22 @@ func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 }
 
 func MiddlewareSetPrefixHeader() Middleware {
+	return func(r *http.Request) {
+		prefix, ok := getPrefix(r.Context())
+		if !ok {
+			return
+		}
+
+		// Do not override the prefix header if it is already set.
+		if r.Header.Get(PrefixHeader) != "" {
+			return
+		}
+
+		r.Header.Set(PrefixHeader, prefix)
+	}
+}
+
+func MiddlewareSetTempoPrefixHeader() Middleware {
 	return func(r *http.Request) {
 		prefix, ok := getPrefix(r.Context())
 		if !ok {

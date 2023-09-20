@@ -40,6 +40,7 @@ type handlerConfiguration struct {
 	spanRoutePrefix  string
 	readMiddlewares  []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
+	tempoMiddlewares []func(http.Handler) http.Handler
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -80,6 +81,13 @@ func WithReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+// WithTempoMiddleware adds a middleware for all tempo read operations.
+func WithTempoMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.readMiddlewares = append(h.readMiddlewares, m)
+	}
+}
+
 // WithWriteMiddleware adds a middleware for all write operations.
 func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
@@ -101,11 +109,11 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read *url.URL, readTemplate string, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
-	if read == nil && readTemplate == "" {
+func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+
+	if read == nil && readTemplate == "" && tempo == nil {
 		panic("missing Jaeger read url")
 	}
-
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -118,23 +126,71 @@ func NewV2Handler(read *url.URL, readTemplate string, upstreamCA []byte, upstrea
 
 	r := chi.NewRouter()
 
-	var proxyRead http.Handler
-	{
-		level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
+	if read != nil || readTemplate != "" {
 
-		var upstreamMiddleware proxy.Middleware
-		if read != nil {
-			upstreamMiddleware = proxy.MiddlewareSetUpstream(read)
-		} else {
-			upstreamMiddleware = middlewareSetTemplatedUpstream(c.logger, readTemplate)
+		var proxyRead http.Handler
+		{
+			level.Debug(c.logger).Log("msg", "Configuring upstream Jaeger", "queryv2", read)
+
+			var upstreamMiddleware proxy.Middleware
+			if read != nil {
+				upstreamMiddleware = proxy.MiddlewareSetUpstream(read)
+			} else {
+				upstreamMiddleware = middlewareSetTemplatedUpstream(c.logger, readTemplate)
+			}
+
+			middlewares := proxy.Middlewares(
+				upstreamMiddleware,
+				proxy.MiddlewareSetPrefixHeader(),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
+			)
+
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: dialTimeout,
+				}).DialContext,
+				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			}
+
+			proxyRead = &httputil.ReverseProxy{
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
+
+				// This is a key piece, it changes <base href=> tags on text/html content
+				ModifyResponse: jaegerUIResponseModifier,
+			}
 		}
 
-		middlewares := proxy.Middlewares(
-			upstreamMiddleware,
-			proxy.MiddlewareSetPrefixHeader(),
-			proxy.MiddlewareLogger(c.logger),
-			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
-		)
+		r.Group(func(r chi.Router) {
+			r.Use(c.readMiddlewares...)
+			r.Get("/api/traces*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
+				proxyRead))
+			r.Get("/api/services*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "services"},
+				proxyRead))
+			r.Get("/api/dependencies*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "dependencies"},
+				proxyRead))
+			r.Get("/api/metrics*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "metricsv1api", "handler": "metrics"},
+				proxyRead))
+			r.Get("/static/*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1static", "handler": "ui"},
+				proxyRead))
+			r.Get("/search*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+				proxyRead))
+			r.Get("/favicon.ico", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+				proxyRead))
+		})
+	}
+
+	// if tempo upstream is enabled, configure proxy and route
+	if tempo != nil {
 
 		t := &http.Transport{
 			DialContext: (&net.Dialer{
@@ -143,40 +199,28 @@ func NewV2Handler(read *url.URL, readTemplate string, upstreamCA []byte, upstrea
 			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
 		}
 
-		proxyRead = &httputil.ReverseProxy{
+		middlewares := proxy.Middlewares(
+			proxy.MiddlewareRemoveURLPrefix("tempo"),
+			proxy.MiddlewareAppendURLPrefix("api"),
+			proxy.MiddlewareSetUpstream(tempo),
+			proxy.MiddlewareSetTempoPrefixHeader(),
+			proxy.MiddlewareLogger(c.logger),
+			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "tracesv1-read"}),
+		)
+
+		tempoProxyRead := &httputil.ReverseProxy{
 			Director:  middlewares,
 			ErrorLog:  proxy.Logger(c.logger),
 			Transport: otelhttp.NewTransport(t),
-
-			// This is a key piece, it changes <base href=> tags on text/html content
-			ModifyResponse: jaegerUIResponseModifier,
 		}
-	}
 
-	r.Group(func(r chi.Router) {
-		r.Use(c.readMiddlewares...)
-		r.Get("/api/traces*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
-			proxyRead))
-		r.Get("/api/services*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1api", "handler": "services"},
-			proxyRead))
-		r.Get("/api/dependencies*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1api", "handler": "dependencies"},
-			proxyRead))
-		r.Get("/api/metrics*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "metricsv1api", "handler": "metrics"},
-			proxyRead))
-		r.Get("/static/*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1static", "handler": "ui"},
-			proxyRead))
-		r.Get("/search*", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
-			proxyRead))
-		r.Get("/favicon.ico", c.instrument.NewHandler(
-			prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
-			proxyRead))
-	})
+		r.Group(func(r chi.Router) {
+			r.Use(c.tempoMiddlewares...)
+			r.Get("/tempo*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1tempo", "handler": "tempo"},
+				tempoProxyRead))
+		})
+	}
 
 	return r
 }
