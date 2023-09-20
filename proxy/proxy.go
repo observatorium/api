@@ -19,6 +19,8 @@ const (
 	prefixKey contextKey = "prefix"
 
 	PrefixHeader string = "X-Forwarded-Prefix"
+
+	TempoPrefixHeader string = "X-Scope-OrgID"
 )
 
 type Middleware func(r *http.Request)
@@ -40,6 +42,22 @@ func MiddlewareSetUpstream(upstream *url.URL) Middleware {
 }
 
 func MiddlewareSetPrefixHeader() Middleware {
+	return func(r *http.Request) {
+		prefix, ok := getPrefix(r.Context())
+		if !ok {
+			return
+		}
+
+		// Do not override the prefix header if it is already set.
+		if r.Header.Get(PrefixHeader) != "" {
+			return
+		}
+
+		r.Header.Set(PrefixHeader, prefix)
+	}
+}
+
+func MiddlewareSetTempoPrefixHeader() Middleware {
 	return func(r *http.Request) {
 		prefix, ok := getPrefix(r.Context())
 		if !ok {

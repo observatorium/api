@@ -170,6 +170,7 @@ type tracesConfig struct {
 
 	readEndpoint         *url.URL
 	writeEndpoint        string
+	tempoEndpoint        *url.URL
 	upstreamWriteTimeout time.Duration
 	upstreamCAFile       string
 	upstreamCertFile     string
@@ -702,7 +703,7 @@ func main() {
 			}
 
 			// Traces.
-			if cfg.traces.enabled && (cfg.traces.readEndpoint != nil || cfg.traces.readTemplateEndpoint != "") {
+			if cfg.traces.enabled && (cfg.traces.readEndpoint != nil || cfg.traces.readTemplateEndpoint != "" || cfg.traces.tempoEndpoint != nil) {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
@@ -726,6 +727,7 @@ func main() {
 							tracesv1.NewV2Handler(
 								cfg.traces.readEndpoint,
 								cfg.traces.readTemplateEndpoint,
+								cfg.traces.tempoEndpoint,
 								tracesUpstreamCACert,
 								tracesUpstreamClientCert,
 								tracesv1.Logger(logger),
@@ -734,6 +736,8 @@ func main() {
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
 								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+								tracesv1.WithTempoMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithTempoMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
 							),
 						),
@@ -957,6 +961,7 @@ func parseFlags() (config, error) {
 		rawLogsWriteEndpoint    string
 		rawLogsRuleLabelFilters string
 		rawTracesReadEndpoint   string
+		rawTracesTempoEndpoint  string
 		rawTracesWriteEndpoint  string
 		rawTracingEndpointType  string
 	)
@@ -1040,6 +1045,8 @@ func parseFlags() (config, error) {
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
 	flag.StringVar(&rawTracesReadEndpoint, "traces.read.endpoint", "",
 		"The endpoint against which to make HTTP read requests for traces.")
+	flag.StringVar(&rawTracesTempoEndpoint, "traces.tempo.endpoint", "",
+		"The endpoint against which to make HTTP read requests for traces using traceQL (tempo API).")
 	flag.StringVar(&cfg.traces.readTemplateEndpoint, "experimental.traces.read.endpoint-template", "",
 		"A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686")
 	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
@@ -1211,6 +1218,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.traces.readEndpoint = tracesReadEndpoint
+	}
+
+	if rawTracesTempoEndpoint != "" {
+		cfg.traces.enabled = true
+
+		tracesTempoEndpoint, err := url.ParseRequestURI(rawTracesTempoEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
+		}
+
+		cfg.traces.tempoEndpoint = tracesTempoEndpoint
 	}
 
 	if rawTracesWriteEndpoint != "" {
