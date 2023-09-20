@@ -34,19 +34,28 @@ const (
 	ReceiveRoute     = "/api/v1/receive"
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
+
+	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
+	AlertmanagerSilencesRoute = "/am/api/v2/silences"
 )
 
+type alertmanagerMiddleware struct {
+	alertsReadMiddlewares   []func(http.Handler) http.Handler
+	silenceReadMiddlewares  []func(http.Handler) http.Handler
+	silenceWriteMiddlewares []func(http.Handler) http.Handler
+}
+
 type handlerConfiguration struct {
-	logger           log.Logger
-	registry         *prometheus.Registry
-	instrument       handlerInstrumenter
-	spanRoutePrefix  string
-	tenantLabel      string
-	queryMiddlewares []func(http.Handler) http.Handler
-	readMiddlewares  []func(http.Handler) http.Handler
-	uiMiddlewares    []func(http.Handler) http.Handler
-	writeMiddlewares []func(http.Handler) http.Handler
-	labelParser      func(r *http.Request) prometheus.Labels
+	logger                 log.Logger
+	registry               *prometheus.Registry
+	instrument             handlerInstrumenter
+	spanRoutePrefix        string
+	tenantLabel            string
+	queryMiddlewares       []func(http.Handler) http.Handler
+	readMiddlewares        []func(http.Handler) http.Handler
+	uiMiddlewares          []func(http.Handler) http.Handler
+	writeMiddlewares       []func(http.Handler) http.Handler
+	alertmanagerMiddleware alertmanagerMiddleware
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -115,6 +124,24 @@ func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+func WithAlertmanagerAlertsReadMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.alertmanagerMiddleware.alertsReadMiddlewares = append(h.alertmanagerMiddleware.alertsReadMiddlewares, m...)
+	}
+}
+
+func WithAlertmanagerSilenceReadMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.alertmanagerMiddleware.silenceReadMiddlewares = append(h.alertmanagerMiddleware.silenceReadMiddlewares, m...)
+	}
+}
+
+func WithAlertmanagerSilenceWriteMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.alertmanagerMiddleware.silenceWriteMiddlewares = append(h.alertmanagerMiddleware.silenceWriteMiddlewares, m...)
+	}
+}
+
 // WithGlobalMiddleware adds a middleware for all operations.
 func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
@@ -122,14 +149,9 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 		h.uiMiddlewares = append(h.uiMiddlewares, m...)
 		h.queryMiddlewares = append(h.queryMiddlewares, m...)
 		h.readMiddlewares = append(h.readMiddlewares, m...)
-	}
-}
-
-// WithLabelParser adds a custom label parser to the handler.
-// The label parser is used to parse prometheus.Labels from the request.
-func WithLabelParser(labelParser func(r *http.Request) prometheus.Labels) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.labelParser = labelParser
+		h.alertmanagerMiddleware.alertsReadMiddlewares = append(h.alertmanagerMiddleware.alertsReadMiddlewares, m...)
+		h.alertmanagerMiddleware.silenceReadMiddlewares = append(h.alertmanagerMiddleware.silenceReadMiddlewares, m...)
+		h.alertmanagerMiddleware.silenceWriteMiddlewares = append(h.alertmanagerMiddleware.silenceWriteMiddlewares, m...)
 	}
 }
 
@@ -143,16 +165,20 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 	return handler.ServeHTTP
 }
 
+type Endpoints struct {
+	ReadEndpoint         *url.URL
+	WriteEndpoint        *url.URL
+	RulesEndpoint        *url.URL
+	AlertmanagerEndpoint *url.URL
+}
+
 // NewHandler creates the new metrics v1 handler.
 // nolint:funlen
-func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
 		instrument: nopInstrumentHandler{},
-		labelParser: func(r *http.Request) prometheus.Labels {
-			return nil
-		},
 	}
 
 	for _, o := range opts {
@@ -160,16 +186,15 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 	}
 
 	r := chi.NewRouter()
-	r.Use(server.InstrumentationMiddleware(c.labelParser))
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})
 
-	if read != nil {
+	if endpoints.ReadEndpoint != nil {
 		var proxyQuery http.Handler
 		{
 			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareSetUpstream(endpoints.ReadEndpoint),
 				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-query"}),
@@ -190,14 +215,30 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.queryMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(QueryRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+QueryRoute, proxyQuery))
-			r.Handle(QueryRangeRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+QueryRangeRoute, proxyQuery))
+			r.Handle(QueryRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+QueryRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "query"},
+						proxyQuery,
+					),
+				),
+			)
+			r.Handle(QueryRangeRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+QueryRangeRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
+						proxyQuery,
+					),
+				),
+			)
 		})
 
 		var proxyRead http.Handler
 		{
 			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareSetUpstream(endpoints.ReadEndpoint),
 				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-read"}),
@@ -219,18 +260,51 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(SeriesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+SeriesRoute, proxyRead))
-			r.Handle(LabelNamesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+LabelNamesRoute, proxyRead))
-			r.Handle(LabelValuesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+LabelValuesRoute, proxyRead))
+			r.Handle(RulesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRoute, proxyRead))
+			r.Handle(SeriesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+SeriesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "series"},
+						proxyRead,
+					),
+				),
+			)
+			r.Handle(LabelNamesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+LabelNamesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "label_names"},
+						proxyRead,
+					),
+				),
+			)
+			r.Handle(LabelValuesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+LabelValuesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "label_values"},
+						proxyRead,
+					),
+				),
+			)
 			// Thanos Query Rules API supports matchers from v0.25 so the WithEnforceTenancyOnMatchers
 			// middleware will not work here if prior versions are used.
-			r.Handle(RulesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRoute, proxyRead))
+			r.Handle(RulesRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+RulesRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+						proxyRead,
+					),
+				),
+			)
 		})
 
 		var uiProxy http.Handler
 		{
 			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(read),
+				proxy.MiddlewareSetUpstream(endpoints.ReadEndpoint),
 				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
@@ -247,15 +321,23 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Mount(UIRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+UIRoute, uiProxy))
+			r.Mount(UIRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+UIRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "ui"},
+						uiProxy,
+					),
+				),
+			)
 		})
 	}
 
-	if write != nil {
+	if endpoints.WriteEndpoint != nil {
 		var proxyWrite http.Handler
 		{
 			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(write),
+				proxy.MiddlewareSetUpstream(endpoints.WriteEndpoint),
 				proxy.MiddlewareSetPrefixHeader(),
 				proxy.MiddlewareLogger(c.logger),
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
@@ -277,12 +359,20 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(ReceiveRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+ReceiveRoute, proxyWrite))
+			r.Handle(ReceiveRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+ReceiveRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "receive"},
+						proxyWrite,
+					),
+				),
+			)
 		})
 	}
 
-	if rulesEndpoint != nil {
-		client, err := rules.NewClient(rulesEndpoint.String())
+	if endpoints.RulesEndpoint != nil {
+		client, err := rules.NewClient(endpoints.RulesEndpoint.String())
 		if err != nil {
 			level.Warn(c.logger).Log("msg", "could not create rules endpoint client")
 			return r
@@ -293,13 +383,93 @@ func NewHandler(read, write, rulesEndpoint *url.URL, upstreamCA []byte, upstream
 		r.Group(func(r chi.Router) {
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodGet, RulesRawRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRawRoute, http.HandlerFunc(rh.get)))
+			r.Method(http.MethodGet, RulesRawRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+RulesRawRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+						http.HandlerFunc(rh.get),
+					),
+				),
+			)
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodPut, RulesRawRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRawRoute, http.HandlerFunc(rh.put)))
+			r.Method(http.MethodPut, RulesRawRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+RulesRawRoute,
+					server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
+						http.HandlerFunc(rh.put),
+					),
+				),
+			)
+		})
+	}
+
+	if endpoints.AlertmanagerEndpoint != nil {
+		var proxyAlertmanager http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(endpoints.AlertmanagerEndpoint),
+				proxy.MiddlewareSetPrefixHeader(),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "alertmanagerv2"}),
+			)
+
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: dialTimeout,
+				}).DialContext,
+				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			}
+
+			proxyAlertmanager = &httputil.ReverseProxy{
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
+			}
+		}
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.alertmanagerMiddleware.alertsReadMiddlewares...)
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
+
+			r.Method(http.MethodGet, AlertmanagerAlertsRoute, otelhttp.WithRouteTag(
+				c.spanRoutePrefix+AlertmanagerAlertsRoute,
+				server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "alerts"},
+					proxyAlertmanager,
+				),
+			))
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
+
+			r.Method(http.MethodGet, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
+				c.spanRoutePrefix+AlertmanagerSilencesRoute,
+				server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
+					proxyAlertmanager,
+				),
+			))
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.alertmanagerMiddleware.silenceWriteMiddlewares...)
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
+
+			r.Method(http.MethodPost, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
+				c.spanRoutePrefix+AlertmanagerSilencesRoute,
+				server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
+					proxyAlertmanager,
+				),
+			))
 		})
 	}
 

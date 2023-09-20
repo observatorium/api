@@ -136,6 +136,7 @@ type metricsConfig struct {
 	readEndpoint         *url.URL
 	writeEndpoint        *url.URL
 	rulesEndpoint        *url.URL
+	alertmanagerEndpoint *url.URL
 	upstreamWriteTimeout time.Duration
 	upstreamCAFile       string
 	upstreamCertFile     string
@@ -158,8 +159,9 @@ type logsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// Allow only read-only access on rules
-	rulesReadOnly     bool
-	rulesLabelFilters map[string][]string
+	rulesReadOnly        bool
+	rulesLabelFilters    map[string][]string
+	authExtractSelectors []string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
 	enabled bool
 }
@@ -527,6 +529,16 @@ func main() {
 		hardcodedLabels := []string{"group", "handler"}
 		instrumenter := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
 
+		// Initializing the metrics of all handler to ensure Pyrra's `MetricSLOAbsent`
+		// alerts won't fire for endpoints with no traffic for a while after a
+		// restart of the application.
+		for _, groupHandler := range metricsV1Group {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
+		for _, groupHandler := range legacyMetricsGroup {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
+
 		var (
 			tenantIDs   = map[string]string{}
 			authorizers = map[string]rbac.Authorizer{}
@@ -602,6 +614,13 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
+				eps := metricsv1.Endpoints{
+					ReadEndpoint:         cfg.metrics.readEndpoint,
+					WriteEndpoint:        cfg.metrics.writeEndpoint,
+					RulesEndpoint:        cfg.metrics.rulesEndpoint,
+					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
+				}
+
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
 				if rateLimitClient != nil {
 					rateLimitMiddleware = ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...)
@@ -633,7 +652,6 @@ func main() {
 						metricsUpstreamClientCert,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
-						metricslegacy.WithLabelParser(chiLabelParser),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
@@ -643,14 +661,11 @@ func main() {
 					))
 
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
-						cfg.metrics.readEndpoint,
-						cfg.metrics.writeEndpoint,
-						cfg.metrics.rulesEndpoint,
+						eps,
 						metricsUpstreamCACert,
 						metricsUpstreamClientCert,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
-						metricsv1.WithLabelParser(chiLabelParser),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
@@ -663,7 +678,20 @@ func main() {
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-					))
+						metricsv1.WithAlertmanagerAlertsReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
+							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
+						),
+						metricsv1.WithAlertmanagerSilenceReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
+							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
+						),
+						metricsv1.WithAlertmanagerSilenceWriteMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
+							metricsv1.WithEnforceTenancyOnSilenceMatchers(cfg.metrics.tenantLabel),
+						),
+					),
+					)
 				})
 			}
 
@@ -688,6 +716,7 @@ func main() {
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
+								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(cfg.logs.authExtractSelectors)),
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
@@ -951,19 +980,21 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 //nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
-		rawTLSCipherSuites      string
-		rawMetricsReadEndpoint  string
-		rawMetricsWriteEndpoint string
-		rawMetricsRulesEndpoint string
-		rawLogsReadEndpoint     string
-		rawLogsRulesEndpoint    string
-		rawLogsTailEndpoint     string
-		rawLogsWriteEndpoint    string
-		rawLogsRuleLabelFilters string
-		rawTracesReadEndpoint   string
-		rawTracesTempoEndpoint  string
-		rawTracesWriteEndpoint  string
-		rawTracingEndpointType  string
+		rawTLSCipherSuites             string
+		rawMetricsReadEndpoint         string
+		rawMetricsWriteEndpoint        string
+		rawMetricsRulesEndpoint        string
+		rawMetricsAlertmanagerEndpoint string
+		rawLogsReadEndpoint            string
+		rawLogsRulesEndpoint           string
+		rawLogsTailEndpoint            string
+		rawLogsWriteEndpoint           string
+		rawLogsRuleLabelFilters        string
+		rawLogsAuthExtractSelectors    string
+		rawTracesReadEndpoint          string
+    rawTracesTempoEndpoint         string
+		rawTracesWriteEndpoint         string
+		rawTracingEndpointType         string
 	)
 
 	cfg := config{}
@@ -1025,12 +1056,16 @@ func parseFlags() (config, error) {
 		"The name of the rules label that should hold the tenant ID in logs upstreams.")
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
 		"The endpoint against which to make write requests for logs.")
+	flag.StringVar(&rawLogsAuthExtractSelectors, "logs.auth.extract-selectors", "",
+		"Comma-separated list of stream selectors that should be extracted from queries and sent to OPA during authorization.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
+	flag.StringVar(&rawMetricsAlertmanagerEndpoint, "metrics.alertmanager.endpoint", "",
+		"The endpoint against which to make requests for alerts and silences")
 	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the metrics endpoint.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
@@ -1133,6 +1168,17 @@ func parseFlags() (config, error) {
 		cfg.metrics.rulesEndpoint = metricsRulesEndpoint
 	}
 
+	if rawMetricsAlertmanagerEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		alertmanagerEndpoint, err := url.ParseRequestURI(rawMetricsAlertmanagerEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.alertmanager.endpoint %q is invalid: %w", rawMetricsAlertmanagerEndpoint, err)
+		}
+
+		cfg.metrics.alertmanagerEndpoint = alertmanagerEndpoint
+	}
+
 	if rawLogsReadEndpoint != "" {
 		cfg.logs.enabled = true
 
@@ -1142,6 +1188,10 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.logs.readEndpoint = logsReadEndpoint
+
+		if rawLogsAuthExtractSelectors != "" {
+			cfg.logs.authExtractSelectors = strings.Split(rawLogsAuthExtractSelectors, ",")
+		}
 	}
 
 	if rawLogsRulesEndpoint != "" {
@@ -1398,54 +1448,21 @@ type groupHandler struct {
 	handler string
 }
 
-var legacyMetricsGroup = map[string]groupHandler{
-	metricslegacy.QueryRoute:      {"metricslegacy", "query"},
-	metricslegacy.QueryRangeRoute: {"metricslegacy", "query_range"},
+var legacyMetricsGroup = []groupHandler{
+	{"metricslegacy", "query"},
+	{"metricslegacy", "query_range"},
 }
 
-var metricsV1Group = map[string]groupHandler{
-	metricsv1.UIRoute:          {"metricsv1", "ui"},
-	metricsv1.QueryRoute:       {"metricsv1", "query"},
-	metricsv1.QueryRangeRoute:  {"metricsv1", "query_range"},
-	metricsv1.SeriesRoute:      {"metricsv1", "series"},
-	metricsv1.LabelNamesRoute:  {"metricsv1", "labels"},
-	metricsv1.LabelValuesRoute: {"metricsv1", "labelvalues"},
-	metricsv1.ReceiveRoute:     {"metricsv1", "receive"},
-	metricsv1.RulesRoute:       {"metricsv1", "rules"},
-	metricsv1.RulesRawRoute:    {"metricsv1", "rules-raw"},
-}
-
-func chiLabelParser(r *http.Request) prometheus.Labels {
-	extraLabels := prometheus.Labels{
-		"handler": "unknown",
-		"group":   "unknown",
-	}
-
-	routePattern := chi.RouteContext(r.Context()).RoutePattern()
-	tenant, ok := authentication.GetTenant(r.Context())
-	if !ok {
-		return extraLabels
-	}
-
-	var groupHandler map[string]groupHandler
-	switch routePattern {
-	case "/api/metrics/v1/{tenant}/*":
-		groupHandler = metricsV1Group
-	case "/api/v1/{tenant}/*":
-		groupHandler = legacyMetricsGroup
-	}
-
-	strippedPath := strings.Split(r.URL.Path, tenant)
-	if len(strippedPath) != 2 {
-		return extraLabels
-	}
-
-	gh, ok := groupHandler[strippedPath[1]]
-	if ok {
-		extraLabels = prometheus.Labels{
-			"group":   gh.group,
-			"handler": gh.handler,
-		}
-	}
-	return extraLabels
+var metricsV1Group = []groupHandler{
+	{"metricsv1", "ui"},
+	{"metricsv1", "query"},
+	{"metricsv1", "query_range"},
+	{"metricsv1", "series"},
+	{"metricsv1", "labels"},
+	{"metricsv1", "labelvalues"},
+	{"metricsv1", "receive"},
+	{"metricsv1", "rules"},
+	{"metricsv1", "rules-raw"},
+	{"metricsv1", "alerts"},
+	{"metricsv1", "silences"},
 }

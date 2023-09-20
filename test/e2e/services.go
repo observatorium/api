@@ -21,9 +21,10 @@ const (
 	apiImage = "quay.io/observatorium/api:local_e2e_test" // Image that is built if you run `make container-test`.
 
 	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
-	thanosImage = "quay.io/thanos/thanos:main-2022-12-21-c378043"
-	lokiImage   = "grafana/loki:2.6.1"
-	upImage     = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
+	thanosImage       = "quay.io/thanos/thanos:main-2022-12-21-c378043"
+	lokiImage         = "grafana/loki:2.6.1"
+	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
+	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
@@ -94,6 +95,9 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 }
 
 func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, jaegerExternalHttpEndpoint, jaegerInternalHttpEndpoint string) {
+	prometheus := e2edb.NewPrometheus(e, "prometheus")
+	testutil.Ok(t, e2e.StartAndWaitReady(prometheus))
+
 	jaeger := e.Runnable("jaeger").
 		WithPorts(
 			map[string]int{
@@ -101,7 +105,13 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, 
 				"grpc.query":  16685, // Query
 				"http.query":  16686, // Query
 			}).
-		Init(e2e.StartOptions{Image: jaegerAllInOneImage})
+		Init(e2e.StartOptions{
+			Image:   jaegerAllInOneImage,
+			EnvVars: map[string]string{"METRICS_STORAGE_TYPE": "prometheus"},
+			Command: e2e.Command{
+				Args: []string{"--prometheus.server-url=http://" + prometheus.InternalEndpoint("http")},
+			},
+		})
 
 	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
 
@@ -222,6 +232,20 @@ func newThanosReceiveService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	), "http")
 }
 
+func newAlertmanagerService(e e2e.Environment) *e2emon.InstrumentedRunnable {
+	ports := map[string]int{
+		"http": 9093,
+	}
+
+	return e2emon.AsInstrumented(e.Runnable("alertmanager").WithPorts(ports).Init(
+		e2e.StartOptions{
+			Image:     alertmanagerImage,
+			Readiness: e2e.NewHTTPReadinessProbe("http", "/-/ready", 200, 200),
+			User:      strconv.Itoa(os.Getuid()),
+		},
+	), "http")
+}
+
 func newLokiService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 3100, "grpc": 9095}
 
@@ -293,6 +317,7 @@ type apiOptions struct {
 	metricsReadEndpoint  string
 	metricsWriteEndpoint string
 	metricsRulesEndpoint string
+	alertmanagerEndpoint string
 	ratelimiterAddr      string
 	tracesWriteEndpoint  string
 	gRPCListenEndpoint   string
@@ -347,6 +372,12 @@ func withRulesEndpoint(rulesEndpoint string) apiOption {
 	}
 }
 
+func withAlertmanagerEndpoint(alertmanagerEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.alertmanagerEndpoint = alertmanagerEndpoint
+	}
+}
+
 func withRateLimiter(addr string) apiOption {
 	return func(o *apiOptions) {
 		o.ratelimiterAddr = addr
@@ -386,6 +417,10 @@ func newObservatoriumAPIService(
 
 	if opts.metricsRulesEndpoint != "" {
 		args = append(args, "--metrics.rules.endpoint="+opts.metricsRulesEndpoint)
+	}
+
+	if opts.alertmanagerEndpoint != "" {
+		args = append(args, "--metrics.alertmanager.endpoint="+opts.alertmanagerEndpoint)
 	}
 
 	if opts.logsEndpoint != "" {

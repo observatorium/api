@@ -1018,7 +1018,7 @@ func TestNewAuthorizer(t *testing.T) {
 			a := NewAuthorizer(tc.roles, tc.roleBindings, logger.NewLogger("info", logger.LogFormatLogfmt, "observatorium"))
 			for i := range tc.ios {
 				sc, out, data := a.Authorize(tc.ios[i].subject, tc.ios[i].groups, tc.ios[i].permission, tc.ios[i].resource,
-					tc.ios[i].tenant, tc.ios[i].tenantID, "")
+					tc.ios[i].tenant, tc.ios[i].tenantID, "", nil)
 				if sc != tc.ios[i].statusCode {
 					t.Errorf("test case %d: expected status code %d; got %d", i, tc.ios[i].statusCode, sc)
 				}

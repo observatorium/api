@@ -101,6 +101,12 @@ groups:
         annotations: {}
 `
 
+const metricsEmptyRulesYamlTpl = `
+groups: []
+`
+
+const metricsNilRulesYamlTpl = ``
+
 func TestRulesAPI(t *testing.T) {
 	t.Parallel()
 
@@ -159,17 +165,8 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		// Check if recording rule is listed
-		r, err = http.NewRequest(
-			http.MethodGet,
-			metricsRulesURL,
-			nil,
-		)
+		res, err = getRules(t, metricsRulesURL, client)
 		testutil.Ok(t, err)
-
-		res, err = client.Do(r)
-		testutil.Ok(t, err)
-		defer res.Body.Close()
-
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		body, err := io.ReadAll(res.Body)
@@ -199,17 +196,8 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		// Check if the alerting rule is listed
-		r, err = http.NewRequest(
-			http.MethodGet,
-			metricsRulesURL,
-			nil,
-		)
+		res, err = getRules(t, metricsRulesURL, client)
 		testutil.Ok(t, err)
-
-		res, err = client.Do(r)
-		testutil.Ok(t, err)
-		defer res.Body.Close()
-
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		body, err := io.ReadAll(res.Body)
@@ -235,18 +223,8 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		// Check if both recording and alerting rules are listed
-		r, err = http.NewRequest(
-			http.MethodGet,
-			metricsRulesURL,
-			nil,
-		)
+		res, err = getRules(t, metricsRulesURL, client)
 		testutil.Ok(t, err)
-
-		res, err = client.Do(r)
-		testutil.Ok(t, err)
-		defer res.Body.Close()
-
-		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
 		body, err := io.ReadAll(res.Body)
 		bodyStr := string(body)
@@ -288,6 +266,50 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
 	})
 
+	t.Run("metrics-write-empty-rules", func(t *testing.T) {
+		// set empty rules
+		emptyRules := []byte(metricsEmptyRulesYamlTpl)
+		r, err := http.NewRequest(
+			http.MethodPut,
+			metricsRulesURL,
+			bytes.NewReader(emptyRules),
+		)
+		testutil.Ok(t, err)
+
+		res, err := client.Do(r)
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusOK, res.StatusCode)
+
+		res, err = getRules(t, metricsRulesURL, client)
+		testutil.Ok(t, err)
+
+		body, err := io.ReadAll(res.Body)
+		testutil.Ok(t, err)
+		assertResponse(t, string(body), "groups: []")
+	})
+
+	t.Run("metrics-write-nil-rules", func(t *testing.T) {
+		// set nil rules
+		nilRules := []byte(metricsNilRulesYamlTpl)
+		r, err := http.NewRequest(
+			http.MethodPut,
+			metricsRulesURL,
+			bytes.NewReader(nilRules),
+		)
+		testutil.Ok(t, err)
+
+		res, err := client.Do(r)
+		testutil.Ok(t, err)
+		testutil.Equals(t, http.StatusOK, res.StatusCode)
+
+		res, err = getRules(t, metricsRulesURL, client)
+		testutil.Ok(t, err)
+
+		body, err := io.ReadAll(res.Body)
+		testutil.Ok(t, err)
+		assertResponse(t, string(body), "groups: null")
+	})
+
 	t.Run("logs-write-then-read-alerting-rules", func(t *testing.T) {
 		// Set a file containing an alerting rule
 		alertingRule := []byte(logsAlertingRuleYamlTpl)
@@ -298,7 +320,6 @@ func TestRulesAPI(t *testing.T) {
 
 		res, err = client.Get(logsRulesURL)
 		testutil.Ok(t, err)
-		defer res.Body.Close()
 
 		testutil.Equals(t, http.StatusOK, res.StatusCode)
 
@@ -344,4 +365,19 @@ func TestRulesAPI(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Equals(t, http.StatusBadRequest, res.StatusCode)
 	})
+}
+
+// getRules is a helper function to get rules from the rules API. A response body closer is added to the test cleanup
+// functions, so caller don't need to care about it.
+func getRules(t *testing.T, rulesUrl string, client *http.Client) (*http.Response, error) {
+	request, err := http.NewRequest(
+		http.MethodGet,
+		rulesUrl,
+		nil,
+	)
+	testutil.Ok(t, err)
+
+	response, err := client.Do(request)
+	t.Cleanup(func() { _ = response.Body.Close() })
+	return response, err
 }

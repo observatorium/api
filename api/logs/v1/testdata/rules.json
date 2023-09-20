@@ -10,6 +10,7 @@
                         "name": "application:logtest0:errors:rate10m",
                         "query": "sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[10m]))",
                         "labels": {
+                            "namespace": "log-test-0"
                         },
                         "health": "ok",
                         "lastError": "",
@@ -19,8 +20,9 @@
                     },
                     {
                         "name": "application:logtest1:errors:rate10m",
-                        "query": "sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[10m]))",
+                        "query": "sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[10m]))",
                         "labels": {
+                            "namespace": "log-test-0"
                         },
                         "health": "unknown",
                         "lastError": "",
@@ -40,7 +42,7 @@
                     {
                         "state": "inactive",
                         "name": "HighPercentageErrorAAA",
-                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"}[1m]))) u003e 0.01)",
+                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"}[1m]))) > 0.01)",
                         "duration": 10,
                         "labels": {
                             "namespace": "log-test-0",
@@ -70,7 +72,7 @@
                     {
                         "state": "inactive",
                         "name": "HighPercentageError",
-                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"}[1m]))) u003e 0.01)",
+                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"}[1m]))) > 0.01)",
                         "duration": 10,
                         "labels": {
                             "namespace": "log-test-1",
@@ -91,10 +93,10 @@
                     {
                         "state": "inactive",
                         "name": "HighPercentageError",
-                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-0\", kubernetes_pod_name=~\"logger.*\"}[1m]))) u003e 0.01)",
+                        "query": "((sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"} |= \"error\"[1m])) / sum(rate({kubernetes_namespace_name=\"log-test-1\", kubernetes_pod_name=~\"logger.*\"}[1m]))) > 0.01)",
                         "duration": 10,
                         "labels": {
-                            "namespace": "log-test-0",
+                            "namespace": "log-test-1",
                             "severity": "critical",
                             "tenantId": "application"
                         },

@@ -163,27 +163,30 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 			}
 		}
 
-		r.Group(func(r chi.Router) {
-			r.Use(c.readMiddlewares...)
-			r.Get("/api/traces*", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
-				proxyRead))
-			r.Get("/api/services*", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1api", "handler": "services"},
-				proxyRead))
-			r.Get("/api/dependencies*", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1api", "handler": "dependencies"},
-				proxyRead))
-			r.Get("/static/*", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1static", "handler": "ui"},
-				proxyRead))
-			r.Get("/search*", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
-				proxyRead))
-			r.Get("/favicon.ico", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
-				proxyRead))
-		})
+    r.Group(func(r chi.Router) {
+      r.Use(c.readMiddlewares...)
+      r.Get("/api/traces*", c.instrument.NewHandler(
+        prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
+        proxyRead))
+      r.Get("/api/services*", c.instrument.NewHandler(
+        prometheus.Labels{"group": "tracesv1api", "handler": "services"},
+        proxyRead))
+      r.Get("/api/dependencies*", c.instrument.NewHandler(
+        prometheus.Labels{"group": "tracesv1api", "handler": "dependencies"},
+        proxyRead))
+      r.Get("/api/metrics*", c.instrument.NewHandler(
+        prometheus.Labels{"group": "metricsv1api", "handler": "metrics"},
+        proxyRead))
+      r.Get("/static/*", c.instrument.NewHandler(
+        prometheus.Labels{"group": "tracesv1static", "handler": "ui"},
+        proxyRead))
+      r.Get("/search*", c.instrument.NewHandler(
+        prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+        proxyRead))
+      r.Get("/favicon.ico", c.instrument.NewHandler(
+        prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+        proxyRead))
+    })
 	}
 
 	// if tempo upstream is enabled, configure proxy and route

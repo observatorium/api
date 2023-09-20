@@ -49,10 +49,17 @@ type RoleBinding struct {
 	Roles    []string  `json:"roles"`
 }
 
+// ExtraAttributes contains extra data about the request that can be used to make a more precise authorization decision.
+type ExtraAttributes struct {
+	Selectors         map[string][]string `json:"selectors,omitempty"`
+	WildcardSelectors bool                `json:"wildcardSelectors,omitempty"`
+	MetadataOnly      bool                `json:"metadataOnly,omitempty"`
+}
+
 // Authorizer can authorize a subject's permission for a tenant's resource.
 type Authorizer interface {
 	// Authorize answers the question: can subject S in groups G perform permission P on resource R for Tenant T?
-	Authorize(subject string, groups []string, permission Permission, resource, tenant, tenantID, token string) (int, bool, string)
+	Authorize(subject string, groups []string, permission Permission, resource, tenant, tenantID, token string, extras *ExtraAttributes) (int, bool, string)
 }
 
 // tenant represents the read and write permissions of many subjects on a single tenant.
@@ -72,7 +79,7 @@ type resources struct {
 
 // Authorize implements the Authorizer interface.
 func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant,
-	tenantID, token string) (int, bool, string) {
+	tenantID, token string, _ *ExtraAttributes) (int, bool, string) {
 	ts, ok := rs.tenants[resource]
 	if !ok {
 		level.Debug(rs.logger).Log("msg",

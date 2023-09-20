@@ -90,6 +90,8 @@ func getContainerName(t *testing.T, tt testType, serviceName string) string {
 		return envMetricsName + "-" + serviceName
 	case rules:
 		return envRulesAPIName + "-" + serviceName
+	case alerts:
+		return envAlertmanagerName + "-" + serviceName
 	case tenants:
 		return envTenantsName + "-" + serviceName
 	case interactive:
