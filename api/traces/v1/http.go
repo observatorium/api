@@ -218,7 +218,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.tempoMiddlewares...)
-			r.Get("/tempo*", c.instrument.NewHandler(
+			r.Get("/tempo/api*", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesv1tempo", "handler": "tempo"},
 				tempoProxyRead))
 		})
