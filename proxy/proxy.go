@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"github.com/observatorium/api/authentication"
 	stdlog "log"
 	"net/http"
 	"net/url"
@@ -22,7 +23,7 @@ const (
 
 	PrefixHeader string = "X-Forwarded-Prefix"
 
-	TempoPrefixHeader string = "X-Scope-OrgID"
+	TempoOrgIDHeaderName string = "X-Scope-OrgID"
 )
 
 type Middleware func(r *http.Request)
@@ -38,12 +39,6 @@ func Middlewares(middlewares ...Middleware) func(r *http.Request) {
 func MiddlewareRemoveURLPrefix(prefix string) Middleware {
 	return func(r *http.Request) {
 		r.URL.Path = fmt.Sprintf("/%s", strings.TrimLeft(strings.Trim(r.URL.Path, "/"), prefix))
-	}
-}
-
-func MiddlewareAppendURLPrefix(prefix string) Middleware {
-	return func(r *http.Request) {
-		r.URL.Path = fmt.Sprintf("/%s/%s", prefix, strings.TrimLeft(r.URL.Path, "/"))
 	}
 }
 
@@ -71,19 +66,13 @@ func MiddlewareSetPrefixHeader() Middleware {
 	}
 }
 
-func MiddlewareSetTempoPrefixHeader() Middleware {
+func MiddlewareSetTempoTenantHeader() Middleware {
 	return func(r *http.Request) {
-		prefix, ok := getPrefix(r.Context())
+		tenant, ok := authentication.GetTenant(r.Context())
 		if !ok {
 			return
 		}
-
-		// Do not override the prefix header if it is already set.
-		if r.Header.Get(PrefixHeader) != "" {
-			return
-		}
-
-		r.Header.Set(PrefixHeader, prefix)
+		r.Header.Set(TempoOrgIDHeaderName, tenant)
 	}
 }
 

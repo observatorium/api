@@ -205,7 +205,8 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 		middlewares := proxy.Middlewares(
 			proxy.MiddlewareRemoveURLPrefix("tempo"),
 			proxy.MiddlewareSetUpstream(tempo),
-			proxy.MiddlewareSetTempoPrefixHeader(),
+			proxy.MiddlewareSetPrefixHeader(),
+			proxy.MiddlewareSetTempoTenantHeader(),
 			proxy.MiddlewareLogger(c.logger),
 			middlewareMetrics,
 		)
