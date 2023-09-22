@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"github.com/observatorium/api/authentication"
 	stdlog "log"
 	"net/http"
 	"net/url"
@@ -13,6 +12,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
