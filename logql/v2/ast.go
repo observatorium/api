@@ -37,6 +37,26 @@ type defaultLogQLExpr struct{}
 
 func (defaultLogQLExpr) logQLExpr() {}
 
+type ParenthesisExpr struct {
+	defaultLogQLExpr
+	inner Expr
+}
+
+func (e *ParenthesisExpr) Walk(fn WalkFn) {
+	fn(e)
+	e.inner.Walk(fn)
+}
+
+func (e *ParenthesisExpr) String() string {
+	return fmt.Sprintf("(%s)", e.inner)
+}
+
+func newParenthesisExpr(expr Expr) *ParenthesisExpr {
+	return &ParenthesisExpr{
+		inner: expr,
+	}
+}
+
 type StreamMatcherExpr struct {
 	defaultLogQLExpr
 	matchers []*labels.Matcher

@@ -93,12 +93,12 @@ expr:
         |       logMetricExpr   { $$ = $1 }
         |       logBinaryOpExpr { $$ = $1 }
         |       logNumberExpr   { $$ = $1 }
+        |       OPEN_PARENTHESIS expr CLOSE_PARENTHESIS { $$ = newParenthesisExpr($2) }
         ;
 
 logQueryExpr:
                 selector                                         { $$ = newLogQueryExpr(newStreamMatcherExpr($1), nil) }
         |       selector logPipelineExpr                         { $$ = newLogQueryExpr(newStreamMatcherExpr($1), $2)  }
-        |       OPEN_PARENTHESIS logQueryExpr CLOSE_PARENTHESIS  { $$ = $2                                             }
         ;
 
 logPipelineExpr:
@@ -192,7 +192,6 @@ logMetricExpr:
         |       metricOp grouping OPEN_PARENTHESIS logBinaryOpExpr CLOSE_PARENTHESIS                                                 { $$ = newLogMetricExpr($4, nil, $1, "", $2, true, nil, nil)                                  }
         |       LABEL_REPLACE OPEN_PARENTHESIS logBinaryOpExpr COMMA STRING COMMA STRING COMMA STRING COMMA STRING CLOSE_PARENTHESIS { $$ = newLogMetricExpr($3, nil, OpLabelReplace, "", nil, false, []string{$5,$7,$9,$11}, nil) }
         |       metricOp OPEN_PARENTHESIS NUMBER CLOSE_PARENTHESIS                                                                   { $$ = newLogMetricExpr(newVectorExpr($3), nil, OpTypeVector, "", nil, false, nil, nil)       }
-        |       OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                                     { $$ = $2                                                                                     }
         ;
 
 logBinaryOpExpr:

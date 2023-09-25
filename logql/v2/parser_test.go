@@ -50,6 +50,21 @@ func TestParseExpr(t *testing.T) {
 				},
 			}},
 		},
+		{
+			input: `({first="value"})`,
+			expr: &ParenthesisExpr{
+				inner: &LogQueryExpr{left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+				},
+			},
+		},
 		// log query expressions with filter
 		{
 			input: `{first="value"} |= "other"`,
@@ -1774,7 +1789,7 @@ func TestParseExpr(t *testing.T) {
 				t.Fatalf("unexpected err: %s", err)
 			}
 
-			got := trimOutput(expr.String())
+			got := expr.String()
 			want := trimInput(tc.input)
 
 			if want != got {
@@ -1798,18 +1813,6 @@ func trimInput(s string) string {
 	s = strings.ReplaceAll(s, "\t", "")
 
 	return strings.TrimSpace(s)
-}
-
-func trimOutput(s string) string {
-	if s == "" {
-		return s
-	}
-
-	if strings.HasPrefix(s, "(") {
-		s = strings.TrimPrefix(s, "(")
-		s = strings.TrimSuffix(s, ")")
-	}
-	return s
 }
 
 func TestQuotesEncode(t *testing.T) {
