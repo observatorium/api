@@ -93,7 +93,6 @@ expr:
         |       logMetricExpr   { $$ = $1 }
         |       logBinaryOpExpr { $$ = $1 }
         |       logNumberExpr   { $$ = $1 }
-        |       OPEN_PARENTHESIS expr CLOSE_PARENTHESIS { $$ = $2 }
         ;
 
 logQueryExpr:
