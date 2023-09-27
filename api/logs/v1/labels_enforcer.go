@@ -18,7 +18,10 @@ type AuthzResponseData struct {
 	MatcherOp string            `json:"matcherOp,omitempty"`
 }
 
-const logicalOr = "or"
+const (
+	logicalOr  = "or"
+	queryParam = "query"
+)
 
 // WithEnforceAuthorizationLabels return a middleware that ensures every query
 // has a set of labels returned by the OPA authorizer enforced.
@@ -59,8 +62,6 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 		})
 	}
 }
-
-const queryParam = "query"
 
 func enforceValues(mInfo AuthzResponseData, u *url.URL) (values string, err error) {
 	switch {
