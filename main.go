@@ -715,7 +715,7 @@ func main() {
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
-								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(cfg.logs.authExtractSelectors)),
+								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(logger, cfg.logs.authExtractSelectors)),
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
