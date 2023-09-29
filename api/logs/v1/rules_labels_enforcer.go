@@ -4,19 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 const (
-	labelsParam      = "labels"
-	matcherNamespace = "kubernetes_namespace_name"
-	namespaceLabel   = "namespace"
+	labelsParam    = "labels"
+	namespaceLabel = "kubernetes_namespace_name"
 )
 
 // WithEnforceRulesLabelFilters returns a middleware that enforces that every query
@@ -100,7 +98,7 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 
 // WithEnforceNamespaceLabels returns a middleware that adds a query parameter
 // to a request to filter by namespace labels.
-func WithEnforceRulesNamespaceLabelFilter() func(http.Handler) http.Handler {
+func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			data, ok := authorization.GetData(r.Context())
@@ -125,7 +123,39 @@ func WithEnforceRulesNamespaceLabelFilter() func(http.Handler) http.Handler {
 				return
 			}
 
-			r.URL.RawQuery = enforceNamespaceLabels(matchersInfo.Matchers, r.URL.Query())
+			matchers, err := initAuthzMatchers(matchersInfo.Matchers)
+			if err != nil {
+				httperr.PrometheusAPIError(w, "error initializing authorization label matchers", http.StatusInternalServerError)
+
+				return
+			}
+
+			var labelFilter string
+			queryParams := r.URL.Query()
+			val := queryParams.Get(namespaceLabel)
+			for _, matcher := range matchers {
+				if matcher == nil {
+					continue
+				}
+
+				if matcher.Name == namespaceLabel && matcher.Matches(val) {
+					labelFilter = fmt.Sprintf("%s:%s", matcher.Name, val)
+					break
+				}
+			}
+
+			if labelFilter == "" {
+				httperr.PrometheusAPIError(w, "error enforcing namespace label", http.StatusInternalServerError)
+				return
+			}
+			
+			queryParams.Del(namespaceLabel)
+			queryParams.Set(labelsParam, labelFilter)
+			r.URL.RawQuery = queryParams.Encode()
+
+			level.Debug(logger).Log("rawQuery: ",r.URL.RawQuery)
+			
+			// r.URL.RawQuery = enforceNamespaceLabels(matchersInfo.Matchers, r.URL.Query())
 
 			next.ServeHTTP(w, r)
 
@@ -133,21 +163,24 @@ func WithEnforceRulesNamespaceLabelFilter() func(http.Handler) http.Handler {
 	}
 }
 
-func enforceNamespaceLabels(matchers []*labels.Matcher, v url.Values) string {
-	ls := make([]string, 0)
-	for _, m := range matchers {
-		// OPA returns a "|" delimited list of namespaces.
-		if m != nil && m.Name == matcherNamespace && (m.Type == labels.MatchEqual || m.Type == labels.MatchRegexp) {
-			ns := strings.Split(m.Value, "|")
-			for _, n := range ns {
-				ls = append(ls, fmt.Sprintf("%s:%s", namespaceLabel, n))
-			}
-		}
-	}
+// func enforceNamespaceLabels(matchers []*labels.Matcher, v url.Values) string {
+//     var labelFilter string
+//     val := v.Get(namespaceLabel)
+//     for _, matcher := range matchers {
+//         if matcher == nil {
+//             continue
+//         }
 
-	if len(ls) > 0 {
-		v.Set(labelsParam, strings.Join(ls, ","))
-	}
+//         if matcher.Name == namespaceLabel && matcher.Matches(val) {
+//             labelFilter = fmt.Sprintf("%s:%s", matcher.Name, val)
+//             break
+//         }
+//     }
 
-	return v.Encode()
-}
+//     if labelFilter == "" {
+
+//     }
+
+//     v.Set(labelsParam, labelFilter)
+//     return v.Encode()
+// }
