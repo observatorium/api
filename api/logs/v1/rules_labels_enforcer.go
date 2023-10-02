@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 const (
@@ -130,32 +133,9 @@ func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) 
 				return
 			}
 
-			var labelFilter string
-			queryParams := r.URL.Query()
-			val := queryParams.Get(namespaceLabel)
-			for _, matcher := range matchers {
-				if matcher == nil {
-					continue
-				}
+			r.URL.RawQuery = enforceNamespaceLabels(matchers, r.URL.Query())
 
-				if matcher.Name == namespaceLabel && matcher.Matches(val) {
-					labelFilter = fmt.Sprintf("%s:%s", matcher.Name, val)
-					break
-				}
-			}
-
-			if labelFilter == "" {
-				httperr.PrometheusAPIError(w, "error enforcing namespace label", http.StatusInternalServerError)
-				return
-			}
-			
-			queryParams.Del(namespaceLabel)
-			queryParams.Set(labelsParam, labelFilter)
-			r.URL.RawQuery = queryParams.Encode()
-
-			level.Debug(logger).Log("rawQuery: ",r.URL.RawQuery)
-			
-			// r.URL.RawQuery = enforceNamespaceLabels(matchersInfo.Matchers, r.URL.Query())
+			level.Debug(logger).Log("url string: ", r.URL.String())
 
 			next.ServeHTTP(w, r)
 
@@ -163,24 +143,29 @@ func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) 
 	}
 }
 
-// func enforceNamespaceLabels(matchers []*labels.Matcher, v url.Values) string {
-//     var labelFilter string
-//     val := v.Get(namespaceLabel)
-//     for _, matcher := range matchers {
-//         if matcher == nil {
-//             continue
-//         }
+func enforceNamespaceLabels(matchers []*labels.Matcher, queryParams url.Values) string {
+	var labelFilter []string
+	for _, val := range queryParams[namespaceLabel] {
+		for _, matcher := range matchers {
+			if matcher == nil {
+				continue
+			}
 
-//         if matcher.Name == namespaceLabel && matcher.Matches(val) {
-//             labelFilter = fmt.Sprintf("%s:%s", matcher.Name, val)
-//             break
-//         }
-//     }
+			if matcher.Type != labels.MatchEqual && matcher.Type != labels.MatchRegexp {
+				continue
+			}
 
-//     if labelFilter == "" {
+			if matcher.Name == namespaceLabel && matcher.Matches(val) {
+				labelFilter = append(labelFilter, fmt.Sprintf("%s:%s", matcher.Name, val))
+			}
+		}
+	}
 
-//     }
+	if len(labelFilter) == 0 {
+		return queryParams.Encode()
+	}
 
-//     v.Set(labelsParam, labelFilter)
-//     return v.Encode()
-// }
+	queryParams.Del(namespaceLabel)
+	queryParams.Set(labelsParam, strings.Join(labelFilter, ","))
+	return queryParams.Encode()
+}
