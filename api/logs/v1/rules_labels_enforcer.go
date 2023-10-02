@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
@@ -99,11 +97,25 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 	}
 }
 
-// WithEnforceNamespaceLabels returns a middleware that adds a query parameter
-// to a request to filter by namespace labels.
-func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) http.Handler {
+// WithParametersAsLabelsFilterRules returns a middleware that transforms query parameters
+// that match the CLI arg labelKeys to the native Loki labels query parameters
+func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tenant, ok := authentication.GetTenant(r.Context())
+			if !ok {
+				httperr.PrometheusAPIError(w, "missing tenant id", http.StatusBadRequest)
+
+				return
+			}
+
+			keys, ok := labelKeys[tenant]
+			if !ok || len(keys) == 0 {
+				next.ServeHTTP(w, r)
+
+				return
+			}
+
 			data, ok := authorization.GetData(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "error finding authorization label matcher", http.StatusInternalServerError)
@@ -111,8 +123,7 @@ func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) 
 				return
 			}
 
-			// Early pass to the next if no authz
-			// label enforcement configured.
+			// Early pass to the next if no authz label enforcement configured.
 			if data == "" {
 				next.ServeHTTP(w, r)
 
@@ -133,9 +144,7 @@ func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) 
 				return
 			}
 
-			r.URL.RawQuery = enforceNamespaceLabels(matchers, r.URL.Query())
-
-			level.Debug(logger).Log("url string: ", r.URL.String())
+			r.URL.RawQuery = transformParametersInLabelFilter(keys, matchers, r.URL.Query())
 
 			next.ServeHTTP(w, r)
 
@@ -143,20 +152,20 @@ func WithEnforceRulesNamespaceLabelFilter(logger log.Logger) func(http.Handler) 
 	}
 }
 
-func enforceNamespaceLabels(matchers []*labels.Matcher, queryParams url.Values) string {
+func transformParametersInLabelFilter(keys []string, matchers []*labels.Matcher, queryParams url.Values) string {
 	var labelFilter []string
-	for _, val := range queryParams[namespaceLabel] {
+	for _, key := range keys {
+		val := queryParams.Get(key)
+
 		for _, matcher := range matchers {
 			if matcher == nil {
 				continue
 			}
 
-			if matcher.Type != labels.MatchEqual && matcher.Type != labels.MatchRegexp {
-				continue
-			}
-
-			if matcher.Name == namespaceLabel && matcher.Matches(val) {
-				labelFilter = append(labelFilter, fmt.Sprintf("%s:%s", matcher.Name, val))
+			if matcher.Name == key && matcher.Matches(val) {
+				labelFilter = append(labelFilter, fmt.Sprintf("%s:%s", key, val))
+				queryParams.Del(key)
+				break
 			}
 		}
 	}
@@ -165,7 +174,6 @@ func enforceNamespaceLabels(matchers []*labels.Matcher, queryParams url.Values) 
 		return queryParams.Encode()
 	}
 
-	queryParams.Del(namespaceLabel)
 	queryParams.Set(labelsParam, strings.Join(labelFilter, ","))
 	return queryParams.Encode()
 }
