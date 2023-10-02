@@ -2,9 +2,10 @@ package authorization
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
@@ -61,7 +62,7 @@ func WithSelectorsInfo(ctx context.Context, info *SelectorsInfo) context.Context
 
 // WithLogsStreamSelectorsExtractor returns a middleware that, when enabled, tries to extract
 // stream selectors from queries, so that they can be used in authorizing the request.
-func WithLogsStreamSelectorsExtractor(selectorNames []string) func(http.Handler) http.Handler {
+func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string) func(http.Handler) http.Handler {
 	enabled := len(selectorNames) > 0
 
 	selectorNameMap := make(map[string]bool, len(selectorNames))
@@ -79,9 +80,9 @@ func WithLogsStreamSelectorsExtractor(selectorNames []string) func(http.Handler)
 
 			selectorsInfo, err := extractLogStreamSelectors(selectorNameMap, r.URL.Query())
 			if err != nil {
-				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting selectors from query: %s", err), http.StatusInternalServerError)
-
-				return
+				// Don't error out, just warn about error and continue with empty selectorsInfo
+				level.Warn(logger).Log("msg", err)
+				selectorsInfo = emptySelectorsInfo
 			}
 
 			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
