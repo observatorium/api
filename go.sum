@@ -314,8 +314,6 @@ github.com/efficientgo/core v1.0.0-rc.2 h1:7j62qHLnrZqO3V3UA0AqOGd5d5aXV3AX6m/NZ
 github.com/efficientgo/core v1.0.0-rc.2/go.mod h1:FfGdkzWarkuzOlY04VY+bGfb1lWrjaL6x/GLcQ4vJps=
 github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f h1:o6k4pEAY+B54emx/ZkSo1aeBDgzIIvBYluezcWjKilw=
 github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f/go.mod h1:plsKU0YHE9uX+7utvr7SiDtVBSHJyEfHRO4UnUgDmts=
-github.com/efficientgo/tools/core v0.0.0-20220225185207-fe763185946b h1:ZHiD4/yE4idlbqvAO6iYCOYRzOMRpxkW+FKasRA3tsQ=
-github.com/efficientgo/tools/core v0.0.0-20220225185207-fe763185946b/go.mod h1:OmVcnJopJL8d3X3sSXTiypGoUSgFq1aDGmlrdi9dn/M=
 github.com/emicklei/go-restful/v3 v3.10.1 h1:rc42Y5YTp7Am7CS630D7JmhRjq4UlEUuEKfrDac4bSQ=
 github.com/emicklei/go-restful/v3 v3.10.1/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
@@ -990,8 +988,8 @@ github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndr
 github.com/pquerna/cachecontrol v0.1.0 h1:yJMy84ti9h/+OEWa752kBTKv4XC30OtVVHYv/8cTqKc=
 github.com/pquerna/cachecontrol v0.1.0/go.mod h1:NrUG3Z7Rdu85UNR3vm7SOsl1nFIeSiQnrHV5K9mBcUI=
 github.com/prashantv/gostub v1.1.0 h1:BTyx3RfQjRHnUWaGF9oQos79AlQ5k8WNktv7VGvVH4g=
-github.com/prometheus-community/prom-label-proxy v0.6.0 h1:vRY29tUex8qI2MEimovTzJdieEwiSko+f7GuPCLjFkI=
-github.com/prometheus-community/prom-label-proxy v0.6.0/go.mod h1:XyAyskjjhqEx0qnbGUVeAkYSz3Wm9gStT7/wXFxD8n0=
+github.com/prometheus-community/prom-label-proxy v0.7.0 h1:1iNHXF7V8z2iOCinEyxKDUHu2jppPAAd6PmBCi3naok=
+github.com/prometheus-community/prom-label-proxy v0.7.0/go.mod h1:wR9C/Mwp5aBbiqM6gQ+FZdFRwL8pCzzhsje8lTAx/aA=
 github.com/prometheus/alertmanager v0.26.0 h1:uOMJWfIwJguc3NaM3appWNbbrh6G/OjvaHMk22aBBYc=
 github.com/prometheus/alertmanager v0.26.0/go.mod h1:rVcnARltVjavgVaNnmevxK7kOn7IZavyf0KNgHkbEpU=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=

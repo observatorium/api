@@ -28,7 +28,7 @@ require (
 	github.com/oklog/run v1.1.0
 	github.com/open-policy-agent/opa v0.52.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-community/prom-label-proxy v0.6.0
+	github.com/prometheus-community/prom-label-proxy v0.7.0
 	github.com/prometheus/alertmanager v0.26.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/common v0.44.0
@@ -84,7 +84,6 @@ require (
 	github.com/dennwc/varint v1.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
-	github.com/efficientgo/tools/core v0.0.0-20220225185207-fe763185946b // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/envoyproxy/go-control-plane v0.11.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
