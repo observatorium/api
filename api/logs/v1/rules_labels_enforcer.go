@@ -13,10 +13,7 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-const (
-	labelsParam    = "labels"
-	namespaceLabel = "kubernetes_namespace_name"
-)
+const labelsParam = "labels"
 
 // WithEnforceRulesLabelFilters returns a middleware that enforces that every query
 // parameter has a matching matcher returned by authorization endpoint.
@@ -98,7 +95,7 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 }
 
 // WithParametersAsLabelsFilterRules returns a middleware that transforms query parameters
-// that match the CLI arg labelKeys to the native Loki labels query parameters
+// that match the CLI arg labelKeys to the native Loki labels query parameters.
 func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
