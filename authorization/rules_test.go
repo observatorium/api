@@ -42,7 +42,7 @@ func Test_parseQueryParametersSelectors(t *testing.T) {
 			queryValues, err := url.ParseQuery(tt.queryParameters)
 			testutil.Ok(t, err)
 
-			gotNamespaces, _, err := parseLogRulesSelectors(testSelectorLabels, queryValues)
+			gotNamespaces, err := parseLogRulesSelectors(testSelectorLabels, queryValues)
 			if err != nil {
 				t.Errorf("parseLogStreamSelectors() error = %v", err)
 			}

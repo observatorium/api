@@ -91,53 +91,6 @@ func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string)
 	}
 }
 
-// WithLogsRulesSelectorsExtractor returns a middleware that, when enabled, tries to extract
-// stream selectors from queries, so that they can be used in authorizing the request.
-func WithLogsRulesSelectorsExtractor(logger log.Logger, selectorNames []string) func(http.Handler) http.Handler {
-	enabled := len(selectorNames) > 0
-    
-	// TODO remove
-	level.Debug(logger).Log("--------enabled", enabled)
-
-	selectorNameMap := make(map[string]bool, len(selectorNames))
-	for _, l := range selectorNames {
-		selectorNameMap[l] = true
-
-		// TODO remove
-		level.Debug(logger).Log("--------selector", l)
-	}
-	
-	
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if ! isRulesRequest(r.URL.Path) {
-				next.ServeHTTP(w, r)
-				level.Debug(logger).Log("notRuleRequest", isRulesRequest(r.URL.Path))
-
-				return
-			}
-
-			level.Debug(logger).Log("enabled", enabled)
-			if !enabled {
-				next.ServeHTTP(w, r)
-
-				return
-			}
-
-			selectorsInfo, err := extractLogRulesSelectors(selectorNameMap, r.URL.Query())
-			level.Debug(logger).Log("selectors", selectorsInfo)
-			if err != nil {
-				// Don't error out, just warn about error and continue with empty selectorsInfo
-				level.Warn(logger).Log("msg", err)
-				selectorsInfo = emptySelectorsInfo
-			}
-
-			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
-		})
-	}
-}
-
 // WithAuthorizers returns a middleware that authorizes subjects taken from a request context
 // for the given permission on the given resource for a tenant taken from a request context.
 func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Permission, resource string) func(http.Handler) http.Handler {
