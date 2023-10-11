@@ -2,7 +2,6 @@ package authorization
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/go-kit/log"
@@ -138,7 +137,6 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 			if !ok {
 				selectorsInfo = emptySelectorsInfo
 			}
-			fmt.Printf("selectors: %+v\n", selectorsInfo)
 
 			metadataOnly := isMetadataRequest(r.URL.Path)
 

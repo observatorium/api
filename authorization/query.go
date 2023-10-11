@@ -12,14 +12,11 @@ import (
 func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
 	query := values.Get("query")
 	if query == "" {
-		// If query is empty we will assume it's a possibly a metadata/rules request
-		selectors, err := parseLogRulesSelectors(selectorNames, values)
-		if err != nil {
-			return nil, fmt.Errorf("error extracting selectors from parameters %#q: %w", values, err)
-		}
-	
+		// If query is empty we will assume it's a possibly a rules request
+		selectors := parseLogRulesSelectors(selectorNames, values)
+
 		return &SelectorsInfo{
-			Selectors:   selectors,
+			Selectors: selectors,
 		}, nil
 	}
 
