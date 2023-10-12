@@ -61,7 +61,7 @@ func WithSelectorsInfo(ctx context.Context, info *SelectorsInfo) context.Context
 }
 
 // WithLogsStreamSelectorsExtractor returns a middleware that, when enabled, tries to extract
-// stream selectors from queries, so that they can be used in authorizing the request.
+// stream selectors from queries or rules, so that they can be used in authorizing the request.
 func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string) func(http.Handler) http.Handler {
 	enabled := len(selectorNames) > 0
 
