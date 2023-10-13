@@ -84,7 +84,7 @@ func WithReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 // WithTempoMiddleware adds a middleware for all tempo read operations.
 func WithTempoMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
-		h.readMiddlewares = append(h.readMiddlewares, m)
+		h.tempoMiddlewares = append(h.tempoMiddlewares, m)
 	}
 }
 
