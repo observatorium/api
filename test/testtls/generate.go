@@ -1,20 +1,23 @@
 package testtls
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
-	stdlog "log"
+	"math/big"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/cloudflare/cfssl/cli/genkey"
-	"github.com/cloudflare/cfssl/config"
-	"github.com/cloudflare/cfssl/csr"
-	"github.com/cloudflare/cfssl/helpers"
-	"github.com/cloudflare/cfssl/initca"
-	"github.com/cloudflare/cfssl/signer"
-	"github.com/cloudflare/cfssl/signer/local"
 )
+
+const expireDays = 1
 
 type certBundle struct {
 	cert []byte
@@ -29,63 +32,69 @@ func GenerateCerts(
 	dexSANs []string,
 ) error {
 	var (
-		defaultConfig        = config.DefaultConfig()
-		defaultSigningConfig = config.SigningProfile{
-			Expiry:       168 * time.Hour,
-			ExpiryString: "168h",
-		}
-
 		caCommonName     = "observatorium"
-		serverExpiration = defaultConfig.Expiry
 		clientCommonName = "up"
 		clientSANs       = "up"
 		clientGroups     = "test"
-		clientExpiration = defaultConfig.Expiry
 	)
 
-	caBundle, err := generateCACert(caCommonName)
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		return fmt.Errorf("generate CA cert %s: %v", caCommonName, err)
+		return err
 	}
-
-	serverSigningConfig := config.Signing{
-		Default: &defaultSigningConfig,
-		Profiles: map[string]*config.SigningProfile{
-			"www": {
-				Expiry:       serverExpiration,
-				ExpiryString: serverExpiration.String(),
-				Usage:        []string{"signing", "key encipherment", "server auth"},
-			},
+	ca := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			CommonName: caCommonName,
 		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(0, 0, expireDays),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
 	}
 
-	apiBundle, err := generateCert(apiCommonName, apiSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	caPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return fmt.Errorf("generate server cert %s, %s: %v", apiCommonName, apiSANs, err)
+		return err
 	}
-
-	dexBundle, err := generateCert(dexCommonName, dexSANs, nil, "www", &serverSigningConfig, caBundle.cert, caBundle.key)
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
 	if err != nil {
-		return fmt.Errorf("generate server cert %s, %s: %v", dexCommonName, dexSANs, err)
+		return err
 	}
 
-	clientSigningConfig := config.Signing{
-		Default: &defaultSigningConfig,
-		Profiles: map[string]*config.SigningProfile{
-			"client": {
-				Expiry:       clientExpiration,
-				ExpiryString: clientExpiration.String(),
-				Usage:        []string{"signing", "key encipherment", "client auth"},
-			},
-		},
-	}
-
-	clientBundle, err := generateCert(
-		clientCommonName, signer.SplitHosts(clientSANs), signer.SplitHosts(clientGroups),
-		"client", &clientSigningConfig, caBundle.cert, caBundle.key,
-	)
+	caPEM := new(bytes.Buffer)
+	pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: caBytes,
+	})
+	caPrivKeyPEM := new(bytes.Buffer)
+	key, err := x509.MarshalECPrivateKey(caPrivKey)
 	if err != nil {
-		return fmt.Errorf("generate client cert %s, %s: %v", clientCommonName, clientSANs, err)
+		return err
+	}
+	pem.Encode(caPrivKeyPEM, &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: key,
+	})
+	caBundle := certBundle{
+		cert: caPEM.Bytes(),
+		key:  caPrivKeyPEM.Bytes(),
+	}
+
+	apiBundle, err := generateCert(ca, caPrivKey, false, apiCommonName, apiSANs, nil)
+	if err != nil {
+		return err
+	}
+	dexBundle, err := generateCert(ca, caPrivKey, false, dexCommonName, dexSANs, nil)
+	if err != nil {
+		return err
+	}
+	clientBundle, err := generateCert(ca, caPrivKey, true, clientCommonName, []string{clientSANs}, []string{clientGroups})
+	if err != nil {
+		return err
 	}
 
 	for file, content := range map[string][]byte{
@@ -107,76 +116,61 @@ func GenerateCerts(
 			return fmt.Errorf("write file %s: %v", file, err)
 		}
 	}
-
 	return nil
 }
 
-// Helpers
+func generateCert(caCert *x509.Certificate, caPrivateKey crypto.Signer, client bool, commonName string, dnsNames []string, ou []string) (*certBundle, error) {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, err
+	}
+	apiCert := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			CommonName:         commonName,
+			OrganizationalUnit: ou,
+		},
+		IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1)},
+		NotBefore:   time.Now(),
 
-func generateCACert(commonName string) (certBundle, error) {
-	cert, _, key, err := initca.New(&csr.CertificateRequest{
-		CN:         commonName,
-		KeyRequest: csr.NewKeyRequest(),
+		NotAfter:              time.Now().AddDate(0, 0, expireDays),
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		DNSNames:              dnsNames,
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+		AuthorityKeyId:        caCert.SubjectKeyId,
+	}
+	if client {
+		apiCert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
+	}
+	certPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, apiCert, caCert, &certPrivateKey.PublicKey, caPrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	certPEM := new(bytes.Buffer)
+	pem.Encode(certPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
 	})
+
+	key, err := x509.MarshalECPrivateKey(certPrivateKey)
 	if err != nil {
-		return certBundle{}, fmt.Errorf("initca: %w", err)
+		return nil, err
 	}
-
-	return certBundle{cert: cert, key: key}, nil
-}
-
-func generateCert(
-	commonName string, hosts []string, groups []string, profile string,
-	signingConfig *config.Signing, ca []byte, caKey []byte,
-) (certBundle, error) {
-	stdlog.Printf("cert generate, commonName=%s, hosts=%v, groups=%v, profile=%s, signingConfig=%+v\n",
-		commonName, hosts, groups, profile, signingConfig)
-
-	names := make([]csr.Name, 0, len(groups))
-
-	for _, g := range groups {
-		names = append(names, csr.Name{OU: g})
-	}
-
-	req := csr.CertificateRequest{
-		CN:         commonName,
-		Names:      names,
-		Hosts:      hosts,
-		KeyRequest: csr.NewKeyRequest(),
-	}
-
-	g := &csr.Generator{Validator: genkey.Validator}
-
-	csrBytes, key, err := g.ProcessRequest(&req)
-	if err != nil {
-		return certBundle{}, fmt.Errorf("process request (%+v): %w", req, err)
-	}
-
-	signReq := signer.SignRequest{
-		Request: string(csrBytes),
-		Hosts:   hosts,
-		Profile: profile,
-	}
-
-	parsedCa, err := helpers.ParseCertificatePEM(ca)
-	if err != nil {
-		return certBundle{}, fmt.Errorf("parse certificate pem: %w", err)
-	}
-
-	priv, err := helpers.ParsePrivateKeyPEMWithPassword(caKey, []byte{})
-	if err != nil {
-		return certBundle{}, fmt.Errorf("parse private key pem with password: %w", err)
-	}
-
-	s, err := local.NewSigner(priv, parsedCa, signer.DefaultSigAlgo(priv), signingConfig)
-	if err != nil {
-		return certBundle{}, fmt.Errorf("new signer: %w", err)
-	}
-
-	cert, err := s.Sign(signReq)
-	if err != nil {
-		return certBundle{}, fmt.Errorf("sign: %w", err)
-	}
-
-	return certBundle{cert: cert, key: key}, nil
+	certPrivateKeyPEM := new(bytes.Buffer)
+	pem.Encode(certPrivateKeyPEM, &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: key,
+	})
+	return &certBundle{
+		cert: certPEM.Bytes(),
+		key:  certPrivateKeyPEM.Bytes(),
+	}, nil
 }
