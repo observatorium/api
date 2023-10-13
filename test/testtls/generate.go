@@ -66,19 +66,23 @@ func GenerateCerts(
 	}
 
 	caPEM := new(bytes.Buffer)
-	pem.Encode(caPEM, &pem.Block{
+	if err := pem.Encode(caPEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: caBytes,
-	})
+	}); err != nil {
+		return err
+	}
 	caPrivKeyPEM := new(bytes.Buffer)
 	key, err := x509.MarshalECPrivateKey(caPrivKey)
 	if err != nil {
 		return err
 	}
-	pem.Encode(caPrivKeyPEM, &pem.Block{
+	if err := pem.Encode(caPrivKeyPEM, &pem.Block{
 		Type:  "EC PRIVATE KEY",
 		Bytes: key,
-	})
+	}); err != nil {
+		return err
+	}
 	caBundle := certBundle{
 		cert: caPEM.Bytes(),
 		key:  caPrivKeyPEM.Bytes(),
@@ -155,20 +159,24 @@ func generateCert(caCert *x509.Certificate, caPrivateKey crypto.Signer, client b
 	}
 
 	certPEM := new(bytes.Buffer)
-	pem.Encode(certPEM, &pem.Block{
+	if err := pem.Encode(certPEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	key, err := x509.MarshalECPrivateKey(certPrivateKey)
 	if err != nil {
 		return nil, err
 	}
 	certPrivateKeyPEM := new(bytes.Buffer)
-	pem.Encode(certPrivateKeyPEM, &pem.Block{
+	if err = pem.Encode(certPrivateKeyPEM, &pem.Block{
 		Type:  "EC PRIVATE KEY",
 		Bytes: key,
-	})
+	}); err != nil {
+		return nil, err
+	}
 	return &certBundle{
 		cert: certPEM.Bytes(),
 		key:  certPrivateKeyPEM.Bytes(),
