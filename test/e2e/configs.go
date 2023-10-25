@@ -69,6 +69,20 @@ tenants:
     - endpoint: "/api/logs/v1/.*"
       limit: 100
       window: 1s
+- name: another-tenant
+  id: 177ef09c-04e1-46c5-86f7-dc3250bfe869
+  oidc:
+    clientID: test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
+    redirectURL: https://%[7]s:8443/oidc/another-tenant/callback
+    usernameClaim: email
+  opa:
+    query: data.observatorium.allow
+    paths:
+    - %[3]s
+    - %[4]s
 - name: test-attacker
   id: 066df98b-04e1-46c5-86f7-dc3250bfe869
   oidc:
@@ -146,6 +160,7 @@ staticClients:
   secret: ZXhhbXBsZS1hcHAtc2VjcmV0
   redirectURIs:
   - https://%s:8443/oidc/test-oidc/callback
+  - https://%s:8443/oidc/another-tenant/callback
 enablePasswordDB: true
 staticPasswords:
 - email: "admin@example.com"
@@ -166,6 +181,7 @@ func createDexYAML(
 		issuer,
 		filepath.Join(e.SharedDir(), certsSharedDir, "dex.pem"),
 		filepath.Join(e.SharedDir(), certsSharedDir, "dex.key"),
+		redirectURI,
 		redirectURI,
 	))
 
