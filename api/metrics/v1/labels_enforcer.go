@@ -69,7 +69,6 @@ func WithEnforceTenancyOnMatchers(tenantLabel string) func(http.Handler) http.Ha
 			tenantID, ok := authentication.GetTenantID(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
-
 				return
 			}
 
