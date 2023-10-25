@@ -21,7 +21,7 @@ const (
 	apiImage = "quay.io/observatorium/api:local_e2e_test" // Image that is built if you run `make container-test`.
 
 	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
-	thanosImage       = "quay.io/thanos/thanos:main-2022-12-21-c378043"
+	thanosImage       = "quay.io/thanos/thanos:v0.32.4"
 	lokiImage         = "grafana/loki:2.6.1"
 	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
