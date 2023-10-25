@@ -655,7 +655,7 @@ func main() {
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, "query")),
 						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					))
 
@@ -672,9 +672,9 @@ func main() {
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
 						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, "query")),
 						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
+						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, "match[]")),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithAlertmanagerAlertsReadMiddleware(

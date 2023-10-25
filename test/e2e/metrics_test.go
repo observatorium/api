@@ -121,7 +121,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 			// Split on every value and ignore first line with metric name / labels.
 			vs := strings.Split(v.String(), "\n")[1:]
-			testutil.Equals(t, 36, len(vs))
+			testutil.Equals(t, 38, len(vs))
 		}
 	})
 	t.Run("OIDC redirect protection", func(t *testing.T) {
@@ -193,7 +193,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			// For attacker there should be no data.
 			v, w, err = v1.NewAPI(apiAttacker).Query(context.Background(), "observatorium_write{}", now.Time())
 			testutil.Ok(t, err)
-			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, v1.Warnings(nil), w)
 			testutil.Equals(t, "", v.String())
 		})
 		t.Run("query_range", func(t *testing.T) {
@@ -211,19 +211,20 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			// For attacker there should be no data.
 			v, w, err = v1.NewAPI(apiAttacker).QueryRange(context.Background(), "observatorium_write{}", v1.Range{Start: now.Time().Add(-5 * time.Minute), End: now.Time(), Step: 1 * time.Minute})
 			testutil.Ok(t, err)
-			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, v1.Warnings(nil), w)
 			testutil.Equals(t, "", v.String())
 		})
 		t.Run("series", func(t *testing.T) {
 			v, w, err := v1.NewAPI(apiTest).Series(context.Background(), []string{"{__name__=\"observatorium_write\"}"}, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
-			testutil.Equals(t, 0, len(w), "%v", w)
+			// There's a warning about no matchers specified (excluding external labels). But results are still there!
+			testutil.Equals(t, 1, len(w), "%v", w)
 			testutil.Equals(t, []model.LabelSet{{"__name__": "observatorium_write", "_id": "test", "receive_replica": "0", "tenant_id": "1610b0c3-c509-4592-a256-a1871353dbfa"}}, v)
 
 			// For attacker there should be no data.
 			v, w, err = v1.NewAPI(apiAttacker).Series(context.Background(), []string{"{__name__=\"observatorium_write\"}"}, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
-			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, v1.Warnings(nil), w)
 			testutil.Equals(t, 0, len(v), "%v", v)
 		})
 		t.Run("label_names", func(t *testing.T) {
