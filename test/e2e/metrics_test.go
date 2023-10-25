@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +43,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	// This extra tenant is used to ensure that tenancy enforcement works correctly, prevent a tenant for seeing
 	// other tenant's data.
 	const anotherTenantName = "another-tenant"
+	const anotherTenantID = "177ef09c-04e1-46c5-86f7-dc3250bfe869"
 
 	t.Run("metrics-read-write", func(t *testing.T) {
 		up, err := newUpRun(
@@ -95,16 +97,19 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		// Assert we have correct metrics and labels in Thanos.
 		{
 			now := model.Now()
-			v, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}", now.Time())
+			queryResult, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}", now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
-			vs := strings.Split(v.String(), " => ")
-			testutil.Equals(t, "observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\""+defaultTenantID+"\"}", vs[0])
-
-			// Check timestamp.
-			ts := strings.Split(vs[1], " @")
-			testutil.Equals(t, fmt.Sprintf("[%v]", now), ts[1])
+			expectedResult := fmt.Sprintf(
+				"observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\"%s\"} (.*) @\\[(.*)\\]\n"+
+					"observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\"%s\"} (.*) @\\[(.*)\\]",
+				defaultTenantID, anotherTenantID)
+			tester := regexp.MustCompile(expectedResult)
+			matches := tester.FindStringSubmatch(queryResult.String())
+			// Checking timestamps
+			testutil.Equals(t, fmt.Sprintf("%v", now), matches[2])
+			testutil.Equals(t, fmt.Sprintf("%v", now), matches[4])
 		}
 
 		// Assert we have recorded all sent values in the 1m range.
@@ -116,7 +121,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 
 			// Split on every value and ignore first line with metric name / labels.
 			vs := strings.Split(v.String(), "\n")[1:]
-			testutil.Equals(t, 21, len(vs))
+			testutil.Equals(t, 36, len(vs))
 		}
 	})
 	t.Run("OIDC redirect protection", func(t *testing.T) {
