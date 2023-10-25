@@ -39,6 +39,10 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
+	// This extra tenant is used to ensure that tenancy enforcement works correctly, prevent a tenant for seeing
+	// other tenant's data.
+	const anotherTenantName = "another-tenant"
+
 	t.Run("metrics-read-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-metrics-read-write", metrics,
@@ -49,6 +53,17 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		)
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
+
+		testutil.Ok(t, err)
+		up2, err := newUpRun(
+			e, "up2-metrics-read-write", metrics,
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+anotherTenantName+"/",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+anotherTenantName+"/api/v1/receive",
+			withToken(token),
+			withRunParameters(&runParams{period: "500ms", threshold: "1", latency: "10s", duration: "0"}),
+		)
+		testutil.Ok(t, err)
+		testutil.Ok(t, e2e.StartAndWaitReady(up2))
 
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
 		minimumExpectedQueries := float64(1)
@@ -195,13 +210,13 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			testutil.Equals(t, "", v.String())
 		})
 		t.Run("series", func(t *testing.T) {
-			v, w, err := v1.NewAPI(apiTest).Series(context.Background(), []string{"observatorium_write{}"}, now.Time().Add(-5*time.Minute), now.Time())
+			v, w, err := v1.NewAPI(apiTest).Series(context.Background(), []string{"{__name__=\"observatorium_write\"}"}, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w), "%v", w)
 			testutil.Equals(t, []model.LabelSet{{"__name__": "observatorium_write", "_id": "test", "receive_replica": "0", "tenant_id": "1610b0c3-c509-4592-a256-a1871353dbfa"}}, v)
 
 			// For attacker there should be no data.
-			v, w, err = v1.NewAPI(apiAttacker).Series(context.Background(), []string{"observatorium_write{}"}, now.Time().Add(-5*time.Minute), now.Time())
+			v, w, err = v1.NewAPI(apiAttacker).Series(context.Background(), []string{"{__name__=\"observatorium_write\"}"}, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
 			testutil.Equals(t, 0, len(v), "%v", v)

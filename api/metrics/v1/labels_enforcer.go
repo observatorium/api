@@ -1,19 +1,22 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+
+	"github.com/prometheus-community/prom-label-proxy/injectproxy"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/promql/parser"
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
-	"github.com/prometheus-community/prom-label-proxy/injectproxy"
-	"github.com/prometheus/prometheus/model/labels"
-	"github.com/prometheus/prometheus/promql/parser"
 )
 
 const (
@@ -49,7 +52,7 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 }
 
 // WithEnforceTenancyOnMatchers returns a middleware that ensures that every matchers has a tenant label enforced.
-func WithEnforceTenancyOnMatchers(label string) func(http.Handler) http.Handler {
+func WithEnforceTenancyOnMatchers(tenantLabel string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// matcher ensures all the provided match[] if any has label injected. If none was provided,
 		// single matcher is injected. This works for non-query Prometheus APIs like: /api/v1/series,
@@ -58,37 +61,56 @@ func WithEnforceTenancyOnMatchers(label string) func(http.Handler) http.Handler 
 		// Adapted from
 		// https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go#L318.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id, ok := authentication.GetTenantID(r.Context())
+			tenantID, ok := authentication.GetTenantID(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
 
 				return
 			}
 
-			matcher := &labels.Matcher{
-				Name:  label,
+			tenantMatcher := &labels.Matcher{
+				Name:  tenantLabel,
 				Type:  labels.MatchEqual,
-				Value: id,
+				Value: tenantID,
 			}
 
-			q := r.URL.Query()
-			matchers := q[matchersParam]
+			err := r.ParseForm()
+			if err != nil {
+				httperr.PrometheusAPIError(w, "error parsing form", http.StatusBadRequest)
+				return
+			}
 
-			if len(matchers) == 0 {
-				q.Set(matchersParam, matchersToString(matcher))
+			formMatchers := r.Form[matchersParam]
+
+			if len(formMatchers) == 0 {
+				r.Form.Set(matchersParam, matchersToString(tenantMatcher))
 			} else {
 				// Inject label to existing matchers.
-				for i, m := range matchers {
-					ms, err := parser.ParseMetricSelector(m)
+				for i, rawMatcher := range formMatchers {
+					matcher, err := parser.ParseMetricSelector(rawMatcher)
 					if err != nil {
+						httperr.PrometheusAPIError(w, "error parsing matchers", http.StatusBadRequest)
 						return
 					}
-					matchers[i] = matchersToString(append(ms, matcher)...)
+					formMatchers[i] = matchersToString(append(matcher, tenantMatcher)...)
 				}
-				q[matchersParam] = matchers
+				r.Form[matchersParam] = formMatchers
 			}
 
-			r.URL.RawQuery = q.Encode()
+			// Update the content length headers to avoid proxying errors.
+			if r.Method == http.MethodPost {
+				encodedForm := r.Form.Encode()
+				r.Body = io.NopCloser(bytes.NewBufferString(encodedForm))
+				r.ContentLength = int64(len(encodedForm))
+				r.Header.Set("Content-Length", strconv.Itoa(len(encodedForm)))
+			}
+
+			if r.Method == http.MethodGet {
+				q := r.URL.Query()
+				q.Add(matchersParam, matchersToString(tenantMatcher))
+				r.URL.RawQuery = q.Encode()
+			}
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -137,7 +159,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	// Note: a POST request may include some values in the URL query string
 	// and others in the body. If both locations include a `query`, then
 	// enforce in both places.
-	q, found1, err := enforceQueryValues(e, r.URL.Query())
+	q, foundQuery, err := enforceQueryValues(e, r.URL.Query())
 	if err != nil {
 		httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
@@ -146,7 +168,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 
 	r.URL.RawQuery = q
 
-	var found2 bool
+	var foundForm bool
 	// Enforce the query in the POST body if needed.
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
@@ -156,7 +178,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 			return false
 		}
 
-		q, found2, err = enforceQueryValues(e, r.PostForm)
+		q, foundForm, err = enforceQueryValues(e, r.PostForm)
 		if err != nil {
 			httperr.PrometheusAPIError(w, fmt.Sprintf("could not enforce labels: %v", err), http.StatusBadRequest)
 
@@ -169,7 +191,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, w http.ResponseWriter, r
 	}
 
 	// If no query was found, return early.
-	if !found1 && !found2 {
+	if !foundQuery && !foundForm {
 		httperr.PrometheusAPIError(w, "no query found", http.StatusBadRequest)
 
 		return false
@@ -184,6 +206,7 @@ func enforceQueryValues(e *injectproxy.Enforcer, v url.Values) (values string, f
 	// If no values were given or no query is present,
 	// e.g. because the query came in the POST body
 	// but the URL query string was passed, then finish early.
+	// PROBLEM HERE! Only gets first value.
 	if v.Get(queryParam) == "" {
 		return v.Encode(), false, nil
 	}
