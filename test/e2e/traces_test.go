@@ -183,6 +183,11 @@ func TestTracesExport(t *testing.T) {
 			fmt.Sprintf("%s/dependencies", httpObservatoriumQueryEndpoint),
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		assertResponse(t, returnedDependencies, queriedV2Dependencies)
+
+		returnedMetrics, _ := queryJaeger(t, "Observatorium Jaeger metrics query",
+			fmt.Sprintf("%s/metrics/calls?service=doesnotexist", httpObservatoriumQueryEndpoint),
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		testutil.Equals(t, `{"name":"service_call_rate","type":"GAUGE","help":"calls/sec, grouped by service","metrics":[]}`, returnedMetrics)
 	})
 }
 
