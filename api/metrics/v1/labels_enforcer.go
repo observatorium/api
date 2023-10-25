@@ -112,7 +112,7 @@ func WithEnforceTenancyOnMatchers(tenantLabel string) func(http.Handler) http.Ha
 
 			if r.Method == http.MethodGet {
 				q := r.URL.Query()
-				q.Add(matchersParam, matchersToString(tenantMatcher))
+				q.Set(matchersParam, matchersToString(tenantMatcher))
 				r.URL.RawQuery = q.Encode()
 			}
 
