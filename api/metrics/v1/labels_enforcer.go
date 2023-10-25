@@ -52,6 +52,11 @@ func WithEnforceTenancyOnQuery(label string) func(http.Handler) http.Handler {
 }
 
 // WithEnforceTenancyOnMatchers returns a middleware that ensures that every matchers has a tenant label enforced.
+// This middleware has to be able to handle both GET and POST requests, because according to Prometheus' documentation
+// the `label_names` and `series` endpoints support GET and POST requests. The `label_values` endpoint supports only GET.
+// When handling GET requests, query parameters are used, modified accordingly and proxied down.
+// When handling POST requests if it contains query parameters, they will be transformed into form data before being
+// proxied. Incoming form data always has higher priority over query parameters.
 func WithEnforceTenancyOnMatchers(tenantLabel string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// matcher ensures all the provided match[] if any has label injected. If none was provided,
