@@ -18,11 +18,6 @@ import (
 	"github.com/observatorium/api/httperr"
 )
 
-const (
-	queryParam    = "query"
-	matchersParam = "match[]"
-)
-
 // WithEnforceTenancyOnQuery returns a middleware that ensures that every query has a tenant label enforced.
 func WithEnforceTenancyOnQuery(tenantLabel string, paramName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
