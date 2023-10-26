@@ -64,6 +64,8 @@ const (
 
 	// queriedV2Dependencies is dependencies JSON returned through Jaeger's V2 API.
 	queriedV2Dependencies = `{"data":[],"total":0,"limit":0,"offset":0,"errors":null}`
+
+	tempoTraceResponse = `{"batches":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"scopeSpans":[{"scope":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","name":"testSpan","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}}],"status":{}}]}]}]}`
 )
 
 func TestTracesExport(t *testing.T) {
@@ -202,6 +204,25 @@ func queryForTraceDirectV3(t *testing.T, httpQueryEndpoint, traceID string) stri
 
 	s, _ := requestWithRetry(t, "jaeger V3 get trace", &http.Client{}, request, http.StatusOK)
 	return s
+}
+
+func queryForTraceTempo(t *testing.T, testLabel, httpQueryURL, traceID string, insecureSkipVerify bool, authHeader string,
+	expectedResponse int) (string, int) {
+	t.Helper()
+	request, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("%s/api/traces/%s", httpQueryURL, traceID),
+		nil)
+	testutil.Ok(t, err)
+	request.Header.Set("authorization", authHeader)
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+		},
+	}
+
+	return requestWithRetry(t, testLabel, client, request, expectedResponse)
 }
 
 func queryForTraceV2(t *testing.T, testLabel, httpQueryURL, traceID string, insecureSkipVerify bool, authHeader string,
@@ -386,5 +407,96 @@ func TestTracesTemplateQuery(t *testing.T) {
 			fmt.Sprintf("%s/dependencies", httpObservatoriumQueryEndpoint),
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		assertResponse(t, returnedDependencies, queriedV2Dependencies)
+	})
+}
+
+func TestTracesTempo(t *testing.T) {
+	t.Parallel()
+
+	e, err := e2e.New(e2e.WithName(envTracesTempoName))
+	testutil.Ok(t, err)
+	t.Cleanup(e.Close)
+
+	prepareConfigsAndCerts(t, tracesTempo, e)
+	_, token, _ := startBaseServices(t, e, tracesTempo)
+
+	tempoDistributorEndpoint, internalTempoQueryEndpoint, _ := startTempoServicesForTraces(t, e)
+
+	api, err := newObservatoriumAPIService(
+		e,
+		withGRPCListenEndpoint(":8317"),
+		withOtelTraceEndpoint(tempoDistributorEndpoint),
+		withTempoEndpoint("http://"+internalTempoQueryEndpoint),
+
+		// This test doesn't actually write logs, but we need
+		// this because Observatorium currently MUST see a logs or metrics endpoints.
+		withLogsEndpoints("http://localhost:8080"),
+	)
+	testutil.Ok(t, err)
+	testutil.Ok(t, e2e.StartAndWaitReady(api))
+
+	t.Run("write-then-query-single-trace", func(t *testing.T) {
+
+		createOtelForwardingCollectorConfigYAML(t, e,
+			api.InternalEndpoint("grpc"),
+			token)
+
+		otel := e.Runnable("otel-fwd-collector").
+			WithPorts(
+				map[string]int{
+					"http":         4318,
+					"grpc":         4317,
+					"health_check": 13133,
+				}).
+			Init(e2e.StartOptions{
+				Image: otelFwdCollectorImage,
+				Volumes: []string{
+					fmt.Sprintf("%s:/conf/forwarding-collector.yaml",
+						filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"))),
+				},
+				Command: e2e.Command{
+					Args: []string{"--config=/conf/forwarding-collector.yaml"},
+				},
+				Readiness: e2e.NewHTTPReadinessProbe(
+					"health_check",
+					"/health/status",
+					200,
+					200,
+				),
+			})
+
+		testutil.Ok(t, e2e.StartAndWaitReady(otel))
+
+		// Send trace insecurly to forwarding OTel collector for forwarding through Observatorium
+		// (This code could be refactored to observatorium/up, the test client).
+
+		client := &http.Client{}
+		request, err := http.NewRequest(
+			"POST",
+			fmt.Sprintf("http://%s/v1/traces", otel.Endpoint("http")),
+			bytes.NewBuffer([]byte(traceJSON)))
+		testutil.Ok(t, err)
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		testutil.Ok(t, err)
+		defer response.Body.Close()
+
+		body, err := io.ReadAll(response.Body)
+		testutil.Ok(t, err)
+
+		bodyStr := string(body)
+		assertResponse(t, bodyStr, "{}")
+
+		testutil.Equals(t, http.StatusOK, response.StatusCode)
+
+		httpObservatoriumTempoEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/tempo", api.Endpoint("https"))
+		// We skip TLS verification because Observatorium will present a cert for "e2e_traces_read_export-api",
+		// but we contact it using "localhost".
+
+		returnedTrace, _ := queryForTraceTempo(t, "valid Observatorium trace tempo query",
+			httpObservatoriumTempoEndpoint, "5B8EFFF798038103D269B633813FC60C",
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedTrace, tempoTraceResponse)
+
 	})
 }
