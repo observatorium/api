@@ -134,6 +134,10 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, paramName string, w http
 // https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go.
 func enforceQueryValues(e *injectproxy.Enforcer, paramName string, requestParams url.Values) (values string, foundQuery bool, err error) {
 	if len(requestParams[paramName]) == 0 {
+		// This is a dirty hack to force the introduction of a match[] param to add tenancy
+		// enforcement even when the param isn't present. This is needed because match[] is
+		// optional for label names and values, yet we have to add it to avoid leaks.
+		// Would love to find a cleaner way to do it.
 		enforcedMatchers, err := e.EnforceMatchers([]*labels.Matcher{})
 		if err != nil {
 			return "", false, fmt.Errorf("enforce matchers error: %w", err)
