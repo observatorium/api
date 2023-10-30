@@ -153,7 +153,6 @@ func enforceQueryValues(e *injectproxy.Enforcer, paramName string, requestParams
 		}
 		matchers[i] = expr.String()
 	}
-	requestParams[paramName] = matchers
 	return requestParams.Encode(), true, nil
 }
 
