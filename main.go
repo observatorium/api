@@ -645,6 +645,7 @@ func main() {
 
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Timeout(cfg.metrics.upstreamWriteTimeout))
+					const queryParamName = "query"
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamCACert,
@@ -655,10 +656,11 @@ func main() {
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
 						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					))
 
+					const matchParamName = "match[]"
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
 						metricsUpstreamCACert,
@@ -672,9 +674,9 @@ func main() {
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
 						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
 						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
+						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, matchParamName)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithAlertmanagerAlertsReadMiddleware(

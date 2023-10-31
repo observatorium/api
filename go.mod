@@ -29,7 +29,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/prom-label-proxy v0.7.0
 	github.com/prometheus/alertmanager v0.26.0
-	github.com/prometheus/client_golang v1.15.1
+	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.44.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.41.1
@@ -138,9 +138,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
-	github.com/prometheus/client_model v0.4.0 // indirect
+	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/schollz/closestmatch v2.1.0+incompatible // indirect
