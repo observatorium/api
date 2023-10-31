@@ -91,13 +91,13 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		))
 
 		// Query Thanos to ensure we have correct metrics and labels.
-		a, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
+		thanosQuery, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
 		testutil.Ok(t, err)
 
 		// Assert we have correct metrics and labels in Thanos.
 		{
 			now := model.Now()
-			queryResult, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}", now.Time())
+			queryResult, w, err := v1.NewAPI(thanosQuery).Query(context.Background(), "observatorium_write{}", now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
@@ -115,7 +115,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		// Assert we have recorded all sent values in the 1m range.
 		{
 			now := model.Now()
-			v, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}[1m]", now.Time())
+			v, w, err := v1.NewAPI(thanosQuery).Query(context.Background(), "observatorium_write{}[1m]", now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
