@@ -28,7 +28,7 @@ const (
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
-	tempoImage          = "grafana/tempo:latest"
+	tempoImage          = "grafana/tempo:2.2.4"
 
 	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
 	// the bearer token we would need
