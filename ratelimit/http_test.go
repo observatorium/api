@@ -10,9 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/go-chi/chi"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/logger"
+	"github.com/observatorium/api/server"
 )
 
 const (
@@ -107,14 +110,20 @@ func TestWithLocalRateLimiter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rlmw := WithLocalRateLimiter(c.configs...)
-
 			r := chi.NewMux()
-
+			reg := prometheus.NewRegistry()
+			hardcodedLabels := []string{"group", "handler"}
+			f := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
+			rlmw := WithLocalRateLimiter(c.configs...)
+			r.Use(func(handler http.Handler) http.Handler {
+				return f.NewHandler(nil, handler)
+			})
 			r.Group(func(r chi.Router) {
+				r.Use(func(next http.Handler) http.Handler {
+					return server.InjectLabelsCtx(prometheus.Labels{"group": "test-group", "handler": "test-handler"}, next)
+				})
 				r.Use(authentication.WithTenant)
 				r.Use(rlmw)
-
 				r.HandleFunc(testPathOne+"/{tenant}", func(res http.ResponseWriter, req *http.Request) {
 					res.WriteHeader(http.StatusOK)
 				})
@@ -143,6 +152,24 @@ func TestWithLocalRateLimiter(t *testing.T) {
 						pathTest.expectedTooManyRequests,
 						gotTooManyRequests,
 					)
+				}
+				// Check for labels only if rate limit is hit
+				if pathTest.expectedTooManyRequests > 0 {
+					metrics, err := reg.Gather()
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, metric := range metrics {
+						for _, m := range metric.GetMetric() {
+							if m.GetLabel()[1].GetValue() != "test-group" {
+								t.Fatalf("expected label value to be 'test-group', got %s", m.GetLabel()[1].GetValue())
+							}
+							if m.GetLabel()[2].GetValue() != "test-handler" {
+								t.Fatalf("expected label value to be 'test-handler', got %s", m.GetLabel()[2].GetValue())
+							}
+
+						}
+					}
 				}
 			}
 		})
