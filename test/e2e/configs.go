@@ -459,7 +459,7 @@ func createTempoConfigYAML(
 	e e2e.Environment,
 ) {
 	// Warn if a YAML change introduced a tab character
-	if strings.ContainsRune(otelConfigTpl, '\t') {
+	if strings.ContainsRune(tempoConfig, '\t') {
 		t.Errorf("Tab in the YAML")
 	}
 
