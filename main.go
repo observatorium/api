@@ -1275,7 +1275,7 @@ func parseFlags() (config, error) {
 
 		tracesTempoEndpoint, err := url.ParseRequestURI(rawTracesTempoEndpoint)
 		if err != nil {
-			return cfg, fmt.Errorf("--traces.read.endpoint %q is invalid: %w", rawTracesReadEndpoint, err)
+			return cfg, fmt.Errorf("--traces.tempo.endpoint %q is invalid: %w", rawTracesTempoEndpoint, err)
 		}
 
 		cfg.traces.tempoEndpoint = tracesTempoEndpoint
