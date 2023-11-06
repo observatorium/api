@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -63,16 +62,6 @@ func MiddlewareSetPrefixHeader() Middleware {
 		}
 
 		r.Header.Set(PrefixHeader, prefix)
-	}
-}
-
-func MiddlewareSetTempoTenantHeader() Middleware {
-	return func(r *http.Request) {
-		tenant, ok := authentication.GetTenant(r.Context())
-		if !ok {
-			return
-		}
-		r.Header.Set(TempoOrgIDHeaderName, tenant)
 	}
 }
 
