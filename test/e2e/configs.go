@@ -23,6 +23,7 @@ const (
 	logs           testType = "logs"
 	traces         testType = "traces"
 	tracesTemplate testType = "tracesTemplate"
+	tracesTempo    testType = "tracesTempo"
 	tenants        testType = "tenants"
 	interactive    testType = "interactive"
 
@@ -34,6 +35,7 @@ const (
 	envAlertmanagerName   = "alertmanager-api"
 	envLogsName           = "logs-tail"
 	envTracesName         = "traces-export"
+	envTracesTempoName    = "traces-tempo"
 	envTracesTemplateName = "traces-template"
 	envTenantsName        = "tenants"
 	envInteractive        = "interactive"
@@ -429,5 +431,60 @@ func createLokiYAML(
 		os.FileMode(0755),
 	)
 
+	testutil.Ok(t, err)
+}
+
+const tempoConfig = `
+server:
+  http_listen_port: 3200
+
+query_frontend:
+  search:
+    duration_slo: 5s
+    throughput_bytes_slo: 1.073741824e+09
+  trace_by_id:
+    duration_slo: 5s
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+        grpc:
+    opencensus:
+
+ingester:
+  max_block_duration: 5m               # cut the headblock when this much time passes. this is being set for demo purposes and should probably be left alone normally
+
+compactor:
+  compaction:
+    block_retention: 1h                # overall Tempo trace retention. set for demo purposes
+
+storage:
+  trace:
+    backend: local                     # backend configuration to use
+    wal:
+      path: /tmp/tempo/wal             # where to store the the wal locally
+    local:
+      path: /tmp/tempo/blocks
+`
+
+// createTempoConfigYAML() creates YAML for Tempo inside the Observatorium API boundary.
+func createTempoConfigYAML(
+	t *testing.T,
+	e e2e.Environment,
+) {
+	// Warn if a YAML change introduced a tab character
+	if strings.ContainsRune(tempoConfig, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	yamlContent := []byte(tempoConfig)
+
+	err := os.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "tempo.yaml"),
+		yamlContent,
+		os.FileMode(0644),
+	)
 	testutil.Ok(t, err)
 }

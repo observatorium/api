@@ -28,6 +28,8 @@ const (
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
 	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
+	tempoImage          = "grafana/tempo:2.2.4"
+
 	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
 	// the bearer token we would need
 	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
@@ -138,6 +140,39 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, 
 	testutil.Ok(t, e2e.StartAndWaitReady(otel))
 
 	return otel.InternalEndpoint("grpc"), jaeger.Endpoint("http.query"), jaeger.InternalEndpoint("http.query")
+}
+
+func startTempoServicesForTraces(t *testing.T, e e2e.Environment) (tempoDistributorEndpoint, internalTempoQueryEndpoint, tempoQueryEndpoint string) {
+	prometheus := e2edb.NewPrometheus(e, "prometheus")
+	testutil.Ok(t, e2e.StartAndWaitReady(prometheus))
+
+	createTempoConfigYAML(t, e)
+
+	tempo := e.Runnable("tempo").
+		WithPorts(
+			map[string]int{
+				"http.tempo": 3200, // tempo
+				"grpc.otlp":  4317, // tempo grpc
+				"http.otlp":  4318, // tempo grpc
+
+			}).
+		Init(e2e.StartOptions{
+			Image: tempoImage,
+			Volumes: []string{
+				fmt.Sprintf("%s:/conf/tempo.yaml",
+					filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "tempo.yaml"))),
+			},
+			Command: e2e.Command{
+				Args: []string{
+					"-config.file=conf/tempo.yaml",
+				},
+			},
+		})
+	createTempoConfigYAML(t, e)
+
+	testutil.Ok(t, e2e.StartAndWaitReady(tempo))
+
+	return tempo.InternalEndpoint("grpc.otlp"), tempo.InternalEndpoint("http.tempo"), tempo.Endpoint("http.tempo")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
@@ -322,6 +357,7 @@ type apiOptions struct {
 	tracesWriteEndpoint  string
 	gRPCListenEndpoint   string
 	jaegerQueryEndpoint  string
+	tempoEndpoint        string
 
 	// "experimental.traces.read.endpoint-template" value.
 	tracesExperimentalTemplateReadEndpoint string
@@ -351,6 +387,12 @@ func withOtelTraceEndpoint(exportEndpoint string) apiOption {
 func withGRPCListenEndpoint(listenEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.gRPCListenEndpoint = listenEndpoint
+	}
+}
+
+func withTempoEndpoint(listenEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.tempoEndpoint = listenEndpoint
 	}
 }
 
@@ -458,6 +500,10 @@ func newObservatoriumAPIService(
 		ports["grpc"] = gRPCPort
 
 		args = append(args, "--grpc.listen="+opts.gRPCListenEndpoint)
+	}
+
+	if opts.tempoEndpoint != "" {
+		args = append(args, "--traces.tempo.endpoint="+opts.tempoEndpoint)
 	}
 
 	return e2emon.AsInstrumented(e.Runnable("observatorium-api").WithPorts(ports).Init(
