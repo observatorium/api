@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/brancz/kube-rbac-proxy v0.14.3
 	github.com/coreos/go-oidc v2.2.1+incompatible
-	github.com/deepmap/oapi-codegen v1.15.0
+	github.com/deepmap/oapi-codegen v1.16.2
 	github.com/efficientgo/core v1.0.0-rc.2
 	github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f
 	github.com/ghodss/yaml v1.0.0
