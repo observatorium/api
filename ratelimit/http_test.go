@@ -111,9 +111,11 @@ func TestWithLocalRateLimiter(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			r := chi.NewMux()
+
 			reg := prometheus.NewRegistry()
 			hardcodedLabels := []string{"group", "handler"}
 			f := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
+
 			rlmw := WithLocalRateLimiter(c.configs...)
 			r.Use(func(handler http.Handler) http.Handler {
 				return f.NewHandler(nil, handler)
