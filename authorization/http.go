@@ -138,7 +138,7 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 				selectorsInfo = emptySelectorsInfo
 			}
 
-			metadataOnly := isMetadataRequest(r.URL.Path)
+			metadataOnly := tenant == "network" || isMetadataRequest(r.URL.Path)
 
 			extraAttributes := &rbac.ExtraAttributes{
 				Selectors:         selectorsInfo.Selectors,
