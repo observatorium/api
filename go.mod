@@ -203,3 +203,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/nats-io/nkeys => github.com/nats-io/nkeys v0.4.6
