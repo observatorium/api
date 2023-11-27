@@ -3,7 +3,7 @@ module github.com/observatorium/api
 go 1.20
 
 require (
-	github.com/brancz/kube-rbac-proxy v0.14.3
+	github.com/brancz/kube-rbac-proxy v0.15.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/deepmap/oapi-codegen v1.16.2
 	github.com/efficientgo/core v1.0.0-rc.2
