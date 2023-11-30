@@ -240,6 +240,9 @@ type tenant struct {
 		Endpoint string   `json:"endpoint"`
 		Limit    int      `json:"limit"`
 		Window   duration `json:"window"`
+		// FailClosed determines the behavior of the rate limiter when a remote rate limiter is unavailable.
+		// If true, requests will be rejected when the remote rate limiter is unavailable with http.StatusTooManyRequests.
+		FailClosed bool `json:"failClosed"`
 	} `json:"rateLimits"`
 }
 

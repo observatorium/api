@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -27,10 +28,11 @@ const (
 
 // Config configures a rate limiter per endpoint, per tenant.
 type Config struct {
-	Tenant  string
-	Matcher *regexp.Regexp
-	Limit   int
-	Window  time.Duration
+	Tenant     string
+	Matcher    *regexp.Regexp
+	Limit      int
+	Window     time.Duration
+	FailClosed bool
 }
 
 // Middleware is a convenience type for functions that wrap http.Handlers.
@@ -62,10 +64,11 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 	for _, c := range configs {
 		middlewares[c.Tenant] = append(middlewares[c.Tenant],
 			middleware{c.Matcher, rateLimiter{logger, client, &request{
-				name:     requestName,
-				key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
-				limit:    int64(c.Limit),
-				duration: c.Window.Milliseconds(),
+				name:       requestName,
+				key:        fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
+				limit:      int64(c.Limit),
+				duration:   c.Window.Milliseconds(),
+				failClosed: c.FailClosed,
 			}}.Handler})
 	}
 
@@ -115,17 +118,25 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 
 		remaining, resetTime, err := l.limiterClient.GetRateLimits(ctx, l.req)
 		w.Header().Set(headerKeyLimit, strconv.FormatInt(l.req.limit, 10))
-		w.Header().Set(headerKeyRemaining, strconv.FormatInt(remaining, 10))
-		w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 
 		if err != nil {
-			if err == errOverLimit {
+			if errors.Is(err, errOverLimit) {
+				w.Header().Set(headerKeyRemaining, strconv.FormatInt(remaining, 10))
+				w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 				httperr.PrometheusAPIError(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 				return
 			}
-			level.Warn(l.logger).Log("msg", "API failed", "err", err)
-			httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
-			return
+
+			level.Warn(l.logger).Log(
+				"msg", "failed to determine rate limiting action from remote server", "err", err.Error())
+
+			if l.req.failClosed {
+				httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			level.Warn(l.logger).Log(
+				"msg", "request forwarded upstream due to rate limit failure mode policy fail open")
 		}
 		next.ServeHTTP(w, r)
 	})

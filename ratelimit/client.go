@@ -17,10 +17,11 @@ import (
 var errOverLimit = errors.New("over limit")
 
 type request struct {
-	name     string
-	key      string
-	limit    int64
-	duration int64
+	name       string
+	key        string
+	limit      int64
+	duration   int64
+	failClosed bool
 }
 
 // Client can connect to gubernator and get rate limits.
@@ -86,9 +87,10 @@ func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, re
 		return 0, 0, err
 	}
 
-	if resp.Responses[0].Status == gubernator.Status_OVER_LIMIT {
+	response := resp.Responses[0]
+	if response.Status == gubernator.Status_OVER_LIMIT {
 		return 0, 0, errOverLimit
 	}
 
-	return resp.Responses[0].Remaining, resp.Responses[0].ResetTime, nil
+	return response.GetRemaining(), response.GetResetTime(), nil
 }
