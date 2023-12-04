@@ -240,9 +240,21 @@ type tenant struct {
 		Endpoint string   `json:"endpoint"`
 		Limit    int      `json:"limit"`
 		Window   duration `json:"window"`
+		// The remaining fields in this struct are optional and only apply to the remote rate limiter.
 		// FailClosed determines the behavior of the rate limiter when a remote rate limiter is unavailable.
-		// If true, requests will be rejected when the remote rate limiter is unavailable with http.StatusTooManyRequests.
+		// If true, requests will be rejected when the remote rate limiter is unavailable with http.StatusInternalServerError.
 		FailClosed bool `json:"failClosed"`
+		// RetryAfterMin and RetryAfterMax are used to determine the Retry-After header value when the
+		// remote rate limiter determines that the request should be rejected.
+		// This can be used to prevent a thundering herd of requests from overwhelming the upstream and is
+		// respected by the Prometheus remote write client.
+		// As requests get rejected the header is set and the value doubled each time until RetryAfterMaxSeconds.
+		// Zero or unset values will result in no Retry-After header being set.
+		// RetryAfterMin is the minimum value for the Retry-After header.
+		RetryAfterMin duration `json:"retryAfterMin,omitempty"`
+		// RetryAfterMax is the maximum value for the Retry-After header.
+		// If RetryAfterMax is zero and RetryAfterMin is non-zero, the Retry-After header will grow indefinitely.
+		RetryAfterMax duration `json:"retryAfterMax,omitempty"`
 	} `json:"rateLimits"`
 }
 

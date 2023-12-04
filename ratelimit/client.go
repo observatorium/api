@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -17,11 +18,13 @@ import (
 var errOverLimit = errors.New("over limit")
 
 type request struct {
-	name       string
-	key        string
-	limit      int64
-	duration   int64
-	failClosed bool
+	name          string
+	key           string
+	limit         int64
+	duration      int64
+	failClosed    bool
+	retryAfterMin time.Duration
+	retryAfterMax time.Duration
 }
 
 // Client can connect to gubernator and get rate limits.

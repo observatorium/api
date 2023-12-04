@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-chi/httprate"
@@ -24,15 +25,19 @@ const (
 	headerKeyRemaining = "X-RateLimit-Remaining"
 	headerKeyLimit     = "X-RateLimit-Limit"
 	headerKeyReset     = "X-RateLimit-Reset"
+
+	headerRetryAfter = "Retry-After"
 )
 
 // Config configures a rate limiter per endpoint, per tenant.
 type Config struct {
-	Tenant     string
-	Matcher    *regexp.Regexp
-	Limit      int
-	Window     time.Duration
-	FailClosed bool
+	Tenant        string
+	Matcher       *regexp.Regexp
+	Limit         int
+	Window        time.Duration
+	FailClosed    bool
+	RetryAfterMin time.Duration
+	RetryAfterMax time.Duration
 }
 
 // Middleware is a convenience type for functions that wrap http.Handlers.
@@ -63,13 +68,22 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 	middlewares := make(map[string][]middleware)
 	for _, c := range configs {
 		middlewares[c.Tenant] = append(middlewares[c.Tenant],
-			middleware{c.Matcher, rateLimiter{logger, client, &request{
-				name:       requestName,
-				key:        fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
-				limit:      int64(c.Limit),
-				duration:   c.Window.Milliseconds(),
-				failClosed: c.FailClosed,
-			}}.Handler})
+			middleware{
+				c.Matcher,
+				rateLimiter{logger, client,
+					&request{
+						name:          requestName,
+						key:           fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
+						limit:         int64(c.Limit),
+						duration:      c.Window.Milliseconds(),
+						failClosed:    c.FailClosed,
+						retryAfterMin: c.RetryAfterMin,
+						retryAfterMax: c.RetryAfterMax,
+					},
+					sync.RWMutex{},
+					make(map[string]time.Duration),
+				}.Handler,
+			})
 	}
 
 	return combine(middlewares)
@@ -109,6 +123,8 @@ type rateLimiter struct {
 	logger        log.Logger
 	limiterClient SharedRateLimiter
 	req           *request
+	mut           sync.RWMutex
+	limitTracker  map[string]time.Duration
 }
 
 func (l rateLimiter) Handler(next http.Handler) http.Handler {
@@ -118,11 +134,17 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 
 		remaining, resetTime, err := l.limiterClient.GetRateLimits(ctx, l.req)
 		w.Header().Set(headerKeyLimit, strconv.FormatInt(l.req.limit, 10))
+		w.Header().Set(headerKeyRemaining, strconv.FormatInt(remaining, 10))
+		w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 
 		if err != nil {
+			// in all cases, where we will return an error
+			// if the rate limiter becomes overloaded or unavailable, we should start to force the client to back off
+			if retryAfter, ok := l.getAndSetNextRetryAfterValue(); ok {
+				w.Header().Set(headerRetryAfter, retryAfter)
+			}
+
 			if errors.Is(err, errOverLimit) {
-				w.Header().Set(headerKeyRemaining, strconv.FormatInt(remaining, 10))
-				w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 				httperr.PrometheusAPIError(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 				return
 			}
@@ -135,9 +157,35 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 				return
 			}
 
-			level.Warn(l.logger).Log(
-				"msg", "request forwarded upstream due to rate limit failure mode policy fail open")
+			level.Warn(l.logger).Log("msg", "request forwarded upstream due to rate limit failure mode policy fail open")
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
+	if l.req.retryAfterMin == 0 {
+		return "", false
+	}
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
+	current, ok := l.limitTracker[l.req.key]
+	if !ok {
+		nextValue := l.req.retryAfterMin.Seconds()
+		l.limitTracker[l.req.key] = l.req.retryAfterMin * 2
+		return fmt.Sprintf("%d", int(nextValue)), true
+	}
+
+	nextValue := current * 2
+	// check if we have gone above the max value
+	// if so, set the value to the max value
+	// if max value is 0, then we don't set a max value
+	if l.req.retryAfterMax != 0 && nextValue > l.req.retryAfterMax {
+		nextValue = l.req.retryAfterMax
+	}
+
+	l.limitTracker[l.req.key] = nextValue
+	next := strconv.Itoa(int(nextValue.Seconds()))
+	return next, true
 }
