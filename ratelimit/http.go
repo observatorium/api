@@ -35,7 +35,7 @@ type Config struct {
 	Matcher       *regexp.Regexp
 	Limit         int
 	Window        time.Duration
-	FailClosed    bool
+	FailOpen      bool
 	RetryAfterMin time.Duration
 	RetryAfterMax time.Duration
 }
@@ -76,7 +76,7 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 						key:           fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
 						limit:         int64(c.Limit),
 						duration:      c.Window.Milliseconds(),
-						failClosed:    c.FailClosed,
+						failOpen:      c.FailOpen,
 						retryAfterMin: c.RetryAfterMin,
 						retryAfterMax: c.RetryAfterMax,
 					},
@@ -152,7 +152,7 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 			level.Warn(l.logger).Log(
 				"msg", "failed to determine rate limiting action from remote server", "err", err.Error())
 
-			if l.req.failClosed {
+			if !l.req.failOpen {
 				httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
 				return
 			}

@@ -241,9 +241,9 @@ type tenant struct {
 		Limit    int      `json:"limit"`
 		Window   duration `json:"window"`
 		// The remaining fields in this struct are optional and only apply to the remote rate limiter.
-		// FailClosed determines the behavior of the rate limiter when a remote rate limiter is unavailable.
-		// If true, requests will be rejected when the remote rate limiter is unavailable with http.StatusInternalServerError.
-		FailClosed bool `json:"failClosed"`
+		// FailOpen determines the behavior of the rate limiter when a remote rate limiter is unavailable.
+		// If true, requests will be accepted when the remote rate limiter decision is unavailable or returns an error.
+		FailOpen bool `json:"failOpen"`
 		// RetryAfterMin and RetryAfterMax are used to determine the Retry-After header value when the
 		// remote rate limiter determines that the request should be rejected.
 		// This can be used to prevent a thundering herd of requests from overwhelming the upstream and is

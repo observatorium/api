@@ -22,7 +22,7 @@ type request struct {
 	key           string
 	limit         int64
 	duration      int64
-	failClosed    bool
+	failOpen      bool
 	retryAfterMin time.Duration
 	retryAfterMax time.Duration
 }
