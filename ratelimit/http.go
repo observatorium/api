@@ -127,7 +127,6 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 			httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
 }

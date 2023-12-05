@@ -141,23 +141,32 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Use(func(handler http.Handler) http.Handler {
+			return server.InjectLabelsCtx(
+				prometheus.Labels{"group": "metricslegacy", "handler": "query"},
+				handler,
+			)
+		})
 		r.Use(c.queryMiddlewares...)
 		r.Handle(QueryRoute,
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-					legacyProxy,
-				),
+				legacyProxy,
 			),
 		)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(func(handler http.Handler) http.Handler {
+			return server.InjectLabelsCtx(
+				prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
+				handler,
+			)
+		})
+		r.Use(c.queryMiddlewares...)
 		r.Handle(QueryRangeRoute,
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRangeRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-					legacyProxy,
-				),
+				legacyProxy,
 			),
 		)
 	})

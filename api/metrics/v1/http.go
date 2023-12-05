@@ -213,24 +213,34 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 			}
 		}
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "query"},
+					handler,
+				)
+			})
 			r.Use(c.queryMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Handle(QueryRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+QueryRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "query"},
-						proxyQuery,
-					),
+					proxyQuery,
 				),
 			)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
+					handler,
+				)
+			})
+			r.Use(c.queryMiddlewares...)
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Handle(QueryRangeRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+QueryRangeRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "query_range"},
-						proxyQuery,
-					),
+					proxyQuery,
 				),
 			)
 		})
@@ -258,45 +268,69 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 			}
 		}
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "series"},
+					handler,
+				)
+			})
 			r.Use(c.readMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(RulesRoute, otelhttp.WithRouteTag(c.spanRoutePrefix+RulesRoute, proxyRead))
 			r.Handle(SeriesRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+SeriesRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "series"},
-						proxyRead,
-					),
+					proxyRead,
 				),
 			)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "label_names"},
+					handler,
+				)
+			})
+			r.Use(c.readMiddlewares...)
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Handle(LabelNamesRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+LabelNamesRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "label_names"},
-						proxyRead,
-					),
+					proxyRead,
 				),
 			)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "label_values"},
+					handler,
+				)
+			})
+			r.Use(c.readMiddlewares...)
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Handle(LabelValuesRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+LabelValuesRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "label_values"},
-						proxyRead,
-					),
+					proxyRead,
 				),
 			)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+					handler,
+				)
+			})
+			r.Use(c.readMiddlewares...)
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			// Thanos Query Rules API supports matchers from v0.25 so the WithEnforceTenancyOnMatchers
 			// middleware will not work here if prior versions are used.
 			r.Handle(RulesRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
-						proxyRead,
-					),
+					proxyRead,
 				),
 			)
 		})
@@ -319,15 +353,18 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 			}
 		}
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "ui"},
+					handler,
+				)
+			})
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Mount(UIRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+UIRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "ui"},
-						uiProxy,
-					),
+					uiProxy,
 				),
 			)
 		})
@@ -357,15 +394,18 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 			}
 		}
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "receive"},
+					handler,
+				)
+			})
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Handle(ReceiveRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+ReceiveRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "receive"},
-						proxyWrite,
-					),
+					proxyWrite,
 				),
 			)
 		})
@@ -381,29 +421,35 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 		rh := rulesHandler{client: client, logger: c.logger, tenantLabel: c.tenantLabel}
 
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "rules"},
+					handler,
+				)
+			})
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Method(http.MethodGet, RulesRawRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRawRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "rules"},
-						http.HandlerFunc(rh.get),
-					),
+					http.HandlerFunc(rh.get),
 				),
 			)
 		})
 
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
+					handler,
+				)
+			})
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Method(http.MethodPut, RulesRawRoute,
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRawRoute,
-					server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "rules-raw"},
-						http.HandlerFunc(rh.put),
-					),
+					http.HandlerFunc(rh.put),
 				),
 			)
 		})
@@ -434,41 +480,50 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 		}
 
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "alerts"},
+					handler,
+				)
+			})
 			r.Use(c.alertmanagerMiddleware.alertsReadMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodGet, AlertmanagerAlertsRoute, otelhttp.WithRouteTag(
 				c.spanRoutePrefix+AlertmanagerAlertsRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "alerts"},
-					proxyAlertmanager,
-				),
+				proxyAlertmanager,
 			))
 		})
 
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
+					handler,
+				)
+			})
 			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodGet, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
 				c.spanRoutePrefix+AlertmanagerSilencesRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
-					proxyAlertmanager,
-				),
+				proxyAlertmanager,
 			))
 		})
 
 		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
+					handler,
+				)
+			})
 			r.Use(c.alertmanagerMiddleware.silenceWriteMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodPost, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
 				c.spanRoutePrefix+AlertmanagerSilencesRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
-					proxyAlertmanager,
-				),
+				proxyAlertmanager,
 			))
 		})
 	}
