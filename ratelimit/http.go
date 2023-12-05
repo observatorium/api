@@ -80,7 +80,7 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 						retryAfterMin: c.RetryAfterMin,
 						retryAfterMax: c.RetryAfterMax,
 					},
-					sync.RWMutex{},
+					&sync.RWMutex{},
 					make(map[string]time.Duration),
 				}.Handler,
 			})
@@ -123,7 +123,7 @@ type rateLimiter struct {
 	logger        log.Logger
 	limiterClient SharedRateLimiter
 	req           *request
-	mut           sync.RWMutex
+	mut           *sync.RWMutex
 	limitTracker  map[string]time.Duration
 }
 
@@ -167,6 +167,11 @@ func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
 	if l.req.retryAfterMin == 0 {
 		return "", false
 	}
+
+	if l.mut == nil {
+		return "", false
+	}
+
 	l.mut.Lock()
 	defer l.mut.Unlock()
 
