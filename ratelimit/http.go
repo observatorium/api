@@ -159,16 +159,14 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 
 			level.Warn(l.logger).Log("msg", "request forwarded upstream due to rate limit failure mode policy fail open")
 		}
+
+		l.resetRetryAfterValue()
 		next.ServeHTTP(w, r)
 	})
 }
 
 func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
-	if l.req.retryAfterMin == 0 {
-		return "", false
-	}
-
-	if l.mut == nil {
+	if l.req.retryAfterMin == 0 || l.mut == nil {
 		return "", false
 	}
 
@@ -193,4 +191,14 @@ func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
 	l.limitTracker[l.req.key] = nextValue
 	next := strconv.Itoa(int(nextValue.Seconds()))
 	return next, true
+}
+
+func (l rateLimiter) resetRetryAfterValue() {
+	if l.req.retryAfterMin == 0 || l.mut == nil {
+		return
+	}
+
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	delete(l.limitTracker, l.req.key)
 }
