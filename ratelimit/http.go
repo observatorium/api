@@ -2,10 +2,12 @@ package ratelimit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-chi/httprate"
@@ -23,14 +25,19 @@ const (
 	headerKeyRemaining = "X-RateLimit-Remaining"
 	headerKeyLimit     = "X-RateLimit-Limit"
 	headerKeyReset     = "X-RateLimit-Reset"
+
+	headerRetryAfter = "Retry-After"
 )
 
 // Config configures a rate limiter per endpoint, per tenant.
 type Config struct {
-	Tenant  string
-	Matcher *regexp.Regexp
-	Limit   int
-	Window  time.Duration
+	Tenant        string
+	Matcher       *regexp.Regexp
+	Limit         int
+	Window        time.Duration
+	FailOpen      bool
+	RetryAfterMin time.Duration
+	RetryAfterMax time.Duration
 }
 
 // Middleware is a convenience type for functions that wrap http.Handlers.
@@ -61,12 +68,22 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 	middlewares := make(map[string][]middleware)
 	for _, c := range configs {
 		middlewares[c.Tenant] = append(middlewares[c.Tenant],
-			middleware{c.Matcher, rateLimiter{logger, client, &request{
-				name:     requestName,
-				key:      fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
-				limit:    int64(c.Limit),
-				duration: c.Window.Milliseconds(),
-			}}.Handler})
+			middleware{
+				c.Matcher,
+				rateLimiter{logger, client,
+					&request{
+						name:          requestName,
+						key:           fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
+						limit:         int64(c.Limit),
+						duration:      c.Window.Milliseconds(),
+						failOpen:      c.FailOpen,
+						retryAfterMin: c.RetryAfterMin,
+						retryAfterMax: c.RetryAfterMax,
+					},
+					&sync.RWMutex{},
+					make(map[string]time.Duration),
+				}.Handler,
+			})
 	}
 
 	return combine(middlewares)
@@ -106,6 +123,8 @@ type rateLimiter struct {
 	logger        log.Logger
 	limiterClient SharedRateLimiter
 	req           *request
+	mut           *sync.RWMutex
+	limitTracker  map[string]time.Duration
 }
 
 func (l rateLimiter) Handler(next http.Handler) http.Handler {
@@ -119,14 +138,67 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 		w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 
 		if err != nil {
-			if err == errOverLimit {
+			// in all cases, where we will return an error
+			// if the rate limiter becomes overloaded or unavailable, we should start to force the client to back off
+			if retryAfter, ok := l.getAndSetNextRetryAfterValue(); ok {
+				w.Header().Set(headerRetryAfter, retryAfter)
+			}
+
+			if errors.Is(err, errOverLimit) {
 				httperr.PrometheusAPIError(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 				return
 			}
-			level.Warn(l.logger).Log("msg", "API failed", "err", err)
-			httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
-			return
+
+			level.Warn(l.logger).Log(
+				"msg", "failed to determine rate limiting action from remote server", "err", err.Error())
+
+			if !l.req.failOpen {
+				httperr.PrometheusAPIError(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			level.Warn(l.logger).Log("msg", "request forwarded upstream due to rate limit failure mode policy fail open")
 		}
+
+		l.resetRetryAfterValue()
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
+	if l.req.retryAfterMin == 0 || l.mut == nil {
+		return "", false
+	}
+
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
+	current, ok := l.limitTracker[l.req.key]
+	if !ok {
+		nextValue := l.req.retryAfterMin.Seconds()
+		l.limitTracker[l.req.key] = l.req.retryAfterMin * 2
+		return fmt.Sprintf("%d", int(nextValue)), true
+	}
+
+	nextValue := current * 2
+	// check if we have gone above the max value
+	// if so, set the value to the max value
+	// if max value is 0, then we don't set a max value
+	if l.req.retryAfterMax != 0 && nextValue > l.req.retryAfterMax {
+		nextValue = l.req.retryAfterMax
+	}
+
+	l.limitTracker[l.req.key] = nextValue
+	next := strconv.Itoa(int(nextValue.Seconds()))
+	return next, true
+}
+
+func (l rateLimiter) resetRetryAfterValue() {
+	if l.req.retryAfterMin == 0 || l.mut == nil {
+		return
+	}
+
+	l.mut.Lock()
+	defer l.mut.Unlock()
+	delete(l.limitTracker, l.req.key)
 }
