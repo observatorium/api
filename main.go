@@ -589,10 +589,13 @@ func main() {
 							level.Warn(logger).Log("msg", "failed to compile matcher for rate limiter", "err", err)
 						}
 						rateLimits = append(rateLimits, ratelimit.Config{
-							Tenant:  t.Name,
-							Matcher: matcher,
-							Limit:   rl.Limit,
-							Window:  time.Duration(rl.Window),
+							Tenant:        t.Name,
+							Matcher:       matcher,
+							Limit:         rl.Limit,
+							Window:        time.Duration(rl.Window),
+							FailOpen:      rl.FailOpen,
+							RetryAfterMin: time.Duration(rl.RetryAfterMin),
+							RetryAfterMax: time.Duration(rl.RetryAfterMax),
 						})
 					}
 				}
