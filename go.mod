@@ -11,7 +11,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.0.10
-	github.com/go-chi/httprate v0.7.4
+	github.com/go-chi/httprate v0.8.0
 	github.com/go-kit/log v0.2.1
 	github.com/go-openapi/runtime v0.26.0
 	github.com/go-openapi/strfmt v0.21.7
