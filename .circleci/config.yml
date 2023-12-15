@@ -19,12 +19,16 @@ jobs:
           make lint --always-make
 
   test:
-    docker:
-      - image: golang:1.20
+    machine:
+      image: ubuntu-2004:2023.04.2
     steps:
       - checkout
       - run: |
           apt-get update && apt-get -y install xz-utils unzip openssl
+          sudo rm -rf /usr/local/go
+          wget -qO- https://golang.org/dl/go1.20.linux-amd64.tar.gz | sudo tar -C /usr/local -xzf -
+          export PATH=$PATH:/usr/local/go/bin
+          go version
           make test --always-make
 
   test-e2e:
