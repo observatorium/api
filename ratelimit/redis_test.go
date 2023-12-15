@@ -18,8 +18,9 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 	t.Cleanup(e.Close)
 
 	redis := createRedisContainer(e)
-	t.Cleanup(func() { redis.Stop() })
-	e2e.StartAndWaitReady(redis)
+	t.Cleanup(func() { _ = redis.Stop() })
+	err = e2e.StartAndWaitReady(redis)
+	testutil.Ok(t, err)
 
 	type args struct {
 		ctx context.Context
