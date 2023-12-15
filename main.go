@@ -183,7 +183,9 @@ type tracesConfig struct {
 }
 
 type middlewareConfig struct {
-	rateLimiterAddress                string
+	grpcRateLimiterAddress            string
+	rateLimiterType                   string
+	rateLimiterAddress                multiStringFlag
 	concurrentRequestLimit            int
 	backLogLimitConcurrentRequests    int
 	backLogDurationConcurrentRequests time.Duration
@@ -419,14 +421,21 @@ func main() {
 
 	defer undo()
 
-	var rateLimitClient *ratelimit.Client
+	var rateLimitClient ratelimit.SharedRateLimiter
 
-	if cfg.middleware.rateLimiterAddress != "" {
+	switch {
+	case cfg.middleware.grpcRateLimiterAddress != "":
 		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
 		defer cancel()
 
-		rateLimitClient = ratelimit.NewClient(reg)
-		if err := rateLimitClient.Dial(ctx, cfg.middleware.rateLimiterAddress); err != nil {
+		grpcRateLimiter := ratelimit.NewClient(reg)
+		if err := grpcRateLimiter.Dial(ctx, cfg.middleware.grpcRateLimiterAddress); err != nil {
+			stdlog.Fatal(err)
+		}
+		rateLimitClient = grpcRateLimiter
+	case cfg.middleware.rateLimiterType == "redis":
+		rateLimitClient, err = ratelimit.NewRedisRateLimiter([]string(cfg.middleware.rateLimiterAddress))
+		if err != nil {
 			stdlog.Fatal(err)
 		}
 	}
@@ -997,6 +1006,20 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// multiStringFlag is a type that implements the flag.Value interface.
+type multiStringFlag []string
+
+// Set appends a value to the slice.
+func (m *multiStringFlag) Set(value string) error {
+	*m = append(*m, value)
+	return nil
+}
+
+// String returns a string representation of the slice.
+func (m *multiStringFlag) String() string {
+	return strings.Join(*m, ", ")
+}
+
 //nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
@@ -1143,9 +1166,14 @@ func parseFlags() (config, error) {
 		"Policy for TLS client-side authentication. Values are from ClientAuthType constants in https://pkg.go.dev/crypto/tls#ClientAuthType")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
-	flag.StringVar(&cfg.middleware.rateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
+	flag.StringVar(&cfg.middleware.grpcRateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
 		"The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant."+
-			" If not specified, local, non-shared rate limiting will be used.")
+			" If not specified, local, non-shared rate limiting will be used. Has precedence over other rate limiter options.")
+	flag.StringVar(&cfg.middleware.rateLimiterType, "middleware.rate-limiter.type", "local",
+		"The type of rate limiter to use when not using a gRPC rate limiter. Options: 'local' (default), 'redis' (leaky bucket algorithm).")
+	flag.Var(&cfg.middleware.rateLimiterAddress, "middleware.rate-limiter.address",
+		"The address of the rate limiter. Only used when not using the gRPC nor \"local\" rate limiters. "+
+			"Can be repeated to specify multiple addresses (i.e. Redis Cluster.")
 	flag.IntVar(&cfg.middleware.concurrentRequestLimit, "middleware.concurrent-request-limit", 10_000,
 		"The limit that controls the number of concurrently processed requests across all tenants.")
 	flag.IntVar(&cfg.middleware.backLogLimitConcurrentRequests, "middleware.backlog-limit-concurrent-requests", 0,
