@@ -14,7 +14,7 @@ require (
 	github.com/go-chi/httprate v0.8.0
 	github.com/go-kit/log v0.2.1
 	github.com/go-openapi/runtime v0.26.2
-	github.com/go-openapi/strfmt v0.21.10
+	github.com/go-openapi/strfmt v0.22.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/golang/protobuf v1.5.3
 	github.com/gorilla/websocket v1.5.1
