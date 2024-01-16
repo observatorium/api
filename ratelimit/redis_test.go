@@ -2,7 +2,6 @@ package ratelimit
 
 import (
 	"context"
-	"math"
 	"testing"
 	"time"
 
@@ -51,7 +50,7 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			totalHits:     1,
 			wantRemaining: 9,
 			wantResetTimeFunc: func() time.Time {
-				return time.Now().Add(10 * time.Second)
+				return time.Now().Add(1 * time.Second)
 			},
 		},
 		{
@@ -88,6 +87,13 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			},
 		},
 		{
+			// The test scenario is:
+			// 1. Hit the rate limiter 2 times. No big amount of time should pass between the hits.
+			//    This ensures the bucket doesn't leak.
+			// 2. Wait for 2 seconds. This means the bucket will leak 2 tokens.
+			// 3. Hit the rate limiter 1 time. This should succeed because the bucket has leaked 2 tokens.
+			//    If the bucket didn't leak, this would fail because the bucket would be full.
+			//    The reset time should be 3 seconds from the first hit.
 			name: "Wait for 1 leak",
 			args: args{
 				ctx: context.Background(),
@@ -102,7 +108,7 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			waitBeforeLastHit: 2 * time.Second,
 			wantRemaining:     9,
 			wantResetTimeFunc: func() time.Time {
-				return time.Now().Add(10 * time.Second)
+				return time.Now().Add(3 * time.Second)
 			},
 		},
 	}
@@ -141,8 +147,9 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			testutil.Equals(t, tt.wantRemaining, gotRemaining)
 
 			parsedGotResetTime := time.UnixMilli(gotResetTime)
-			timeDifference := math.Abs(parsedGotResetTime.Sub(wantResetTime).Seconds())
-			testutil.Assert(t, timeDifference <= 1, "gotResetTime should be within 1 second of wantResetTime, it was %s seconds off", timeDifference)
+			timeDifference := parsedGotResetTime.Sub(wantResetTime).Seconds()
+
+			testutil.Assert(t, -1 <= timeDifference && timeDifference <= 1, "gotResetTime should be within 1 second of wantResetTime, it was %f seconds off", timeDifference)
 		})
 	}
 }
