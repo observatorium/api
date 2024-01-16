@@ -144,7 +144,7 @@ Usage of ./observatorium-api:
   -middleware.concurrent-request-limit int
     	The limit that controls the number of concurrently processed requests across all tenants. (default 10000)
   -middleware.rate-limiter.address value
-    	The address of the rate limiter. Only used when not using the gRPC nor "local" rate limiters. Can be repeated to specify multiple addresses (i.e. Redis Cluster.
+    	The address of the rate limiter. Only used when not using the gRPC nor "local" rate limiters. Can be repeated to specify multiple addresses (i.e. Redis Cluster).
   -middleware.rate-limiter.grpc-address string
     	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used. Has precedence over other rate limiter options.
   -middleware.rate-limiter.type string
