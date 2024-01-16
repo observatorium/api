@@ -91,8 +91,8 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			// 1. Hit the rate limiter 2 times. No big amount of time should pass between the hits.
 			//    This ensures the bucket doesn't leak.
 			// 2. Wait for 2 seconds. This means the bucket will leak 2 tokens.
-			// 3. Hit the rate limiter 1 time. This should succeed because the bucket has leaked 2 tokens.
-			//    If the bucket didn't leak, this would fail because the bucket would be full.
+			// 3. Hit the rate limiter 1 time. This should succeed.
+			//    If the bucket didn't leak, this would get total remaining of 7.
 			//    The reset time should be 3 seconds from the first hit.
 			name: "Wait for 1 leak",
 			args: args{
