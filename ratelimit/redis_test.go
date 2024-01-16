@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -140,7 +141,7 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			testutil.Equals(t, tt.wantRemaining, gotRemaining)
 
 			parsedGotResetTime := time.UnixMilli(gotResetTime)
-			timeDifference := parsedGotResetTime.Sub(wantResetTime).Seconds()
+			timeDifference := math.Abs(parsedGotResetTime.Sub(wantResetTime).Seconds())
 			testutil.Assert(t, timeDifference <= 1, "gotResetTime should be within 1 second of wantResetTime, it was %s seconds off", timeDifference)
 		})
 	}
