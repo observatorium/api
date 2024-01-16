@@ -47,7 +47,7 @@ func (r *RedisRateLimiter) GetRateLimits(ctx context.Context, req *request) (rem
 	if err != nil {
 		return 0, 0, err
 	}
-	resetTime = time.Now().Add(time.Duration(resetIn)).UnixMilli()
+	resetTime = time.Now().Add(time.Duration(resetIn) * time.Millisecond).UnixMilli()
 	if limited {
 		return remaining, resetTime, errOverLimit
 	}

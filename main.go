@@ -1173,7 +1173,7 @@ func parseFlags() (config, error) {
 		"The type of rate limiter to use when not using a gRPC rate limiter. Options: 'local' (default), 'redis' (leaky bucket algorithm).")
 	flag.Var(&cfg.middleware.rateLimiterAddress, "middleware.rate-limiter.address",
 		"The address of the rate limiter. Only used when not using the gRPC nor \"local\" rate limiters. "+
-			"Can be repeated to specify multiple addresses (i.e. Redis Cluster.")
+			"Can be repeated to specify multiple addresses (i.e. Redis Cluster).")
 	flag.IntVar(&cfg.middleware.concurrentRequestLimit, "middleware.concurrent-request-limit", 10_000,
 		"The limit that controls the number of concurrently processed requests across all tenants.")
 	flag.IntVar(&cfg.middleware.backLogLimitConcurrentRequests, "middleware.backlog-limit-concurrent-requests", 0,
