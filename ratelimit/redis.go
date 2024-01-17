@@ -38,7 +38,7 @@ func (r *RedisRateLimiter) GetRateLimits(ctx context.Context, req *request) (rem
 	rateLimitParameters := []string{
 		strconv.FormatInt(time.Now().UnixMilli(), 10), // now
 		strconv.FormatInt(req.limit, 10),              // burst
-		strconv.FormatInt(req.limit, 10),              // limit
+		strconv.FormatInt(req.limit, 10),              // rate
 		strconv.FormatInt(req.duration, 10),           // period
 		"1",                                           // cost
 	}

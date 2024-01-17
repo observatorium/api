@@ -1,12 +1,13 @@
 -- this script has side-effects, so it requires replicate commands mode
 redis.replicate_commands()
 
-local rate_limit_key = KEYS[1]
-local now            = ARGV[1] -- (Unix time in milliseconds)
-local burst          = ARGV[2]
-local rate           = ARGV[3]
-local period         = ARGV[4] -- (in milliseconds)
-local cost           = ARGV[5]
+local rate_limit_key = KEYS[1] -- The key to the rate limit bucket.
+local now            = ARGV[1] -- Current time (Unix time in milliseconds).
+local burst          = ARGV[2] -- This represents the total capacity of the bucket.
+local rate           = ARGV[3] -- This represents the amount that leaks from the bucket.
+local period         = ARGV[4] -- This represents how often the "rate" leaks from the bucket (in milliseconds).
+local cost           = ARGV[5] -- This represents the cost of the request. Often 1 is used per request.
+                               -- It allows some requests to be assigned a higher cost.
 
 local emission_interval = period / rate
 local increment         = emission_interval * cost
