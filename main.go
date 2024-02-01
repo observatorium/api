@@ -66,9 +66,12 @@ type debugConfig struct {
 }
 
 type serverConfig struct {
-	listen         string
-	listenInternal string
-	healthcheckURL string
+	listen            string
+	listenInternal    string
+	healthcheckURL    string
+	readHeaderTimeout time.Duration
+	readTimeout       time.Duration
+	writeTimeout      time.Duration
 }
 
 type tlsConfig struct {
@@ -86,6 +89,7 @@ type tlsConfig struct {
 type metricsConfig struct {
 	readEndpoint             *url.URL
 	writeEndpoint            *url.URL
+	upstreamWriteTimeout     time.Duration
 	additionalWriteEndpoints []remotewrite.Endpoint
 	tenantHeader             string
 }
@@ -100,10 +104,16 @@ type logsConfig struct {
 }
 
 const (
-	readTimeout  = 15 * time.Minute
-	writeTimeout = 2 * time.Minute
-	gracePeriod
-	middlewareTimeout
+	// Global HTTP server request/response timeouts.
+	readHeaderTimeout = 1 * time.Second
+	readTimeout       = 5 * time.Second
+	writeTimeout      = 12 * time.Minute // Aligned with the slowest middleware handler.
+
+	// Per Handler request context timeout.
+	metricsMiddlewareTimeout = 2 * time.Minute
+
+	// Server shutdown grace period.
+	gracePeriod = 2 * time.Minute
 )
 
 func main() {
@@ -288,7 +298,6 @@ func main() {
 		r.Use(middleware.RealIP)
 		r.Use(middleware.Recoverer)
 		r.Use(middleware.StripSlashes)
-		r.Use(middleware.Timeout(middlewareTimeout)) // best set per handler
 		r.Use(server.Logger(logger))
 
 		ins := server.NewInstrumentationMiddleware(reg)
@@ -333,6 +342,7 @@ func main() {
 
 			// Metrics
 			r.Group(func(r chi.Router) {
+				r.Use(middleware.Timeout(cfg.metrics.upstreamWriteTimeout))
 				r.Use(authentication.WithTenantMiddlewares(oidcTenantMiddlewares, authentication.NewMTLS(mTLSs)))
 				r.Use(authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs))
 
@@ -429,11 +439,12 @@ func main() {
 		}
 
 		s := http.Server{
-			Addr:         cfg.server.listen,
-			Handler:      r,
-			TLSConfig:    tlsConfig,
-			ReadTimeout:  readTimeout,  // best set per handler
-			WriteTimeout: writeTimeout, // best set per handler
+			Addr:              cfg.server.listen,
+			Handler:           r,
+			TLSConfig:         tlsConfig,
+			ReadHeaderTimeout: cfg.server.readHeaderTimeout,
+			ReadTimeout:       cfg.server.readTimeout,
+			WriteTimeout:      cfg.server.writeTimeout,
 		}
 
 		g.Add(func() error {
@@ -446,9 +457,6 @@ func main() {
 
 			return s.ListenAndServe()
 		}, func(err error) {
-			// gracePeriod is duration the server gracefully shuts down.
-			const gracePeriod = gracePeriod
-
 			ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 			defer cancel()
 
@@ -515,6 +523,9 @@ func parseFlags() (config, error) {
 		"The address on which the internal server listens.")
 	flag.StringVar(&cfg.server.healthcheckURL, "web.healthchecks.url", "http://localhost:8080",
 		"The URL against which to run healthchecks.")
+	flag.DurationVar(&cfg.server.readHeaderTimeout, "server.read-header-timeout", readHeaderTimeout, "Global server read header timeout.")
+	flag.DurationVar(&cfg.server.readTimeout, "server.read-timeout", readTimeout, "Global server read timeout.")
+	flag.DurationVar(&cfg.server.writeTimeout, "server.write-timeout", writeTimeout, "Global server read timeout.")
 	flag.StringVar(&rawLogsTailEndpoint, "logs.tail.endpoint", "",
 		"The endpoint against which to make tail read requests for logs.")
 	flag.StringVar(&rawLogsReadEndpoint, "logs.read.endpoint", "",
@@ -531,6 +542,8 @@ func parseFlags() (config, error) {
 		"The config file for additional write endpoints.")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
+	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,
+		"The HTTP write timeout for proxied requests to the metrics endpoint.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",

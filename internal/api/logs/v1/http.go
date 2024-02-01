@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	ReadTimeout        = 15 * time.Minute
-	WriteTimeout       = time.Minute
+	dialTimeout        = 30 * time.Second // Set as in http.DefaultTransport
 	lokiUpstreamPrefix = "/loki"
 )
 
@@ -103,7 +102,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 				ErrorLog: proxy.Logger(c.logger),
 				Transport: &http.Transport{
 					DialContext: (&net.Dialer{
-						Timeout: ReadTimeout,
+						Timeout: dialTimeout,
 					}).DialContext,
 				},
 			}
@@ -136,7 +135,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 				ErrorLog: proxy.Logger(c.logger),
 				Transport: &http.Transport{
 					DialContext: (&net.Dialer{
-						Timeout: ReadTimeout,
+						Timeout: dialTimeout,
 					}).DialContext,
 				},
 			}
@@ -165,7 +164,7 @@ func NewHandler(read, tail, write *url.URL, opts ...HandlerOption) http.Handler 
 				ErrorLog: proxy.Logger(c.logger),
 				Transport: &http.Transport{
 					DialContext: (&net.Dialer{
-						Timeout: WriteTimeout,
+						Timeout: dialTimeout,
 					}).DialContext,
 				},
 			}
