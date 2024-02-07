@@ -41,7 +41,7 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/oauth2 v0.16.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20231127180814-3a041ad873d4
-	google.golang.org/grpc v1.60.1
+	google.golang.org/grpc v1.61.0
 	google.golang.org/protobuf v1.32.0
 	k8s.io/apimachinery v0.28.4
 	k8s.io/apiserver v0.28.4
