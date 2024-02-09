@@ -81,7 +81,6 @@ const (
 	// Server shutdown grace period.
 	gracePeriod = 2 * time.Minute
 )
-const appName = "observatorium-api"
 
 // Version is set via build flag -ldflags -X main.Version.
 var (
@@ -279,8 +278,10 @@ func main() {
 
 	cfg, err := parseFlags()
 
+	stdlog.Println(version.Print(cfg.debug.name))
+
 	if *printVersion {
-		stdlog.Println(version.Print(appName))
+		// Only prints the version and exit
 		os.Exit(0)
 	}
 
