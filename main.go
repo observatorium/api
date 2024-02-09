@@ -81,6 +81,14 @@ const (
 	// Server shutdown grace period.
 	gracePeriod = 2 * time.Minute
 )
+const appName = "observatorium-api"
+
+// Version is set via build flag -ldflags -X main.Version.
+var (
+	Version  string
+	Branch   string
+	Revision string
+)
 
 type config struct {
 	logLevel  string
@@ -258,9 +266,24 @@ type tenant struct {
 	} `json:"rateLimits"`
 }
 
+func init() {
+	version.Version = Version
+	version.Branch = Branch
+	version.Revision = Revision
+}
+
 //nolint:funlen,gocyclo,gocognit
 func main() {
+
+	printVersion := flag.Bool("version", false, "Print this builds version information")
+
 	cfg, err := parseFlags()
+
+	if *printVersion {
+		stdlog.Println(version.Print(appName))
+		os.Exit(0)
+	}
+
 	if err != nil {
 		stdlog.Fatalf("parse flag: %v", err)
 	}

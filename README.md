@@ -193,6 +193,8 @@ Usage of ./observatorium-api:
     	The HTTP write timeout for proxied requests to the traces endpoint. (default 2m0s)
   -traces.write.endpoint string
     	The endpoint against which to make gRPC write requests for traces.
+  -version
+    	Print this builds version information
   -web.healthchecks.url string
     	The URL against which to run healthchecks. (default "http://localhost:8080")
   -web.internal.listen string
