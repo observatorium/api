@@ -146,7 +146,10 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 		})
 	}
 
-	if write != nil || c.endpoints != nil {
+	// If there are remote write endpoints, we should proxy the remote write requests to them.
+	// This is atypical behavior and the majority of configurations will not have remote write endpoints
+	// where we can defer to stdlib ReverseProxy as below.
+	if c.endpoints != nil && len(c.endpoints) > 0 {
 		proxyRemoteWrite := remotewrite.Proxy(write, c.endpoints, c.logger, c.registry)
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
@@ -155,6 +158,36 @@ func NewHandler(read, write *url.URL, opts ...HandlerOption) http.Handler {
 				proxyRemoteWrite,
 			))
 		})
+		return r
+	}
+
+	if write != nil {
+		var proxyWrite http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpMetricsWritestream(write),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-write"}),
+			)
+
+			proxyWrite = &httputil.ReverseProxy{
+				Director: middlewares,
+				ErrorLog: proxy.Logger(c.logger),
+				Transport: &http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout: dialTimeout,
+					}).DialContext,
+				},
+			}
+
+			r.Group(func(r chi.Router) {
+				r.Use(c.writeMiddlewares...)
+				r.Handle("/api/v1/receive", c.instrument.NewHandler(
+					prometheus.Labels{"group": "metricsv1", "handler": "receive"},
+					proxyWrite,
+				))
+			})
+		}
 	}
 
 	return r

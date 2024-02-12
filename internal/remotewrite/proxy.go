@@ -2,7 +2,7 @@ package remotewrite
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -46,9 +46,9 @@ func remoteWrite(write *url.URL, endpoints []Endpoint, logger log.Logger) http.H
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.With(prometheus.Labels{"method": r.Method}).Inc()
 
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 		_ = r.Body.Close()
-		r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		if write != nil {
 			remotewriteUrl := url.URL{}
@@ -115,7 +115,7 @@ func remoteWrite(write *url.URL, endpoints []Endpoint, logger log.Logger) http.H
 						defer resp.Body.Close()
 						remotewriteRequests.With(prometheus.Labels{"code": strconv.Itoa(resp.StatusCode), "name": ep.Name}).Inc()
 						if resp.StatusCode >= 300 || resp.StatusCode < 200 {
-							responseBody, err := ioutil.ReadAll(resp.Body)
+							responseBody, err := io.ReadAll(resp.Body)
 							if err != nil {
 								//level.Error(rlogger).Log("msg", "Failed to read response of the forward request", "err", err, "return code", resp.Status, "url", ep.URL)
 								LogChannels[j] <- logMessage{
