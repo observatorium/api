@@ -273,21 +273,12 @@ func init() {
 
 //nolint:funlen,gocyclo,gocognit
 func main() {
-
-	printVersion := flag.Bool("version", false, "Print this builds version information")
-
 	cfg, err := parseFlags()
-
-	stdlog.Println(version.Print(cfg.debug.name))
-
-	if *printVersion {
-		// Only prints the version and exit
-		os.Exit(0)
-	}
-
 	if err != nil {
 		stdlog.Fatalf("parse flag: %v", err)
 	}
+
+	stdlog.Println(version.Info())
 
 	if !cfg.metrics.enabled && !cfg.logs.enabled && !cfg.traces.enabled {
 		stdlog.Fatal("Neither logging, metrics not traces endpoints are enabled. " +
@@ -1042,7 +1033,6 @@ func parseFlags() (config, error) {
 	)
 
 	cfg := config{}
-
 	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
 		"Path to the RBAC configuration file.")
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
