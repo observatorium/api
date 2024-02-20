@@ -1,266 +1,145 @@
 package http
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"net/http/httputil"
-	"os"
+	"net/url"
 	"testing"
 
-	"github.com/ghodss/yaml"
-	"github.com/go-chi/chi"
-	"github.com/go-kit/log"
-	"github.com/observatorium/api/authentication"
+	"github.com/efficientgo/core/testutil"
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-func TestFilterRules_WithPrometheusAPIRulesResponseBody(t *testing.T) {
-	contentType := "application/json"
-
-	body, err := os.ReadFile("testdata/rules.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	matchers := map[string]string{
-		"namespace": "log-test-0",
-	}
-
-	b, err := filterRules(body, contentType, matchers, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var got prometheusRulesResponse
-	if err := json.Unmarshal(b, &got); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, group := range got.Data.RuleGroups {
-		for _, rule := range group.Rules {
-			if val := rule.GetLabels().Get("namespace"); val != "log-test-0" {
-				t.Errorf("invalid rule for label: %s and value: %s", "namespace", val)
-			}
-		}
-	}
-}
-
-func TestFilterRules_WithPrometheusAPIAlertsResponseBody(t *testing.T) {
-	contentType := "application/json"
-
-	body, err := os.ReadFile("testdata/alerts.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	matchers := map[string]string{
-		"namespace": "log-test-0",
-	}
-
-	b, err := filterRules(body, contentType, matchers, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var got prometheusRulesResponse
-	if err := json.Unmarshal(b, &got); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, alert := range got.Data.Alerts {
-		if val := alert.Labels.Get("namespace"); val != "log-test-0" {
-			t.Errorf("invalid rule for label: %s and value: %s", "namespace", val)
-		}
-	}
-}
-
-func TestFilterRules_WithPrometheusAPIResponseBody_ReturnNothingOnParseError(t *testing.T) {
-	contentType := "application/json"
-	body := []byte(`{`)
-	matchers := map[string]string{
-		"key": "value",
-	}
-
-	b, err := filterRules(body, contentType, matchers, true)
-	if err == nil {
-		t.Error("missing parse error")
-	}
-
-	if b != nil {
-		t.Errorf("want nil, got: %s", b)
-	}
-}
-
-func TestFilterRules_WithLokiAPIResponseBody(t *testing.T) {
-	contentType := "application/yaml"
-
-	body, err := os.ReadFile("testdata/rules.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	matchers := map[string]string{
-		"namespace": "log-test-0",
-	}
-
-	b, err := filterRules(body, contentType, matchers, true)
-	if err != nil {
-		t.Error(err)
-	}
-
-	var got lokiRulesResponse
-	if err := yaml.Unmarshal(b, &got); err != nil {
-		t.Error(err)
-	}
-
-	for _, groups := range got {
-		for _, group := range groups {
-			for _, rule := range group.Rules {
-				if val := rule.Labels["namespace"]; val != "log-test-0" {
-					t.Errorf("invalid rule for label: %s and value: %s", "namespace", val)
-				}
-			}
-		}
-	}
-}
-
-func TestFilterRules_WithokiAPIResponseBody_ReturnNothingOnParseError(t *testing.T) {
-	contentType := "application/yaml"
-	body := []byte(`invalid`)
-	matchers := map[string]string{
-		"key": "value",
-	}
-
-	b, err := filterRules(body, contentType, matchers, true)
-	if err == nil {
-		t.Error("missing parse error")
-	}
-
-	if b != nil {
-		t.Errorf("want nil, got: %s", b)
-	}
-}
-
-func TestFilterRules_WithUnknownContentType_ReturnsError(t *testing.T) {
-	contentType := "invalid/content"
-
-	var (
-		body     []byte
-		matchers map[string]string
-	)
-
-	b, err := filterRules(body, contentType, matchers, true)
-	if !errors.Is(err, errUnknownRulesContentType) {
-		t.Errorf("want %s, got: %s", errUnknownRulesContentType, err)
-	}
-
-	if b != nil {
-		t.Errorf("want nil, got: %s", b)
-	}
-}
-
-func TestFilterPrometheusRules(t *testing.T) {
+func TestEnforceNamespaceLabels(t *testing.T) {
 	tt := []struct {
-		desc          string
-		matchers      map[string]string
-		strictEnforce bool
-		res           prometheusRulesResponse
-		want          prometheusRulesResponse
+		desc            string
+		keys            []string
+		accessMatchers  []*labels.Matcher
+		namespaceLabels string
+		expectedQuery   string
 	}{
 		{
-			desc:          "without matchers returns empty",
-			strictEnforce: true,
-			res: prometheusRulesResponse{
-				Data: rulesData{
-					RuleGroups: []*ruleGroup{
-						{Name: "group-a"},
-					},
-				},
-			},
-			want: prometheusRulesResponse{},
+			desc:            "empty_keys",
+			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
+			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc: "without matchers returns original response",
-			res: prometheusRulesResponse{
-				Data: rulesData{
-					RuleGroups: []*ruleGroup{
-						{Name: "group-a"},
-					},
-				},
-			},
-			want: prometheusRulesResponse{
-				Data: rulesData{
-					RuleGroups: []*ruleGroup{
-						{Name: "group-a"},
-					},
-				},
-			},
+			desc:            "single_key_no_matcher",
+			keys:            []string{"kubernetes_namespace_name"},
+			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
+			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc:     "only matching",
-			matchers: map[string]string{"label": "value"},
-			res: prometheusRulesResponse{
-				Data: rulesData{
-					RuleGroups: []*ruleGroup{
-						{
-							Name: "group-a",
-							Rules: []rule{
-								{
-									alertingRule: &alertingRule{
-										Labels: labels.FromMap(map[string]string{"label": "value"}),
-									},
-								},
-								{
-									alertingRule: &alertingRule{
-										Labels: labels.FromMap(map[string]string{"other": "not"}),
-									},
-								},
-							},
-						},
-					},
+			desc: "single_key_wrong_matcher",
+			keys: []string{"kubernetes_namespace_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchEqual,
+					Name:  "kubernetes_pod_name",
+					Value: "pod-name-.*",
 				},
 			},
-			want: prometheusRulesResponse{
-				Data: rulesData{
-					RuleGroups: []*ruleGroup{
-						{
-							Name: "group-a",
-							Rules: []rule{
-								{
-									alertingRule: &alertingRule{
-										Labels: labels.FromMap(map[string]string{"label": "value"}),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
+			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc:     "nothing matching",
-			matchers: map[string]string{"label": "value"},
-			res: prometheusRulesResponse{
-				Data: rulesData{
-					RuleGroups: []*ruleGroup{
-						{
-							Name: "group-a",
-							Rules: []rule{
-								{
-									alertingRule: &alertingRule{
-										Labels: labels.FromMap(map[string]string{"not": "other"}),
-									},
-								},
-							},
-						},
-					},
+			desc: "single_key_matching_matcher_wrong_value",
+			keys: []string{"kubernetes_namespace_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchEqual,
+					Name:  "kubernetes_namespace_name",
+					Value: "first-ns-name",
 				},
 			},
-			want: prometheusRulesResponse{},
+			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
+			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
+		},
+		{
+			desc: "single_key_matching_matcher_matching_value_wrong_type",
+			keys: []string{"kubernetes_namespace_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchNotEqual,
+					Name:  "kubernetes_namespace_name",
+					Value: "last-ns-name",
+				},
+			},
+			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
+			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
+		},
+		{
+			desc: "single_key_matching_matcher_matching_value",
+			keys: []string{"kubernetes_namespace_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchEqual,
+					Name:  "kubernetes_namespace_name",
+					Value: "last-ns-name",
+				},
+			},
+			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
+			expectedQuery:   "labels=kubernetes_namespace_name:last-ns-name",
+		},
+		{
+			desc: "query with a single key with multiple occurrences",
+			keys: []string{"kubernetes_namespace_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-name|another-ns-name",
+				},
+			},
+			namespaceLabels: "kubernetes_namespace_name=ns-name&kubernetes_namespace_name=another-ns-name",
+			expectedQuery:   "labels=kubernetes_namespace_name:ns-name",
+		},
+		{
+			desc: "query_with_multiple_keys_with_single_occurrences",
+			keys: []string{"kubernetes_namespace_name", "kubernetes_pod_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchEqual,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-name",
+				},
+				{
+					Type:  labels.MatchEqual,
+					Name:  "kubernetes_pod_name",
+					Value: "my-pod",
+				},
+			},
+			namespaceLabels: "kubernetes_namespace_name=ns-name&kubernetes_pod_name=my-pod",
+			expectedQuery:   "labels=kubernetes_namespace_name:ns-name,kubernetes_pod_name:my-pod",
+		},
+		{
+			desc: "query_with_multiple_keys_with_single_occurrences_but_only_one_matcher",
+			keys: []string{"kubernetes_namespace_name", "kubernetes_pod_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchEqual,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-name",
+				},
+			},
+			namespaceLabels: "kubernetes_namespace_name=ns-name&kubernetes_pod_name=my-pod",
+			expectedQuery:   "kubernetes_pod_name=my-pod&labels=kubernetes_namespace_name:ns-name",
+		},
+		{
+			desc: "query_with_multiple_keys_with_multiple_occurrences",
+			keys: []string{"kubernetes_namespace_name", "kubernetes_pod_name"},
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-name|ns-new-name",
+				},
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_pod_name",
+					Value: "my-pod|my-new-pod",
+				},
+			},
+			namespaceLabels: "kubernetes_namespace_name=ns-name&kubernetes_pod_name=my-pod&kubernetes_namespace_name=ns-new-name&kubernetes_pod_name=my-new-pod",
+			expectedQuery:   "labels=kubernetes_namespace_name:ns-name,kubernetes_pod_name:my-pod",
 		},
 	}
 
@@ -269,234 +148,17 @@ func TestFilterPrometheusRules(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			got := filterPrometheusResponse(tc.res, tc.matchers, tc.strictEnforce)
+			matchers, err := initAuthzMatchers(tc.accessMatchers)
+			testutil.Ok(t, err)
 
-			wantJSON, err := json.MarshalIndent(tc.want, "", "  ")
-			if err != nil {
-				t.Errorf(err.Error())
-			}
+			queryValues, err := url.ParseQuery(tc.namespaceLabels)
+			testutil.Ok(t, err)
 
-			gotJSON, err := json.MarshalIndent(got, "", "  ")
-			if err != nil {
-				t.Errorf(err.Error())
-			}
+			v := transformParametersInLabelFilter(tc.keys, matchers, queryValues)
 
-			if string(wantJSON) != string(gotJSON) {
-				t.Errorf("\nwant: %s\ngot: %s", wantJSON, gotJSON)
-			}
+			ac, err := url.QueryUnescape(v)
+			testutil.Ok(t, err)
+			testutil.Equals(t, tc.expectedQuery, ac)
 		})
 	}
-}
-
-func TestFilterLokiRules(t *testing.T) {
-	tt := []struct {
-		desc          string
-		matchers      map[string]string
-		strictEnforce bool
-		res           lokiRulesResponse
-		want          lokiRulesResponse
-	}{
-		{
-			desc:          "without matchers returns empty",
-			strictEnforce: true,
-			res: lokiRulesResponse{
-				"ns-1": []lokiRuleGroup{
-					{Name: "group-a"},
-				},
-				"ns-2": []lokiRuleGroup{
-					{Name: "group-b"},
-				},
-			},
-		},
-		{
-			desc: "without matchers returns original response",
-			res: lokiRulesResponse{
-				"ns-1": []lokiRuleGroup{
-					{Name: "group-a"},
-				},
-				"ns-2": []lokiRuleGroup{
-					{Name: "group-b"},
-				},
-			},
-			want: lokiRulesResponse{
-				"ns-1": []lokiRuleGroup{
-					{Name: "group-a"},
-				},
-				"ns-2": []lokiRuleGroup{
-					{Name: "group-b"},
-				},
-			},
-		},
-		{
-			desc:     "only matching",
-			matchers: map[string]string{"label": "value"},
-			res: lokiRulesResponse{
-				"ns-1": []lokiRuleGroup{
-					{
-						Name: "group-a",
-						Rules: []lokiRule{
-							{
-								Alert:  "group-a-alert-1",
-								Labels: map[string]string{"label": "value"},
-							},
-							{
-								Alert:  "group-a-alert-2",
-								Labels: map[string]string{"other": "not"},
-							},
-						},
-					},
-				},
-				"ns-2": []lokiRuleGroup{
-					{
-						Name: "group-b",
-						Rules: []lokiRule{
-							{
-								Alert:  "group-b-alert-1",
-								Labels: map[string]string{"label": "value"},
-							},
-							{
-								Alert:  "group-b-alert-2",
-								Labels: map[string]string{"other": "not"},
-							},
-						},
-					},
-				},
-			},
-			want: lokiRulesResponse{
-				"ns-1": []lokiRuleGroup{
-					{
-						Name: "group-a",
-						Rules: []lokiRule{
-							{
-								Alert:  "group-a-alert-1",
-								Labels: map[string]string{"label": "value"},
-							},
-						},
-					},
-				},
-				"ns-2": []lokiRuleGroup{
-					{
-						Name: "group-b",
-						Rules: []lokiRule{
-							{
-								Alert:  "group-b-alert-1",
-								Labels: map[string]string{"label": "value"},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			desc:     "nothing matching",
-			matchers: map[string]string{"label": "value"},
-			res: lokiRulesResponse{
-				"ns-1": []lokiRuleGroup{
-					{
-						Name: "group-a",
-						Rules: []lokiRule{
-							{
-								Alert:  "group-a-alert",
-								Labels: map[string]string{"other": "not"},
-							},
-						},
-					},
-				},
-				"ns-2": []lokiRuleGroup{
-					{
-						Name: "group-b",
-						Rules: []lokiRule{
-							{
-								Alert:  "group-b-alert",
-								Labels: map[string]string{"other": "not"},
-							},
-						},
-					},
-				},
-			},
-			want: lokiRulesResponse{},
-		},
-	}
-
-	for _, tc := range tt {
-		tc := tc
-		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
-			got := filterLokiRules(tc.res, tc.matchers, tc.strictEnforce)
-
-			wantJSON, err := json.MarshalIndent(tc.want, "", "  ")
-			if err != nil {
-				t.Errorf(err.Error())
-			}
-
-			gotJSON, err := json.MarshalIndent(got, "", "  ")
-			if err != nil {
-				t.Errorf(err.Error())
-			}
-
-			if string(wantJSON) != string(gotJSON) {
-				t.Errorf("\nwant: %s\ngot: %s", wantJSON, gotJSON)
-			}
-		})
-	}
-}
-
-func TestModifyResponse(t *testing.T) {
-	l := log.NewNopLogger()
-	lk := map[string][]string{
-		"fake": {"namespace"},
-	}
-
-	rules, err := os.ReadFile("testdata/rules.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	originanLen := int64(len(rules))
-
-	filtered, err := os.ReadFile("testdata/rules-log-test-0.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	filteredLen := int64(len(filtered))
-
-	headers := make(http.Header)
-	headers.Add("Content-Type", "application/json")
-
-	res := &http.Response{
-		StatusCode:    http.StatusOK,
-		Header:        headers,
-		Body:          io.NopCloser(bytes.NewReader(rules)),
-		ContentLength: originanLen,
-	}
-
-	proxy := &httputil.ReverseProxy{
-		Director:       func(r *http.Request) {},
-		Transport:      staticResponseRoundTripper{res},
-		ModifyResponse: newModifyResponse(l, lk),
-	}
-
-	r := chi.NewRouter()
-	r.Handle("/rules/{tenant}", authentication.WithTenant(proxy))
-
-	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, httptest.NewRequest("GET", "/rules/fake?namespace=log-test-0", nil))
-
-	result := rr.Result()
-	if result.StatusCode != http.StatusOK {
-		t.Errorf("Broken routing: %s", rr.Result().Status)
-	}
-
-	if result.ContentLength == originanLen || result.ContentLength != filteredLen {
-		t.Errorf("failed to filter rules, original len: %d, want: %d, got: %d", originanLen, filteredLen, result.ContentLength)
-	}
-}
-
-type staticResponseRoundTripper struct {
-	res *http.Response
-}
-
-func (rt staticResponseRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
-	rt.res.Request = r
-	return rt.res, nil
 }
