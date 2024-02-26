@@ -43,7 +43,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
-	k8s.io/apimachinery v0.28.6
+	k8s.io/apimachinery v0.28.7
 	k8s.io/apiserver v0.28.6
 	k8s.io/client-go v0.28.6
 )
