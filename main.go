@@ -82,6 +82,13 @@ const (
 	gracePeriod = 2 * time.Minute
 )
 
+// Version is set via build flag -ldflags -X main.Version.
+var (
+	Version  string
+	Branch   string
+	Revision string
+)
+
 type config struct {
 	logLevel  string
 	logFormat string
@@ -260,12 +267,20 @@ type tenant struct {
 	} `json:"rateLimits"`
 }
 
+func init() {
+	version.Version = Version
+	version.Branch = Branch
+	version.Revision = Revision
+}
+
 //nolint:funlen,gocyclo,gocognit
 func main() {
 	cfg, err := parseFlags()
 	if err != nil {
 		stdlog.Fatalf("parse flag: %v", err)
 	}
+
+	stdlog.Println(version.Info())
 
 	if !cfg.metrics.enabled && !cfg.logs.enabled && !cfg.traces.enabled {
 		stdlog.Fatal("Neither logging, metrics not traces endpoints are enabled. " +
@@ -1041,7 +1056,6 @@ func parseFlags() (config, error) {
 	)
 
 	cfg := config{}
-
 	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
 		"Path to the RBAC configuration file.")
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
