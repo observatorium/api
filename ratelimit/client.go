@@ -18,9 +18,10 @@ import (
 var errOverLimit = errors.New("over limit")
 
 type request struct {
-	name          string
-	key           string
-	limit         int64
+	name  string
+	key   string
+	limit int64
+	// duration is the duration of the rate limit window in milliseconds.
 	duration      int64
 	failOpen      bool
 	retryAfterMin time.Duration
@@ -34,6 +35,9 @@ type Client struct {
 }
 
 type SharedRateLimiter interface {
+	// GetRateLimits retrieves the rate limits for a given request.
+	// It returns the remaining requests, the reset time as Unix time (millisecond from epoch), and any error that occurred.
+	// When a rate limit is exceeded, the error errOverLimit is returned.
 	GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error)
 }
 
