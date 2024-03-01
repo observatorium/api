@@ -1,4 +1,4 @@
-package ratelimit
+package e2e
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"github.com/efficientgo/core/backoff"
 	"github.com/efficientgo/core/testutil"
 	"github.com/efficientgo/e2e"
+
+	"github.com/observatorium/api/ratelimit"
 )
 
 func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
@@ -24,7 +26,7 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 
 	type args struct {
 		ctx context.Context
-		req *request
+		req *ratelimit.Request
 	}
 	tests := []struct {
 		name          string
@@ -41,10 +43,10 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			name: "Single hit, far from limit",
 			args: args{
 				ctx: context.Background(),
-				req: &request{
-					key:      "single-hit",
-					limit:    10,
-					duration: (10 * time.Second).Milliseconds(),
+				req: &ratelimit.Request{
+					Key:      "single-hit",
+					Limit:    10,
+					Duration: (10 * time.Second).Milliseconds(),
 				},
 			},
 			totalHits:     1,
@@ -57,10 +59,10 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			name: "At the edge of the limit",
 			args: args{
 				ctx: context.Background(),
-				req: &request{
-					key:      "edge-hit",
-					limit:    10,
-					duration: (10 * time.Second).Milliseconds(),
+				req: &ratelimit.Request{
+					Key:      "edge-hit",
+					Limit:    10,
+					Duration: (10 * time.Second).Milliseconds(),
 				},
 			},
 			totalHits:     10,
@@ -73,15 +75,15 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			name: "Beyond the limit",
 			args: args{
 				ctx: context.Background(),
-				req: &request{
-					key:      "beyond-limit",
-					limit:    10,
-					duration: (10 * time.Second).Milliseconds(),
+				req: &ratelimit.Request{
+					Key:      "beyond-limit",
+					Limit:    10,
+					Duration: (10 * time.Second).Milliseconds(),
 				},
 			},
 			totalHits:     11,
 			wantRemaining: 0,
-			wantErr:       errOverLimit,
+			wantErr:       ratelimit.ErrOverLimit,
 			wantResetTimeFunc: func() time.Time {
 				return time.Now().Add(10 * time.Second)
 			},
@@ -97,10 +99,10 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 			name: "Wait for 1 leak",
 			args: args{
 				ctx: context.Background(),
-				req: &request{
-					key:      "wait-for-leak",
-					limit:    10,
-					duration: (10 * time.Second).Milliseconds(),
+				req: &ratelimit.Request{
+					Key:      "wait-for-leak",
+					Limit:    10,
+					Duration: (10 * time.Second).Milliseconds(),
 				},
 			},
 			totalHits: 2,
@@ -125,10 +127,10 @@ func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 
 			var (
 				err error
-				r   *RedisRateLimiter
+				r   *ratelimit.RedisRateLimiter
 			)
 			for b.Reset(); b.Ongoing(); b.Wait() {
-				r, err = NewRedisRateLimiter([]string{redis.Endpoint("http")})
+				r, err = ratelimit.NewRedisRateLimiter([]string{redis.Endpoint("http")})
 			}
 			testutil.Ok(t, err)
 			testutil.Assert(t, r != nil)

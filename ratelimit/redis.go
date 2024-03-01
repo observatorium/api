@@ -33,23 +33,23 @@ func NewRedisRateLimiter(addresses []string) (*RedisRateLimiter, error) {
 
 // GetRateLimits retrieves the rate limits for a given request using a Redis Rate Limiter.
 // It returns the amount of remaining requests, the reset time in milliseconds, and any error that occurred.
-func (r *RedisRateLimiter) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
+func (r *RedisRateLimiter) GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error) {
 	inspectScript := rueidis.NewLuaScript(gcraRateLimitScript)
 	rateLimitParameters := []string{
 		strconv.FormatInt(time.Now().UnixMilli(), 10), // now
-		strconv.FormatInt(req.limit, 10),              // burst
-		strconv.FormatInt(req.limit, 10),              // rate
-		strconv.FormatInt(req.duration, 10),           // period
+		strconv.FormatInt(req.Limit, 10),              // burst
+		strconv.FormatInt(req.Limit, 10),              // rate
+		strconv.FormatInt(req.Duration, 10),           // period
 		"1",                                           // cost
 	}
-	result := inspectScript.Exec(ctx, r.client, []string{req.key}, rateLimitParameters)
+	result := inspectScript.Exec(ctx, r.client, []string{req.Key}, rateLimitParameters)
 	limited, remaining, resetIn, err := r.parseRateLimitResult(&result)
 	if err != nil {
 		return 0, 0, err
 	}
 	resetTime = time.Now().Add(time.Duration(resetIn) * time.Millisecond).UnixMilli()
 	if limited {
-		return remaining, resetTime, errOverLimit
+		return remaining, resetTime, ErrOverLimit
 	}
 	return remaining, resetTime, nil
 }

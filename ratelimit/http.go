@@ -71,11 +71,11 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 			middleware{
 				c.Matcher,
 				rateLimiter{logger, client,
-					&request{
+					&Request{
 						name:          requestName,
-						key:           fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
-						limit:         int64(c.Limit),
-						duration:      c.Window.Milliseconds(),
+						Key:           fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),
+						Limit:         int64(c.Limit),
+						Duration:      c.Window.Milliseconds(),
 						failOpen:      c.FailOpen,
 						retryAfterMin: c.RetryAfterMin,
 						retryAfterMax: c.RetryAfterMax,
@@ -122,7 +122,7 @@ func combine(middlewares map[string][]middleware) func(next http.Handler) http.H
 type rateLimiter struct {
 	logger        log.Logger
 	limiterClient SharedRateLimiter
-	req           *request
+	req           *Request
 	mut           *sync.RWMutex
 	limitTracker  map[string]time.Duration
 }
@@ -133,7 +133,7 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 		defer cancel()
 
 		remaining, resetTime, err := l.limiterClient.GetRateLimits(ctx, l.req)
-		w.Header().Set(headerKeyLimit, strconv.FormatInt(l.req.limit, 10))
+		w.Header().Set(headerKeyLimit, strconv.FormatInt(l.req.Limit, 10))
 		w.Header().Set(headerKeyRemaining, strconv.FormatInt(remaining, 10))
 		w.Header().Set(headerKeyReset, strconv.FormatInt(resetTime, 10))
 
@@ -144,7 +144,7 @@ func (l rateLimiter) Handler(next http.Handler) http.Handler {
 				w.Header().Set(headerRetryAfter, retryAfter)
 			}
 
-			if errors.Is(err, errOverLimit) {
+			if errors.Is(err, ErrOverLimit) {
 				httperr.PrometheusAPIError(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 				return
 			}
@@ -173,10 +173,10 @@ func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 
-	current, ok := l.limitTracker[l.req.key]
+	current, ok := l.limitTracker[l.req.Key]
 	if !ok {
 		nextValue := l.req.retryAfterMin.Seconds()
-		l.limitTracker[l.req.key] = l.req.retryAfterMin * 2
+		l.limitTracker[l.req.Key] = l.req.retryAfterMin * 2
 		return fmt.Sprintf("%d", int(nextValue)), true
 	}
 
@@ -188,7 +188,7 @@ func (l rateLimiter) getAndSetNextRetryAfterValue() (string, bool) {
 		nextValue = l.req.retryAfterMax
 	}
 
-	l.limitTracker[l.req.key] = nextValue
+	l.limitTracker[l.req.Key] = nextValue
 	next := strconv.Itoa(int(nextValue.Seconds()))
 	return next, true
 }
@@ -200,5 +200,5 @@ func (l rateLimiter) resetRetryAfterValue() {
 
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	delete(l.limitTracker, l.req.key)
+	delete(l.limitTracker, l.req.Key)
 }
