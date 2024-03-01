@@ -35,6 +35,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	promclientversion "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/version"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -303,7 +304,7 @@ func main() {
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
-		version.NewCollector("observatorium"),
+		promclientversion.NewCollector("observatorium"),
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
@@ -1442,7 +1443,8 @@ var gRPCRBAC = authorization.GRPCRBac{
 }
 
 func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
-	authorizers map[string]rbac.Authorizer, logger log.Logger, tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate) (*grpc.Server, error) {
+	authorizers map[string]rbac.Authorizer, logger log.Logger, tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate,
+) (*grpc.Server, error) {
 	connOtel, err := tracesv1.NewOTelConnection(
 		cfg.traces.writeEndpoint,
 		tracesv1.WithLogger(logger),
