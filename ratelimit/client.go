@@ -15,14 +15,14 @@ import (
 	"github.com/observatorium/api/ratelimit/gubernator"
 )
 
-var errOverLimit = errors.New("over limit")
+var ErrOverLimit = errors.New("over limit")
 
-type request struct {
+type Request struct {
 	name  string
-	key   string
-	limit int64
-	// duration is the duration of the rate limit window in milliseconds.
-	duration      int64
+	Key   string
+	Limit int64
+	// Duration is the Duration of the rate limit window in milliseconds.
+	Duration      int64
 	failOpen      bool
 	retryAfterMin time.Duration
 	retryAfterMax time.Duration
@@ -38,7 +38,7 @@ type SharedRateLimiter interface {
 	// GetRateLimits retrieves the rate limits for a given request.
 	// It returns the remaining requests, the reset time as Unix time (millisecond from epoch), and any error that occurred.
 	// When a rate limit is exceeded, the error errOverLimit is returned.
-	GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error)
+	GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error)
 }
 
 // NewClient creates a new gubernator client with default configuration.
@@ -78,14 +78,14 @@ func (c *Client) Dial(ctx context.Context, address string) error {
 
 // GetRateLimits gets the rate limits corresponding to a request.
 // Note: Dial must be called before calling this method, otherwise the client will panic.
-func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
+func (c *Client) GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error) {
 	resp, err := c.client.GetRateLimits(ctx, &gubernator.GetRateLimitsReq{
 		Requests: []*gubernator.RateLimitReq{{
 			Name:      req.name,
-			UniqueKey: req.key,
+			UniqueKey: req.Key,
 			Hits:      1,
-			Limit:     req.limit,
-			Duration:  req.duration,
+			Limit:     req.Limit,
+			Duration:  req.Duration,
 			Algorithm: gubernator.Algorithm_LEAKY_BUCKET,
 			Behavior:  gubernator.Behavior_GLOBAL,
 		}},
@@ -96,7 +96,7 @@ func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, re
 
 	response := resp.Responses[0]
 	if response.Status == gubernator.Status_OVER_LIMIT {
-		return 0, 0, errOverLimit
+		return 0, 0, ErrOverLimit
 	}
 
 	return response.GetRemaining(), response.GetResetTime(), nil

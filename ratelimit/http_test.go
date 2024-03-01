@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/go-chi/chi"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/server"
@@ -202,16 +203,16 @@ type mockSharedLimiter struct {
 	received int64
 }
 
-func (m *mockSharedLimiter) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
+func (m *mockSharedLimiter) GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	if req.limit > m.received {
+	if req.Limit > m.received {
 		m.received++
 		return m.received, mockResetTime, nil
 	}
 
-	return m.received, mockResetTime, errOverLimit
+	return m.received, mockResetTime, ErrOverLimit
 }
 
 func (m *mockSharedLimiter) reset() {
