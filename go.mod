@@ -1,6 +1,8 @@
 module github.com/observatorium/api
 
-go 1.20
+go 1.21
+
+toolchain go1.21.7
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.16.0
@@ -30,7 +32,7 @@ require (
 	github.com/prometheus-community/prom-label-proxy v0.8.1
 	github.com/prometheus/alertmanager v0.26.0
 	github.com/prometheus/client_golang v1.19.0
-	github.com/prometheus/common v0.48.0
+	github.com/prometheus/common v0.49.0
 	github.com/prometheus/prometheus v0.50.1
 	github.com/redis/rueidis v1.0.31
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.48.0
@@ -45,8 +47,8 @@ require (
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
 	k8s.io/apimachinery v0.28.7
-	k8s.io/apiserver v0.28.6
-	k8s.io/client-go v0.28.6
+	k8s.io/apiserver v0.28.7
+	k8s.io/client-go v0.28.7
 )
 
 require (
@@ -149,7 +151,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
@@ -196,7 +198,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.29.0 // indirect
-	k8s.io/component-base v0.28.6 // indirect
+	k8s.io/component-base v0.28.7 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
