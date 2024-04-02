@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coreos/go-oidc"
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/efficientgo/core/backoff"
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
@@ -64,7 +64,8 @@ type oidcAuthenticator struct {
 }
 
 func newOIDCAuthenticator(c map[string]interface{}, tenant string,
-	registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
+	registrationRetryCount *prometheus.CounterVec, logger log.Logger,
+) (Provider, error) {
 	var config oidcConfig
 
 	const (
@@ -165,7 +166,8 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 }
 
 func newOIDCProvider(ctx context.Context, tenant string, client *http.Client, issuerURL string,
-	registrationRetryCount *prometheus.CounterVec, logger log.Logger) *oidc.Provider {
+	registrationRetryCount *prometheus.CounterVec, logger log.Logger,
+) *oidc.Provider {
 	var provider *oidc.Provider
 
 	var err error
