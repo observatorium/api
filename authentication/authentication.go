@@ -68,7 +68,8 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 // InitializeProvider initializes an authenticator provider and register the created
 // authentication middleware and handler.
 func (pm *ProviderManager) InitializeProvider(config map[string]interface{},
-	tenant string, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger) chan Provider {
+	tenant string, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger,
+) chan Provider {
 	authCh := make(chan Provider)
 
 	go func() {
