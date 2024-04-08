@@ -32,7 +32,7 @@ require (
 	github.com/prometheus-community/prom-label-proxy v0.8.1
 	github.com/prometheus/alertmanager v0.27.0
 	github.com/prometheus/client_golang v1.19.0
-	github.com/prometheus/common v0.51.1
+	github.com/prometheus/common v0.52.2
 	github.com/prometheus/prometheus v0.50.1
 	github.com/redis/rueidis v1.0.33
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0
