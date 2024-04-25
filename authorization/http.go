@@ -2,6 +2,7 @@ package authorization
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-kit/log"
@@ -21,6 +22,10 @@ const (
 
 	// authorizationSelectorsKey is the key that holds the data about selectors present in the query.
 	authorizationSelectorsKey contextKey = "authzQuerySelectors"
+
+	// errorMessageForbidden is the error message presented to the user if the user doesn't have
+	// sufficient permissions to access the requested tenant
+	errorMessageForbidden string = "You don't have permission to access this tenant"
 )
 
 type SelectorsInfo struct {
@@ -148,8 +153,13 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, extraAttributes)
 			if !ok {
-				// Send 403 http.StatusForbidden
-				w.WriteHeader(statusCode)
+				switch statusCode {
+				case http.StatusForbidden:
+					httperr.PrometheusAPIError(w, errorMessageForbidden, statusCode)
+				default:
+					msg := fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode))
+					httperr.PrometheusAPIError(w, msg, statusCode)
+				}
 
 				return
 			}
