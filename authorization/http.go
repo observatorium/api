@@ -24,7 +24,7 @@ const (
 	authorizationSelectorsKey contextKey = "authzQuerySelectors"
 
 	// errorMessageForbidden is the error message presented to the user if the user doesn't have
-	// sufficient permissions to access the requested tenant
+	// sufficient permissions to access the requested tenant.
 	errorMessageForbidden string = "You don't have permission to access this tenant"
 )
 
