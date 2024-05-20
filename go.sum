@@ -106,8 +106,8 @@ github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6r
 github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM=
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
-github.com/brancz/kube-rbac-proxy v0.16.0 h1:npm8m0KDTsVJb3EWs9XGNzUHMmOxwsafEo1bPRXWZqI=
-github.com/brancz/kube-rbac-proxy v0.16.0/go.mod h1:fzEnI60rGXpYb2ICE20IyURFJNL/np7jopISDalPe04=
+github.com/brancz/kube-rbac-proxy v0.16.1 h1:naHwCf1Qt0Zaawa2lfGq2NBsTrz+GRPuEGYeFoFda+k=
+github.com/brancz/kube-rbac-proxy v0.16.1/go.mod h1:fzEnI60rGXpYb2ICE20IyURFJNL/np7jopISDalPe04=
 github.com/bytecodealliance/wasmtime-go/v3 v3.0.2 h1:3uZCA/BLTIu+DqCfguByNMJa2HVHpXvjfy0Dy7g6fuA=
 github.com/bytecodealliance/wasmtime-go/v3 v3.0.2/go.mod h1:RnUjnIXxEJcL6BgCvNyzCCRzZcxCgsZCi+RNlvYor5Q=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
