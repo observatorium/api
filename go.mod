@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.9
 
 require (
-	github.com/brancz/kube-rbac-proxy v0.16.0
+	github.com/brancz/kube-rbac-proxy v0.16.1
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/deepmap/oapi-codegen v1.16.2
 	github.com/efficientgo/core v1.0.0-rc.2
