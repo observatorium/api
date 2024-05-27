@@ -195,8 +195,10 @@ Usage of ./observatorium-api:
     	File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.
   -traces.write-timeout duration
     	The HTTP write timeout for proxied requests to the traces endpoint. (default 2m0s)
-  -traces.write.endpoint string
-    	The endpoint against which to make gRPC write requests for traces.
+  -traces.write.otlpgrpc.endpoint string
+    	The endpoint against which to make OTLP gRPC write requests for traces.
+  -traces.write.otlphttp.endpoint string
+    	The endpoint against which to make OTLP HTTP write requests for traces.
   -web.healthchecks.url string
     	The URL against which to run healthchecks. (default "http://localhost:8080")
   -web.internal.listen string
