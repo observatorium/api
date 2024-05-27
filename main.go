@@ -178,14 +178,15 @@ type tracesConfig struct {
 	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686".
 	readTemplateEndpoint string
 
-	readEndpoint         *url.URL
-	writeEndpoint        string
-	tempoEndpoint        *url.URL
-	upstreamWriteTimeout time.Duration
-	upstreamCAFile       string
-	upstreamCertFile     string
-	upstreamKeyFile      string
-	tenantHeader         string
+	readEndpoint          *url.URL
+	writeOTLPGRPCEndpoint string
+	writeOTLPHTTPEndpoint *url.URL
+	tempoEndpoint         *url.URL
+	upstreamWriteTimeout  time.Duration
+	upstreamCAFile        string
+	upstreamCertFile      string
+	upstreamKeyFile       string
+	tenantHeader          string
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
 	enabled bool
 }
@@ -802,6 +803,7 @@ func main() {
 								cfg.traces.readEndpoint,
 								cfg.traces.readTemplateEndpoint,
 								cfg.traces.tempoEndpoint,
+								cfg.traces.writeOTLPHTTPEndpoint,
 								tracesUpstreamCACert,
 								tracesUpstreamClientCert,
 								tracesv1.Logger(logger),
@@ -1052,7 +1054,8 @@ func parseFlags() (config, error) {
 		rawLogsAuthExtractSelectors    string
 		rawTracesReadEndpoint          string
 		rawTracesTempoEndpoint         string
-		rawTracesWriteEndpoint         string
+		rawTracesWriteOTLPGRPCEndpoint string
+		rawTracesWriteOTLPHTTPEndpoint string
 		rawTracingEndpointType         string
 	)
 
@@ -1142,8 +1145,10 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make HTTP read requests for traces using traceQL (tempo API).")
 	flag.StringVar(&cfg.traces.readTemplateEndpoint, "experimental.traces.read.endpoint-template", "",
 		"A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686")
-	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
-		"The endpoint against which to make gRPC write requests for traces.")
+	flag.StringVar(&rawTracesWriteOTLPGRPCEndpoint, "traces.write.otlpgrpc.endpoint", "",
+		"The endpoint against which to make OTLP gRPC write requests for traces.")
+	flag.StringVar(&rawTracesWriteOTLPHTTPEndpoint, "traces.write.otlphttp.endpoint", "",
+		"The endpoint against which to make OTLP HTTP write requests for traces.")
 	flag.DurationVar(&cfg.traces.upstreamWriteTimeout, "traces.write-timeout", tracesMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the traces endpoint.")
 	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
@@ -1344,19 +1349,29 @@ func parseFlags() (config, error) {
 		cfg.traces.tempoEndpoint = tracesTempoEndpoint
 	}
 
-	if rawTracesWriteEndpoint != "" {
+	if rawTracesWriteOTLPGRPCEndpoint != "" {
 		cfg.traces.enabled = true
 
-		_, _, err := net.SplitHostPort(rawTracesWriteEndpoint)
+		_, _, err := net.SplitHostPort(rawTracesWriteOTLPGRPCEndpoint)
 		if err != nil {
-			return cfg, fmt.Errorf("--traces.write.endpoint %q is invalid: %w", rawTracesWriteEndpoint, err)
+			return cfg, fmt.Errorf("--traces.write.otlpgrpc.endpoint %q is invalid: %w", rawTracesWriteOTLPGRPCEndpoint, err)
 		}
 
-		cfg.traces.writeEndpoint = rawTracesWriteEndpoint
+		cfg.traces.writeOTLPGRPCEndpoint = rawTracesWriteOTLPGRPCEndpoint
+	}
+	if rawTracesWriteOTLPHTTPEndpoint != "" {
+		cfg.traces.enabled = true
+
+		tracesOTLPHTTPEndpoint, err := url.ParseRequestURI(rawTracesWriteOTLPHTTPEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.write.otlphttp.endpoint %q is invalid: %w", rawTracesWriteOTLPHTTPEndpoint, err)
+		}
+
+		cfg.traces.writeOTLPHTTPEndpoint = tracesOTLPHTTPEndpoint
 	}
 
 	if cfg.traces.enabled && cfg.server.grpcListen == "" {
-		return cfg, fmt.Errorf("-traces.write.endpoint is set to %q but -grpc.listen is not set", cfg.traces.writeEndpoint)
+		return cfg, fmt.Errorf("-traces.write.endpoint is set to %q but -grpc.listen is not set", cfg.traces.writeOTLPGRPCEndpoint)
 	}
 
 	if !cfg.traces.enabled && cfg.server.grpcListen != "" {
@@ -1446,7 +1461,7 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 	authorizers map[string]rbac.Authorizer, logger log.Logger, tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate,
 ) (*grpc.Server, error) {
 	connOtel, err := tracesv1.NewOTelConnection(
-		cfg.traces.writeEndpoint,
+		cfg.traces.writeOTLPGRPCEndpoint,
 		tracesv1.WithLogger(logger),
 		tracesv1.WithUpstreamTLS(tracesUpstreamCA, tracesUpstreamCert),
 	)

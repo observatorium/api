@@ -228,15 +228,17 @@ func createRulesYAML(
 
 const otelConfigTpl = `
 receivers:
-    otlp/grpc:
+    otlp:
       protocols:
         grpc:
             endpoint: "0.0.0.0:4317"
+        http:
+            endpoint: "0.0.0.0:4318"
 
 exporters:
-    logging:
-        logLevel: debug
-    jaeger:
+    debug:
+        verbosity: detailed
+    otlp:
         endpoint: %[1]s
         tls:
           insecure: true
@@ -250,8 +252,8 @@ service:
 
     pipelines:
         traces/grpc:
-            receivers: [otlp/grpc]
-            exporters: [logging,jaeger]
+            receivers: [otlp]
+            exporters: [debug,otlp]
 `
 
 // createOtelCollectorConfigYAML() creates YAML for an Open Telemetry collector inside the Observatorium API boundary.
@@ -288,8 +290,8 @@ receivers:
             endpoint: 0.0.0.0:4317
 
 exporters:
-    logging:
-      logLevel: debug
+    debug:
+      verbosity: detailed
     otlp:
       endpoint: %[1]s
       # auth:
@@ -310,12 +312,13 @@ service:
     extensions: [health_check]
     telemetry:
       metrics:
-        address: localhost:8889
+        address: :8888
+        level: detailed
     # extensions: [oauth2client]
     pipelines:
       traces:
         receivers: [otlp]
-        exporters: [logging,otlp]
+        exporters: [debug,otlp]
 `
 
 // createOtelForwardingCollectorConfigYAML() creates YAML for an Open Telemetry collector outside the

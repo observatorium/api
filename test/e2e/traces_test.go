@@ -19,53 +19,128 @@ import (
 )
 
 const (
-	traceJSON = `
+	traceJSON5B = `
 {
-	"resource_spans": [
-	{
-		"resource": {
-		"attributes": [
-			{
-			"key": "host.name",
-			"value": { "stringValue": "testHost" }
-			}
-		]
-		},
-		"instrumentation_library_spans": [
-		{
-			"spans": [
-			{
-				"trace_id": "5B8EFFF798038103D269B633813FC60C",
-				"span_id": "EEE19B7EC3C1B173",
-				"name": "testSpan",
-				"start_time_unix_nano": 1544712660000000000,
-				"end_time_unix_nano": 1544712661000000000,
-				"attributes": [
-				{
-					"key": "attr1",
-					"value": { "intValue": 55 }
-				}
-				]
-			}
-			]
-		}
-		]
-	}
-	]
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "my.service"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "my.library",
+            "version": "1.0.0",
+            "attributes": [
+              {
+                "key": "my.scope.attribute",
+                "value": {
+                  "stringValue": "some scope attribute"
+                }
+              }
+            ]
+          },
+          "spans": [
+            {
+              "traceId": "5B8EFFF798038103D269B633813FC60C",
+              "spanId": "EEE19B7EC3C1B174",
+              "parentSpanId": "EEE19B7EC3C1B173",
+              "name": "I'm a server span",
+              "startTimeUnixNano": "1544712660000000000",
+              "endTimeUnixNano": "1544712661000000000",
+              "kind": 2,
+              "attributes": [
+                {
+                  "key": "my.span.attr",
+                  "value": {
+                    "stringValue": "some value"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}`
+
+	traceJSON6B = `
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "my.service"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "my.library",
+            "version": "1.0.0",
+            "attributes": [
+              {
+                "key": "my.scope.attribute",
+                "value": {
+                  "stringValue": "some scope attribute"
+                }
+              }
+            ]
+          },
+          "spans": [
+            {
+              "traceId": "6B8EFFF798038103D269B633813FC60C",
+              "spanId": "EEE19B7EC3C1B174",
+              "parentSpanId": "EEE19B7EC3C1B173",
+              "name": "I'm a server span",
+              "startTimeUnixNano": "1544712660000000000",
+              "endTimeUnixNano": "1544712661000000000",
+              "kind": 2,
+              "attributes": [
+                {
+                  "key": "my.span.attr",
+                  "value": {
+                    "stringValue": "some value"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }`
 
 	//nolint:lll
 	// queriedV3Trace is traceJSON returned through Jaeger's V3 API.
-	queriedV3Trace = `{"result":{"resourceSpans":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"instrumentationLibrarySpans":[{"instrumentationLibrary":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","parentSpanId":"AAAAAAAAAAA=","name":"testSpan","kind":"SPAN_KIND_INTERNAL","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}},{"key":"internal.span.format","value":{"stringValue":"proto"}}]}]}]}]}}`
+	queriedV3Trace5B = `{"result":{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"my.service"}}]},"scopeSpans":[{"scope":{"name":"my.library","version":"1.0.0"},"spans":[{"traceId":"5b8efff798038103d269b633813fc60c","spanId":"eee19b7ec3c1b174","parentSpanId":"eee19b7ec3c1b173","name":"I'm a server span","kind":2,"startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"my.span.attr","value":{"stringValue":"some value"}},{"key":"internal.span.format","value":{"stringValue":"otlp"}}],"status":{}}]}]}]}}`
 
 	//nolint:lll
 	// queriedV2Trace is traceJSON returned through Jaeger's V2 API.
-	queriedV2Trace = `{"data":[{"traceID":"5b8efff798038103d269b633813fc60c","spans":[{"traceID":"5b8efff798038103d269b633813fc60c","spanID":"eee19b7ec3c1b173","operationName":"testSpan","references":[],"startTime":1544712660000000,"duration":1000000,"tags":[{"key":"attr1","type":"int64","value":55},{"key":"internal.span.format","type":"string","value":"proto"}],"logs":[],"processID":"p1","warnings":null}],"processes":{"p1":{"serviceName":"","tags":[{"key":"host.name","type":"string","value":"testHost"}]}},"warnings":null}],"total":0,"limit":0,"offset":0,"errors":null}`
+	queriedV2Trace5B = `{"data":[{"traceID":"5b8efff798038103d269b633813fc60c","spans":[{"traceID":"5b8efff798038103d269b633813fc60c","spanID":"eee19b7ec3c1b174","operationName":"I'm a server span","references":[{"refType":"CHILD_OF","traceID":"5b8efff798038103d269b633813fc60c","spanID":"eee19b7ec3c1b173"}],"startTime":1544712660000000,"duration":1000000,"tags":[{"key":"my.span.attr","type":"string","value":"some value"},{"key":"span.kind","type":"string","value":"server"},{"key":"internal.span.format","type":"string","value":"otlp"}],"logs":[],"processID":"p1","warnings":["invalid parent span IDs=eee19b7ec3c1b173; skipping clock skew adjustment"]}],"processes":{"p1":{"serviceName":"my.service","tags":[{"key":"otel.library.name","type":"string","value":"my.library"},{"key":"otel.library.version","type":"string","value":"1.0.0"}]}},"warnings":null}],"total":0,"limit":0,"offset":0,"errors":null}`
+
+	//nolint:lll
+	// queriedV2Trace is traceJSON returned through Jaeger's V2 API.
+	queriedV2Trace6B = `{"data":[{"traceID":"6b8efff798038103d269b633813fc60c","spans":[{"traceID":"6b8efff798038103d269b633813fc60c","spanID":"eee19b7ec3c1b174","operationName":"I'm a server span","references":[{"refType":"CHILD_OF","traceID":"6b8efff798038103d269b633813fc60c","spanID":"eee19b7ec3c1b173"}],"startTime":1544712660000000,"duration":1000000,"tags":[{"key":"my.span.attr","type":"string","value":"some value"},{"key":"span.kind","type":"string","value":"server"},{"key":"internal.span.format","type":"string","value":"otlp"}],"logs":[],"processID":"p1","warnings":["invalid parent span IDs=eee19b7ec3c1b173; skipping clock skew adjustment"]}],"processes":{"p1":{"serviceName":"my.service","tags":[{"key":"otel.library.name","type":"string","value":"my.library"},{"key":"otel.library.version","type":"string","value":"1.0.0"}]}},"warnings":null}],"total":0,"limit":0,"offset":0,"errors":null}`
 
 	// queriedV2Dependencies is dependencies JSON returned through Jaeger's V2 API.
 	queriedV2Dependencies = `{"data":[],"total":0,"limit":0,"offset":0,"errors":null}`
 
-	tempoTraceResponse = `{"batches":[{"resource":{"attributes":[{"key":"host.name","value":{"stringValue":"testHost"}}]},"scopeSpans":[{"scope":{},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXM=","name":"testSpan","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"attr1","value":{"intValue":"55"}}],"status":{}}]}]}]}`
+	tempoTraceResponse5B = `{"batches":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"my.service"}}]},"scopeSpans":[{"scope":{"name":"my.library","version":"1.0.0"},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXQ=","parentSpanId":"7uGbfsPBsXM=","name":"I'm a server span","kind":"SPAN_KIND_SERVER","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"my.span.attr","value":{"stringValue":"some value"}}],"status":{}}]}]}]}`
 )
 
 func TestTracesExport(t *testing.T) {
@@ -77,12 +152,13 @@ func TestTracesExport(t *testing.T) {
 
 	prepareConfigsAndCerts(t, traces, e)
 	_, token, _ := startBaseServices(t, e, traces)
-	internalOtlpEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
+	internalOTLPGRPCEndpoint, internalOTLPHTTPEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
 		withGRPCListenEndpoint(":8317"),
-		withOtelTraceEndpoint(internalOtlpEndpoint),
+		withOTLPGRPCTraceEndpoint(internalOTLPGRPCEndpoint),
+		withOTLPHTTPTraceEndpoint("http://"+internalOTLPHTTPEndpoint),
 		withJaegerEndpoint("http://"+httpInternalQueryEndpoint),
 
 		// This test doesn't actually write logs, but we need
@@ -92,8 +168,7 @@ func TestTracesExport(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
-	t.Run("write-then-query-single-trace", func(t *testing.T) {
-
+	t.Run("write-grpc-then-query-single-trace", func(t *testing.T) {
 		createOtelForwardingCollectorConfigYAML(t, e,
 			api.InternalEndpoint("grpc"),
 			token)
@@ -104,9 +179,10 @@ func TestTracesExport(t *testing.T) {
 					"http":         4318,
 					"grpc":         4317,
 					"health_check": 13133,
+					"telemetry":    8889,
 				}).
 			Init(e2e.StartOptions{
-				Image: otelFwdCollectorImage,
+				Image: otelCollectorImage,
 				Volumes: []string{
 					fmt.Sprintf("%s:/conf/forwarding-collector.yaml",
 						filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"))),
@@ -131,7 +207,7 @@ func TestTracesExport(t *testing.T) {
 		request, err := http.NewRequest(
 			"POST",
 			fmt.Sprintf("http://%s/v1/traces", otel.Endpoint("http")),
-			bytes.NewBuffer([]byte(traceJSON)))
+			bytes.NewBuffer([]byte(traceJSON5B)))
 		testutil.Ok(t, err)
 		request.Header.Set("Content-Type", "application/json")
 		response, err := client.Do(request)
@@ -148,12 +224,12 @@ func TestTracesExport(t *testing.T) {
 
 		returnedTrace := queryForTraceDirectV3(t,
 			httpExternalQueryEndpoint, "5B8EFFF798038103D269B633813FC60C")
-		assertResponse(t, returnedTrace, queriedV3Trace)
+		assertResponse(t, returnedTrace, queriedV3Trace5B)
 
 		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
 			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
 			false, "", http.StatusOK)
-		assertResponse(t, returnedTrace, queriedV2Trace)
+		assertResponse(t, returnedTrace, queriedV2Trace5B)
 
 		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api", api.Endpoint("https"))
 		httpObservatoriumQueryTraceEndpoint := fmt.Sprintf("%s/traces", httpObservatoriumQueryEndpoint)
@@ -162,7 +238,7 @@ func TestTracesExport(t *testing.T) {
 		returnedTrace, _ = queryForTraceV2(t, "valid Observatorium trace v2 query",
 			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
-		assertResponse(t, returnedTrace, queriedV2Trace)
+		assertResponse(t, returnedTrace, queriedV2Trace5B)
 
 		_, returnedStatus := queryForTraceV2(t, "invalid Observatorium trace v2 query",
 			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
@@ -172,7 +248,7 @@ func TestTracesExport(t *testing.T) {
 		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
 			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
 			false, "", http.StatusOK)
-		assertResponse(t, returnedTrace, queriedV2Trace)
+		assertResponse(t, returnedTrace, queriedV2Trace5B)
 
 		_, returnedStatus = queryJaeger(t, "Observatorium services v2 query",
 			fmt.Sprintf("%s/services", httpObservatoriumQueryEndpoint),
@@ -190,6 +266,38 @@ func TestTracesExport(t *testing.T) {
 			fmt.Sprintf("%s/metrics/calls?service=doesnotexist", httpObservatoriumQueryEndpoint),
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		testutil.Equals(t, `{"name":"service_call_rate","type":"GAUGE","help":"calls/sec, grouped by service","metrics":[]}`, returnedMetrics)
+	})
+
+	t.Run("write-http-then-query-single-trace", func(t *testing.T) {
+		tlsClientConfig := getTLSClientConfig(t, e)
+		client := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsClientConfig}}
+		request, err := http.NewRequest(
+			"POST",
+			fmt.Sprintf("https://%s/api/traces/v1/test-oidc/v1/traces", api.Endpoint("https")),
+			bytes.NewBuffer([]byte(traceJSON6B)))
+		testutil.Ok(t, err)
+		request.Header.Set("x-tenant", "test-oidc")
+		request.Header.Set("authorization", fmt.Sprintf("bearer %s", token))
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		testutil.Ok(t, err)
+		defer response.Body.Close()
+
+		body, err := io.ReadAll(response.Body)
+		testutil.Ok(t, err)
+
+		bodyStr := string(body)
+		assertResponse(t, bodyStr, "{\"partialSuccess\":{}}")
+		testutil.Equals(t, http.StatusOK, response.StatusCode)
+
+		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api", api.Endpoint("https"))
+		httpObservatoriumQueryTraceEndpoint := fmt.Sprintf("%s/traces", httpObservatoriumQueryEndpoint)
+		// We skip TLS verification because Observatorium will present a cert for "e2e_traces_read_export-api",
+		// but we contact it using "localhost".
+		returnedTrace, _ := queryForTraceV2(t, "valid Observatorium trace v2 query",
+			httpObservatoriumQueryTraceEndpoint, "6B8EFFF798038103D269B633813FC60C",
+			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
+		assertResponse(t, returnedTrace, queriedV2Trace6B)
 	})
 }
 
@@ -299,13 +407,13 @@ func TestTracesTemplateQuery(t *testing.T) {
 
 	prepareConfigsAndCerts(t, tracesTemplate, e)
 	_, token, _ := startBaseServices(t, e, tracesTemplate)
-	internalOtlpEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
+	internalOTLPGRPCEndpoint, _, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
 		withGRPCListenEndpoint(":8317"),
 		// Note that we don't include `{tenant}`, because we can't easily do this with DNS on Docker.
-		withOtelTraceEndpoint(internalOtlpEndpoint),
+		withOTLPGRPCTraceEndpoint(internalOTLPGRPCEndpoint),
 		withExperimentalJaegerTemplateEndpoint("http://"+httpInternalQueryEndpoint),
 
 		// This test doesn't actually write logs, but we need
@@ -328,7 +436,7 @@ func TestTracesTemplateQuery(t *testing.T) {
 					"health_check": 13133,
 				}).
 			Init(e2e.StartOptions{
-				Image: otelFwdCollectorImage,
+				Image: otelCollectorImage,
 				Volumes: []string{
 					fmt.Sprintf("%s:/conf/forwarding-collector.yaml",
 						filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"))),
@@ -353,7 +461,7 @@ func TestTracesTemplateQuery(t *testing.T) {
 		request, err := http.NewRequest(
 			"POST",
 			fmt.Sprintf("http://%s/v1/traces", otel.Endpoint("http")),
-			bytes.NewBuffer([]byte(traceJSON)))
+			bytes.NewBuffer([]byte(traceJSON5B)))
 		testutil.Ok(t, err)
 		request.Header.Set("Content-Type", "application/json")
 		response, err := client.Do(request)
@@ -370,12 +478,12 @@ func TestTracesTemplateQuery(t *testing.T) {
 
 		returnedTrace := queryForTraceDirectV3(t,
 			httpExternalQueryEndpoint, "5B8EFFF798038103D269B633813FC60C")
-		assertResponse(t, returnedTrace, queriedV3Trace)
+		assertResponse(t, returnedTrace, queriedV3Trace5B)
 
 		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
 			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
 			false, "", http.StatusOK)
-		assertResponse(t, returnedTrace, queriedV2Trace)
+		assertResponse(t, returnedTrace, queriedV2Trace5B)
 
 		httpObservatoriumQueryEndpoint := fmt.Sprintf("https://%s/api/traces/v1/test-oidc/api", api.Endpoint("https"))
 		httpObservatoriumQueryTraceEndpoint := fmt.Sprintf("%s/traces", httpObservatoriumQueryEndpoint)
@@ -384,7 +492,7 @@ func TestTracesTemplateQuery(t *testing.T) {
 		returnedTrace, _ = queryForTraceV2(t, "valid Observatorium trace v2 query",
 			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
-		assertResponse(t, returnedTrace, queriedV2Trace)
+		assertResponse(t, returnedTrace, queriedV2Trace5B)
 
 		_, returnedStatus := queryForTraceV2(t, "invalid Observatorium trace v2 query",
 			httpObservatoriumQueryTraceEndpoint, "5B8EFFF798038103D269B633813FC60C",
@@ -394,7 +502,7 @@ func TestTracesTemplateQuery(t *testing.T) {
 		returnedTrace, _ = queryForTraceV2(t, "direct Jaeger v2 query",
 			fmt.Sprintf("http://%s/api/traces", httpExternalQueryEndpoint), "5B8EFFF798038103D269B633813FC60C",
 			false, "", http.StatusOK)
-		assertResponse(t, returnedTrace, queriedV2Trace)
+		assertResponse(t, returnedTrace, queriedV2Trace5B)
 
 		_, returnedStatus = queryJaeger(t, "Observatorium services v2 query",
 			fmt.Sprintf("%s/services", httpObservatoriumQueryEndpoint),
@@ -425,7 +533,7 @@ func TestTracesTempo(t *testing.T) {
 	api, err := newObservatoriumAPIService(
 		e,
 		withGRPCListenEndpoint(":8317"),
-		withOtelTraceEndpoint(tempoDistributorEndpoint),
+		withOTLPGRPCTraceEndpoint(tempoDistributorEndpoint),
 		withTempoEndpoint("http://"+internalTempoQueryEndpoint),
 
 		// This test doesn't actually write logs, but we need
@@ -447,9 +555,10 @@ func TestTracesTempo(t *testing.T) {
 					"http":         4318,
 					"grpc":         4317,
 					"health_check": 13133,
+					"telemetry":    8888,
 				}).
 			Init(e2e.StartOptions{
-				Image: otelFwdCollectorImage,
+				Image: otelCollectorImage,
 				Volumes: []string{
 					fmt.Sprintf("%s:/conf/forwarding-collector.yaml",
 						filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"))),
@@ -474,7 +583,7 @@ func TestTracesTempo(t *testing.T) {
 		request, err := http.NewRequest(
 			"POST",
 			fmt.Sprintf("http://%s/v1/traces", otel.Endpoint("http")),
-			bytes.NewBuffer([]byte(traceJSON)))
+			bytes.NewBuffer([]byte(traceJSON5B)))
 		testutil.Ok(t, err)
 		request.Header.Set("Content-Type", "application/json")
 		response, err := client.Do(request)
@@ -485,7 +594,7 @@ func TestTracesTempo(t *testing.T) {
 		testutil.Ok(t, err)
 
 		bodyStr := string(body)
-		assertResponse(t, bodyStr, "{}")
+		assertResponse(t, bodyStr, "{\"partialSuccess\":{}}")
 
 		testutil.Equals(t, http.StatusOK, response.StatusCode)
 
@@ -496,7 +605,7 @@ func TestTracesTempo(t *testing.T) {
 		returnedTrace, _ := queryForTraceTempo(t, "valid Observatorium trace tempo query",
 			httpObservatoriumTempoEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
-		assertResponse(t, returnedTrace, tempoTraceResponse)
+		assertResponse(t, returnedTrace, tempoTraceResponse5B)
 
 	})
 }

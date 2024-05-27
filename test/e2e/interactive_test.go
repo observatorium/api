@@ -23,7 +23,7 @@ func TestInteractiveSetup(t *testing.T) {
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 	rulesEndpoint := startServicesForRules(t, e)
-	internalOtlpEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
+	internalOTLPGRPCEndpoint, internalOTLPHTTPEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
@@ -32,7 +32,8 @@ func TestInteractiveSetup(t *testing.T) {
 		withRulesEndpoint("http://"+rulesEndpoint),
 		withRateLimiter(rateLimiterAddr),
 		withGRPCListenEndpoint(":8317"),
-		withOtelTraceEndpoint(internalOtlpEndpoint),
+		withOTLPGRPCTraceEndpoint(internalOTLPGRPCEndpoint),
+		withOTLPHTTPTraceEndpoint(internalOTLPHTTPEndpoint),
 		withJaegerEndpoint("http://"+httpInternalQueryEndpoint),
 	)
 	testutil.Ok(t, err)
