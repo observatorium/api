@@ -210,13 +210,10 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPH
 			Director:  middlewares,
 			ErrorLog:  proxy.Logger(c.logger),
 			Transport: otelhttp.NewTransport(t),
-
-			// This is a key piece, it changes <base href=> tags on text/html content
-			ModifyResponse: jaegerUIResponseModifier,
 		}
 
 		r.Group(func(r chi.Router) {
-			r.Use(c.tempoMiddlewares...)
+			r.Use(c.writeMiddlewares...)
 			r.Post("/v1/traces", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesotlphttpv1api", "handler": "traces"},
 				proxyOTLP))
