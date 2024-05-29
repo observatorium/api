@@ -109,7 +109,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPHttp *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
 
 	if read == nil && readTemplate == "" && tempo == nil {
 		panic("missing Jaeger read url")
@@ -189,6 +189,36 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, upstreamCA
 				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
 				proxyRead))
 		})
+	}
+
+	if writeOTLPHttp != nil {
+		middlewares := proxy.Middlewares(
+			proxy.MiddlewareSetUpstream(writeOTLPHttp),
+			proxy.MiddlewareSetPrefixHeader(),
+			proxy.MiddlewareLogger(c.logger),
+			middlewareMetrics,
+		)
+
+		t := &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: dialTimeout,
+			}).DialContext,
+			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+		}
+
+		proxyOTLP := &httputil.ReverseProxy{
+			Director:  middlewares,
+			ErrorLog:  proxy.Logger(c.logger),
+			Transport: otelhttp.NewTransport(t),
+		}
+
+		r.Group(func(r chi.Router) {
+			r.Use(c.writeMiddlewares...)
+			r.Post("/v1/traces", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesotlphttpv1api", "handler": "traces"},
+				proxyOTLP))
+		})
+
 	}
 
 	// if tempo upstream is enabled, configure proxy and route

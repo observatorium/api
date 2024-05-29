@@ -26,14 +26,9 @@ const (
 	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
 
-	jaegerAllInOneImage = "jaegertracing/all-in-one:1.31"
-	otelCollectorImage  = "otel/opentelemetry-collector:0.45.0"
+	jaegerAllInOneImage = "jaegertracing/all-in-one:1.57.0"
+	otelCollectorImage  = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.101.0"
 	tempoImage          = "grafana/tempo:2.2.4"
-
-	// Note that if the forwarding collector uses OIDC flow instead of hard-coding
-	// the bearer token we would need
-	// "otel/opentelemetry-collector-contrib:0.45.0" instead.
-	otelFwdCollectorImage = "otel/opentelemetry-collector:0.45.0"
 
 	dexImage              = "dexidp/dex:v2.30.0"
 	opaImage              = "openpolicyagent/opa:0.47.4-static"
@@ -96,16 +91,16 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	return loki.InternalEndpoint("http"), loki.Endpoint("http")
 }
 
-func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, jaegerExternalHttpEndpoint, jaegerInternalHttpEndpoint string) {
+func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, otlpHTTPEndpoint, jaegerExternalHttpEndpoint, jaegerInternalHttpEndpoint string) {
 	prometheus := e2edb.NewPrometheus(e, "prometheus")
 	testutil.Ok(t, e2e.StartAndWaitReady(prometheus))
 
 	jaeger := e.Runnable("jaeger").
 		WithPorts(
 			map[string]int{
-				"jaeger.grpc": 14250, // Receives traces
-				"grpc.query":  16685, // Query
-				"http.query":  16686, // Query
+				"otlp.grpc":  4317,  // Receiving traces
+				"grpc.query": 16685, // Query
+				"http.query": 16686, // Query
 			}).
 		Init(e2e.StartOptions{
 			Image:   jaegerAllInOneImage,
@@ -115,7 +110,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, 
 			},
 		})
 
-	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("jaeger.grpc"))
+	createOtelCollectorConfigYAML(t, e, jaeger.InternalEndpoint("otlp.grpc"))
 
 	otel := e.Runnable("otel-collector").
 		WithPorts(
@@ -139,7 +134,7 @@ func startServicesForTraces(t *testing.T, e e2e.Environment) (otlpGRPCEndpoint, 
 	testutil.Ok(t, e2e.StartAndWaitReady(jaeger))
 	testutil.Ok(t, e2e.StartAndWaitReady(otel))
 
-	return otel.InternalEndpoint("grpc"), jaeger.Endpoint("http.query"), jaeger.InternalEndpoint("http.query")
+	return otel.InternalEndpoint("grpc"), otel.InternalEndpoint("http"), jaeger.Endpoint("http.query"), jaeger.InternalEndpoint("http.query")
 }
 
 func startTempoServicesForTraces(t *testing.T, e e2e.Environment) (tempoDistributorEndpoint, internalTempoQueryEndpoint, tempoQueryEndpoint string) {
@@ -348,16 +343,17 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 }
 
 type apiOptions struct {
-	logsEndpoint         string
-	metricsReadEndpoint  string
-	metricsWriteEndpoint string
-	metricsRulesEndpoint string
-	alertmanagerEndpoint string
-	ratelimiterAddr      string
-	tracesWriteEndpoint  string
-	gRPCListenEndpoint   string
-	jaegerQueryEndpoint  string
-	tempoEndpoint        string
+	logsEndpoint                string
+	metricsReadEndpoint         string
+	metricsWriteEndpoint        string
+	metricsRulesEndpoint        string
+	alertmanagerEndpoint        string
+	ratelimiterAddr             string
+	tracesWriteOTLPGRPCEndpoint string
+	tracesWriteOTLPHTTPEndpoint string
+	gRPCListenEndpoint          string
+	jaegerQueryEndpoint         string
+	tempoEndpoint               string
 
 	// "experimental.traces.read.endpoint-template" value.
 	tracesExperimentalTemplateReadEndpoint string
@@ -378,9 +374,15 @@ func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	}
 }
 
-func withOtelTraceEndpoint(exportEndpoint string) apiOption {
+func withOTLPGRPCTraceEndpoint(exportEndpoint string) apiOption {
 	return func(o *apiOptions) {
-		o.tracesWriteEndpoint = exportEndpoint
+		o.tracesWriteOTLPGRPCEndpoint = exportEndpoint
+	}
+}
+
+func withOTLPHTTPTraceEndpoint(exportEndpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.tracesWriteOTLPHTTPEndpoint = exportEndpoint
 	}
 }
 
@@ -476,8 +478,11 @@ func newObservatoriumAPIService(
 		args = append(args, "--middleware.rate-limiter.grpc-address="+opts.ratelimiterAddr)
 	}
 
-	if opts.tracesWriteEndpoint != "" {
-		args = append(args, "--traces.write.endpoint="+opts.tracesWriteEndpoint)
+	if opts.tracesWriteOTLPGRPCEndpoint != "" {
+		args = append(args, "--traces.write.otlpgrpc.endpoint="+opts.tracesWriteOTLPGRPCEndpoint)
+	}
+	if opts.tracesWriteOTLPHTTPEndpoint != "" {
+		args = append(args, "--traces.write.otlphttp.endpoint="+opts.tracesWriteOTLPHTTPEndpoint)
 	}
 
 	if opts.tracesExperimentalTemplateReadEndpoint != "" {
