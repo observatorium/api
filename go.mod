@@ -1,8 +1,7 @@
 module github.com/observatorium/api
 
 go 1.21
-
-toolchain go1.21.9
+toolchain go1.22.3
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.16.1
@@ -46,7 +45,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.1
-	k8s.io/apimachinery v0.28.8
+	k8s.io/apimachinery v0.30.1
 	k8s.io/apiserver v0.28.7
 	k8s.io/client-go v0.28.7
 )
@@ -198,7 +197,7 @@ require (
 	k8s.io/api v0.29.0 // indirect
 	k8s.io/component-base v0.28.7 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.28.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
