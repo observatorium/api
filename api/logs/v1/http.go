@@ -2,7 +2,6 @@
 package http
 
 import (
-	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -145,7 +144,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -172,7 +171,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyRead = &httputil.ReverseProxy{
@@ -240,7 +239,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyReadRules = &httputil.ReverseProxy{
@@ -340,7 +339,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			tailRead = &httputil.ReverseProxy{
@@ -376,7 +375,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyWrite = &httputil.ReverseProxy{

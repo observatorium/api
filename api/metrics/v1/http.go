@@ -1,7 +1,6 @@
 package v1
 
 import (
-	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -174,7 +173,7 @@ type Endpoints struct {
 
 // NewHandler creates the new metrics v1 handler.
 // nolint:funlen
-func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -258,7 +257,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyRead = &httputil.ReverseProxy{
@@ -345,7 +344,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 			)
 
 			t := http.DefaultTransport.(*http.Transport)
-			t.TLSClientConfig = tls.NewClientConfig(upstreamCA, upstreamCert)
+			t.TLSClientConfig = tlsOptions.NewClientConfig()
 
 			uiProxy = &httputil.ReverseProxy{
 				Director:  middlewares,
@@ -384,7 +383,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyWrite = &httputil.ReverseProxy{
@@ -469,7 +468,7 @@ func NewHandler(endpoints Endpoints, upstreamCA []byte, upstreamCert *stdtls.Cer
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyAlertmanager = &httputil.ReverseProxy{
