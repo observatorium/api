@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/stolostron/builder:go1.18-linux AS builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.21-linux AS builder
 
 ADD go.mod /opt/go.mod
 ADD go.sum /opt/go.sum
@@ -15,7 +15,7 @@ WORKDIR /opt
 
 RUN git update-index --refresh; make observatorium
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS runner
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS runner
 
 COPY --from=builder /opt/observatorium /bin/observatorium
 
