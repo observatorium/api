@@ -36,7 +36,7 @@ require (
 	github.com/prometheus/prometheus v0.50.1
 	github.com/redis/rueidis v1.0.37
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.52.0
-	go.opentelemetry.io/contrib/propagators/jaeger v1.26.0
+	go.opentelemetry.io/contrib/propagators/jaeger v1.27.0
 	go.opentelemetry.io/otel v1.27.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.15.1
 	go.opentelemetry.io/otel/sdk v1.26.0
