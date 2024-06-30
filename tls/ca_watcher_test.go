@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -30,14 +29,8 @@ func TestCertWatcher(t *testing.T) {
 	caPool := x509.NewCertPool()
 	caPool.AddCert(caA)
 
-	reloader, err := NewCAWatcher(caPathA, logger, reloadInterval)
+	reloader, err := NewCAWatcher(caPathA, logger, reloadInterval, caPool)
 	require.NoError(t, err)
-
-	cfg, err := reloader.getClientConfig(&tls.Config{})
-	require.NoError(t, err)
-
-	// Load certificate even if watch loop is not started
-	assert.True(t, cfg.RootCAs.Equal(caPool))
 
 	cancelContext, cancel := context.WithCancel(context.Background())
 
@@ -61,12 +54,12 @@ func TestCertWatcher(t *testing.T) {
 	err = swapCert(t, caPathA, caPathB)
 	require.NoError(t, err)
 
+	rootCAs := x509.NewCertPool()
+	rootCAs.AddCert(caA)
+	rootCAs.AddCert(caB)
+
 	assert.Eventually(t, func() bool {
-		cfg, err := reloader.getClientConfig(&tls.Config{})
-		if err != nil {
-			return false
-		}
-		return cfg.RootCAs.Equal(cbPool)
+		return rootCAs.Equal(reloader.pool())
 
 	}, 5*reloadInterval, reloadInterval)
 

@@ -42,7 +42,8 @@ func newWithWatchers(upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
 		options.certReloader = certReloader
 	}
 	if upstreamCAFile != "" {
-		caReloader, err := startCAReloader(ctx, g, upstreamCAFile, interval, logger)
+		caPool := x509.NewCertPool()
+		caReloader, err := startCAReloader(ctx, g, upstreamCAFile, interval, logger, caPool)
 		if err != nil {
 			return nil, err
 		}
@@ -90,8 +91,9 @@ func startCertReloader(ctx context.Context, g run.Group,
 	return certReloader, nil
 }
 
-func startCAReloader(ctx context.Context, g run.Group, upstreamCAFile string, interval time.Duration, logger log.Logger) (*CAWatcher, error) {
-	caReloader, err := NewCAWatcher(upstreamCAFile, logger, interval)
+func startCAReloader(ctx context.Context, g run.Group, upstreamCAFile string, interval time.Duration, logger log.Logger,
+	pool *x509.CertPool) (*CAWatcher, error) {
+	caReloader, err := NewCAWatcher(upstreamCAFile, logger, interval, pool)
 	if err != nil {
 		return nil, err
 	}
@@ -139,10 +141,7 @@ func (uo *UpstreamOptions) NewClientConfig() *stdtls.Config {
 	}
 
 	if uo.isCAReloadEnabled() {
-		cfg.RootCAs = uo.caReloader.certPool
-		cfg.GetConfigForClient = func(info *stdtls.ClientHelloInfo) (*stdtls.Config, error) {
-			return uo.caReloader.getClientConfig(cfg)
-		}
+		cfg.RootCAs = uo.caReloader.pool()
 	} else {
 		cfg.RootCAs = x509.NewCertPool()
 		cfg.RootCAs.AppendCertsFromPEM(uo.ca)

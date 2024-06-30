@@ -3,7 +3,6 @@ package tls
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io"
@@ -17,7 +16,7 @@ import (
 )
 
 type CAWatcher struct {
-	caMutex         sync.RWMutex
+	mutex           sync.RWMutex
 	certPool        *x509.CertPool
 	logger          log.Logger
 	fileHashContent string
@@ -25,11 +24,11 @@ type CAWatcher struct {
 	interval        time.Duration
 }
 
-func NewCAWatcher(CAPath string, logger log.Logger, interval time.Duration) (*CAWatcher, error) {
+func NewCAWatcher(CAPath string, logger log.Logger, interval time.Duration, pool *x509.CertPool) (*CAWatcher, error) {
 	w := &CAWatcher{
 		CAPath:   CAPath,
 		logger:   logger,
-		certPool: x509.NewCertPool(),
+		certPool: pool,
 		interval: interval,
 	}
 	err := w.loadCA()
@@ -75,18 +74,20 @@ func (w *CAWatcher) loadCA() error {
 			level.Error(w.logger).Log("failed to load CA %s: %w", w.CAPath, err)
 			return err
 		}
-		// prevent concurrent updates to the same certPool
-		w.caMutex.Lock()
-		defer w.caMutex.Unlock()
-
-		certPool := x509.NewCertPool()
-		if !certPool.AppendCertsFromPEM(caPEM) {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+		if !w.certPool.AppendCertsFromPEM(caPEM) {
 			level.Error(w.logger).Log("failed to parse CA %s", w.CAPath)
 			return err
 		}
-		w.certPool = certPool
 	}
 	return nil
+}
+
+func (w *CAWatcher) pool() *x509.CertPool {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	return w.certPool
 }
 
 // hashFile returns the SHA256 hash of the file.
@@ -104,18 +105,4 @@ func (w *CAWatcher) hashFile(file string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
-
-func (w *CAWatcher) getClientConfig(original *tls.Config) (*tls.Config, error) {
-	w.caMutex.RLock()
-	defer w.caMutex.RUnlock()
-	return &tls.Config{
-		GetCertificate:       original.GetCertificate,
-		GetClientCertificate: original.GetClientCertificate,
-		MinVersion:           original.MinVersion,
-		MaxVersion:           original.MaxVersion,
-		NextProtos:           original.NextProtos,
-		RootCAs:              w.certPool,
-		ClientAuth:           original.ClientAuth,
-	}, nil
 }

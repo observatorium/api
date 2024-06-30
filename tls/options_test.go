@@ -174,7 +174,6 @@ func TestUpstreamOptions_NewClientConfigTimeInterval(t *testing.T) {
 		keyPath                 string
 		expectedErr             bool
 		expectedNilCfg          bool
-		setGetClientConfig      bool
 		setGetClientCertificate bool
 		expectedRootCA          *x509.CertPool
 		expectedCertificates    []tls.Certificate
@@ -185,7 +184,6 @@ func TestUpstreamOptions_NewClientConfigTimeInterval(t *testing.T) {
 			certPath:                certPath,
 			keyPath:                 keyPath,
 			expectedNilCfg:          false,
-			setGetClientConfig:      true,
 			setGetClientCertificate: true,
 			expectedRootCA:          caPool,
 		},
@@ -193,7 +191,6 @@ func TestUpstreamOptions_NewClientConfigTimeInterval(t *testing.T) {
 			name:                    "cert/key empty",
 			caPath:                  caPath,
 			expectedRootCA:          caPool,
-			setGetClientConfig:      true,
 			setGetClientCertificate: false,
 			expectedNilCfg:          false,
 		},
@@ -255,12 +252,6 @@ func TestUpstreamOptions_NewClientConfigTimeInterval(t *testing.T) {
 						assert.True(t, tc.expectedRootCA.Equal(cfg.RootCAs))
 					} else {
 						assert.Nil(t, cfg.RootCAs)
-					}
-
-					if tc.setGetClientConfig {
-						assert.NotNil(t, cfg.GetConfigForClient)
-					} else {
-						assert.Nil(t, cfg.GetConfigForClient)
 					}
 
 					if tc.setGetClientCertificate {
