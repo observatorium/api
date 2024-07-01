@@ -34,6 +34,9 @@ const (
 	rulesPerNamespaceRoute = "/loki/api/v1/rules/{namespace}"
 	rulesPerGroupNameRoute = "/loki/api/v1/rules/{namespace}/{groupName}"
 
+	otlpRoute = "/otlp/v1/logs"
+	pushRoute = "/loki/api/v1/push"
+
 	prometheusRulesRoute  = "/prometheus/api/v1/rules"
 	prometheusAlertsRoute = "/prometheus/api/v1/alerts"
 
@@ -387,7 +390,10 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			const pushRoute = "/loki/api/v1/push"
+			r.Handle(otlpRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "otlp"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+otlpRoute, proxyWrite),
+			))
 			r.Handle(pushRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "push"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+pushRoute, proxyWrite),
