@@ -33,6 +33,8 @@ const (
 	rulesRoute             = "/loki/api/v1/rules"
 	rulesPerNamespaceRoute = "/loki/api/v1/rules/{namespace}"
 	rulesPerGroupNameRoute = "/loki/api/v1/rules/{namespace}/{groupName}"
+	volumeRoute            = "/loki/api/v1/index/volume"
+	volumeRangeRoute       = "/loki/api/v1/index/volume_range"
 
 	prometheusRulesRoute  = "/prometheus/api/v1/rules"
 	prometheusAlertsRoute = "/prometheus/api/v1/alerts"
@@ -198,6 +200,14 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 			r.Handle(labelsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "labels"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+labelsRoute, proxyRead),
+			))
+			r.Handle(volumeRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "volume"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+volumeRoute, proxyRead),
+			))
+			r.Handle(volumeRangeRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "volume_range"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+volumeRangeRoute, proxyRead),
 			))
 			r.Handle(labelValuesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
