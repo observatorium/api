@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
-	stdtls "crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -109,7 +108,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPHttp *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPHttp *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 
 	if read == nil && readTemplate == "" && tempo == nil {
 		panic("missing Jaeger read url")
@@ -152,7 +151,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPH
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyRead = &httputil.ReverseProxy{
@@ -203,7 +202,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPH
 			DialContext: (&net.Dialer{
 				Timeout: dialTimeout,
 			}).DialContext,
-			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			TLSClientConfig: tlsOptions.NewClientConfig(),
 		}
 
 		proxyOTLP := &httputil.ReverseProxy{
@@ -229,7 +228,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPH
 			DialContext: (&net.Dialer{
 				Timeout: dialTimeout,
 			}).DialContext,
-			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			TLSClientConfig: tlsOptions.NewClientConfig(),
 		}
 
 		middlewares := proxy.Middlewares(

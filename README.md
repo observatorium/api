@@ -113,6 +113,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -logs.tls.key-file string
     	File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.
+  -logs.tls.watch-certs
+    	Watch for certificate changes and reload
   -logs.write-timeout duration
     	The HTTP write timeout for proxied requests to the logs endpoint. (default 10m0s)
   -logs.write.endpoint string
@@ -133,6 +135,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -metrics.tls.key-file string
     	File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.
+  -metrics.tls.watch-certs
+    	Watch for certificate changes and reload
   -metrics.write-timeout duration
     	The HTTP write timeout for proxied requests to the metrics endpoint. (default 2m0s)
   -metrics.write.endpoint string
@@ -193,6 +197,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -traces.tls.key-file string
     	File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.
+  -traces.tls.watch-certs
+    	Watch for certificate changes and reload
   -traces.write-timeout duration
     	The HTTP write timeout for proxied requests to the traces endpoint. (default 2m0s)
   -traces.write.otlpgrpc.endpoint string
