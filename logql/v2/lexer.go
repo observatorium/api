@@ -83,6 +83,8 @@ var tokens = map[string]int{
 	"|":                   PIPE,
 	"|=":                  PIPE_EXACT,
 	"|~":                  PIPE_MATCH,
+	"|>":                  PIPE_MATCH_PATTERN,
+	"!>":                  PIPE_NOT_MATCH_PATTERN,
 	"decolorize":          DECOLORIZE,
 	"drop":                DROP,
 	"keep":                KEEP,
@@ -202,6 +204,12 @@ func (l *lexer) Lex(lval *exprSymType) int {
 			}
 
 			return 0
+		}
+
+		tokenText := l.TokenText()
+		if duration, ok := tryScanDuration(tokenText, &l.Scanner); ok {
+			lval.duration = duration
+			return DURATION
 		}
 
 	case scanner.EOF:
