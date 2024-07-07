@@ -15,7 +15,8 @@ import (
 	"github.com/go-kit/log/level"
 )
 
-type CAWatcher struct {
+// caWatcher poll for changes on the CA file, if the CA change it will add it to the certificate Pool.
+type caWatcher struct {
 	mutex           sync.RWMutex
 	certPool        *x509.CertPool
 	logger          log.Logger
@@ -24,8 +25,9 @@ type CAWatcher struct {
 	interval        time.Duration
 }
 
-func NewCAWatcher(CAPath string, logger log.Logger, interval time.Duration, pool *x509.CertPool) (*CAWatcher, error) {
-	w := &CAWatcher{
+// newCAWatcher creates a new watcher for the CA file.
+func newCAWatcher(CAPath string, logger log.Logger, interval time.Duration, pool *x509.CertPool) (*caWatcher, error) {
+	w := &caWatcher{
 		CAPath:   CAPath,
 		logger:   logger,
 		certPool: pool,
@@ -35,7 +37,9 @@ func NewCAWatcher(CAPath string, logger log.Logger, interval time.Duration, pool
 	return w, err
 }
 
-func (w *CAWatcher) Watch(ctx context.Context) error {
+// Watch for the changes on the certificate each interval, if the content changes
+// a new certificate will be added to the pool.
+func (w *caWatcher) Watch(ctx context.Context) error {
 	var timer *time.Timer
 
 	scheduleNext := func() {
@@ -58,7 +62,7 @@ func (w *CAWatcher) Watch(ctx context.Context) error {
 
 }
 
-func (w *CAWatcher) loadCA() error {
+func (w *caWatcher) loadCA() error {
 
 	hash, err := w.hashFile(w.CAPath)
 	if err != nil {
@@ -84,14 +88,14 @@ func (w *CAWatcher) loadCA() error {
 	return nil
 }
 
-func (w *CAWatcher) pool() *x509.CertPool {
+func (w *caWatcher) pool() *x509.CertPool {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	return w.certPool
 }
 
 // hashFile returns the SHA256 hash of the file.
-func (w *CAWatcher) hashFile(file string) (string, error) {
+func (w *caWatcher) hashFile(file string) (string, error) {
 	f, err := os.Open(filepath.Clean(file))
 	if err != nil {
 		return "", err

@@ -125,7 +125,8 @@ func TestUpstreamOptions_NewClientConfigNoTimeInteval(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			opts, err := NewUpstreamOptions(
-				tc.certPath, tc.keyPath, tc.caPath, nil, logger, context.Background(), g)
+				context.Background(),
+				tc.certPath, tc.keyPath, tc.caPath, nil, logger, g)
 
 			if tc.expectedErr {
 				assert.Error(t, err)
@@ -235,7 +236,8 @@ func TestUpstreamOptions_NewClientConfigTimeInterval(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			opts, err := NewUpstreamOptions(
-				tc.certPath, tc.keyPath, tc.caPath, &interval, logger, context.Background(), g)
+				context.Background(),
+				tc.certPath, tc.keyPath, tc.caPath, &interval, logger, g)
 
 			if tc.expectedErr {
 				assert.Error(t, err)

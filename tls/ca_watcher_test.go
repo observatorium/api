@@ -29,7 +29,7 @@ func TestCertWatcher(t *testing.T) {
 	caPool := x509.NewCertPool()
 	caPool.AddCert(caA)
 
-	reloader, err := NewCAWatcher(caPathA, logger, reloadInterval, caPool)
+	reloader, err := newCAWatcher(caPathA, logger, reloadInterval, caPool)
 	require.NoError(t, err)
 
 	cancelContext, cancel := context.WithCancel(context.Background())

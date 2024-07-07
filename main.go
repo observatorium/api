@@ -614,12 +614,13 @@ func main() {
 				}
 
 				metricsUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
 					cfg.metrics.upstreamCertFile,
 					cfg.metrics.upstreamKeyFile,
 					cfg.metrics.upstreamCAFile,
 					loadInterval,
 					logger,
-					context.Background(), g)
+					g)
 
 				if err != nil {
 					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
@@ -716,12 +717,13 @@ func main() {
 				}
 
 				logsUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
 					cfg.logs.upstreamCertFile,
 					cfg.logs.upstreamKeyFile,
 					cfg.logs.upstreamCAFile,
 					loadInterval,
 					logger,
-					context.Background(), g)
+					g)
 
 				if err != nil {
 					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
@@ -767,12 +769,13 @@ func main() {
 					loadInterval = &cfg.tls.reloadInterval
 				}
 				tracesUpstreamTLSOptions, err = tls.NewUpstreamOptions(
+					context.Background(),
 					cfg.traces.upstreamCertFile,
 					cfg.traces.upstreamKeyFile,
 					cfg.traces.upstreamCAFile,
 					loadInterval,
 					logger,
-					context.Background(), g)
+					g)
 
 				if err != nil {
 					stdlog.Fatalf("failed to read upstream traces TLS: %v", err)

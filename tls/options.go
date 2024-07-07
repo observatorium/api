@@ -12,26 +12,29 @@ import (
 	"github.com/oklog/run"
 )
 
+// UpstreamOptions represents the options of the upstream TLS configuration
+// this structure contains the certificates and the watchers if the certificate/ca watchers are enabled.
 type UpstreamOptions struct {
 	cert         *stdtls.Certificate
 	ca           []byte
 	certReloader *rbacproxytls.CertReloader
-	caReloader   *CAWatcher
+	caReloader   *caWatcher
 }
 
-func NewUpstreamOptions(upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
-	interval *time.Duration, logger log.Logger, ctx context.Context, g run.Group) (*UpstreamOptions, error) {
+// NewUpstreamOptions create a new UpstreamOptions, if interval is nil, the watcher will not be enabled.
+func NewUpstreamOptions(ctx context.Context, upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
+	interval *time.Duration, logger log.Logger, g run.Group) (*UpstreamOptions, error) {
 
 	// reload enabled
 	if interval != nil {
-		return newWithWatchers(upstreamCertFile, upstreamKeyFile, upstreamCAFile, *interval, logger, ctx, g)
+		return newWithWatchers(ctx, upstreamCertFile, upstreamKeyFile, upstreamCAFile, *interval, logger, g)
 	}
 
 	return newNoWatchers(upstreamCertFile, upstreamKeyFile, upstreamCAFile)
 }
 
-func newWithWatchers(upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
-	interval time.Duration, logger log.Logger, ctx context.Context, g run.Group) (*UpstreamOptions, error) {
+func newWithWatchers(ctx context.Context, upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
+	interval time.Duration, logger log.Logger, g run.Group) (*UpstreamOptions, error) {
 	options := &UpstreamOptions{}
 
 	if upstreamCertFile != "" && upstreamKeyFile != "" {
@@ -92,8 +95,8 @@ func startCertReloader(ctx context.Context, g run.Group,
 }
 
 func startCAReloader(ctx context.Context, g run.Group, upstreamCAFile string, interval time.Duration, logger log.Logger,
-	pool *x509.CertPool) (*CAWatcher, error) {
-	caReloader, err := NewCAWatcher(upstreamCAFile, logger, interval, pool)
+	pool *x509.CertPool) (*caWatcher, error) {
+	caReloader, err := newCAWatcher(upstreamCAFile, logger, interval, pool)
 	if err != nil {
 		return nil, err
 	}
@@ -107,23 +110,29 @@ func startCAReloader(ctx context.Context, g run.Group, upstreamCAFile string, in
 	return caReloader, nil
 }
 
+// hasCA determine if the CA was specified.
 func (uo *UpstreamOptions) hasCA() bool {
 	return len(uo.ca) != 0 || uo.caReloader != nil
 }
 
+// hasCA determine if the hasUpstreamCerts were specified.
 func (uo *UpstreamOptions) hasUpstreamCerts() bool {
 	return uo.cert != nil || uo.certReloader != nil
 }
 
+// hasCA determine if the CA watcher is enabled.
 func (uo *UpstreamOptions) isCAReloadEnabled() bool {
 	return uo.caReloader != nil
 }
 
+// hasCA determine if the certificate watcher is enabled.
 func (uo *UpstreamOptions) isCertReloaderEnabled() bool {
 	return uo.certReloader != nil
 }
 
 // NewClientConfig returns a tls config for the reverse proxy handling if an upstream CA is given.
+// this will transform TLS UpstreamOptions to a tls.Config native TLS golang structure, if the watchers are enabled
+// it will override the GetClientCertificate function.
 func (uo *UpstreamOptions) NewClientConfig() *stdtls.Config {
 	if !uo.hasCA() {
 		return nil
