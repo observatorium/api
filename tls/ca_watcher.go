@@ -15,8 +15,8 @@ import (
 	"github.com/go-kit/log/level"
 )
 
-// caWatcher poll for changes on the CA file, if the CA change it will add it to the certificate Pool.
-type caWatcher struct {
+// caCertificateWatcher poll for changes on the CA certificate file, if the CA change it will add it to the certificate Pool.
+type caCertificateWatcher struct {
 	mutex           sync.RWMutex
 	certPool        *x509.CertPool
 	logger          log.Logger
@@ -25,9 +25,9 @@ type caWatcher struct {
 	interval        time.Duration
 }
 
-// newCAWatcher creates a new watcher for the CA file.
-func newCAWatcher(CAPath string, logger log.Logger, interval time.Duration, pool *x509.CertPool) (*caWatcher, error) {
-	w := &caWatcher{
+// newCACertificateWatcher creates a new watcher for the CA file.
+func newCACertificateWatcher(CAPath string, logger log.Logger, interval time.Duration, pool *x509.CertPool) (*caCertificateWatcher, error) {
+	w := &caCertificateWatcher{
 		CAPath:   CAPath,
 		logger:   logger,
 		certPool: pool,
@@ -39,7 +39,7 @@ func newCAWatcher(CAPath string, logger log.Logger, interval time.Duration, pool
 
 // Watch for the changes on the certificate each interval, if the content changes
 // a new certificate will be added to the pool.
-func (w *caWatcher) Watch(ctx context.Context) error {
+func (w *caCertificateWatcher) Watch(ctx context.Context) error {
 	var timer *time.Timer
 
 	scheduleNext := func() {
@@ -62,7 +62,7 @@ func (w *caWatcher) Watch(ctx context.Context) error {
 
 }
 
-func (w *caWatcher) loadCA() error {
+func (w *caCertificateWatcher) loadCA() error {
 
 	hash, err := w.hashFile(w.CAPath)
 	if err != nil {
@@ -88,14 +88,14 @@ func (w *caWatcher) loadCA() error {
 	return nil
 }
 
-func (w *caWatcher) pool() *x509.CertPool {
+func (w *caCertificateWatcher) pool() *x509.CertPool {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	return w.certPool
 }
 
 // hashFile returns the SHA256 hash of the file.
-func (w *caWatcher) hashFile(file string) (string, error) {
+func (w *caCertificateWatcher) hashFile(file string) (string, error) {
 	f, err := os.Open(filepath.Clean(file))
 	if err != nil {
 		return "", err

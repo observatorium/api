@@ -18,7 +18,7 @@ type UpstreamOptions struct {
 	cert         *stdtls.Certificate
 	ca           []byte
 	certReloader *rbacproxytls.CertReloader
-	caReloader   *caWatcher
+	caReloader   *caCertificateWatcher
 }
 
 // NewUpstreamOptions create a new UpstreamOptions, if interval is nil, the watcher will not be enabled.
@@ -95,8 +95,8 @@ func startCertReloader(ctx context.Context, g run.Group,
 }
 
 func startCAReloader(ctx context.Context, g run.Group, upstreamCAFile string, interval time.Duration, logger log.Logger,
-	pool *x509.CertPool) (*caWatcher, error) {
-	caReloader, err := newCAWatcher(upstreamCAFile, logger, interval, pool)
+	pool *x509.CertPool) (*caCertificateWatcher, error) {
+	caReloader, err := newCACertificateWatcher(upstreamCAFile, logger, interval, pool)
 	if err != nil {
 		return nil, err
 	}
@@ -115,17 +115,17 @@ func (uo *UpstreamOptions) hasCA() bool {
 	return len(uo.ca) != 0 || uo.caReloader != nil
 }
 
-// hasCA determine if the hasUpstreamCerts were specified.
+// hasUpstreamCerts determine if the hasUpstreamCerts were specified.
 func (uo *UpstreamOptions) hasUpstreamCerts() bool {
 	return uo.cert != nil || uo.certReloader != nil
 }
 
-// hasCA determine if the CA watcher is enabled.
+// isCAReloadEnabled determine if the CA watcher is enabled.
 func (uo *UpstreamOptions) isCAReloadEnabled() bool {
 	return uo.caReloader != nil
 }
 
-// hasCA determine if the certificate watcher is enabled.
+// isCertReloaderEnabled determine if the certificate watcher is enabled.
 func (uo *UpstreamOptions) isCertReloaderEnabled() bool {
 	return uo.certReloader != nil
 }
