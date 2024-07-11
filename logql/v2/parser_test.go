@@ -13,6 +13,7 @@ import (
 
 //nolint:paralleltest,funlen
 func TestParseExpr(t *testing.T) {
+	testDuration, _ := time.ParseDuration("-1s")
 	type tt struct {
 		input string
 		expr  Expr
@@ -53,30 +54,32 @@ func TestParseExpr(t *testing.T) {
 		{
 			input: `({first="value"})`,
 			expr: &ParenthesisExpr{
-				inner: &LogQueryExpr{left: &StreamMatcherExpr{
-					matchers: []*labels.Matcher{
-						{
-							Type:  labels.MatchEqual,
-							Name:  "first",
-							Value: "value",
+				inner: &LogQueryExpr{
+					left: &StreamMatcherExpr{
+						matchers: []*labels.Matcher{
+							{
+								Type:  labels.MatchEqual,
+								Name:  "first",
+								Value: "value",
+							},
 						},
 					},
-				},
 				},
 			},
 		},
 		{
 			input: `(({first="value"}))`,
 			expr: &ParenthesisExpr{inner: &ParenthesisExpr{
-				inner: &LogQueryExpr{left: &StreamMatcherExpr{
-					matchers: []*labels.Matcher{
-						{
-							Type:  labels.MatchEqual,
-							Name:  "first",
-							Value: "value",
+				inner: &LogQueryExpr{
+					left: &StreamMatcherExpr{
+						matchers: []*labels.Matcher{
+							{
+								Type:  labels.MatchEqual,
+								Name:  "first",
+								Value: "value",
+							},
 						},
 					},
-				},
 				},
 			}},
 		},
@@ -127,7 +130,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | logfmt | addr>=ip("1.1.1.1")`,
+			input: `{first="value"} | logfmt | addr >= ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -137,7 +140,64 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "addr",
 						comparisonOp: ">=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | logfmt | count > -1`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "logfmt",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "count",
+						comparisonOp: ">",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeNumber,
+							numberVal:  &LogNumberExpr{value: 1, isNeg: true},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | logfmt | latency > -1s`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "logfmt",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "latency",
+						comparisonOp: ">",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeDuration,
+							durVal:     testDuration,
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -210,7 +270,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | logfmt | remote_addr=ip("10.0.0.0") | level="error" | addr=ip("1.1.1.1")`,
+			input: `{first="value"} | logfmt | remote_addr = ip("10.0.0.0") | level = "error" | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -220,18 +280,27 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "remote_addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "10.0.0.0",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "10.0.0.0",
+						},
 					},
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=",
-						labelValue:   "error",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "error",
+						},
 					},
 					&LogLabelFilterExpr{
 						labelName:    "addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -277,9 +346,65 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: `{first="value"} |> "<_>" !> "<_> <_>" !> "hello"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogFilterExpr{
+						filter: "|>",
+						value:  `<_>`,
+					},
+					&LogFilterExpr{
+						filter: "!>",
+						value:  `<_> <_>`,
+					},
+					&LogFilterExpr{
+						filter: "!>",
+						value:  `hello`,
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} |= "bar" or "baz"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogFilterExpr{
+						filter: "|=",
+						value:  "bar",
+						right: []*LogFilterExpr{
+							{
+								filter:   "|=",
+								chainOp:  "or",
+								isNested: true,
+								value:    "baz",
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
 		// log query expressions with parsers
 		{
-			input: `{first="value"} | logfmt | addr=ip("1.1.1.1")`,
+			input: `{first="value"} | logfmt | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -289,7 +414,10 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -406,7 +534,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | json | addr=ip("1.1.1.1")`,
+			input: `{first="value"} | json | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -416,7 +544,10 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -431,7 +562,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | json | level=~"info|notice"`,
+			input: `{first="value"} | json | level =~ "info|notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -440,46 +571,9 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=~",
-						labelValue:   "info|notice",
-					},
-				},
-				left: &StreamMatcherExpr{
-					matchers: []*labels.Matcher{
-						{
-							Type:  labels.MatchEqual,
-							Name:  "first",
-							Value: "value",
-						},
-					},
-				},
-			},
-		},
-		{
-			input: `{first="value"} | json | level="info" and level="notice" and level="information"`,
-			expr: &LogQueryExpr{
-				filter: LogPipelineExpr{
-					&LogParserExpr{
-						parser: "json",
-					},
-					&LogLabelFilterExpr{
-						labelName:    "level",
-						comparisonOp: "=",
-						labelValue:   "info",
-						right: []*LogLabelFilterExpr{
-							{
-								labelName:    "level",
-								comparisonOp: "=",
-								labelValue:   "notice",
-								isNested:     true,
-								chainOp:      "and",
-							},
-							{
-								labelName:    "level",
-								comparisonOp: "=",
-								labelValue:   "information",
-								isNested:     true,
-								chainOp:      "and",
-							},
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info|notice",
 						},
 					},
 				},
@@ -495,7 +589,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | json | level="info" and level="notice"`,
+			input: `{first="value"} | json | level = "info" and level = "notice" and level = "information"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -504,14 +598,30 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=",
-						labelValue:   "info",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
 						right: []*LogLabelFilterExpr{
 							{
 								labelName:    "level",
 								comparisonOp: "=",
-								labelValue:   "notice",
 								isNested:     true,
 								chainOp:      "and",
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "notice",
+								},
+							},
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								isNested:     true,
+								chainOp:      "and",
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "information",
+								},
 							},
 						},
 					},
@@ -528,7 +638,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | json | level="info" or level="notice" | other="info" and other="notice"`,
+			input: `{first="value"} | json | level = "info" and level = "notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -537,13 +647,58 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=",
-						labelValue:   "info",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
 						right: []*LogLabelFilterExpr{
 							{
 								labelName:    "level",
 								comparisonOp: "=",
-								labelValue:   "notice",
-								isNested:     true,
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "notice",
+								},
+								isNested: true,
+								chainOp:  "and",
+							},
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json | level = "info" or level = "notice" | other = "info" and other = "notice"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogParserExpr{
+						parser: "json",
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
+						right: []*LogLabelFilterExpr{
+							{
+								labelName:    "level",
+								comparisonOp: "=",
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "notice",
+								},
+								isNested: true,
 
 								chainOp: "or",
 							},
@@ -552,14 +707,20 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "other",
 						comparisonOp: "=",
-						labelValue:   "info",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
 						right: []*LogLabelFilterExpr{
 							{
 								labelName:    "other",
 								comparisonOp: "=",
-								labelValue:   "notice",
-								isNested:     true,
-								chainOp:      "and",
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "notice",
+								},
+								isNested: true,
+								chainOp:  "and",
 							},
 						},
 					},
@@ -576,7 +737,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | json | level="info" or level="notice"`,
+			input: `{first="value"} | json | level = "info" or level = "notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -585,14 +746,20 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=",
-						labelValue:   "info",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
 						right: []*LogLabelFilterExpr{
 							{
 								labelName:    "level",
 								comparisonOp: "=",
-								labelValue:   "notice",
-								isNested:     true,
-								chainOp:      "or",
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "notice",
+								},
+								isNested: true,
+								chainOp:  "or",
 							},
 						},
 					},
@@ -609,7 +776,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | json | level="info", level="notice"`,
+			input: `{first="value"} | json | level = "info", level = "notice"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -618,14 +785,21 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=",
-						labelValue:   "info",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
 						right: []*LogLabelFilterExpr{
 							{
 								labelName:    "level",
 								comparisonOp: "=",
-								labelValue:   "notice",
-								isNested:     true,
-								chainOp:      ",",
+								labelValue: &LogLabelFilterValue{
+									filterType: TypeText,
+									strVal:     "notice",
+								},
+
+								isNested: true,
+								chainOp:  ",",
 							},
 						},
 					},
@@ -642,7 +816,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | unpack | addr=ip("1.1.1.1")`,
+			input: `{first="value"} | unpack | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -652,7 +826,10 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -667,7 +844,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | regexp "(.)*" | addr=ip("1.1.1.1")`,
+			input: `{first="value"} | regexp "(.)*" | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -678,7 +855,10 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -716,7 +896,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{kubernetes_namespace_name="log-test-0"} | json | level=~"critical|emerg|fatal|alert|crit|error|err|eror"`,
+			input: `{kubernetes_namespace_name="log-test-0"} | json | level =~ "critical|emerg|fatal|alert|crit|error|err|eror"`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -725,7 +905,10 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelFilterExpr{
 						labelName:    "level",
 						comparisonOp: "=~",
-						labelValue:   "critical|emerg|fatal|alert|crit|error|err|eror",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "critical|emerg|fatal|alert|crit|error|err|eror",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -740,7 +923,7 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
-			input: `{first="value"} | pattern "(.)*" | addr=ip("1.1.1.1")`,
+			input: `{first="value"} | pattern "(.)*" | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
 					&LogParserExpr{
@@ -751,7 +934,10 @@ func TestParseExpr(t *testing.T) {
 						labelName:    "addr",
 						comparisonOp: "=",
 						filterOp:     "ip",
-						labelValue:   "1.1.1.1",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "1.1.1.1",
+						},
 					},
 				},
 				left: &StreamMatcherExpr{
@@ -1046,7 +1232,6 @@ func TestParseExpr(t *testing.T) {
 					left: &LogRangeQueryExpr{
 						rng: `[1m]`,
 						left: &LogQueryExpr{
-
 							left: &StreamMatcherExpr{
 								matchers: []*labels.Matcher{
 									{
@@ -1861,7 +2046,6 @@ func trimInput(s string) string {
 }
 
 func TestQuotesEncode(t *testing.T) {
-
 	type tt struct {
 		name  string
 		input string

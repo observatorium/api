@@ -73,7 +73,7 @@ import (
 %token  <duration> DURATION
 %token  <val>      MATCHERS LABELS EQ RE NRE OPEN_BRACE CLOSE_BRACE OPEN_BRACKET CLOSE_BRACKET COMMA DOT
                    OPEN_PARENTHESIS CLOSE_PARENTHESIS COUNT_OVER_TIME RATE RATE_COUNTER SUM AVG MAX MIN COUNT STDDEV STDVAR BOTTOMK TOPK SORT SORT_DESC
-                   BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
+                   BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE_MATCH_PATTERN PIPE_NOT_MATCH_PATTERN PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                    MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME FIRST_OVER_TIME LAST_OVER_TIME ABSENT_OVER_TIME
                    BY WITHOUT VECTOR LABEL_REPLACE IP UNPACK PATTERN OFFSET BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV ON IGNORING GROUP_LEFT GROUP_RIGHT
                    DECOLORIZE DROP KEEP
@@ -132,16 +132,20 @@ logStageExpr:
         ;
 
 logFilterExpr:
-                filter STRING                                       { $$ = newLogFilterExpr($1, "", $2)   }
-        |       filter IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFilterExpr($1, OpIP, $4) }
+                filter STRING                                                 { $$ = newLogFilterExpr($1, "", $2)                                             }
+        |       filter IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS           { $$ = newLogFilterExpr($1, OpIP, $4)                                           }
+        |       filter STRING OR STRING                                       { $$ = newLogFilterExpr($1, "", $2).chain("or", newLogFilterExpr($1, "", $4))   }
+        |       filter STRING OR IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogFilterExpr($1, "", $2).chain("or", newLogFilterExpr($1, OpIP, $6)) }
         ;
 
 logLabelFilterExpr:
-                IDENTIFIER comparisonOp STRING                                       { $$ = newLogLabelFilter($1, $2, "", $3)   }
-        |       IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogLabelFilter($1, $2, OpIP, $5) }
-        |       logLabelFilterExpr AND logLabelFilterExpr                            { $$ = $1.chain("and", $3)                 }
-        |       logLabelFilterExpr OR logLabelFilterExpr                             { $$ = $1.chain("or", $3)                  }
-        |       logLabelFilterExpr COMMA logLabelFilterExpr                          { $$ = $1.chain(",", $3)                   }
+                IDENTIFIER comparisonOp STRING                                       { $$ = newLogLabelFilter($1, $2, "", newLogLabelFilterValue(TypeText, nil, $3, 0))      }
+        |       IDENTIFIER comparisonOp DURATION                                     { $$ = newLogLabelFilter($1, $2, "", newLogLabelFilterValue(TypeDuration, nil, "", $3)) }
+        |       IDENTIFIER comparisonOp logNumberExpr                                { $$ = newLogLabelFilter($1, $2, "", newLogLabelFilterValue(TypeNumber, &$3, "", 0))    }
+        |       IDENTIFIER comparisonOp IP OPEN_PARENTHESIS STRING CLOSE_PARENTHESIS { $$ = newLogLabelFilter($1, $2, OpIP, newLogLabelFilterValue(TypeText, nil, $5, 0))    }
+        |       logLabelFilterExpr AND logLabelFilterExpr                            { $$ = $1.chain("and", $3)                                                              }
+        |       logLabelFilterExpr OR logLabelFilterExpr                             { $$ = $1.chain("or", $3)                                                               }
+        |       logLabelFilterExpr COMMA logLabelFilterExpr                          { $$ = $1.chain(",", $3)                                                                }
         ;
 
 logFormatExpr:
@@ -396,10 +400,12 @@ metricOp:
         ;
 
 filter:
-                PIPE_MATCH { $$ = "|~" }
-        |       PIPE_EXACT { $$ = "|=" }
-        |       NRE        { $$ = "!~" }
-        |       NEQ        { $$ = "!=" }
+                PIPE_MATCH             { $$ = "|~" }
+        |       PIPE_EXACT             { $$ = "|=" }
+        |       PIPE_MATCH_PATTERN     { $$ = "|>" }
+        |       PIPE_NOT_MATCH_PATTERN { $$ = "!>" }
+        |       NRE                    { $$ = "!~" }
+        |       NEQ                    { $$ = "!=" }
         ;
 
 comparisonOp:
