@@ -6,7 +6,7 @@ toolchain go1.21.9
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.16.1
-	github.com/coreos/go-oidc/v3 v3.10.0
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/deepmap/oapi-codegen v1.16.2
 	github.com/efficientgo/core v1.0.0-rc.2
 	github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f
@@ -89,7 +89,7 @@ require (
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -181,12 +181,12 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.3.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/crypto v0.24.0 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a // indirect
-	golang.org/x/net v0.26.0 // indirect
+	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/term v0.21.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
