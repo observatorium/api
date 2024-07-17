@@ -152,7 +152,8 @@ type metricsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
-	enabled bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type logsConfig struct {
@@ -171,7 +172,8 @@ type logsConfig struct {
 	rulesLabelFilters    map[string][]string
 	authExtractSelectors []string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
-	enabled bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type tracesConfig struct {
@@ -188,7 +190,8 @@ type tracesConfig struct {
 	upstreamKeyFile       string
 	tenantHeader          string
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
-	enabled bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type middlewareConfig struct {
@@ -500,62 +503,6 @@ func main() {
 			)
 		}
 
-		var (
-			metricsUpstreamCACert     []byte
-			metricsUpstreamClientCert *stdtls.Certificate
-			logsUpstreamCACert        []byte
-			logsUpstreamClientCert    *stdtls.Certificate
-			tracesUpstreamCACert      []byte
-			tracesUpstreamClientCert  *stdtls.Certificate
-		)
-
-		if cfg.metrics.upstreamCAFile != "" {
-			metricsUpstreamCACert, err = os.ReadFile(cfg.metrics.upstreamCAFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream metrics TLS CA: %v", err)
-			}
-		}
-
-		if cfg.metrics.upstreamCertFile != "" && cfg.metrics.upstreamKeyFile != "" {
-			clientCert, err := stdtls.LoadX509KeyPair(cfg.metrics.upstreamCertFile, cfg.metrics.upstreamKeyFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream metrics client TLS cert/key pair: %v", err)
-			}
-			metricsUpstreamClientCert = &clientCert
-		}
-
-		if cfg.logs.upstreamCAFile != "" {
-			logsUpstreamCACert, err = os.ReadFile(cfg.logs.upstreamCAFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream logs TLS CA: %v", err)
-			}
-
-		}
-
-		if cfg.logs.upstreamCertFile != "" && cfg.logs.upstreamKeyFile != "" {
-			clientCert, err := stdtls.LoadX509KeyPair(cfg.logs.upstreamCertFile, cfg.logs.upstreamKeyFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream logs client TLS cert/key pair: %v", err)
-			}
-			logsUpstreamClientCert = &clientCert
-		}
-
-		if cfg.traces.upstreamCAFile != "" {
-			tracesUpstreamCACert, err = os.ReadFile(cfg.traces.upstreamCAFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream traces TLS CA: %v", err)
-			}
-
-		}
-
-		if cfg.traces.upstreamCertFile != "" && cfg.traces.upstreamKeyFile != "" {
-			clientCert, err := stdtls.LoadX509KeyPair(cfg.traces.upstreamCertFile, cfg.traces.upstreamKeyFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream traces client TLS cert/key pair: %v", err)
-			}
-			tracesUpstreamClientCert = &clientCert
-		}
-
 		r := chi.NewRouter()
 		r.Use(middleware.RequestID)
 		r.Use(middleware.RealIP)
@@ -590,6 +537,7 @@ func main() {
 			// registration failures per tenant.
 			registerTenantsFailingMetric = authentication.RegisterTenantsFailingMetric(reg)
 			pm                           = authentication.NewProviderManager(logger, registerTenantsFailingMetric)
+			tracesUpstreamTLSOptions     *tls.UpstreamOptions
 		)
 
 		r.Group(func(r chi.Router) {
@@ -658,6 +606,26 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
+
+				var loadInterval *time.Duration
+
+				if cfg.metrics.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+
+				metricsUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.metrics.upstreamCertFile,
+					cfg.metrics.upstreamKeyFile,
+					cfg.metrics.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
+				}
+
 				eps := metricsv1.Endpoints{
 					ReadEndpoint:         cfg.metrics.readEndpoint,
 					WriteEndpoint:        cfg.metrics.writeEndpoint,
@@ -693,8 +661,7 @@ func main() {
 					const queryParamName = "query"
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
-						metricsUpstreamCACert,
-						metricsUpstreamClientCert,
+						metricsUpstreamClientOptions,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
@@ -708,8 +675,7 @@ func main() {
 					const matchParamName = "match[]"
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
-						metricsUpstreamCACert,
-						metricsUpstreamClientCert,
+						metricsUpstreamClientOptions,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
@@ -743,6 +709,26 @@ func main() {
 
 			// Logs.
 			if cfg.logs.enabled {
+
+				var loadInterval *time.Duration
+
+				if cfg.logs.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+
+				logsUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.logs.upstreamCertFile,
+					cfg.logs.upstreamKeyFile,
+					cfg.logs.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
+				}
+
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Timeout(cfg.logs.upstreamWriteTimeout))
 					r.Mount("/api/logs/v1/{tenant}",
@@ -753,8 +739,7 @@ func main() {
 								cfg.logs.writeEndpoint,
 								cfg.logs.rulesEndpoint,
 								cfg.logs.rulesReadOnly,
-								logsUpstreamCACert,
-								logsUpstreamClientCert,
+								logsUpstreamClientOptions,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(instrumenter),
@@ -779,6 +764,23 @@ func main() {
 
 			// Traces.
 			if cfg.traces.enabled && (cfg.traces.readEndpoint != nil || cfg.traces.readTemplateEndpoint != "" || cfg.traces.tempoEndpoint != nil) {
+				var loadInterval *time.Duration
+				if cfg.traces.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+				tracesUpstreamTLSOptions, err = tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.traces.upstreamCertFile,
+					cfg.traces.upstreamKeyFile,
+					cfg.traces.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream traces TLS: %v", err)
+				}
+
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
@@ -804,8 +806,7 @@ func main() {
 								cfg.traces.readTemplateEndpoint,
 								cfg.traces.tempoEndpoint,
 								cfg.traces.writeOTLPHTTPEndpoint,
-								tracesUpstreamCACert,
-								tracesUpstreamClientCert,
+								tracesUpstreamTLSOptions,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(instrumenter),
@@ -831,6 +832,7 @@ func main() {
 			cfg.tls.clientAuthType,
 			cfg.tls.cipherSuites,
 		)
+
 		if err != nil {
 			stdlog.Fatalf("failed to initialize tls config: %v", err)
 		}
@@ -895,8 +897,7 @@ func main() {
 				pm.GRPCMiddlewares,
 				authorizers,
 				logger,
-				tracesUpstreamCACert,
-				tracesUpstreamClientCert,
+				tracesUpstreamTLSOptions,
 			)
 			if err != nil {
 				stdlog.Fatalf("failed to initialize gRPC server: %v", err)
@@ -939,6 +940,7 @@ func main() {
 			cfg.tls.clientAuthType,
 			cfg.tls.cipherSuites,
 		)
+
 		if err != nil {
 			stdlog.Fatalf("failed to initialize tls config: %v", err)
 		}
@@ -1111,10 +1113,13 @@ func parseFlags() (config, error) {
 		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.logs.upstreamKeyFile, "logs.tls.key-file", "",
 		"File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.logs.enableCertWatcher, "logs.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
 		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
 	flag.StringVar(&cfg.logs.tenantLabel, "logs.rules.tenant-label", "tenant_id",
 		"The name of the rules label that should hold the tenant ID in logs upstreams.")
+
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
 		"The endpoint against which to make write requests for logs.")
 	flag.StringVar(&rawLogsAuthExtractSelectors, "logs.auth.extract-selectors", "",
@@ -1135,6 +1140,8 @@ func parseFlags() (config, error) {
 		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.metrics.upstreamKeyFile, "metrics.tls.key-file", "",
 		"File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.metrics.enableCertWatcher, "metrics.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
@@ -1157,6 +1164,8 @@ func parseFlags() (config, error) {
 		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.traces.upstreamKeyFile, "traces.tls.key-file", "",
 		"File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.traces.enableCertWatcher, "traces.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
 		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
@@ -1458,12 +1467,12 @@ var gRPCRBAC = authorization.GRPCRBac{
 }
 
 func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
-	authorizers map[string]rbac.Authorizer, logger log.Logger, tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate,
+	authorizers map[string]rbac.Authorizer, logger log.Logger, upstreamTLSOptions *tls.UpstreamOptions,
 ) (*grpc.Server, error) {
 	connOtel, err := tracesv1.NewOTelConnection(
 		cfg.traces.writeOTLPGRPCEndpoint,
 		tracesv1.WithLogger(logger),
-		tracesv1.WithUpstreamTLS(tracesUpstreamCA, tracesUpstreamCert),
+		tracesv1.WithUpstreamTLSOptions(upstreamTLSOptions),
 	)
 	if err != nil {
 		return nil, err

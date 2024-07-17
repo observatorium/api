@@ -1,7 +1,6 @@
 package legacy
 
 import (
-	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -102,7 +101,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 	return handler.ServeHTTP
 }
 
-func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(url *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -130,7 +129,7 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 			DialContext: (&net.Dialer{
 				Timeout: dialTimeout,
 			}).DialContext,
-			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			TLSClientConfig: tlsOptions.NewClientConfig(),
 		}
 
 		legacyProxy = &httputil.ReverseProxy{
