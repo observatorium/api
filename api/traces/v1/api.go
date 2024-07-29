@@ -62,10 +62,10 @@ func NewOTelConnection(write string, opts ...ClientOption) (*grpc.ClientConn, er
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	return grpc.DialContext(ctx, write,
+	return grpc.DialContext(ctx, write, // nolint: staticcheck
 		// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
 		// because the codec we need to register is also deprecated.  A better fix, is the newer
 		// version of mwitkow/grpc-proxy, but that version doesn't (currently) work with OTel protocol.
-		grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
-		grpc.WithTransportCredentials(newCredentials(c.tlsOptions)))
+		grpc.WithCodec(grpcproxy.Codec()),                           // nolint: staticcheck
+		grpc.WithTransportCredentials(newCredentials(c.tlsOptions))) // nolint: staticcheck
 }
