@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
@@ -20,6 +22,10 @@ const (
 
 	// authorizationSelectorsKey is the key that holds the data about selectors present in the query.
 	authorizationSelectorsKey contextKey = "authzQuerySelectors"
+
+	// errorMessageForbidden is the error message presented to the user if the user doesn't have
+	// sufficient permissions to access the requested tenant.
+	errorMessageForbidden string = "You don't have permission to access this tenant"
 )
 
 type SelectorsInfo struct {
@@ -60,8 +66,8 @@ func WithSelectorsInfo(ctx context.Context, info *SelectorsInfo) context.Context
 }
 
 // WithLogsStreamSelectorsExtractor returns a middleware that, when enabled, tries to extract
-// stream selectors from queries, so that they can be used in authorizing the request.
-func WithLogsStreamSelectorsExtractor(selectorNames []string) func(http.Handler) http.Handler {
+// stream selectors from queries or rules, so that they can be used in authorizing the request.
+func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string) func(http.Handler) http.Handler {
 	enabled := len(selectorNames) > 0
 
 	selectorNameMap := make(map[string]bool, len(selectorNames))
@@ -79,9 +85,9 @@ func WithLogsStreamSelectorsExtractor(selectorNames []string) func(http.Handler)
 
 			selectorsInfo, err := extractLogStreamSelectors(selectorNameMap, r.URL.Query())
 			if err != nil {
-				httperr.PrometheusAPIError(w, fmt.Sprintf("error extracting selectors from query: %s", err), http.StatusInternalServerError)
-
-				return
+				// Don't error out, just warn about error and continue with empty selectorsInfo
+				level.Warn(logger).Log("msg", err)
+				selectorsInfo = emptySelectorsInfo
 			}
 
 			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
@@ -147,8 +153,13 @@ func WithAuthorizers(authorizers map[string]rbac.Authorizer, permission rbac.Per
 
 			statusCode, ok, data := a.Authorize(subject, groups, permission, resource, tenant, tenantID, token, extraAttributes)
 			if !ok {
-				// Send 403 http.StatusForbidden
-				w.WriteHeader(statusCode)
+				switch statusCode {
+				case http.StatusForbidden:
+					httperr.PrometheusAPIError(w, errorMessageForbidden, statusCode)
+				default:
+					msg := fmt.Sprintf("%d %s", statusCode, http.StatusText(statusCode))
+					httperr.PrometheusAPIError(w, msg, statusCode)
+				}
 
 				return
 			}

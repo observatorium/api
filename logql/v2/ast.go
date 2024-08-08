@@ -37,6 +37,26 @@ type defaultLogQLExpr struct{}
 
 func (defaultLogQLExpr) logQLExpr() {}
 
+type ParenthesisExpr struct {
+	defaultLogQLExpr
+	inner Expr
+}
+
+func (e *ParenthesisExpr) Walk(fn WalkFn) {
+	fn(e)
+	e.inner.Walk(fn)
+}
+
+func (e *ParenthesisExpr) String() string {
+	return fmt.Sprintf("(%s)", e.inner)
+}
+
+func newParenthesisExpr(expr Expr) *ParenthesisExpr {
+	return &ParenthesisExpr{
+		inner: expr,
+	}
+}
+
 type StreamMatcherExpr struct {
 	defaultLogQLExpr
 	matchers []*labels.Matcher
@@ -94,6 +114,9 @@ type LogFilterExpr struct {
 	filter           string
 	filterOp         string
 	value            string
+	isNested         bool
+	chainOp          string
+	right            []*LogFilterExpr
 }
 
 func (LogFilterExpr) logQLExpr() {}
@@ -104,11 +127,22 @@ func newLogFilterExpr(filter, filterOp, value string) *LogFilterExpr {
 	return &LogFilterExpr{filter: filter, filterOp: filterOp, value: value}
 }
 
+func (l *LogFilterExpr) chain(op string, expr *LogFilterExpr) *LogFilterExpr {
+	expr.isNested = true
+	expr.chainOp = op
+	l.right = append(l.right, expr)
+
+	return l
+}
+
 func (l *LogFilterExpr) String() string {
 	var sb strings.Builder
 
-	sb.WriteString(l.filter)
-	sb.WriteString(" ")
+	// Render filter only on first filter and not nested or filters
+	if !l.isNested {
+		sb.WriteString(l.filter)
+		sb.WriteString(" ")
+	}
 
 	if l.filterOp != "" {
 		sb.WriteString(l.filterOp)
@@ -119,6 +153,20 @@ func (l *LogFilterExpr) String() string {
 		sb.WriteString(strconv.Quote(l.value))
 	}
 
+	for i, r := range l.right {
+		switch r.chainOp {
+		case "or":
+			sb.WriteString(" ")
+			sb.WriteString(r.chainOp)
+			sb.WriteString(" ")
+			sb.WriteString(r.String())
+		}
+
+		if i == len(l.right) {
+			sb.WriteString(" ")
+		}
+	}
+
 	return sb.String()
 }
 
@@ -126,18 +174,64 @@ func (l *LogFilterExpr) Walk(fn WalkFn) {
 	fn(l)
 }
 
+type FilterValueType string
+
+const (
+	TypeNumber   FilterValueType = "number"
+	TypeDuration FilterValueType = "duration"
+	TypeText     FilterValueType = "text"
+)
+
+type LogLabelFilterValue struct {
+	filterType FilterValueType
+	numberVal  *LogNumberExpr
+	strVal     string
+	durVal     time.Duration
+}
+
+func newLogLabelFilterValue(t FilterValueType, numberVal *LogNumberExpr, strVal string, durVal time.Duration) *LogLabelFilterValue {
+	switch t {
+	case TypeNumber:
+		return &LogLabelFilterValue{filterType: t, numberVal: numberVal}
+	case TypeDuration:
+		return &LogLabelFilterValue{filterType: t, durVal: durVal}
+	case TypeText:
+		return &LogLabelFilterValue{filterType: t, strVal: strVal}
+	default:
+		return &LogLabelFilterValue{}
+	}
+}
+
+func (l *LogLabelFilterValue) String() string {
+	var sb strings.Builder
+	switch l.filterType {
+	case TypeNumber:
+		sb.WriteString(l.numberVal.String())
+	case TypeDuration:
+		sb.WriteString(l.durVal.String())
+	case TypeText:
+		sb.WriteString(`"`)
+		sb.WriteString(l.strVal)
+		sb.WriteString(`"`)
+	default:
+		return ""
+	}
+
+	return sb.String()
+}
+
 type LogLabelFilterExpr struct {
 	defaultLogQLExpr // nolint:unused
 	labelName        string
 	comparisonOp     string
 	filterOp         string
-	labelValue       string
+	labelValue       *LogLabelFilterValue
 	isNested         bool
 	chainOp          string
 	right            []*LogLabelFilterExpr
 }
 
-func newLogLabelFilter(identifier, comparisonOp, filterOp, value string) *LogLabelFilterExpr {
+func newLogLabelFilter(identifier, comparisonOp, filterOp string, value *LogLabelFilterValue) *LogLabelFilterExpr {
 	return &LogLabelFilterExpr{labelName: identifier, comparisonOp: comparisonOp, filterOp: filterOp, labelValue: value}
 }
 
@@ -161,19 +255,17 @@ func (l *LogLabelFilterExpr) String() string {
 	}
 
 	sb.WriteString(l.labelName)
+	sb.WriteString(" ")
 	sb.WriteString(l.comparisonOp)
+	sb.WriteString(" ")
 
 	if l.filterOp != "" {
 		sb.WriteString(l.filterOp)
 		sb.WriteString("(")
-		sb.WriteString(`"`)
-		sb.WriteString(l.labelValue)
-		sb.WriteString(`"`)
+		sb.WriteString(l.labelValue.String())
 		sb.WriteString(")")
 	} else {
-		sb.WriteString(`"`)
-		sb.WriteString(l.labelValue)
-		sb.WriteString(`"`)
+		sb.WriteString(l.labelValue.String())
 	}
 
 	for i, r := range l.right {
@@ -515,13 +607,13 @@ func (l *LogQueryExpr) AppendPipelineMatchers(matchers []*labels.Matcher, chainO
 	matchersFilter := LogLabelFilterExpr{
 		labelName:    matchers[0].Name,
 		comparisonOp: matchers[0].Type.String(),
-		labelValue:   matchers[0].Value,
+		labelValue:   newLogLabelFilterValue(TypeText, nil, matchers[0].Value, 0),
 	}
 	for _, m := range matchers[1:] {
 		matchersFilter.right = append(matchersFilter.right, &LogLabelFilterExpr{
 			labelName:    m.Name,
 			comparisonOp: m.Type.String(),
-			labelValue:   m.Value,
+			labelValue:   newLogLabelFilterValue(TypeText, nil, m.Value, 0),
 			isNested:     true,
 			chainOp:      chainOp,
 		})

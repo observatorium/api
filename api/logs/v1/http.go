@@ -2,7 +2,6 @@
 package http
 
 import (
-	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -33,6 +32,11 @@ const (
 	rulesRoute             = "/loki/api/v1/rules"
 	rulesPerNamespaceRoute = "/loki/api/v1/rules/{namespace}"
 	rulesPerGroupNameRoute = "/loki/api/v1/rules/{namespace}/{groupName}"
+	volumeRoute            = "/loki/api/v1/index/volume"
+	volumeRangeRoute       = "/loki/api/v1/index/volume_range"
+
+	otlpRoute = "/otlp/v1/logs"
+	pushRoute = "/loki/api/v1/push"
 
 	prometheusRulesRoute  = "/prometheus/api/v1/rules"
 	prometheusAlertsRoute = "/prometheus/api/v1/alerts"
@@ -137,7 +141,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 	return handler.ServeHTTP
 }
 
-func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -164,7 +168,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyRead = &httputil.ReverseProxy{
@@ -190,6 +194,14 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 			r.Handle(labelsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "labels"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+labelsRoute, proxyRead),
+			))
+			r.Handle(volumeRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "volume"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+volumeRoute, proxyRead),
+			))
+			r.Handle(volumeRangeRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "volume_range"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+volumeRangeRoute, proxyRead),
 			))
 			r.Handle(labelValuesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "label_values"},
@@ -232,7 +244,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyRules = &httputil.ReverseProxy{
@@ -325,7 +337,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			tailRead = &httputil.ReverseProxy{
@@ -361,7 +373,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
-				TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
 
 			proxyWrite = &httputil.ReverseProxy{
@@ -372,7 +384,10 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, upstreamC
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.writeMiddlewares...)
-			const pushRoute = "/loki/api/v1/push"
+			r.Handle(otlpRoute, c.instrument.NewHandler(
+				prometheus.Labels{"group": "logsv1", "handler": "otlp"},
+				otelhttp.WithRouteTag(c.spanRoutePrefix+otlpRoute, proxyWrite),
+			))
 			r.Handle(pushRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "push"},
 				otelhttp.WithRouteTag(c.spanRoutePrefix+pushRoute, proxyWrite),

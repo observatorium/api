@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +40,11 @@ func TestMetricsReadAndWrite(t *testing.T) {
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
 
+	// This extra tenant is used to ensure that tenancy enforcement works correctly, prevent a tenant for seeing
+	// other tenant's data.
+	const anotherTenantName = "another-tenant"
+	const anotherTenantID = "177ef09c-04e1-46c5-86f7-dc3250bfe869"
+
 	t.Run("metrics-read-write", func(t *testing.T) {
 		up, err := newUpRun(
 			e, "up-metrics-read-write", metrics,
@@ -49,6 +55,17 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		)
 		testutil.Ok(t, err)
 		testutil.Ok(t, e2e.StartAndWaitReady(up))
+
+		testutil.Ok(t, err)
+		up2, err := newUpRun(
+			e, "up2-metrics-read-write", metrics,
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+anotherTenantName+"/",
+			"https://"+api.InternalEndpoint("https")+"/api/metrics/v1/"+anotherTenantName+"/api/v1/receive",
+			withToken(token),
+			withRunParameters(&runParams{period: "500ms", threshold: "1", latency: "10s", duration: "0"}),
+		)
+		testutil.Ok(t, err)
+		testutil.Ok(t, e2e.StartAndWaitReady(up2))
 
 		// Check that up queries / remote writes are correct (accounting for initial 5 sec query delay).
 		minimumExpectedQueries := float64(1)
@@ -74,34 +91,37 @@ func TestMetricsReadAndWrite(t *testing.T) {
 		))
 
 		// Query Thanos to ensure we have correct metrics and labels.
-		a, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
+		thanosQuery, err := promapi.NewClient(promapi.Config{Address: "http://" + readExtEndpoint})
 		testutil.Ok(t, err)
 
 		// Assert we have correct metrics and labels in Thanos.
 		{
 			now := model.Now()
-			v, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}", now.Time())
+			queryResult, w, err := v1.NewAPI(thanosQuery).Query(context.Background(), "observatorium_write{}", now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
-			vs := strings.Split(v.String(), " => ")
-			testutil.Equals(t, "observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\""+defaultTenantID+"\"}", vs[0])
-
-			// Check timestamp.
-			ts := strings.Split(vs[1], " @")
-			testutil.Equals(t, fmt.Sprintf("[%v]", now), ts[1])
+			expectedResult := fmt.Sprintf(
+				"observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\"%s\"} (.*) @\\[(.*)\\]\n"+
+					"observatorium_write{_id=\"test\", receive_replica=\"0\", tenant_id=\"%s\"} (.*) @\\[(.*)\\]",
+				defaultTenantID, anotherTenantID)
+			tester := regexp.MustCompile(expectedResult)
+			matches := tester.FindStringSubmatch(queryResult.String())
+			// Checking timestamps
+			testutil.Equals(t, fmt.Sprintf("%v", now), matches[2])
+			testutil.Equals(t, fmt.Sprintf("%v", now), matches[4])
 		}
 
 		// Assert we have recorded all sent values in the 1m range.
 		{
 			now := model.Now()
-			v, w, err := v1.NewAPI(a).Query(context.Background(), "observatorium_write{}[1m]", now.Time())
+			v, w, err := v1.NewAPI(thanosQuery).Query(context.Background(), "observatorium_write{}[1m]", now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w))
 
 			// Split on every value and ignore first line with metric name / labels.
 			vs := strings.Split(v.String(), "\n")[1:]
-			testutil.Equals(t, 21, len(vs))
+			testutil.Assert(t, len(vs) >= 38)
 		}
 	})
 	t.Run("OIDC redirect protection", func(t *testing.T) {
@@ -173,7 +193,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			// For attacker there should be no data.
 			v, w, err = v1.NewAPI(apiAttacker).Query(context.Background(), "observatorium_write{}", now.Time())
 			testutil.Ok(t, err)
-			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, v1.Warnings(nil), w)
 			testutil.Equals(t, "", v.String())
 		})
 		t.Run("query_range", func(t *testing.T) {
@@ -191,19 +211,20 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			// For attacker there should be no data.
 			v, w, err = v1.NewAPI(apiAttacker).QueryRange(context.Background(), "observatorium_write{}", v1.Range{Start: now.Time().Add(-5 * time.Minute), End: now.Time(), Step: 1 * time.Minute})
 			testutil.Ok(t, err)
-			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, v1.Warnings(nil), w)
 			testutil.Equals(t, "", v.String())
 		})
 		t.Run("series", func(t *testing.T) {
-			v, w, err := v1.NewAPI(apiTest).Series(context.Background(), []string{"observatorium_write{}"}, now.Time().Add(-5*time.Minute), now.Time())
+			v, w, err := v1.NewAPI(apiTest).Series(context.Background(), []string{"{__name__=\"observatorium_write\"}"}, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
-			testutil.Equals(t, 0, len(w), "%v", w)
+			// There's a warning about no matchers specified (excluding external labels). But results are still there!
+			testutil.Equals(t, 1, len(w), "%v", w)
 			testutil.Equals(t, []model.LabelSet{{"__name__": "observatorium_write", "_id": "test", "receive_replica": "0", "tenant_id": "1610b0c3-c509-4592-a256-a1871353dbfa"}}, v)
 
 			// For attacker there should be no data.
-			v, w, err = v1.NewAPI(apiAttacker).Series(context.Background(), []string{"observatorium_write{}"}, now.Time().Add(-5*time.Minute), now.Time())
+			v, w, err = v1.NewAPI(apiAttacker).Series(context.Background(), []string{"{__name__=\"observatorium_write\"}"}, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
-			testutil.Equals(t, v1.Warnings{"No StoreAPIs matched for this query"}, w)
+			testutil.Equals(t, v1.Warnings(nil), w)
 			testutil.Equals(t, 0, len(v), "%v", v)
 		})
 		t.Run("label_names", func(t *testing.T) {

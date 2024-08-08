@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	stdtls "crypto/tls"
 	"time"
 
 	"github.com/go-kit/log"
@@ -18,9 +17,8 @@ import (
 const TraceRoute = "/opentelemetry.proto.collector.trace.v1.TraceService/Export"
 
 type connOptions struct {
-	logger             log.Logger
-	tracesUpstreamCert *stdtls.Certificate
-	tracesUpstreamCA   []byte
+	logger     log.Logger
+	tlsOptions *tls.UpstreamOptions
 }
 
 // ClientOption modifies the connection's configuration.
@@ -33,15 +31,14 @@ func WithLogger(logger log.Logger) ClientOption {
 	}
 }
 
-func WithUpstreamTLS(tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate) ClientOption {
+func WithUpstreamTLSOptions(tlsOptions *tls.UpstreamOptions) ClientOption {
 	return func(h *connOptions) {
-		h.tracesUpstreamCA = tracesUpstreamCA
-		h.tracesUpstreamCert = tracesUpstreamCert
+		h.tlsOptions = tlsOptions
 	}
 }
 
-func newCredentials(upstreamCA []byte, upstreamCert *stdtls.Certificate) credentials.TransportCredentials {
-	tlsConfig := tls.NewClientConfig(upstreamCA, upstreamCert)
+func newCredentials(tlsOptions *tls.UpstreamOptions) credentials.TransportCredentials {
+	tlsConfig := tlsOptions.NewClientConfig()
 	if tlsConfig == nil {
 		return insecure.NewCredentials()
 	}
@@ -65,10 +62,10 @@ func NewOTelConnection(write string, opts ...ClientOption) (*grpc.ClientConn, er
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	return grpc.DialContext(ctx, write,
+	return grpc.DialContext(ctx, write, // nolint: staticcheck
 		// Note that CustomCodec() is deprecated.  The fix for this isn't calling WithDefaultCallOptions(ForceCodec(...)) as suggested,
 		// because the codec we need to register is also deprecated.  A better fix, is the newer
 		// version of mwitkow/grpc-proxy, but that version doesn't (currently) work with OTel protocol.
-		grpc.WithCodec(grpcproxy.Codec()), // nolint: staticcheck
-		grpc.WithTransportCredentials(newCredentials(c.tracesUpstreamCA, c.tracesUpstreamCert)))
+		grpc.WithCodec(grpcproxy.Codec()),                           // nolint: staticcheck
+		grpc.WithTransportCredentials(newCredentials(c.tlsOptions))) // nolint: staticcheck
 }

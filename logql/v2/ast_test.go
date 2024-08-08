@@ -76,8 +76,8 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 			output: `{first="value", second="next"} |= "other" |= ip("8.8.8.8")`,
 		},
 		{
-			input:  `{ first = "value" }|logfmt|addr>=ip("1.1.1.1")`,
-			output: `{first="value", second="next"} | logfmt | addr>=ip("1.1.1.1")`,
+			input:  `{ first = "value" }|logfmt|addr >= ip("1.1.1.1")`,
+			output: `{first="value", second="next"} | logfmt | addr >= ip("1.1.1.1")`,
 		},
 		// log metric expressions
 		{
@@ -169,24 +169,24 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 		// log selector expressions
 		{
 			input:  `{first="value"}`,
-			output: `{first="value"} | second=~"foo|bar" or third=~"foo|bar"`,
+			output: `{first="value"} | second =~ "foo|bar" or third =~ "foo|bar"`,
 		},
 		{
 			input:  `{first="value"} |= "other" |= ip("8.8.8.8")`,
-			output: `{first="value"} | second=~"foo|bar" or third=~"foo|bar" |= "other" |= ip("8.8.8.8")`,
+			output: `{first="value"} | second =~ "foo|bar" or third =~ "foo|bar" |= "other" |= ip("8.8.8.8")`,
 		},
 		{
-			input:  `{ first = "value" }|logfmt|addr>=ip("1.1.1.1")`,
-			output: `{first="value"} | second=~"foo|bar" or third=~"foo|bar" | logfmt | addr>=ip("1.1.1.1")`,
+			input:  `{ first = "value" }|logfmt|addr >= ip("1.1.1.1")`,
+			output: `{first="value"} | second =~ "foo|bar" or third =~ "foo|bar" | logfmt | addr >= ip("1.1.1.1")`,
 		},
 		// log metric expressions
 		{
 			input:  `sum(rate({first="value"}[5m]))`,
-			output: `sum(rate({first="value"}[5m] | second=~"foo|bar" or third=~"foo|bar"))`,
+			output: `sum(rate({first="value"}[5m] | second =~ "foo|bar" or third =~ "foo|bar"))`,
 		},
 		{
 			input:  `max without (second) (count_over_time({first="value"}[5h]))`,
-			output: `max without(second) (count_over_time({first="value"}[5h] | second=~"foo|bar" or third=~"foo|bar"))`,
+			output: `max without(second) (count_over_time({first="value"}[5h] | second =~ "foo|bar" or third =~ "foo|bar"))`,
 		},
 	}
 	for _, tc := range tc {

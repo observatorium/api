@@ -4,15 +4,20 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/go-chi/chi"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/logger"
+	"github.com/observatorium/api/server"
 )
 
 const (
@@ -24,10 +29,11 @@ const (
 var mockResetTime = time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC).Unix()
 
 type pathTestParams struct {
-	path                    string
-	waitBetween             time.Duration
-	expectedOK              int
-	expectedTooManyRequests int
+	path                        string
+	waitBetween                 time.Duration
+	expectedOK                  int
+	expectedTooManyRequests     int
+	expectRetryAfterHeaderValue []string
 }
 
 // nolint:dupl,funlen,scopelint
@@ -44,10 +50,11 @@ func TestWithLocalRateLimiter(t *testing.T) {
 			reqNum: 5,
 			pathTests: []pathTestParams{
 				{
-					path:                    testPathOne,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              5,
-					expectedTooManyRequests: 0,
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  5,
+					expectedTooManyRequests:     0,
+					expectRetryAfterHeaderValue: make([]string, 5),
 				},
 			},
 		},
@@ -64,10 +71,11 @@ func TestWithLocalRateLimiter(t *testing.T) {
 			reqNum: 5,
 			pathTests: []pathTestParams{
 				{
-					path:                    testPathOne,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              1,
-					expectedTooManyRequests: 4,
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  1,
+					expectedTooManyRequests:     4,
+					expectRetryAfterHeaderValue: []string{"", "10", "10", "10", "10"},
 				},
 			},
 		},
@@ -90,16 +98,18 @@ func TestWithLocalRateLimiter(t *testing.T) {
 			reqNum: 5,
 			pathTests: []pathTestParams{
 				{
-					path:                    testPathOne,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              1,
-					expectedTooManyRequests: 4,
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  1,
+					expectedTooManyRequests:     4,
+					expectRetryAfterHeaderValue: []string{"", "10", "10", "10", "10"},
 				},
 				{
-					path:                    testPathTwo,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              3,
-					expectedTooManyRequests: 2,
+					path:                        testPathTwo,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  3,
+					expectedTooManyRequests:     2,
+					expectRetryAfterHeaderValue: []string{"", "", "", "10", "10"},
 				},
 			},
 		},
@@ -107,14 +117,22 @@ func TestWithLocalRateLimiter(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			rlmw := WithLocalRateLimiter(c.configs...)
-
 			r := chi.NewMux()
 
+			reg := prometheus.NewRegistry()
+			hardcodedLabels := []string{"group", "handler"}
+			f := server.NewInstrumentedHandlerFactory(reg, hardcodedLabels)
+
+			rlmw := WithLocalRateLimiter(c.configs...)
+			r.Use(func(handler http.Handler) http.Handler {
+				return f.NewHandler(nil, handler)
+			})
 			r.Group(func(r chi.Router) {
+				r.Use(func(next http.Handler) http.Handler {
+					return server.InjectLabelsCtx(prometheus.Labels{"group": "test-group", "handler": "test-handler"}, next)
+				})
 				r.Use(authentication.WithTenant)
 				r.Use(rlmw)
-
 				r.HandleFunc(testPathOne+"/{tenant}", func(res http.ResponseWriter, req *http.Request) {
 					res.WriteHeader(http.StatusOK)
 				})
@@ -126,7 +144,7 @@ func TestWithLocalRateLimiter(t *testing.T) {
 			ts := httptest.NewServer(r)
 
 			for _, pathTest := range c.pathTests {
-				gotOKs, gotTooManyRequests, _ := launchTestRequests(t, ts.URL, pathTest, c.reqNum)
+				gotOKs, gotTooManyRequests, gotHeaders := launchTestRequests(t, ts.URL, pathTest, c.reqNum)
 
 				if pathTest.expectedOK != gotOKs {
 					t.Fatalf(
@@ -144,6 +162,37 @@ func TestWithLocalRateLimiter(t *testing.T) {
 						gotTooManyRequests,
 					)
 				}
+				// Check for labels only if rate limit is hit
+				if pathTest.expectedTooManyRequests > 0 {
+					metrics, err := reg.Gather()
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, metric := range metrics {
+						for _, m := range metric.GetMetric() {
+							if m.GetLabel()[1].GetValue() != "test-group" {
+								t.Fatalf("expected label value to be 'test-group', got %s", m.GetLabel()[1].GetValue())
+							}
+							if m.GetLabel()[2].GetValue() != "test-handler" {
+								t.Fatalf("expected label value to be 'test-handler', got %s", m.GetLabel()[2].GetValue())
+							}
+
+						}
+					}
+				}
+
+				var gotRetryAfterHeaderValues []string
+				for _, h := range gotHeaders {
+					gotRetryAfterHeaderValues = append(gotRetryAfterHeaderValues, h.Get(headerRetryAfter))
+				}
+				if !reflect.DeepEqual(gotRetryAfterHeaderValues, pathTest.expectRetryAfterHeaderValue) {
+					t.Fatalf(
+						"%v: unexpected Retry-After header values: wanted %v, got %v",
+						pathTest.path,
+						pathTest.expectRetryAfterHeaderValue,
+						gotRetryAfterHeaderValues,
+					)
+				}
 			}
 		})
 	}
@@ -154,16 +203,16 @@ type mockSharedLimiter struct {
 	received int64
 }
 
-func (m *mockSharedLimiter) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
+func (m *mockSharedLimiter) GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	if req.limit > m.received {
+	if req.Limit > m.received {
 		m.received++
 		return m.received, mockResetTime, nil
 	}
 
-	return m.received, mockResetTime, errOverLimit
+	return m.received, mockResetTime, ErrOverLimit
 }
 
 func (m *mockSharedLimiter) reset() {
@@ -207,10 +256,57 @@ func TestWithSharedRateLimiter(t *testing.T) {
 			reqNum: 5,
 			pathTests: []pathTestParams{
 				{
-					path:                    testPathOne,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              1,
-					expectedTooManyRequests: 4,
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  1,
+					expectedTooManyRequests:     4,
+					expectRetryAfterHeaderValue: make([]string, 5),
+				},
+			},
+		},
+		{
+			name: "one rate limiter with additional retry after logic",
+			configs: []Config{
+				{
+					Tenant:        testTenant,
+					Matcher:       matcherOne,
+					Limit:         1,
+					Window:        10 * time.Second,
+					RetryAfterMin: time.Second,
+					RetryAfterMax: time.Minute,
+				},
+			},
+			reqNum: 5,
+			pathTests: []pathTestParams{
+				{
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  1,
+					expectedTooManyRequests:     4,
+					expectRetryAfterHeaderValue: []string{"", "1", "4", "8", "16"},
+				},
+			},
+		},
+		{
+			name: "one rate limiter with additional retry after logic with max respected",
+			configs: []Config{
+				{
+					Tenant:        testTenant,
+					Matcher:       matcherOne,
+					Limit:         1,
+					Window:        10 * time.Second,
+					RetryAfterMin: time.Second,
+					RetryAfterMax: time.Second * 2,
+				},
+			},
+			reqNum: 5,
+			pathTests: []pathTestParams{
+				{
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  1,
+					expectedTooManyRequests:     4,
+					expectRetryAfterHeaderValue: []string{"", "1", "2", "2", "2"},
 				},
 			},
 		},
@@ -233,16 +329,18 @@ func TestWithSharedRateLimiter(t *testing.T) {
 			reqNum: 5,
 			pathTests: []pathTestParams{
 				{
-					path:                    testPathOne,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              1,
-					expectedTooManyRequests: 4,
+					path:                        testPathOne,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  1,
+					expectedTooManyRequests:     4,
+					expectRetryAfterHeaderValue: make([]string, 5),
 				},
 				{
-					path:                    testPathTwo,
-					waitBetween:             1 * time.Millisecond,
-					expectedOK:              3,
-					expectedTooManyRequests: 2,
+					path:                        testPathTwo,
+					waitBetween:                 1 * time.Millisecond,
+					expectedOK:                  3,
+					expectedTooManyRequests:     2,
+					expectRetryAfterHeaderValue: make([]string, 5),
 				},
 			},
 		},
@@ -300,6 +398,7 @@ func TestWithSharedRateLimiter(t *testing.T) {
 					t.Fatalf("%v: no headers found", pathTest.path)
 				}
 
+				var gotRetryAfterHeaderValues []string
 				for _, hh := range gotHeaders {
 					if limit := hh.Get(headerKeyLimit); limit == "" {
 						t.Fatalf("%v: header with key '%v' not found", pathTest.path, headerKeyLimit)
@@ -317,7 +416,18 @@ func TestWithSharedRateLimiter(t *testing.T) {
 								reset,
 							)
 						}
+
 					}
+					gotRetryAfterHeaderValues = append(gotRetryAfterHeaderValues, hh.Get(headerRetryAfter))
+				}
+
+				if !reflect.DeepEqual(gotRetryAfterHeaderValues, pathTest.expectRetryAfterHeaderValue) {
+					t.Fatalf(
+						"%v: unexpected Retry-After header values: wanted %v, got %v",
+						pathTest.path,
+						pathTest.expectRetryAfterHeaderValue,
+						gotRetryAfterHeaderValues,
+					)
 				}
 			}
 		})

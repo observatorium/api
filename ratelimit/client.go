@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -14,13 +15,17 @@ import (
 	"github.com/observatorium/api/ratelimit/gubernator"
 )
 
-var errOverLimit = errors.New("over limit")
+var ErrOverLimit = errors.New("over limit")
 
-type request struct {
-	name     string
-	key      string
-	limit    int64
-	duration int64
+type Request struct {
+	name  string
+	Key   string
+	Limit int64
+	// Duration is the Duration of the rate limit window in milliseconds.
+	Duration      int64
+	failOpen      bool
+	retryAfterMin time.Duration
+	retryAfterMax time.Duration
 }
 
 // Client can connect to gubernator and get rate limits.
@@ -30,7 +35,10 @@ type Client struct {
 }
 
 type SharedRateLimiter interface {
-	GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error)
+	// GetRateLimits retrieves the rate limits for a given request.
+	// It returns the remaining requests, the reset time as Unix time (millisecond from epoch), and any error that occurred.
+	// When a rate limit is exceeded, the error errOverLimit is returned.
+	GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error)
 }
 
 // NewClient creates a new gubernator client with default configuration.
@@ -58,7 +66,7 @@ func NewClient(reg prometheus.Registerer) *Client {
 // Dial connects the client to gubernator.
 func (c *Client) Dial(ctx context.Context, address string) error {
 	address = fmt.Sprintf("dns:///%s", address)
-	conn, err := grpc.DialContext(ctx, address, c.dialOpts...)
+	conn, err := grpc.DialContext(ctx, address, c.dialOpts...) // nolint: staticcheck
 	if err != nil {
 		return fmt.Errorf("failed to dial gubernator with %q: %v", address, err)
 	}
@@ -70,14 +78,14 @@ func (c *Client) Dial(ctx context.Context, address string) error {
 
 // GetRateLimits gets the rate limits corresponding to a request.
 // Note: Dial must be called before calling this method, otherwise the client will panic.
-func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, resetTime int64, err error) {
+func (c *Client) GetRateLimits(ctx context.Context, req *Request) (remaining, resetTime int64, err error) {
 	resp, err := c.client.GetRateLimits(ctx, &gubernator.GetRateLimitsReq{
 		Requests: []*gubernator.RateLimitReq{{
 			Name:      req.name,
-			UniqueKey: req.key,
+			UniqueKey: req.Key,
 			Hits:      1,
-			Limit:     req.limit,
-			Duration:  req.duration,
+			Limit:     req.Limit,
+			Duration:  req.Duration,
 			Algorithm: gubernator.Algorithm_LEAKY_BUCKET,
 			Behavior:  gubernator.Behavior_GLOBAL,
 		}},
@@ -86,9 +94,10 @@ func (c *Client) GetRateLimits(ctx context.Context, req *request) (remaining, re
 		return 0, 0, err
 	}
 
-	if resp.Responses[0].Status == gubernator.Status_OVER_LIMIT {
-		return 0, 0, errOverLimit
+	response := resp.Responses[0]
+	if response.Status == gubernator.Status_OVER_LIMIT {
+		return 0, 0, ErrOverLimit
 	}
 
-	return resp.Responses[0].Remaining, resp.Responses[0].ResetTime, nil
+	return response.GetRemaining(), response.GetResetTime(), nil
 }

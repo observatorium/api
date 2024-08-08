@@ -35,6 +35,7 @@ import (
 	"github.com/oklog/run"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
+	promclientversion "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/version"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -80,6 +81,13 @@ const (
 
 	// Server shutdown grace period.
 	gracePeriod = 2 * time.Minute
+)
+
+// Version is set via build flag -ldflags -X main.Version.
+var (
+	Version  string
+	Branch   string
+	Revision string
 )
 
 type config struct {
@@ -144,7 +152,8 @@ type metricsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
-	enabled bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type logsConfig struct {
@@ -163,26 +172,32 @@ type logsConfig struct {
 	rulesLabelFilters    map[string][]string
 	authExtractSelectors []string
 	// enable logs at least one {read,write,tail}Endpoint} is provided.
-	enabled bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type tracesConfig struct {
 	// readTemplateEndpoint is of the form "http://jaeger-{tenant}-query:16686".
 	readTemplateEndpoint string
 
-	readEndpoint         *url.URL
-	writeEndpoint        string
-	upstreamWriteTimeout time.Duration
-	upstreamCAFile       string
-	upstreamCertFile     string
-	upstreamKeyFile      string
-	tenantHeader         string
+	readEndpoint          *url.URL
+	writeOTLPGRPCEndpoint string
+	writeOTLPHTTPEndpoint *url.URL
+	tempoEndpoint         *url.URL
+	upstreamWriteTimeout  time.Duration
+	upstreamCAFile        string
+	upstreamCertFile      string
+	upstreamKeyFile       string
+	tenantHeader          string
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
-	enabled bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type middlewareConfig struct {
-	rateLimiterAddress                string
+	grpcRateLimiterAddress            string
+	rateLimiterType                   string
+	rateLimiterAddress                multiStringFlag
 	concurrentRequestLimit            int
 	backLogLimitConcurrentRequests    int
 	backLogDurationConcurrentRequests time.Duration
@@ -239,7 +254,28 @@ type tenant struct {
 		Endpoint string   `json:"endpoint"`
 		Limit    int      `json:"limit"`
 		Window   duration `json:"window"`
+		// The remaining fields in this struct are optional and only apply to the remote rate limiter.
+		// FailOpen determines the behavior of the rate limiter when a remote rate limiter is unavailable.
+		// If true, requests will be accepted when the remote rate limiter decision is unavailable or returns an error.
+		FailOpen bool `json:"failOpen"`
+		// RetryAfterMin and RetryAfterMax are used to determine the Retry-After header value when the
+		// remote rate limiter determines that the request should be rejected.
+		// This can be used to prevent a thundering herd of requests from overwhelming the upstream and is
+		// respected by the Prometheus remote write client.
+		// As requests get rejected the header is set and the value doubled each time until RetryAfterMaxSeconds.
+		// Zero or unset values will result in no Retry-After header being set.
+		// RetryAfterMin is the minimum value for the Retry-After header.
+		RetryAfterMin duration `json:"retryAfterMin,omitempty"`
+		// RetryAfterMax is the maximum value for the Retry-After header.
+		// If RetryAfterMax is zero and RetryAfterMin is non-zero, the Retry-After header will grow indefinitely.
+		RetryAfterMax duration `json:"retryAfterMax,omitempty"`
 	} `json:"rateLimits"`
+}
+
+func init() {
+	version.Version = Version
+	version.Branch = Branch
+	version.Revision = Revision
 }
 
 //nolint:funlen,gocyclo,gocognit
@@ -248,6 +284,8 @@ func main() {
 	if err != nil {
 		stdlog.Fatalf("parse flag: %v", err)
 	}
+
+	stdlog.Println(version.Info())
 
 	if !cfg.metrics.enabled && !cfg.logs.enabled && !cfg.traces.enabled {
 		stdlog.Fatal("Neither logging, metrics not traces endpoints are enabled. " +
@@ -270,7 +308,7 @@ func main() {
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(
-		version.NewCollector("observatorium"),
+		promclientversion.NewCollector("observatorium"),
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
@@ -403,14 +441,21 @@ func main() {
 
 	defer undo()
 
-	var rateLimitClient *ratelimit.Client
+	var rateLimitClient ratelimit.SharedRateLimiter
 
-	if cfg.middleware.rateLimiterAddress != "" {
+	switch {
+	case cfg.middleware.grpcRateLimiterAddress != "":
 		ctx, cancel := context.WithTimeout(context.Background(), grpcDialTimeout)
 		defer cancel()
 
-		rateLimitClient = ratelimit.NewClient(reg)
-		if err := rateLimitClient.Dial(ctx, cfg.middleware.rateLimiterAddress); err != nil {
+		grpcRateLimiter := ratelimit.NewClient(reg)
+		if err := grpcRateLimiter.Dial(ctx, cfg.middleware.grpcRateLimiterAddress); err != nil {
+			stdlog.Fatal(err)
+		}
+		rateLimitClient = grpcRateLimiter
+	case cfg.middleware.rateLimiterType == "redis":
+		rateLimitClient, err = ratelimit.NewRedisRateLimiter([]string(cfg.middleware.rateLimiterAddress))
+		if err != nil {
 			stdlog.Fatal(err)
 		}
 	}
@@ -458,62 +503,6 @@ func main() {
 			)
 		}
 
-		var (
-			metricsUpstreamCACert     []byte
-			metricsUpstreamClientCert *stdtls.Certificate
-			logsUpstreamCACert        []byte
-			logsUpstreamClientCert    *stdtls.Certificate
-			tracesUpstreamCACert      []byte
-			tracesUpstreamClientCert  *stdtls.Certificate
-		)
-
-		if cfg.metrics.upstreamCAFile != "" {
-			metricsUpstreamCACert, err = os.ReadFile(cfg.metrics.upstreamCAFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream metrics TLS CA: %v", err)
-			}
-		}
-
-		if cfg.metrics.upstreamCertFile != "" && cfg.metrics.upstreamKeyFile != "" {
-			clientCert, err := stdtls.LoadX509KeyPair(cfg.metrics.upstreamCertFile, cfg.metrics.upstreamKeyFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream metrics client TLS cert/key pair: %v", err)
-			}
-			metricsUpstreamClientCert = &clientCert
-		}
-
-		if cfg.logs.upstreamCAFile != "" {
-			logsUpstreamCACert, err = os.ReadFile(cfg.logs.upstreamCAFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream logs TLS CA: %v", err)
-			}
-
-		}
-
-		if cfg.logs.upstreamCertFile != "" && cfg.logs.upstreamKeyFile != "" {
-			clientCert, err := stdtls.LoadX509KeyPair(cfg.logs.upstreamCertFile, cfg.logs.upstreamKeyFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream logs client TLS cert/key pair: %v", err)
-			}
-			logsUpstreamClientCert = &clientCert
-		}
-
-		if cfg.traces.upstreamCAFile != "" {
-			tracesUpstreamCACert, err = os.ReadFile(cfg.traces.upstreamCAFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream traces TLS CA: %v", err)
-			}
-
-		}
-
-		if cfg.traces.upstreamCertFile != "" && cfg.traces.upstreamKeyFile != "" {
-			clientCert, err := stdtls.LoadX509KeyPair(cfg.traces.upstreamCertFile, cfg.traces.upstreamKeyFile)
-			if err != nil {
-				stdlog.Fatalf("failed to read upstream traces client TLS cert/key pair: %v", err)
-			}
-			tracesUpstreamClientCert = &clientCert
-		}
-
 		r := chi.NewRouter()
 		r.Use(middleware.RequestID)
 		r.Use(middleware.RealIP)
@@ -548,6 +537,7 @@ func main() {
 			// registration failures per tenant.
 			registerTenantsFailingMetric = authentication.RegisterTenantsFailingMetric(reg)
 			pm                           = authentication.NewProviderManager(logger, registerTenantsFailingMetric)
+			tracesUpstreamTLSOptions     *tls.UpstreamOptions
 		)
 
 		r.Group(func(r chi.Router) {
@@ -573,10 +563,13 @@ func main() {
 							level.Warn(logger).Log("msg", "failed to compile matcher for rate limiter", "err", err)
 						}
 						rateLimits = append(rateLimits, ratelimit.Config{
-							Tenant:  t.Name,
-							Matcher: matcher,
-							Limit:   rl.Limit,
-							Window:  time.Duration(rl.Window),
+							Tenant:        t.Name,
+							Matcher:       matcher,
+							Limit:         rl.Limit,
+							Window:        time.Duration(rl.Window),
+							FailOpen:      rl.FailOpen,
+							RetryAfterMin: time.Duration(rl.RetryAfterMin),
+							RetryAfterMax: time.Duration(rl.RetryAfterMax),
 						})
 					}
 				}
@@ -613,6 +606,26 @@ func main() {
 
 			// Metrics.
 			if cfg.metrics.enabled {
+
+				var loadInterval *time.Duration
+
+				if cfg.metrics.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+
+				metricsUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.metrics.upstreamCertFile,
+					cfg.metrics.upstreamKeyFile,
+					cfg.metrics.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
+				}
+
 				eps := metricsv1.Endpoints{
 					ReadEndpoint:         cfg.metrics.readEndpoint,
 					WriteEndpoint:        cfg.metrics.writeEndpoint,
@@ -645,24 +658,24 @@ func main() {
 
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Timeout(cfg.metrics.upstreamWriteTimeout))
+					const queryParamName = "query"
 					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
-						metricsUpstreamCACert,
-						metricsUpstreamClientCert,
+						metricsUpstreamClientOptions,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
 						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
 						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					))
 
+					const matchParamName = "match[]"
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
-						metricsUpstreamCACert,
-						metricsUpstreamClientCert,
+						metricsUpstreamClientOptions,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
@@ -672,9 +685,9 @@ func main() {
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
 						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel)),
+						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
 						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnMatchers(cfg.metrics.tenantLabel)),
+						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, matchParamName)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithAlertmanagerAlertsReadMiddleware(
@@ -696,6 +709,26 @@ func main() {
 
 			// Logs.
 			if cfg.logs.enabled {
+
+				var loadInterval *time.Duration
+
+				if cfg.logs.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+
+				logsUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.logs.upstreamCertFile,
+					cfg.logs.upstreamKeyFile,
+					cfg.logs.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
+				}
+
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Timeout(cfg.logs.upstreamWriteTimeout))
 					r.Mount("/api/logs/v1/{tenant}",
@@ -706,8 +739,7 @@ func main() {
 								cfg.logs.writeEndpoint,
 								cfg.logs.rulesEndpoint,
 								cfg.logs.rulesReadOnly,
-								logsUpstreamCACert,
-								logsUpstreamClientCert,
+								logsUpstreamClientOptions,
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(instrumenter),
@@ -715,7 +747,7 @@ func main() {
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
-								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(cfg.logs.authExtractSelectors)),
+								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(logger, cfg.logs.authExtractSelectors)),
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
 								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
@@ -731,7 +763,24 @@ func main() {
 			}
 
 			// Traces.
-			if cfg.traces.enabled && (cfg.traces.readEndpoint != nil || cfg.traces.readTemplateEndpoint != "") {
+			if cfg.traces.enabled && (cfg.traces.readEndpoint != nil || cfg.traces.readTemplateEndpoint != "" || cfg.traces.tempoEndpoint != nil) {
+				var loadInterval *time.Duration
+				if cfg.traces.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+				tracesUpstreamTLSOptions, err = tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.traces.upstreamCertFile,
+					cfg.traces.upstreamKeyFile,
+					cfg.traces.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream traces TLS: %v", err)
+				}
+
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
@@ -755,14 +804,17 @@ func main() {
 							tracesv1.NewV2Handler(
 								cfg.traces.readEndpoint,
 								cfg.traces.readTemplateEndpoint,
-								tracesUpstreamCACert,
-								tracesUpstreamClientCert,
+								cfg.traces.tempoEndpoint,
+								cfg.traces.writeOTLPHTTPEndpoint,
+								tracesUpstreamTLSOptions,
 								tracesv1.Logger(logger),
 								tracesv1.WithRegistry(reg),
 								tracesv1.WithHandlerInstrumenter(instrumenter),
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
 								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+								tracesv1.WithTempoMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
+								tracesv1.WithTempoMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
 							),
 						),
@@ -780,6 +832,7 @@ func main() {
 			cfg.tls.clientAuthType,
 			cfg.tls.cipherSuites,
 		)
+
 		if err != nil {
 			stdlog.Fatalf("failed to initialize tls config: %v", err)
 		}
@@ -844,8 +897,7 @@ func main() {
 				pm.GRPCMiddlewares,
 				authorizers,
 				logger,
-				tracesUpstreamCACert,
-				tracesUpstreamClientCert,
+				tracesUpstreamTLSOptions,
 			)
 			if err != nil {
 				stdlog.Fatalf("failed to initialize gRPC server: %v", err)
@@ -888,6 +940,7 @@ func main() {
 			cfg.tls.clientAuthType,
 			cfg.tls.cipherSuites,
 		)
+
 		if err != nil {
 			stdlog.Fatalf("failed to initialize tls config: %v", err)
 		}
@@ -973,6 +1026,20 @@ func (d *duration) UnmarshalJSON(b []byte) error {
 	}
 }
 
+// multiStringFlag is a type that implements the flag.Value interface.
+type multiStringFlag []string
+
+// Set appends a value to the slice.
+func (m *multiStringFlag) Set(value string) error {
+	*m = append(*m, value)
+	return nil
+}
+
+// String returns a string representation of the slice.
+func (m *multiStringFlag) String() string {
+	return strings.Join(*m, ", ")
+}
+
 //nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
@@ -988,12 +1055,13 @@ func parseFlags() (config, error) {
 		rawLogsRuleLabelFilters        string
 		rawLogsAuthExtractSelectors    string
 		rawTracesReadEndpoint          string
-		rawTracesWriteEndpoint         string
+		rawTracesTempoEndpoint         string
+		rawTracesWriteOTLPGRPCEndpoint string
+		rawTracesWriteOTLPHTTPEndpoint string
 		rawTracingEndpointType         string
 	)
 
 	cfg := config{}
-
 	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
 		"Path to the RBAC configuration file.")
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
@@ -1045,10 +1113,13 @@ func parseFlags() (config, error) {
 		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.logs.upstreamKeyFile, "logs.tls.key-file", "",
 		"File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.logs.enableCertWatcher, "logs.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.logs.tenantHeader, "logs.tenant-header", "X-Scope-OrgID",
 		"The name of the HTTP header containing the tenant ID to forward to the logs upstream.")
 	flag.StringVar(&cfg.logs.tenantLabel, "logs.rules.tenant-label", "tenant_id",
 		"The name of the rules label that should hold the tenant ID in logs upstreams.")
+
 	flag.StringVar(&rawLogsWriteEndpoint, "logs.write.endpoint", "",
 		"The endpoint against which to make write requests for logs.")
 	flag.StringVar(&rawLogsAuthExtractSelectors, "logs.auth.extract-selectors", "",
@@ -1069,16 +1140,22 @@ func parseFlags() (config, error) {
 		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.metrics.upstreamKeyFile, "metrics.tls.key-file", "",
 		"File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.metrics.enableCertWatcher, "metrics.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.metrics.tenantHeader, "metrics.tenant-header", "THANOS-TENANT",
 		"The name of the HTTP header containing the tenant ID to forward to the metrics upstreams.")
 	flag.StringVar(&cfg.metrics.tenantLabel, "metrics.tenant-label", "tenant_id",
 		"The name of the PromQL label that should hold the tenant ID in metrics upstreams.")
 	flag.StringVar(&rawTracesReadEndpoint, "traces.read.endpoint", "",
 		"The endpoint against which to make HTTP read requests for traces.")
+	flag.StringVar(&rawTracesTempoEndpoint, "traces.tempo.endpoint", "",
+		"The endpoint against which to make HTTP read requests for traces using traceQL (tempo API).")
 	flag.StringVar(&cfg.traces.readTemplateEndpoint, "experimental.traces.read.endpoint-template", "",
 		"A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686")
-	flag.StringVar(&rawTracesWriteEndpoint, "traces.write.endpoint", "",
-		"The endpoint against which to make gRPC write requests for traces.")
+	flag.StringVar(&rawTracesWriteOTLPGRPCEndpoint, "traces.write.otlpgrpc.endpoint", "",
+		"The endpoint against which to make OTLP gRPC write requests for traces.")
+	flag.StringVar(&rawTracesWriteOTLPHTTPEndpoint, "traces.write.otlphttp.endpoint", "",
+		"The endpoint against which to make OTLP HTTP write requests for traces.")
 	flag.DurationVar(&cfg.traces.upstreamWriteTimeout, "traces.write-timeout", tracesMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the traces endpoint.")
 	flag.StringVar(&cfg.traces.upstreamCAFile, "traces.tls.ca-file", "",
@@ -1087,6 +1164,8 @@ func parseFlags() (config, error) {
 		"File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.")
 	flag.StringVar(&cfg.traces.upstreamKeyFile, "traces.tls.key-file", "",
 		"File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.traces.enableCertWatcher, "traces.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
 		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
@@ -1116,9 +1195,14 @@ func parseFlags() (config, error) {
 		"Policy for TLS client-side authentication. Values are from ClientAuthType constants in https://pkg.go.dev/crypto/tls#ClientAuthType")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
-	flag.StringVar(&cfg.middleware.rateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
+	flag.StringVar(&cfg.middleware.grpcRateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
 		"The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant."+
-			" If not specified, local, non-shared rate limiting will be used.")
+			" If not specified, local, non-shared rate limiting will be used. Has precedence over other rate limiter options.")
+	flag.StringVar(&cfg.middleware.rateLimiterType, "middleware.rate-limiter.type", "local",
+		"The type of rate limiter to use when not using a gRPC rate limiter. Options: 'local' (default), 'redis' (leaky bucket algorithm).")
+	flag.Var(&cfg.middleware.rateLimiterAddress, "middleware.rate-limiter.address",
+		"The address of the rate limiter. Only used when not using the gRPC nor \"local\" rate limiters. "+
+			"Can be repeated to specify multiple addresses (i.e. Redis Cluster).")
 	flag.IntVar(&cfg.middleware.concurrentRequestLimit, "middleware.concurrent-request-limit", 10_000,
 		"The limit that controls the number of concurrently processed requests across all tenants.")
 	flag.IntVar(&cfg.middleware.backLogLimitConcurrentRequests, "middleware.backlog-limit-concurrent-requests", 0,
@@ -1263,19 +1347,40 @@ func parseFlags() (config, error) {
 		cfg.traces.readEndpoint = tracesReadEndpoint
 	}
 
-	if rawTracesWriteEndpoint != "" {
+	if rawTracesTempoEndpoint != "" {
 		cfg.traces.enabled = true
 
-		_, _, err := net.SplitHostPort(rawTracesWriteEndpoint)
+		tracesTempoEndpoint, err := url.ParseRequestURI(rawTracesTempoEndpoint)
 		if err != nil {
-			return cfg, fmt.Errorf("--traces.write.endpoint %q is invalid: %w", rawTracesWriteEndpoint, err)
+			return cfg, fmt.Errorf("--traces.tempo.endpoint %q is invalid: %w", rawTracesTempoEndpoint, err)
 		}
 
-		cfg.traces.writeEndpoint = rawTracesWriteEndpoint
+		cfg.traces.tempoEndpoint = tracesTempoEndpoint
+	}
+
+	if rawTracesWriteOTLPGRPCEndpoint != "" {
+		cfg.traces.enabled = true
+
+		_, _, err := net.SplitHostPort(rawTracesWriteOTLPGRPCEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.write.otlpgrpc.endpoint %q is invalid: %w", rawTracesWriteOTLPGRPCEndpoint, err)
+		}
+
+		cfg.traces.writeOTLPGRPCEndpoint = rawTracesWriteOTLPGRPCEndpoint
+	}
+	if rawTracesWriteOTLPHTTPEndpoint != "" {
+		cfg.traces.enabled = true
+
+		tracesOTLPHTTPEndpoint, err := url.ParseRequestURI(rawTracesWriteOTLPHTTPEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--traces.write.otlphttp.endpoint %q is invalid: %w", rawTracesWriteOTLPHTTPEndpoint, err)
+		}
+
+		cfg.traces.writeOTLPHTTPEndpoint = tracesOTLPHTTPEndpoint
 	}
 
 	if cfg.traces.enabled && cfg.server.grpcListen == "" {
-		return cfg, fmt.Errorf("-traces.write.endpoint is set to %q but -grpc.listen is not set", cfg.traces.writeEndpoint)
+		return cfg, fmt.Errorf("-traces.write.endpoint is set to %q but -grpc.listen is not set", cfg.traces.writeOTLPGRPCEndpoint)
 	}
 
 	if !cfg.traces.enabled && cfg.server.grpcListen != "" {
@@ -1362,11 +1467,12 @@ var gRPCRBAC = authorization.GRPCRBac{
 }
 
 func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
-	authorizers map[string]rbac.Authorizer, logger log.Logger, tracesUpstreamCA []byte, tracesUpstreamCert *stdtls.Certificate) (*grpc.Server, error) {
+	authorizers map[string]rbac.Authorizer, logger log.Logger, upstreamTLSOptions *tls.UpstreamOptions,
+) (*grpc.Server, error) {
 	connOtel, err := tracesv1.NewOTelConnection(
-		cfg.traces.writeEndpoint,
+		cfg.traces.writeOTLPGRPCEndpoint,
 		tracesv1.WithLogger(logger),
-		tracesv1.WithUpstreamTLS(tracesUpstreamCA, tracesUpstreamCert),
+		tracesv1.WithUpstreamTLSOptions(upstreamTLSOptions),
 	)
 	if err != nil {
 		return nil, err

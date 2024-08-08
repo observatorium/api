@@ -1,6 +1,7 @@
 package authorization
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -11,12 +12,17 @@ import (
 func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
 	query := values.Get("query")
 	if query == "" {
-		return emptySelectorsInfo, nil
+		// If query is empty we will assume it's a possibly a rules request
+		selectors := parseLogRulesSelectors(selectorNames, values)
+
+		return &SelectorsInfo{
+			Selectors: selectors,
+		}, nil
 	}
 
 	selectors, hasWildcard, err := parseLogStreamSelectors(selectorNames, query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error extracting selectors from query %#q: %w", query, err)
 	}
 
 	return &SelectorsInfo{

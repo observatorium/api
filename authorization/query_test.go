@@ -47,6 +47,18 @@ func Test_parseQuerySelectors(t *testing.T) {
 			},
 			wantHasWildcard: true,
 		},
+		{
+			query: `({namespace="test"})`,
+			wantSelectors: map[string][]string{
+				"namespace": {"test"},
+			},
+		},
+		{
+			query: `(count_over_time({namespace="test"}[2m]) > 10)`,
+			wantSelectors: map[string][]string{
+				"namespace": {"test"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.query, func(t *testing.T) {

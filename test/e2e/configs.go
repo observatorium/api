@@ -23,6 +23,7 @@ const (
 	logs           testType = "logs"
 	traces         testType = "traces"
 	tracesTemplate testType = "tracesTemplate"
+	tracesTempo    testType = "tracesTempo"
 	tenants        testType = "tenants"
 	interactive    testType = "interactive"
 
@@ -34,6 +35,7 @@ const (
 	envAlertmanagerName   = "alertmanager-api"
 	envLogsName           = "logs-tail"
 	envTracesName         = "traces-export"
+	envTracesTempoName    = "traces-tempo"
 	envTracesTemplateName = "traces-template"
 	envTenantsName        = "tenants"
 	envInteractive        = "interactive"
@@ -69,6 +71,20 @@ tenants:
     - endpoint: "/api/logs/v1/.*"
       limit: 100
       window: 1s
+- name: another-tenant
+  id: 177ef09c-04e1-46c5-86f7-dc3250bfe869
+  oidc:
+    clientID: test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
+    redirectURL: https://%[7]s:8443/oidc/another-tenant/callback
+    usernameClaim: email
+  opa:
+    query: data.observatorium.allow
+    paths:
+    - %[3]s
+    - %[4]s
 - name: test-attacker
   id: 066df98b-04e1-46c5-86f7-dc3250bfe869
   oidc:
@@ -146,6 +162,7 @@ staticClients:
   secret: ZXhhbXBsZS1hcHAtc2VjcmV0
   redirectURIs:
   - https://%s:8443/oidc/test-oidc/callback
+  - https://%s:8443/oidc/another-tenant/callback
 enablePasswordDB: true
 staticPasswords:
 - email: "admin@example.com"
@@ -166,6 +183,7 @@ func createDexYAML(
 		issuer,
 		filepath.Join(e.SharedDir(), certsSharedDir, "dex.pem"),
 		filepath.Join(e.SharedDir(), certsSharedDir, "dex.key"),
+		redirectURI,
 		redirectURI,
 	))
 
@@ -210,15 +228,17 @@ func createRulesYAML(
 
 const otelConfigTpl = `
 receivers:
-    otlp/grpc:
+    otlp:
       protocols:
         grpc:
             endpoint: "0.0.0.0:4317"
+        http:
+            endpoint: "0.0.0.0:4318"
 
 exporters:
-    logging:
-        logLevel: debug
-    jaeger:
+    debug:
+        verbosity: detailed
+    otlp:
         endpoint: %[1]s
         tls:
           insecure: true
@@ -232,8 +252,8 @@ service:
 
     pipelines:
         traces/grpc:
-            receivers: [otlp/grpc]
-            exporters: [logging,jaeger]
+            receivers: [otlp]
+            exporters: [debug,otlp]
 `
 
 // createOtelCollectorConfigYAML() creates YAML for an Open Telemetry collector inside the Observatorium API boundary.
@@ -270,8 +290,8 @@ receivers:
             endpoint: 0.0.0.0:4317
 
 exporters:
-    logging:
-      logLevel: debug
+    debug:
+      verbosity: detailed
     otlp:
       endpoint: %[1]s
       # auth:
@@ -292,12 +312,13 @@ service:
     extensions: [health_check]
     telemetry:
       metrics:
-        address: localhost:8889
+        address: :8888
+        level: detailed
     # extensions: [oauth2client]
     pipelines:
       traces:
         receivers: [otlp]
-        exporters: [logging,otlp]
+        exporters: [debug,otlp]
 `
 
 // createOtelForwardingCollectorConfigYAML() creates YAML for an Open Telemetry collector outside the
@@ -413,5 +434,60 @@ func createLokiYAML(
 		os.FileMode(0755),
 	)
 
+	testutil.Ok(t, err)
+}
+
+const tempoConfig = `
+server:
+  http_listen_port: 3200
+
+query_frontend:
+  search:
+    duration_slo: 5s
+    throughput_bytes_slo: 1.073741824e+09
+  trace_by_id:
+    duration_slo: 5s
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+        grpc:
+    opencensus:
+
+ingester:
+  max_block_duration: 5m               # cut the headblock when this much time passes. this is being set for demo purposes and should probably be left alone normally
+
+compactor:
+  compaction:
+    block_retention: 1h                # overall Tempo trace retention. set for demo purposes
+
+storage:
+  trace:
+    backend: local                     # backend configuration to use
+    wal:
+      path: /tmp/tempo/wal             # where to store the the wal locally
+    local:
+      path: /tmp/tempo/blocks
+`
+
+// createTempoConfigYAML() creates YAML for Tempo inside the Observatorium API boundary.
+func createTempoConfigYAML(
+	t *testing.T,
+	e e2e.Environment,
+) {
+	// Warn if a YAML change introduced a tab character
+	if strings.ContainsRune(tempoConfig, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	yamlContent := []byte(tempoConfig)
+
+	err := os.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "tempo.yaml"),
+		yamlContent,
+		os.FileMode(0644),
+	)
 	testutil.Ok(t, err)
 }

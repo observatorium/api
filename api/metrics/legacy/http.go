@@ -1,7 +1,6 @@
 package legacy
 
 import (
-	stdtls "crypto/tls"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -102,7 +101,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 	return handler.ServeHTTP
 }
 
-func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificate, opts ...HandlerOption) http.Handler {
+func NewHandler(url *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -130,7 +129,7 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 			DialContext: (&net.Dialer{
 				Timeout: dialTimeout,
 			}).DialContext,
-			TLSClientConfig: tls.NewClientConfig(upstreamCA, upstreamCert),
+			TLSClientConfig: tlsOptions.NewClientConfig(),
 		}
 
 		legacyProxy = &httputil.ReverseProxy{
@@ -141,23 +140,32 @@ func NewHandler(url *url.URL, upstreamCA []byte, upstreamCert *stdtls.Certificat
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Use(func(handler http.Handler) http.Handler {
+			return server.InjectLabelsCtx(
+				prometheus.Labels{"group": "metricslegacy", "handler": "query"},
+				handler,
+			)
+		})
 		r.Use(c.queryMiddlewares...)
 		r.Handle(QueryRoute,
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricslegacy", "handler": "query"},
-					legacyProxy,
-				),
+				legacyProxy,
 			),
 		)
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(func(handler http.Handler) http.Handler {
+			return server.InjectLabelsCtx(
+				prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
+				handler,
+			)
+		})
+		r.Use(c.queryMiddlewares...)
 		r.Handle(QueryRangeRoute,
 			otelhttp.WithRouteTag(
 				c.spanRoutePrefix+QueryRangeRoute,
-				server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricslegacy", "handler": "query_range"},
-					legacyProxy,
-				),
+				legacyProxy,
 			),
 		)
 	})

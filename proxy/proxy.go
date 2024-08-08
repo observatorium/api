@@ -2,10 +2,12 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	stdlog "log"
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-kit/log"
@@ -19,6 +21,8 @@ const (
 	prefixKey contextKey = "prefix"
 
 	PrefixHeader string = "X-Forwarded-Prefix"
+
+	TempoOrgIDHeaderName string = "X-Scope-OrgID"
 )
 
 type Middleware func(r *http.Request)
@@ -28,6 +32,12 @@ func Middlewares(middlewares ...Middleware) func(r *http.Request) {
 		for _, m := range middlewares {
 			m(r)
 		}
+	}
+}
+
+func MiddlewareRemoveURLPrefix(prefix string) Middleware {
+	return func(r *http.Request) {
+		r.URL.Path = fmt.Sprintf("/%s", strings.TrimLeft(strings.Trim(r.URL.Path, "/"), prefix))
 	}
 }
 

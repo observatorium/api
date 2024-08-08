@@ -113,6 +113,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -logs.tls.key-file string
     	File containing the TLS client key to authenticate against upstream logs servers. Leave blank to disable mTLS.
+  -logs.tls.watch-certs
+    	Watch for certificate changes and reload
   -logs.write-timeout duration
     	The HTTP write timeout for proxied requests to the logs endpoint. (default 10m0s)
   -logs.write.endpoint string
@@ -133,6 +135,8 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -metrics.tls.key-file string
     	File containing the TLS client key to authenticate against upstream metrics servers. Leave blank to disable mTLS.
+  -metrics.tls.watch-certs
+    	Watch for certificate changes and reload
   -metrics.write-timeout duration
     	The HTTP write timeout for proxied requests to the metrics endpoint. (default 2m0s)
   -metrics.write.endpoint string
@@ -143,8 +147,12 @@ Usage of ./observatorium-api:
     	The number of concurrent requests that can buffered.
   -middleware.concurrent-request-limit int
     	The limit that controls the number of concurrently processed requests across all tenants. (default 10000)
+  -middleware.rate-limiter.address value
+    	The address of the rate limiter. Only used when not using the gRPC nor "local" rate limiters. Can be repeated to specify multiple addresses (i.e. Redis Cluster).
   -middleware.rate-limiter.grpc-address string
-    	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used.
+    	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used. Has precedence over other rate limiter options.
+  -middleware.rate-limiter.type string
+    	The type of rate limiter to use when not using a gRPC rate limiter. Options: 'local' (default), 'redis' (leaky bucket algorithm). (default "local")
   -rbac.config string
     	Path to the RBAC configuration file. (default "rbac.yaml")
   -server.read-header-timeout duration
@@ -179,6 +187,8 @@ Usage of ./observatorium-api:
     	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
   -traces.read.endpoint string
     	The endpoint against which to make HTTP read requests for traces.
+  -traces.tempo.endpoint string
+    	The endpoint against which to make HTTP read requests for traces using traceQL (tempo API).
   -traces.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector. (default "X-Tenant")
   -traces.tls.ca-file string
@@ -187,10 +197,14 @@ Usage of ./observatorium-api:
     	File containing the TLS client certificates to authenticate against upstream logs servers. Leave blank to disable mTLS.
   -traces.tls.key-file string
     	File containing the TLS client key to authenticate against upstream traces servers. Leave blank to disable mTLS.
+  -traces.tls.watch-certs
+    	Watch for certificate changes and reload
   -traces.write-timeout duration
     	The HTTP write timeout for proxied requests to the traces endpoint. (default 2m0s)
-  -traces.write.endpoint string
-    	The endpoint against which to make gRPC write requests for traces.
+  -traces.write.otlpgrpc.endpoint string
+    	The endpoint against which to make OTLP gRPC write requests for traces.
+  -traces.write.otlphttp.endpoint string
+    	The endpoint against which to make OTLP HTTP write requests for traces.
   -web.healthchecks.url string
     	The URL against which to run healthchecks. (default "http://localhost:8080")
   -web.internal.listen string

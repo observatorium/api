@@ -9,6 +9,16 @@ roles:
   permissions:
   - read
   - write
+- name: read-write-another-tenant
+  resources:
+    - metrics
+    - logs
+    - traces
+  tenants:
+    - another-tenant
+  permissions:
+    - read
+    - write
 - name: read-attacker
   resources:
   - metrics
@@ -34,6 +44,12 @@ roleBindings:
   subjects:
   - name: admin@example.com
     kind: user
+- name: another-tenant
+  roles:
+    - read-write-another-tenant
+  subjects:
+    - name: admin@example.com
+      kind: user
 - name: test-mtls
   roles:
   - read-write-mtls
