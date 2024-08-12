@@ -34,7 +34,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/common v0.55.0
 	github.com/prometheus/prometheus v0.50.1
-	github.com/redis/rueidis v1.0.43
+	github.com/redis/rueidis v1.0.44
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0
 	go.opentelemetry.io/contrib/propagators/jaeger v1.28.0
