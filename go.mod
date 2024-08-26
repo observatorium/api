@@ -13,7 +13,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/chi/v5 v5.1.0
-	github.com/go-chi/httprate v0.12.0
+	github.com/go-chi/httprate v0.14.0
 	github.com/go-kit/log v0.2.1
 	github.com/go-openapi/runtime v0.28.0
 	github.com/go-openapi/strfmt v0.23.0
