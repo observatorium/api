@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/apis/apiserver"
 	af "k8s.io/apiserver/pkg/authentication/authenticatorfactory"
 	"k8s.io/apiserver/pkg/authentication/request/headerrequest"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
@@ -111,7 +112,7 @@ func (s *DelegatingAuthenticationOptions) ToAuthenticationConfig() (af.Delegatin
 	}
 
 	ret := af.DelegatingAuthenticatorConfig{
-		Anonymous:                          false,
+		Anonymous:                          &apiserver.AnonymousAuthConfig{Enabled: false},
 		TokenAccessReviewClient:            tokenClient,
 		CacheTTL:                           s.CacheTTL,
 		ClientCertificateCAContentProvider: clientCAProvider,
