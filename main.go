@@ -38,6 +38,8 @@ import (
 	promclientversion "github.com/prometheus/client_golang/prometheus/collectors/version"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/common/version"
+	"github.com/thanos-io/objstore"
+	"github.com/thanos-io/objstore/client"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/automaxprocs/maxprocs"
@@ -151,6 +153,9 @@ type metricsConfig struct {
 	upstreamKeyFile      string
 	tenantHeader         string
 	tenantLabel          string
+
+	objectStoreConfigPath string
+
 	// enable metrics if at least one {read|write}Endpoint} is provided.
 	enabled           bool
 	enableCertWatcher bool
@@ -408,6 +413,20 @@ func main() {
 				}
 			}
 		}
+	}
+
+	var objectStoreConfig objstore.Bucket
+	if cfg.metrics.objectStoreConfigPath != "" {
+		f, err := os.ReadFile(cfg.metrics.objectStoreConfigPath)
+		if err != nil {
+			stdlog.Fatalf("cannot read object storage configuration file from path %q: %v", cfg.metrics.objectStoreConfigPath, err)
+		}
+
+		objectStoreConfig, err = client.NewBucket(logger, f, "observatorium")
+		if err != nil {
+			stdlog.Fatalf("unable to initializes object store. error: %v", err)
+		}
+
 	}
 
 	var authorizer rbac.Authorizer
@@ -676,6 +695,7 @@ func main() {
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
 						metricsUpstreamClientOptions,
+						objectStoreConfig,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
@@ -1130,6 +1150,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
+	flag.StringVar(&cfg.metrics.objectStoreConfigPath, "metrics.object-store.config", "object-store.yaml",
+		"Path to the object storage config file.")
 	flag.StringVar(&rawMetricsAlertmanagerEndpoint, "metrics.alertmanager.endpoint", "",
 		"The endpoint against which to make requests for alerts and silences")
 	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,

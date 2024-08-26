@@ -1,18 +1,27 @@
 package v1
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/oklog/ulid"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/prometheus/model/relabel"
+	"github.com/thanos-io/objstore"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/proxy"
 	"github.com/observatorium/api/rules"
 	"github.com/observatorium/api/server"
@@ -33,6 +42,8 @@ const (
 	ReceiveRoute     = "/api/v1/receive"
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
+
+	UploadRoute = "/api/v1/upload"
 
 	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
 	AlertmanagerSilencesRoute = "/am/api/v2/silences"
@@ -173,7 +184,7 @@ type Endpoints struct {
 
 // NewHandler creates the new metrics v1 handler.
 // nolint:funlen
-func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
+func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, bkt objstore.Bucket, opts ...HandlerOption) http.Handler {
 	c := &handlerConfiguration{
 		logger:     log.NewNopLogger(),
 		registry:   prometheus.NewRegistry(),
@@ -524,6 +535,114 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 				c.spanRoutePrefix+AlertmanagerSilencesRoute,
 				proxyAlertmanager,
 			))
+		})
+	}
+	if bkt != nil {
+		r.Group(func(r chi.Router) {
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+			r.Post(UploadRoute, func(w http.ResponseWriter, r *http.Request) {
+				// Reduce memory usage of multipart data. This indicates memory will be used
+				// before writting to disk. Default: 8MB
+				err := r.ParseMultipartForm(8)
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("Unable to parse form data"))
+					return
+				}
+
+				file, fileHeader, fileErr := r.FormFile("file")
+				if fileErr != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					w.Write([]byte("File field not found"))
+					return
+				}
+				defer file.Close()
+
+				// Below check make sure file size does not exceeds 200MB
+				if fileHeader.Size > 200_000_000 {
+					w.WriteHeader(http.StatusRequestEntityTooLarge)
+					w.Write([]byte(fmt.Sprintf("File exceeds maximum file size 200MB for upload: %v", fileHeader.Size)))
+				}
+
+				var relabelConfig []*relabel.Config
+				tenantID, ok := authentication.GetTenantID(r.Context())
+				if !ok {
+					httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
+					return
+				}
+				relabelConfig = append(relabelConfig, NewRelabelConfig(c.tenantLabel, tenantID))
+
+				// Adding external_labels to tsdb
+				var external_labels map[string]string
+				l := r.FormValue("external_labels")
+				if l != "" {
+					if err = json.Unmarshal([]byte(l), &external_labels); err != nil {
+						w.WriteHeader(http.StatusBadRequest)
+						w.Write([]byte("unable to unmarshal external labels"))
+					}
+				}
+				for eLabelName, eLabelValue := range external_labels {
+					relabelConfig = append(relabelConfig, NewRelabelConfig(eLabelName, eLabelValue))
+				}
+
+				tsdbDir, err := os.MkdirTemp("/tmp", "tsdb")
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("unable to create directory to extract archive"))
+					return
+				}
+				defer os.RemoveAll(tsdbDir)
+
+				err = ExtractTarGz(file, tsdbDir)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("unable to extract archive"))
+					return
+				}
+
+				{
+					files, err := os.ReadDir(tsdbDir)
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("unable to read extracted archive data"))
+						return
+					}
+
+					newTSDBDir, err := os.MkdirTemp("/tmp", "new-tsdb")
+					if err != nil {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("unable to create temporary directory for newtsdb blocks"))
+						return
+					}
+					defer os.RemoveAll(newTSDBDir)
+
+					for _, file := range files {
+
+						if _, err := ulid.Parse(file.Name()); err != nil {
+							continue
+						}
+
+						if err := ReLabelTSDB(c.logger, file.Name(), tsdbDir+"/"+file.Name(), newTSDBDir, relabelConfig); err != nil {
+							level.Error(c.logger).Log(err)
+							w.WriteHeader(http.StatusInternalServerError)
+							w.Write([]byte(fmt.Sprintf("error writting tsdb blocks - %v", err)))
+							return
+						}
+					}
+
+					if ok, _ := IsDirEmpty(newTSDBDir); ok {
+						w.WriteHeader(http.StatusInternalServerError)
+						w.Write([]byte("didn't created any new tsdb blocks"))
+					} else {
+						if err := objstore.UploadDir(context.Background(), c.logger, bkt, newTSDBDir, ""); err == nil {
+							w.Write([]byte("new tsdb created successfully"))
+						} else {
+							level.Error(c.logger).Log(err)
+							w.Write([]byte(fmt.Sprintf("Failed to upload to object storage - %v", err)))
+						}
+					}
+				}
+			})
 		})
 	}
 
