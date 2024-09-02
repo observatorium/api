@@ -31,7 +31,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/prom-label-proxy v0.8.1
 	github.com/prometheus/alertmanager v0.27.0
-	github.com/prometheus/client_golang v1.19.1
+	github.com/prometheus/client_golang v1.20.2
 	github.com/prometheus/common v0.55.0
 	github.com/prometheus/prometheus v0.50.1
 	github.com/redis/rueidis v1.0.45
@@ -135,7 +135,7 @@ require (
 	github.com/kataras/pio v0.0.12 // indirect
 	github.com/kataras/sitemap v0.0.6 // indirect
 	github.com/kataras/tunnel v0.0.4 // indirect
-	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/labstack/echo/v4 v4.11.1 // indirect
