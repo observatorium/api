@@ -20,9 +20,8 @@ import (
   LogStageExpr         LogStageExpr
   LogRangeQueryExpr    LogSelectorExpr
   LogOffsetExpr        *LogOffsetExpr
-  LogDropLabels        LogLabelList
-  LogKeepLabels        LogLabelList
-  LogFMTLabels         LogLabelList
+  LogStageLabels       LogLabelList
+  LogParserLabels      LogLabelList
   LogFMTFlags          []string
   Matcher              *labels.Matcher
   Matchers             []*labels.Matcher
@@ -58,9 +57,8 @@ import (
 %type <LogStageExpr>         logStageExpr
 %type <LogRangeQueryExpr>    logRangeQueryExpr
 %type <LogOffsetExpr>        logOffsetExpr
-%type <LogDropLabels>        logDropLabels
-%type <LogKeepLabels>        logKeepLabels
-%type <LogFMTLabels>         logFMTLabels
+%type <LogStageLabels>       logStageLabels
+%type <LogParserLabels>      logParserLabels
 %type <LogFMTFlags>          logFMTFlags
 %type <Matcher>              matcher
 %type <Matchers>             matchers
@@ -116,9 +114,10 @@ logStageExpr:
                 logFilterExpr                                                             { $$ = $1                                         }
         |       PIPE logLabelFilterExpr                                                   { $$ = $2                                         }
         |       PIPE LOGFMT                                                               { $$ = newLogParserExpr(ParserLogFMT, "", "")     }
-        |       PIPE LOGFMT logFMTLabels                                                  { $$ = newLogLabelExpr(ParserLogFMT, nil, $3)     }
-        |       PIPE LOGFMT logFMTFlags logFMTLabels                                      { $$ = newLogLabelExpr(ParserLogFMT, $3, $4)      }
+        |       PIPE LOGFMT logParserLabels                                               { $$ = newLogLabelExpr(ParserLogFMT, nil, $3)     }
+        |       PIPE LOGFMT logFMTFlags logParserLabels                                   { $$ = newLogLabelExpr(ParserLogFMT, $3, $4)      }
         |       PIPE JSON                                                                 { $$ = newLogParserExpr(ParserJSON, "", "")       }
+        |       PIPE JSON logParserLabels                                                 { $$ = newLogLabelExpr(ParserJSON, nil, $3)       }
         |       PIPE UNPACK                                                               { $$ = newLogParserExpr(ParserUnpack, "", "")     }
         |       PIPE UNWRAP IDENTIFIER                                                    { $$ = newLogParserExpr(ParserUnwrap, $3, "")     }
         |       PIPE UNWRAP convOp OPEN_PARENTHESIS IDENTIFIER CLOSE_PARENTHESIS          { $$ = newLogParserExpr(ParserUnwrap, $5, $3)     }
@@ -127,8 +126,8 @@ logStageExpr:
         |       PIPE LINE_FMT STRING                                                      { $$ = newLogParserExpr(ParserLineFormat, $3, "") }
         |       PIPE DECOLORIZE                                                           { $$ = newLogDecolorizeExpr()                     }
         |       PIPE LABEL_FMT logFormatExpr                                              { $$ = $3                                         }
-        |       PIPE DROP logDropLabels                                                   { $$ = newLogLabelExpr(ParserDrop, nil, $3)       }
-        |       PIPE KEEP logKeepLabels                                                   { $$ = newLogLabelExpr(ParserKeep, nil, $3)       }
+        |       PIPE DROP logStageLabels                                                  { $$ = newLogLabelExpr(ParserDrop, nil, $3)       }
+        |       PIPE KEEP logStageLabels                                                  { $$ = newLogLabelExpr(ParserKeep, nil, $3)       }
         ;
 
 logFilterExpr:
@@ -222,22 +221,16 @@ logNumberExpr:
         |       SUB NUMBER { $$ = newLogNumberExpr($2, true)  }
         ;
 
-logDropLabels:
+logStageLabels:
                 IDENTIFIER                              { $$ = newLogLabelList(newLogLabel($1, nil)) }
         |       matcher                                 { $$ = newLogLabelList(newLogLabel("", $1))  }
-        |       logDropLabels COMMA logDropLabels       { $$ = mergeLabels($1, $3)                   }
+        |       logStageLabels COMMA logStageLabels     { $$ = mergeLabels($1, $3)                   }
         ;
 
-logKeepLabels:
-                IDENTIFIER                              { $$ = newLogLabelList(newLogLabel($1, nil)) }
-        |       matcher                                 { $$ = newLogLabelList(newLogLabel("", $1))  }
-        |       logKeepLabels COMMA logKeepLabels       { $$ = mergeLabels($1, $3)                   }
-        ;
-
-logFMTLabels:
+logParserLabels:
                 IDENTIFIER                              { $$ = newLogLabelList(newLogLabel($1, nil))                                         }
         |       IDENTIFIER EQ STRING                    { $$ = newLogLabelList(newLogLabel("", newLabelMatcher(labels.MatchEqual, $1, $3)))  }
-        |       logFMTLabels COMMA logFMTLabels         { $$ = mergeLabels($1, $3)                                                           }
+        |       logParserLabels COMMA logParserLabels   { $$ = mergeLabels($1, $3)                                                           }
         ;
 
 logFMTFlags:
