@@ -217,7 +217,7 @@ func TestParseExpr(t *testing.T) {
 				filter: LogPipelineExpr{
 					&LogLabelExpr{
 						parser: "logfmt",
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -242,7 +242,7 @@ func TestParseExpr(t *testing.T) {
 				filter: LogPipelineExpr{
 					&LogLabelExpr{
 						parser: "logfmt",
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -438,7 +438,7 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelExpr{
 						parser: "logfmt",
 						flags:  []string{"--strict"},
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -472,7 +472,7 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelExpr{
 						parser: "logfmt",
 						flags:  []string{"--keep-empty"},
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -506,7 +506,7 @@ func TestParseExpr(t *testing.T) {
 					&LogLabelExpr{
 						parser: "logfmt",
 						flags:  []string{"--keep-empty", "--strict"},
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -816,6 +816,85 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `{first="value"} | json userid="spec.user.id" | level = "info"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "json",
+						labels: LogLabelList{
+							{
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "userid",
+									Value: "spec.user.id",
+								},
+							},
+						},
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
+			input: `{first="value"} | json userid="spec.user.id", group="spec.user.group" | level = "info"`,
+			expr: &LogQueryExpr{
+				filter: LogPipelineExpr{
+					&LogLabelExpr{
+						parser: "json",
+						labels: LogLabelList{
+							{
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "userid",
+									Value: "spec.user.id",
+								},
+							},
+							{
+								matcher: &labels.Matcher{
+									Type:  labels.MatchEqual,
+									Name:  "group",
+									Value: "spec.user.group",
+								},
+							},
+						},
+					},
+					&LogLabelFilterExpr{
+						labelName:    "level",
+						comparisonOp: "=",
+						labelValue: &LogLabelFilterValue{
+							filterType: TypeText,
+							strVal:     "info",
+						},
+					},
+				},
+				left: &StreamMatcherExpr{
+					matchers: []*labels.Matcher{
+						{
+							Type:  labels.MatchEqual,
+							Name:  "first",
+							Value: "value",
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `{first="value"} | unpack | addr = ip("1.1.1.1")`,
 			expr: &LogQueryExpr{
 				filter: LogPipelineExpr{
@@ -960,7 +1039,7 @@ func TestParseExpr(t *testing.T) {
 					},
 					&LogLabelExpr{
 						parser: "drop",
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -988,7 +1067,7 @@ func TestParseExpr(t *testing.T) {
 					},
 					&LogLabelExpr{
 						parser: "drop",
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -1024,7 +1103,7 @@ func TestParseExpr(t *testing.T) {
 					},
 					&LogLabelExpr{
 						parser: "keep",
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
@@ -1052,7 +1131,7 @@ func TestParseExpr(t *testing.T) {
 					},
 					&LogLabelExpr{
 						parser: "keep",
-						labels: []LogLabel{
+						labels: LogLabelList{
 							{
 								identifier: "addr",
 								matcher:    nil,
