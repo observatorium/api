@@ -8,7 +8,7 @@ require (
 	github.com/brancz/kube-rbac-proxy v0.16.1
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/deepmap/oapi-codegen v1.16.3
-	github.com/efficientgo/core v1.0.0-rc.2
+	github.com/efficientgo/core v1.0.0-rc.3
 	github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi v4.1.2+incompatible
