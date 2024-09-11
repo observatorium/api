@@ -27,7 +27,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mwitkow/grpc-proxy v0.0.0-20181017164139-0f1106ef9c76
 	github.com/oklog/run v1.1.0
-	github.com/open-policy-agent/opa v0.67.1
+	github.com/open-policy-agent/opa v0.68.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-community/prom-label-proxy v0.8.1
 	github.com/prometheus/alertmanager v0.27.0
@@ -45,7 +45,7 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	golang.org/x/oauth2 v0.22.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240701130421-f6361c86f094
-	google.golang.org/grpc v1.65.0
+	google.golang.org/grpc v1.66.0
 	google.golang.org/protobuf v1.34.2
 	k8s.io/apimachinery v0.28.12
 	k8s.io/apiserver v0.28.7
@@ -191,7 +191,7 @@ require (
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
-	golang.org/x/time v0.5.0 // indirect
+	golang.org/x/time v0.6.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
