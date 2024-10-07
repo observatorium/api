@@ -2,18 +2,20 @@ run:
   # default concurrency is a available CPU number
   concurrency: 4
   # timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 3m
+  timeout: 5m
   tests: true
 
   # exit code when at least one issue was found, default is 1
   issues-exit-code: 1
-  skip-dirs:
+  issues:
+    exclude-dirs:
     - vendor
 
 # output configuration options
 output:
   # colored-line-number|line-number|json|tab|checkstyle, default is "colored-line-number"
-  format: colored-line-number
+  formats:
+  - format: colored-line-number
 
   # print lines of code with issue, default is true
   print-issued-lines: true
@@ -24,6 +26,7 @@ output:
 linters:
   enable:
     # Sorted alphabetically.
+    - copyloopvar
     - errcheck
     - goconst
     - godot
@@ -37,12 +40,14 @@ linters:
     - typecheck
     - unparam
     - unused
-    - exportloopref
     - promlinter
 
 linters-settings:
   errcheck:
-    exclude: .errcheck_excludes
+    exclude-functions:
+    - (github.com/go-kit/log.Logger).Log
+    - fmt.Fprintln
+    - fmt.Fprint
   lll:
     line-length: 160
   funlen:

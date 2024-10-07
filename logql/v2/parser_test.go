@@ -2090,7 +2090,6 @@ func TestParseExpr(t *testing.T) {
 		},
 	}
 	for _, tc := range tc { //nolint:paralleltest
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			expr, err := ParseExpr(tc.input)
 
@@ -2142,7 +2141,6 @@ func TestQuotesEncode(t *testing.T) {
 	}}
 
 	for _, tc := range tc {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			expr, err := ParseExpr(tc.input)
 			if err != nil {
