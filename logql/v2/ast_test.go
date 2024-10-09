@@ -23,8 +23,6 @@ func Test_AstWalker_SimpleCountExpr(t *testing.T) {
 		},
 	}
 	for _, tc := range tc {
-		tc := tc
-
 		expr, err := ParseExpr(tc.input)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
@@ -116,8 +114,6 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 		},
 	}
 	for _, tc := range tc {
-		tc := tc
-
 		expr, err := ParseExpr(tc.input)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
@@ -190,8 +186,6 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 		},
 	}
 	for _, tc := range tc {
-		tc := tc
-
 		expr, err := ParseExpr(tc.input)
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)

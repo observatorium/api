@@ -576,7 +576,7 @@ func main() {
 
 				authenticatorConfig, authenticatorType, err := tenantAuthenticatorConfig(t)
 				if err != nil {
-					stdlog.Fatalf(err.Error())
+					stdlog.Fatal(err.Error())
 				}
 				if authenticatorType == authentication.OIDCAuthenticatorType {
 					oidcTenants[t.Name] = struct{}{}
@@ -621,7 +621,6 @@ func main() {
 					loadInterval,
 					logger,
 					g)
-
 				if err != nil {
 					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
 				}
@@ -724,7 +723,6 @@ func main() {
 					loadInterval,
 					logger,
 					g)
-
 				if err != nil {
 					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
 				}
@@ -832,7 +830,6 @@ func main() {
 			cfg.tls.clientAuthType,
 			cfg.tls.cipherSuites,
 		)
-
 		if err != nil {
 			stdlog.Fatalf("failed to initialize tls config: %v", err)
 		}
@@ -940,7 +937,6 @@ func main() {
 			cfg.tls.clientAuthType,
 			cfg.tls.cipherSuites,
 		)
-
 		if err != nil {
 			stdlog.Fatalf("failed to initialize tls config: %v", err)
 		}

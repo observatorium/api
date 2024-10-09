@@ -2,7 +2,6 @@ package authentication
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/go-kit/log"
@@ -21,10 +20,10 @@ type GRPCMiddlewareFunc func(tenant string) (grpc.StreamServerInterceptor, bool)
 
 // WithGRPCTenantHeader returns a new StreamServerInterceptor that adds the tenant and tenantID
 // to the stream Context.
-func WithGRPCTenantHeader(header string, tenantIDs map[string]string, logger log.Logger) grpc.StreamServerInterceptor {
+func WithGRPCTenantHeader(header string, tenantIDs map[string]string, _ log.Logger) grpc.StreamServerInterceptor {
 	header = strings.ToLower(header)
 
-	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	return func(srv interface{}, ss grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
@@ -33,10 +32,10 @@ func WithGRPCTenantHeader(header string, tenantIDs map[string]string, logger log
 
 		headerTenants := md[header]
 		if len(headerTenants) == 0 {
-			return status.Errorf(codes.InvalidArgument, fmt.Sprintf("header %q not set", header))
+			return status.Errorf(codes.InvalidArgument, "header %q not set", header)
 		}
 		if len(headerTenants) > 1 {
-			return status.Errorf(codes.InvalidArgument, fmt.Sprintf("header %q requested multiple tenants", header))
+			return status.Errorf(codes.InvalidArgument, "header %q requested multiple tenants", header)
 		}
 
 		tenant := headerTenants[0]
