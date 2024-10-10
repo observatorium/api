@@ -208,6 +208,12 @@ function(params) {
                         '--tls.healthchecks.server-name=' + api.config.tls.serverName,
                       ]
                     else []
+                  ) + (
+                    if std.objectHas(api.config.tls, 'cipherSuites') then
+                      [
+                        '--tls.cipher-suites=' + api.config.tls.cipherSuites,
+                      ]
+                    else []
                   )
                 else []
               ) + (
