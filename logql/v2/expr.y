@@ -159,7 +159,8 @@ logOffsetExpr:
         ;
 
 logRangeQueryExpr:
-                selector RANGE                                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), nil), $2, nil, false) }
+                OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS                       { $$ = $2 }
+        |       selector RANGE                                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), nil), $2, nil, false) }
         |       selector RANGE logPipelineExpr                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), $3), $2, nil, false)  }
         |       selector logPipelineExpr RANGE                                             { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($1), $2), $3, nil, true)   }
         |       OPEN_PARENTHESIS selector RANGE CLOSE_PARENTHESIS                          { $$ = newLogRangeQueryExpr(newLogQueryExpr(newStreamMatcherExpr($2), nil), $3, nil, false) }
@@ -170,14 +171,15 @@ logRangeQueryExpr:
         ;
 
 logMetricExpr:
-                metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS                                                        { $$ = newLogMetricExpr(nil, $3, $1, "", nil, false, nil, nil)                                }
+                OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                                     { $$ = $2 }
+        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS                                                        { $$ = newLogMetricExpr(nil, $3, $1, "", nil, false, nil, nil)                                }
         |       metricOp OPEN_PARENTHESIS logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS                                          { $$ = newLogMetricExpr(nil, $3, $1, "", nil, false, nil, $4)                                 }
         |       metricOp OPEN_PARENTHESIS NUMBER COMMA logRangeQueryExpr CLOSE_PARENTHESIS                                           { $$ = newLogMetricExpr(nil, $5, $1, $3, nil, false, nil, nil)                                }
         |       metricOp OPEN_PARENTHESIS NUMBER COMMA logRangeQueryExpr CLOSE_PARENTHESIS grouping                                  { $$ = newLogMetricExpr(nil, $5, $1, $3, $7, false, nil, nil)                                 }
         |       metricOp OPEN_PARENTHESIS NUMBER COMMA logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS                             { $$ = newLogMetricExpr(nil, $5, $1, $3, nil, false, nil, $6)                                 }
         |       metricOp OPEN_PARENTHESIS NUMBER COMMA logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS grouping                    { $$ = newLogMetricExpr(nil, $5, $1, $3, $8, false, nil, $6)                                  }
-        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS grouping                                               { $$ = newLogMetricExpr(nil, $3, "", "", $5, false, nil, nil)                                 }
-        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS grouping                                 { $$ = newLogMetricExpr(nil, $3, "", "", $6, false, nil, $4)                                  }
+        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS grouping                                               { $$ = newLogMetricExpr(nil, $3, $1, "", $5, false, nil, nil)                                 }
+        |       metricOp OPEN_PARENTHESIS logRangeQueryExpr logOffsetExpr CLOSE_PARENTHESIS grouping                                 { $$ = newLogMetricExpr(nil, $3, $1, "", $6, false, nil, $4)                                  }
         |       metricOp OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS grouping                                                   { $$ = newLogMetricExpr($3, nil, $1, "", $5, false, nil, nil)                                 }
         |       metricOp OPEN_PARENTHESIS logMetricExpr CLOSE_PARENTHESIS                                                            { $$ = newLogMetricExpr($3, nil, $1, "", nil, false, nil, nil)                                }
         |       metricOp OPEN_PARENTHESIS NUMBER COMMA logMetricExpr CLOSE_PARENTHESIS                                               { $$ = newLogMetricExpr($5, nil, $1, $3, nil, false, nil, nil)                                }
