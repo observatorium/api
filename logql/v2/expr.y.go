@@ -1140,12 +1140,12 @@ exprdefault:
 	case 61:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, "", "", exprDollar[5].Grouping, false, nil, nil)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, exprDollar[1].MetricOp, "", exprDollar[5].Grouping, false, nil, nil)
 		}
 	case 62:
 		exprDollar = exprS[exprpt-6 : exprpt+1]
 		{
-			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, "", "", exprDollar[6].Grouping, false, nil, exprDollar[4].LogOffsetExpr)
+			exprVAL.LogMetricExpr = newLogMetricExpr(nil, exprDollar[3].LogRangeQueryExpr, exprDollar[1].MetricOp, "", exprDollar[6].Grouping, false, nil, exprDollar[4].LogOffsetExpr)
 		}
 	case 63:
 		exprDollar = exprS[exprpt-5 : exprpt+1]
