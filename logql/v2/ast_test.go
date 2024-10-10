@@ -122,10 +122,14 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 			input:  `avg_over_time({app="foo"}[15s]) by (app)`,
 			output: `avg_over_time({app="foo", second="next"}[15s]) by(app)`,
 		},
-		// {
-		// 	input:  `topk(25,(count_over_time({first="value"}[10h])))`,
-		// 	output: `topk(25,(count_over_time({first="value", second="next"}[10h])))`,
-		// },
+		{
+			input:  `(count_over_time({first="value"}[10h]))`,
+			output: `count_over_time({first="value", second="next"}[10h])`,
+		},
+		{
+			input:  `topk(25,(count_over_time({first="value"}[10h])))`,
+			output: `topk(25,count_over_time({first="value", second="next"}[10h]))`,
+		},
 	}
 	for _, tc := range tc {
 		tc := tc
