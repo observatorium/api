@@ -1216,7 +1216,7 @@ func TestParseExpr(t *testing.T) {
 		},
 		{
 			input: `(rate({first="value"}[1m]))`,
-			expr: &ParenthesisExpr{
+			expr: &ParenthesisLogMetricExpr{
 				inner: &LogMetricExpr{
 					metricOp: "rate",
 					left: &LogRangeQueryExpr{
