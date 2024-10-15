@@ -1215,6 +1215,28 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `(rate({first="value"}[1m]))`,
+			expr: &ParenthesisLogMetricExpr{
+				inner: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: `[1m]`,
+						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "first",
+										Value: "value",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `rate_counter({first="value"}[1m])`,
 			expr: &LogMetricExpr{
 				metricOp: "rate_counter",

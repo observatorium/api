@@ -688,6 +688,30 @@ func (l *LogRangeQueryExpr) Walk(fn WalkFn) {
 	l.left.Walk(fn)
 }
 
+type ParenthesisLogRangeQueryExpr struct {
+	defaultLogQLExpr
+	inner LogSelectorExpr
+}
+
+func (e *ParenthesisLogRangeQueryExpr) Matchers() []*labels.Matcher {
+	return e.inner.Matchers()
+}
+
+func (e *ParenthesisLogRangeQueryExpr) Walk(fn WalkFn) {
+	fn(e)
+	e.inner.Walk(fn)
+}
+
+func (e *ParenthesisLogRangeQueryExpr) String() string {
+	return fmt.Sprintf("(%s)", e.inner)
+}
+
+func newParenthesisLogRangeQueryExpr(expr LogSelectorExpr) *ParenthesisLogRangeQueryExpr {
+	return &ParenthesisLogRangeQueryExpr{
+		inner: expr,
+	}
+}
+
 type LogMetricExpr struct {
 	defaultLogQLExpr // nolint:unused
 	left             LogSelectorExpr
@@ -791,6 +815,30 @@ func (l *LogMetricExpr) Walk(fn WalkFn) {
 
 	if l.left != nil {
 		l.left.Walk(fn)
+	}
+}
+
+type ParenthesisLogMetricExpr struct {
+	defaultLogQLExpr
+	inner LogMetricSampleExpr
+}
+
+func (e *ParenthesisLogMetricExpr) Selector() LogSelectorExpr {
+	return e.inner.Selector()
+}
+
+func (e *ParenthesisLogMetricExpr) Walk(fn WalkFn) {
+	fn(e)
+	e.inner.Walk(fn)
+}
+
+func (e *ParenthesisLogMetricExpr) String() string {
+	return fmt.Sprintf("(%s)", e.inner)
+}
+
+func newParenthesisLogMetricExpr(expr LogMetricSampleExpr) *ParenthesisLogMetricExpr {
+	return &ParenthesisLogMetricExpr{
+		inner: expr,
 	}
 }
 
