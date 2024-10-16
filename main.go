@@ -206,7 +206,6 @@ type middlewareConfig struct {
 type internalTracingConfig struct {
 	serviceName      string
 	endpoint         string
-	endpointType     tracing.EndpointType
 	samplingFraction float64
 }
 
@@ -298,7 +297,6 @@ func main() {
 	if err := tracing.InitTracer(
 		cfg.internalTracing.serviceName,
 		cfg.internalTracing.endpoint,
-		cfg.internalTracing.endpointType,
 		cfg.internalTracing.samplingFraction,
 	); err != nil {
 		stdlog.Fatalf("initialize tracer: %v", err)
@@ -1054,7 +1052,6 @@ func parseFlags() (config, error) {
 		rawTracesTempoEndpoint         string
 		rawTracesWriteOTLPGRPCEndpoint string
 		rawTracesWriteOTLPHTTPEndpoint string
-		rawTracingEndpointType         string
 	)
 
 	cfg := config{}
@@ -1074,10 +1071,10 @@ func parseFlags() (config, error) {
 		"The log format to use. Options: 'logfmt', 'json'.")
 	flag.StringVar(&cfg.internalTracing.serviceName, "internal.tracing.service-name", "observatorium_api",
 		"The service name to report to the tracing backend.")
-	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.endpoint", "",
-		"The full URL of the trace agent or collector. If it's not set, tracing will be disabled.")
-	flag.StringVar(&rawTracingEndpointType, "internal.tracing.endpoint-type", string(tracing.EndpointTypeAgent),
-		fmt.Sprintf("The tracing endpoint type. Options: '%s', '%s'.", tracing.EndpointTypeAgent, tracing.EndpointTypeCollector))
+	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.otlp-http-endpoint", "",
+		"The full URL of OTLP/http endpoint e.g. http://otel-collector:4318. "+
+			"The https:// scheme enables TLS. The certificates and other exporter options can be configured via standard OTEL env variables. "+
+			"If it's not set, tracing will be disabled.")
 	flag.Float64Var(&cfg.internalTracing.samplingFraction, "internal.tracing.sampling-fraction", 0.1,
 		"The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled.")
 	flag.StringVar(&cfg.server.listen, "web.listen", ":8080",
@@ -1386,8 +1383,6 @@ func parseFlags() (config, error) {
 	if rawTLSCipherSuites != "" {
 		cfg.tls.cipherSuites = strings.Split(rawTLSCipherSuites, ",")
 	}
-
-	cfg.internalTracing.endpointType = tracing.EndpointType(rawTracingEndpointType)
 
 	return cfg, nil
 }
