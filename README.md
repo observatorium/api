@@ -79,10 +79,8 @@ Usage of ./observatorium-api:
     	A template replacing --read.traces.endpoint, such as http://jaeger-{tenant}-query:16686
   -grpc.listen string
     	The address on which the public gRPC server listens.
-  -internal.tracing.endpoint string
-    	The full URL of the trace agent or collector. If it's not set, tracing will be disabled.
-  -internal.tracing.endpoint-type string
-    	The tracing endpoint type. Options: 'agent', 'collector'. (default "agent")
+  -internal.tracing.otlp-http-endpoint string
+    	The full URL of OTLP/http endpoint e.g. http://otel-collector:4318. The https:// scheme enables TLS. The certificates and other exporter options can be configured via standard OTEL env variables. If it's not set, tracing will be disabled.
   -internal.tracing.sampling-fraction float
     	The fraction of traces to sample. Thus, if you set this to .5, half of traces will be sampled. (default 0.1)
   -internal.tracing.service-name string
