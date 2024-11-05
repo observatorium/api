@@ -184,6 +184,15 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPH
 			r.Get("/search*", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
 				proxyRead))
+			r.Get("/trace/*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+				proxyRead))
+			r.Get("/dependencies", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+				proxyRead))
+			r.Get("/monitor", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
+				proxyRead))
 			r.Get("/favicon.ico", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesv1ui", "handler": "ui"},
 				proxyRead))
