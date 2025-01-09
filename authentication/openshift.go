@@ -433,7 +433,7 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 				return
 			}
 
-			level.Info(a.logger).Log("msg", "fallback to read cookie, no serviceaccount bearer token or mTLS certs provided")
+			level.Debug(a.logger).Log("msg", "fallback to read cookie, no serviceaccount bearer token or mTLS certs provided")
 
 			// Next try to authenticate a user via cookie. This case applies
 			// when users went through the OAuth2 flow supported by this
