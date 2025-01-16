@@ -4,12 +4,12 @@ ADD go.mod /opt/go.mod
 ADD go.sum /opt/go.sum
 ADD Makefile /opt/Makefile
 ADD main.go /opt/main.go
-ADD tools.go /opt/tools.go
 ADD sonar-project.properties /opt/sonar-project.properties
 ADD internal /opt/internal
 ADD jsonnet /opt/jsonnet
 ADD rbac /opt/rbac
 ADD test /opt/test
+ADD .bingo /opt/.bingo
 
 WORKDIR /opt
 

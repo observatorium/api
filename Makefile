@@ -81,7 +81,7 @@ run: build $(THANOS) $(DEX) $(LOKI) generate-cert
 
 .PHONY: deps
 deps: go.mod go.sum
-	go mod tidy
+	#go mod tidy
 	go mod download
 	go mod verify
 
