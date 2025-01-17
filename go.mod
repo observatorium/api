@@ -12,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/metalmatze/signal v0.0.0-20200616171423-be84551ba3ce
 	github.com/oklog/run v1.1.0
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/common v0.30.0
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/prometheus/prometheus v1.8.2-0.20200305080338-7164b58945bb
