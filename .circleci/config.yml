@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: golang:1.22
+      - image: golang:1.23
     steps:
       - checkout
       - run: |
@@ -11,7 +11,7 @@ jobs:
 
   lint:
     docker:
-      - image: golang:1.22
+      - image: golang:1.23
     steps:
       - checkout
       - run: |
@@ -45,7 +45,7 @@ jobs:
 
   generate:
     docker:
-      - image: golang:1.22
+      - image: golang:1.23
     steps:
       - checkout
       - run: |
