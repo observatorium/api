@@ -27,7 +27,7 @@ const (
 	serviceAttributeKey   = "service.name"
 )
 
-func WithTraceQLNamespaceSelect() func(http.Handler) http.Handler {
+func WithTraceQLNamespaceSelectAndForbidOtherAPIs() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// do not run if request is not for Tempo

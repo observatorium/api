@@ -782,7 +782,7 @@ func main() {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
 					if cfg.traces.queryRBAC {
-						r.Use(tracesv1.WithTraceQLNamespaceSelect())
+						r.Use(tracesv1.WithTraceQLNamespaceSelectAndForbidOtherAPIs())
 					}
 					r.Use(middleware.Timeout(cfg.traces.upstreamWriteTimeout))
 
