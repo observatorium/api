@@ -183,6 +183,8 @@ Usage of ./observatorium-api:
     	File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.
   -tls.server.key-file string
     	File containing the default x509 private key matching --tls.server.cert-file. Leave blank to disable TLS.
+  -traces.query-rbac
+    	Enables query RBAC. A user will be able to see attributes only from namespaces it has access to. Only the spans with allowed k8s.namespace.name attribute are fully visible.
   -traces.read.endpoint string
     	The endpoint against which to make HTTP read requests for traces.
   -traces.tempo.endpoint string

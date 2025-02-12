@@ -189,6 +189,7 @@ type tracesConfig struct {
 	upstreamCertFile      string
 	upstreamKeyFile       string
 	tenantHeader          string
+	queryRBAC             bool
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
 	enabled           bool
 	enableCertWatcher bool
@@ -780,6 +781,9 @@ func main() {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
+					if cfg.traces.queryRBAC {
+						r.Use(tracesv1.WithTraceQLNamespaceSelectAndForbidOtherAPIs())
+					}
 					r.Use(middleware.Timeout(cfg.traces.upstreamWriteTimeout))
 
 					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
@@ -812,6 +816,7 @@ func main() {
 								tracesv1.WithTempoMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithTempoMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
+								tracesv1.WithTempoEnableResponseQueryRBACFilter(cfg.traces.queryRBAC),
 							),
 						),
 					)
@@ -1161,6 +1166,8 @@ func parseFlags() (config, error) {
 		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.traces.tenantHeader, "traces.tenant-header", "X-Tenant",
 		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
+	flag.BoolVar(&cfg.traces.queryRBAC, "traces.query-rbac", false,
+		"Enables query RBAC. A user will be able to see attributes only from namespaces it has access to. Only the spans with allowed k8s.namespace.name attribute are fully visible.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
