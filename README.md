@@ -4,7 +4,7 @@
 [![Go Doc](https://godoc.org/github.com/observatorium/api?status.svg)](http://godoc.org/github.com/observatorium/api)
 [![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/api)](https://goreportcard.com/report/github.com/observatorium/api)
 
-This project is an API server for Observatorium.
+This project is an API server for Observatorium built on Konflux.
 The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.
 
 ## Getting started
