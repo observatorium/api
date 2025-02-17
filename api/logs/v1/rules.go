@@ -44,6 +44,8 @@ func WithEnforceTenantAsRuleNamespace() func(http.Handler) http.Handler {
 				return
 			}
 
+			fmt.Printf("teant: %s, group: %s, namespace: %s\n", tenant, group, namespace)
+
 			next.ServeHTTP(w, r)
 		})
 	}

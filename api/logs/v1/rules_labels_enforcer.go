@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -27,8 +28,8 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 				return
 			}
 
-			keys, ok := labelKeys[tenant]
-			if !ok || len(keys) == 0 {
+			labels, ok := labelKeys[tenant]
+			if !ok || len(labels) == 0 {
 				next.ServeHTTP(w, r)
 
 				return
@@ -62,31 +63,9 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 				return
 			}
 
-			// If the authorization endpoint provides any matchers, ensure that the URL parameter value
-			// matches an authorization matcher with the same URL parameter key.
-			queryParams := r.URL.Query()
-			for _, key := range keys {
-				var (
-					val     = queryParams.Get(key)
-					matched = false
-				)
-
-				for _, matcher := range matchers {
-					if matcher == nil {
-						continue
-					}
-
-					if matcher.Name == key && matcher.Matches(val) {
-						matched = true
-						break
-					}
-				}
-
-				if !matched {
-					httperr.PrometheusAPIError(w, fmt.Sprintf("unauthorized access for URL parameter %q and value %q", key, val), http.StatusForbidden)
-
-					return
-				}
+			if httpStatus, err := validateQueryParams(r.URL.Query(), labels, matchers); err != nil {
+				httperr.PrometheusAPIError(w, err.Error(), httpStatus)
+				return
 			}
 
 			next.ServeHTTP(w, r)
@@ -94,8 +73,51 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 	}
 }
 
+// validateQueryParams only accepts queries that have all the labels as queryParameters and corresponding values that
+// match the matchers. An exception is made for k8s_namespace_name and kubernetes_namespace_name, where only one can be
+// present.
+func validateQueryParams(queryParams url.Values, labels []string, matchers []*labels.Matcher) (int, error) {
+	seenLabels := make(map[string]bool)
+
+	val_k8s := queryParams.Get("k8s_namespace_name")
+	val_kubernetes := queryParams.Get("kubernetes_namespace_name")
+	if val_k8s != "" && val_kubernetes != "" {
+		return http.StatusBadRequest, errors.New("invalid URL parameter cannot specify both kubernetes_namespace_name and k8s_namespace_name")
+	}
+
+	for _, label := range labels {
+		var (
+			val     = queryParams.Get(label)
+			matched = false
+		)
+
+		// Don't validate the label if the equivalent label is present.
+		if label == "kubernetes_namespace_name" && val_k8s != "" || label == "k8s_namespace_name" && val_kubernetes != "" {
+			continue
+		}
+
+		for _, matcher := range matchers {
+			if matcher == nil {
+				continue
+			}
+
+			if matcher.Name == label && matcher.Matches(val) {
+				matched = true
+				seenLabels[label] = true
+				break
+			}
+		}
+
+		if !matched {
+			return http.StatusUnauthorized, fmt.Errorf("unauthorized access for URL parameter %q and value %q", label, val)
+		}
+	}
+
+	return http.StatusAccepted, nil
+}
+
 // WithParametersAsLabelsFilterRules returns a middleware that transforms query parameters
-// that match the CLI arg labelKeys to the native Loki labels query parameters.
+// that match labelKeys to Loki labels query parameters to filter rules.
 func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -137,11 +159,12 @@ func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.
 			matchers, err := initAuthzMatchers(matchersInfo.Matchers)
 			if err != nil {
 				httperr.PrometheusAPIError(w, "error initializing authorization label matchers", http.StatusInternalServerError)
-
 				return
 			}
 
 			r.URL.RawQuery = transformParametersInLabelFilter(keys, matchers, r.URL.Query())
+
+			fmt.Println(r.URL.RawQuery)
 
 			next.ServeHTTP(w, r)
 

@@ -178,3 +178,42 @@ func initAuthzMatchers(lm []*labels.Matcher) ([]*labels.Matcher, error) {
 
 	return lm, nil
 }
+
+// WithNamespaceLabelEnforcer returns a middleware that ensures queries do not use both
+// kubernetes_namespace_name and k8s_namespace_name labels
+func WithNamespaceLabelEnforcer() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			query := r.URL.Query()
+			if q := query.Get(queryParam); q != "" {
+				expr, err := logqlv2.ParseExpr(q)
+				if err != nil {
+					httperr.PrometheusAPIError(w, fmt.Sprintf("failed parsing LogQL expression: %v", err), http.StatusBadRequest)
+					return
+				}
+
+				var hasKubernetesNamespaceName, hasK8sNamespaceName bool
+				expr.Walk(func(expr interface{}) {
+					switch le := expr.(type) {
+					case *logqlv2.StreamMatcherExpr:
+						for _, matcher := range le.Matchers() {
+							if matcher.Name == "kubernetes_namespace_name" {
+								hasKubernetesNamespaceName = true
+							}
+							if matcher.Name == "k8s_namespace_name" {
+								hasK8sNamespaceName = true
+							}
+						}
+					}
+				})
+
+				if hasKubernetesNamespaceName && hasK8sNamespaceName {
+					httperr.PrometheusAPIError(w, "cannot use both kubernetes_namespace_name and k8s_namespace_name in the same query", http.StatusBadRequest)
+					return
+				}
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
