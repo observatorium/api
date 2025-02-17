@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,6 +23,8 @@ const (
 	logicalOr  = "or"
 	queryParam = "query"
 )
+
+type matchersContextKey struct{}
 
 // WithEnforceAuthorizationLabels return a middleware that ensures every query
 // has a set of labels returned by the OPA authorizer enforced.
@@ -49,6 +52,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 
 				return
 			}
+			r = r.WithContext(context.WithValue(r.Context(), matchersContextKey{}, matchersInfo))
 
 			q, err := enforceValues(matchersInfo, r.URL)
 			if err != nil {
@@ -179,8 +183,23 @@ func initAuthzMatchers(lm []*labels.Matcher) ([]*labels.Matcher, error) {
 	return lm, nil
 }
 
+// AllowedNamespaces returns the list of namespaces that the user is allowed to list.
+func AllowedNamespaces(ctx context.Context) []string {
+	matchers := ctx.Value(matchersContextKey{})
+	if matchers == nil {
+		return nil
+	}
+	matchersTyped := matchers.(AuthzResponseData)
+
+	var namespaces []string
+	for _, m := range matchersTyped.Matchers {
+		namespaces = append(namespaces, strings.Split(m.Value, "|")...)
+	}
+	return namespaces
+}
+
 // WithNamespaceLabelEnforcer returns a middleware that ensures queries do not use both
-// kubernetes_namespace_name and k8s_namespace_name labels
+// kubernetes_namespace_name and k8s_namespace_name labels.
 func WithNamespaceLabelEnforcer() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -164,8 +164,6 @@ func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.
 
 			r.URL.RawQuery = transformParametersInLabelFilter(keys, matchers, r.URL.Query())
 
-			fmt.Println(r.URL.RawQuery)
-
 			next.ServeHTTP(w, r)
 
 		})

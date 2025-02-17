@@ -11,7 +11,7 @@ import (
 func TestEnforceNamespaceLabels(t *testing.T) {
 	tt := []struct {
 		desc            string
-		labels            []string
+		labels          []string
 		accessMatchers  []*labels.Matcher
 		namespaceLabels string
 		expectedQuery   string
@@ -23,12 +23,12 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 		},
 		{
 			desc:            "single_key_no_matcher",
-			labels:            []string{"kubernetes_namespace_name"},
+			labels:          []string{"kubernetes_namespace_name"},
 			namespaceLabels: "kubernetes_namespace_name=last-ns-name",
 			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc: "single_key_wrong_matcher",
+			desc:   "single_key_wrong_matcher",
 			labels: []string{"kubernetes_namespace_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -41,7 +41,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc: "single_key_matching_matcher_wrong_value",
+			desc:   "single_key_matching_matcher_wrong_value",
 			labels: []string{"kubernetes_namespace_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -54,7 +54,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc: "single_key_matching_matcher_matching_value_wrong_type",
+			desc:   "single_key_matching_matcher_matching_value_wrong_type",
 			labels: []string{"kubernetes_namespace_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -67,7 +67,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "kubernetes_namespace_name=last-ns-name",
 		},
 		{
-			desc: "single_key_matching_matcher_matching_value",
+			desc:   "single_key_matching_matcher_matching_value",
 			labels: []string{"kubernetes_namespace_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -80,7 +80,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "labels=kubernetes_namespace_name:last-ns-name",
 		},
 		{
-			desc: "query with a single key with multiple occurrences",
+			desc:   "query with a single key with multiple occurrences",
 			labels: []string{"kubernetes_namespace_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -93,7 +93,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "labels=kubernetes_namespace_name:ns-name",
 		},
 		{
-			desc: "query_with_multiple_keys_with_single_occurrences",
+			desc:   "query_with_multiple_keys_with_single_occurrences",
 			labels: []string{"kubernetes_namespace_name", "kubernetes_pod_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -111,7 +111,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "labels=kubernetes_namespace_name:ns-name,kubernetes_pod_name:my-pod",
 		},
 		{
-			desc: "query_with_multiple_keys_with_single_occurrences_but_only_one_matcher",
+			desc:   "query_with_multiple_keys_with_single_occurrences_but_only_one_matcher",
 			labels: []string{"kubernetes_namespace_name", "kubernetes_pod_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -124,7 +124,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "kubernetes_pod_name=my-pod&labels=kubernetes_namespace_name:ns-name",
 		},
 		{
-			desc: "query_with_multiple_keys_with_multiple_occurrences",
+			desc:   "query_with_multiple_keys_with_multiple_occurrences",
 			labels: []string{"kubernetes_namespace_name", "kubernetes_pod_name"},
 			accessMatchers: []*labels.Matcher{
 				{
@@ -142,7 +142,7 @@ func TestEnforceNamespaceLabels(t *testing.T) {
 			expectedQuery:   "labels=kubernetes_namespace_name:ns-name,kubernetes_pod_name:my-pod",
 		},
 		{
-			desc: "query_with_multiple_keys_with_single_occurrences_but_multiple_matchers",
+			desc:   "query_with_multiple_keys_with_single_occurrences_but_multiple_matchers",
 			labels: []string{"kubernetes_namespace_name", "k8s_namespace_name"},
 			accessMatchers: []*labels.Matcher{
 				{
