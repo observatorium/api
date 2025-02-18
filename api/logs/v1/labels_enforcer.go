@@ -205,29 +205,8 @@ func WithNamespaceLabelEnforcer() func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			query := r.URL.Query()
 			if q := query.Get(queryParam); q != "" {
-				expr, err := logqlv2.ParseExpr(q)
-				if err != nil {
-					httperr.PrometheusAPIError(w, fmt.Sprintf("failed parsing LogQL expression: %v", err), http.StatusBadRequest)
-					return
-				}
-
-				var hasKubernetesNamespaceName, hasK8sNamespaceName bool
-				expr.Walk(func(expr interface{}) {
-					switch le := expr.(type) {
-					case *logqlv2.StreamMatcherExpr:
-						for _, matcher := range le.Matchers() {
-							if matcher.Name == "kubernetes_namespace_name" {
-								hasKubernetesNamespaceName = true
-							}
-							if matcher.Name == "k8s_namespace_name" {
-								hasK8sNamespaceName = true
-							}
-						}
-					}
-				})
-
-				if hasKubernetesNamespaceName && hasK8sNamespaceName {
-					httperr.PrometheusAPIError(w, "cannot use both kubernetes_namespace_name and k8s_namespace_name in the same query", http.StatusBadRequest)
+				if err := namespaceLabelEnforcer(q); err != nil {
+					httperr.PrometheusAPIError(w, err.Error(), http.StatusBadRequest)
 					return
 				}
 			}
@@ -235,4 +214,32 @@ func WithNamespaceLabelEnforcer() func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func namespaceLabelEnforcer(query string) error {
+	expr, err := logqlv2.ParseExpr(query)
+	if err != nil {
+		return fmt.Errorf("failed parsing LogQL expression: %w", err)
+	}
+
+	var hasKubernetesNamespaceName, hasK8sNamespaceName bool
+	expr.Walk(func(expr interface{}) {
+		switch le := expr.(type) {
+		case *logqlv2.StreamMatcherExpr:
+			for _, matcher := range le.Matchers() {
+				if matcher.Name == "kubernetes_namespace_name" {
+					hasKubernetesNamespaceName = true
+				}
+				if matcher.Name == "k8s_namespace_name" {
+					hasK8sNamespaceName = true
+				}
+			}
+		}
+	})
+
+	if hasKubernetesNamespaceName && hasK8sNamespaceName {
+		return fmt.Errorf("cannot use both kubernetes_namespace_name and k8s_namespace_name in the same query")
+	}
+
+	return nil
 }

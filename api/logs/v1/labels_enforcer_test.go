@@ -208,3 +208,43 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 		})
 	}
 }
+
+func TestNamespaceLabelEnforcer(t *testing.T) {
+	tt := []struct {
+		desc    string
+		query   string
+		wantErr bool
+	}{
+		{
+			desc:    "no labels",
+			query:   `{}`,
+			wantErr: false,
+		},
+		{
+			desc:    "only kubernetes_namespace_name label",
+			query:   `{kubernetes_namespace_name="ns1"}`,
+			wantErr: false,
+		},
+		{
+			desc:    "conflicting labels",
+			query:   `{kubernetes_namespace_name="ns1", k8s_namespace_name="ns2"}`,
+			wantErr: true,
+		},
+		{
+			desc:    "only k8s_namespace_name label",
+			query:   `{k8s_namespace_name="ns1"}`,
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := namespaceLabelEnforcer(tc.query)
+			if tc.wantErr {
+				testutil.NotOk(t, err)
+			} else {
+				testutil.Ok(t, err)
+			}
+		})
+	}
+}
