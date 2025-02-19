@@ -96,12 +96,38 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 		}
 	} else {
 		expr = &logqlv2.StreamMatcherExpr{}
-		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
+		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(filterNamespaceMatchers(lm))
 	}
 
 	v.Set(queryParam, expr.String())
 
 	return v.Encode(), nil
+}
+
+// Logs migration from ViaQ to OTEL
+// Can be removed once the migration is complete.
+// Filter namespace matchers to ensure only one of kubernetes_namespace_name or k8s_namespace_name is set.
+func filterNamespaceMatchers(lm []*labels.Matcher) []*labels.Matcher {
+	var hasKubernetesNamespaceName, hasK8sNamespaceName bool
+	filteredMatchers := make([]*labels.Matcher, 0, len(lm))
+
+	for _, matcher := range lm {
+		if matcher.Name == "kubernetes_namespace_name" {
+			if hasK8sNamespaceName {
+				continue
+			}
+			hasKubernetesNamespaceName = true
+		}
+		if matcher.Name == "k8s_namespace_name" {
+			if hasKubernetesNamespaceName {
+				continue
+			}
+			hasK8sNamespaceName = true
+		}
+		filteredMatchers = append(filteredMatchers, matcher)
+	}
+
+	return filteredMatchers
 }
 
 func enforceValuesOnQuery(mInfo AuthzResponseData, v url.Values) (values string, err error) {
@@ -158,6 +184,13 @@ func combineLabelMatchers(queryMatchers, authzMatchers []*labels.Matcher) []*lab
 	for _, am := range authzMatchers {
 		qm := queryMatchersMap[am.Name]
 		if qm == nil || !am.Matches(qm.Value) {
+			// Logs migration from ViaQ to OTEL
+			// Can be removed once the migration is complete.
+			// Skip setting k8s_namespace_name if kubernetes_namespace_name is already set and vice versa
+			if (am.Name == "k8s_namespace_name" && queryMatchersMap["kubernetes_namespace_name"] != nil) ||
+				(am.Name == "kubernetes_namespace_name" && queryMatchersMap["k8s_namespace_name"] != nil) {
+				continue
+			}
 			queryMatchersMap[am.Name] = am
 		}
 	}
@@ -198,9 +231,12 @@ func AllowedNamespaces(ctx context.Context) []string {
 	return namespaces
 }
 
-// WithNamespaceLabelEnforcer returns a middleware that ensures queries do not use both
+// Logs migration from ViaQ to OTEL
+// Can be removed once the migration is complete.
+// Skip setting k8s_namespace_name if kubernetes_namespace_name is already set and vice versa
+// WithExclusiveNamespaceLabelEnforcer returns a middleware that ensures queries do not use both
 // kubernetes_namespace_name and k8s_namespace_name labels.
-func WithNamespaceLabelEnforcer() func(http.Handler) http.Handler {
+func WithExclusiveNamespaceLabelEnforcer() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			query := r.URL.Query()

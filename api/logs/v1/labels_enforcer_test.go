@@ -50,6 +50,25 @@ func TestEnforceValuesOnLabelValues(t *testing.T) {
 				"query": []string{`{foo="bar", kubernetes_namespace_name=~"log-test-0"}`},
 			},
 		},
+		{
+			desc: "empty url values with multiple access matchers",
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "log-test-0",
+				},
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "k8s_namespace_name",
+					Value: "log-test-0",
+				},
+			},
+			urlValues: url.Values{},
+			expValues: url.Values{
+				"query": []string{`{kubernetes_namespace_name=~"log-test-0"}`},
+			},
+		},
 	}
 
 	for _, tc := range tt {
@@ -158,6 +177,48 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 			},
 			expValues: url.Values{
 				"query": []string{"{kubernetes_namespace_name=~\"ns-name|another-ns-name|openshift-.*\", kubernetes_container_name=\"logger\", kubernetes_pod_name=\"pod-name\"}"},
+			},
+		},
+		{
+			desc: "query with accessible namespace and two matchers for namespace",
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-name",
+				},
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "k8s_namespace_name",
+					Value: "ns-name",
+				},
+			},
+			urlValues: url.Values{
+				"query": []string{"{kubernetes_namespace_name=\"ns-name\", kubernetes_container_name=\"logger\", kubernetes_pod_name=\"pod-name\"}"},
+			},
+			expValues: url.Values{
+				"query": []string{"{kubernetes_namespace_name=\"ns-name\", kubernetes_container_name=\"logger\", kubernetes_pod_name=\"pod-name\"}"},
+			},
+		},
+		{
+			desc: "query with accessible namespace and two matchers for namespace",
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-name",
+				},
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "k8s_namespace_name",
+					Value: "ns-name",
+				},
+			},
+			urlValues: url.Values{
+				"query": []string{"{k8s_namespace_name=\"ns-name\", kubernetes_container_name=\"logger\", kubernetes_pod_name=\"pod-name\"}"},
+			},
+			expValues: url.Values{
+				"query": []string{"{k8s_namespace_name=\"ns-name\", kubernetes_container_name=\"logger\", kubernetes_pod_name=\"pod-name\"}"},
 			},
 		},
 	}
