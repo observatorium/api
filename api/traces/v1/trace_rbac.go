@@ -72,7 +72,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 			for _, ns := range namespaces {
 				allowedNamespaces[ns] = true
 			}
-			level.Debug(log).Log("AllowedNamespaces", allowedNamespaces)
+			level.Debug(log).Log("AllowedNamespaces", fmt.Sprintf("%v", allowedNamespaces))
 
 			if response.StatusCode == http.StatusOK {
 				// Uncompressed reader
