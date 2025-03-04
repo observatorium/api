@@ -20,8 +20,8 @@ import (
 const contentTypeApplicationJSON = "application/json"
 
 var (
-	errUnknownTenantKey        = errors.New("Unknown tenant key")
-	errUnknownRulesContentType = errors.New("Unknown rules response content type")
+	errUnknownTenantKey        = errors.New("unknown tenant key")
+	errUnknownRulesContentType = errors.New("unknown rules response content type")
 )
 
 type alert struct {
@@ -253,9 +253,9 @@ func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string)
 
 	for _, group := range groups {
 		var filteredRules []rule
-		for _, rule := range group.Rules {
-			if hasMatchingLabels(&rule, matchers) {
-				filteredRules = append(filteredRules, rule)
+		for _, r := range group.Rules {
+			if hasMatchingLabels(&r, matchers) {
+				filteredRules = append(filteredRules, r)
 			}
 		}
 
@@ -270,9 +270,9 @@ func filterPrometheusRuleGroups(groups []*ruleGroup, matchers map[string]string)
 
 func filterPrometheusAlerts(alerts []*alert, matchers map[string]string) []*alert {
 	var filtered []*alert
-	for _, alert := range alerts {
-		if hasMatchingLabels(alert, matchers) {
-			filtered = append(filtered, alert)
+	for _, a := range alerts {
+		if hasMatchingLabels(a, matchers) {
+			filtered = append(filtered, a)
 		}
 	}
 

@@ -253,6 +253,99 @@ func TestFilterPrometheusRules(t *testing.T) {
 	}
 }
 
+func TestFilterPrometheusAlertingRules(t *testing.T) {
+	tt := []struct {
+		desc          string
+		matchers      map[string]string
+		strictEnforce bool
+		res           prometheusRulesResponse
+		want          prometheusRulesResponse
+	}{
+		{
+			desc:          "without matchers returns empty",
+			strictEnforce: true,
+			res: prometheusRulesResponse{
+				Data: rulesData{
+					Alerts: []*alert{
+						{Labels: labels.FromMap(map[string]string{"alertname": "alert-a"})},
+					},
+				},
+			},
+			want: prometheusRulesResponse{},
+		},
+		{
+			desc: "without matchers returns original response",
+			res: prometheusRulesResponse{
+				Data: rulesData{
+					Alerts: []*alert{
+						{Labels: labels.FromMap(map[string]string{"alertname": "alert-a"})},
+					},
+				},
+			},
+			want: prometheusRulesResponse{
+				Data: rulesData{
+					Alerts: []*alert{
+						{Labels: labels.FromMap(map[string]string{"alertname": "alert-a"})},
+					},
+				},
+			},
+		},
+		{
+			desc:     "only matching",
+			matchers: map[string]string{"label": "value"},
+			res: prometheusRulesResponse{
+				Data: rulesData{
+					Alerts: []*alert{
+						{Labels: labels.FromMap(map[string]string{"label": "value"})},
+						{Labels: labels.FromMap(map[string]string{"other": "not"})},
+					},
+				},
+			},
+			want: prometheusRulesResponse{
+				Data: rulesData{
+					Alerts: []*alert{
+						{Labels: labels.FromMap(map[string]string{"label": "value"})},
+					},
+				},
+			},
+		},
+		{
+			desc:     "nothing matching",
+			matchers: map[string]string{"label": "value"},
+			res: prometheusRulesResponse{
+				Data: rulesData{
+					Alerts: []*alert{
+						{Labels: labels.FromMap(map[string]string{"not": "other"})},
+					},
+				},
+			},
+			want: prometheusRulesResponse{},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			got := filterPrometheusResponse(tc.res, tc.matchers, tc.strictEnforce)
+
+			wantJSON, err := json.MarshalIndent(tc.want, "", "  ")
+			if err != nil {
+				t.Errorf("failed to marshal expected JSON: %v", err)
+			}
+
+			gotJSON, err := json.MarshalIndent(got, "", "  ")
+			if err != nil {
+				t.Errorf("failed to marshal actual JSON: %v", err)
+			}
+
+			if string(wantJSON) != string(gotJSON) {
+				t.Errorf("\nwant: %s\ngot: %s", wantJSON, gotJSON)
+			}
+		})
+	}
+}
+
 func TestModifyResponse(t *testing.T) {
 	l := log.NewNopLogger()
 	lk := map[string][]string{

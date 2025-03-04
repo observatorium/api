@@ -248,23 +248,25 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOption
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-rules"}),
 			)
 
+			logger := proxy.Logger(c.logger)
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
+			transport := otelhttp.NewTransport(t)
 
 			proxyPrometheusReadRules = &httputil.ReverseProxy{
 				Director:       middlewares,
-				ErrorLog:       proxy.Logger(c.logger),
-				Transport:      otelhttp.NewTransport(t),
+				ErrorLog:       logger,
+				Transport:      transport,
 				ModifyResponse: newModifyResponseProm(c.logger, c.rulesLabelFilters),
 			}
 			proxyRules = &httputil.ReverseProxy{
 				Director:  middlewares,
-				ErrorLog:  proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(t),
+				ErrorLog:  logger,
+				Transport: transport,
 			}
 
 		}
