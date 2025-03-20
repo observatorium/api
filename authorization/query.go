@@ -9,12 +9,12 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 )
 
-func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
-	query := values.Get("query")
+func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values, param string) (*SelectorsInfo, error) {
+	value := values.Get(param)
 
-	selectors, hasWildcard, err := parseLogStreamSelectors(selectorNames, query)
+	selectors, hasWildcard, err := parseLogStreamSelectors(selectorNames, value)
 	if err != nil {
-		return nil, fmt.Errorf("error extracting selectors from query %#q: %w", query, err)
+		return nil, fmt.Errorf("error extracting selectors from %s %#q: %w", param, value, err)
 	}
 
 	return &SelectorsInfo{

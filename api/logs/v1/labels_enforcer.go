@@ -71,18 +71,15 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 func enforceValues(mInfo AuthzResponseData, u *url.URL) (values string, err error) {
 	switch {
 	case strings.HasSuffix(u.Path, "/values"):
-		fmt.Printf("enforceValuesOnLabelValues for url %s\n", u.String())
-		return enforceValuesOnLabelValues(mInfo, u.Query())
+		return enforceValuesOnFilter(mInfo, u.Query(), queryParam)
 	case strings.HasSuffix(u.Path, "/series"):
-		fmt.Printf("enforceValuesOnSeries for url %s\n", u.String())
-		return enforceValuesOnSeries(mInfo, u.Query())
+		return enforceValuesOnFilter(mInfo, u.Query(), matchParam)
 	default:
-		fmt.Printf("enforceValuesOnQuery for url %s\n", u.String())
 		return enforceValuesOnQuery(mInfo, u.Query())
 	}
 }
 
-func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values string, err error) {
+func enforceValuesOnFilter(mInfo AuthzResponseData, v url.Values, filterParam string) (values string, err error) {
 
 	lm, err := initAuthzMatchers(mInfo.Matchers)
 	if err != nil {
@@ -91,7 +88,7 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 
 	var expr logqlv2.Expr
 
-	if q := v.Get(queryParam); q != "" {
+	if q := v.Get(filterParam); q != "" {
 		expr, err = logqlv2.ParseExpr(q)
 		if err != nil {
 			return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
@@ -106,36 +103,7 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
 	}
 
-	v.Set(queryParam, expr.String())
-
-	return v.Encode(), nil
-}
-
-func enforceValuesOnSeries(mInfo AuthzResponseData, v url.Values) (values string, err error) {
-
-	lm, err := initAuthzMatchers(mInfo.Matchers)
-	if err != nil {
-		return "", err
-	}
-
-	var expr logqlv2.Expr
-
-	if q := v.Get(matchParam); q != "" {
-		expr, err = logqlv2.ParseExpr(q)
-		if err != nil {
-			return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
-		}
-
-		if le, ok := expr.(*logqlv2.LogQueryExpr); ok {
-			matchers := combineLabelMatchers(le.Matchers(), lm)
-			le.SetMatchers(matchers)
-		}
-	} else {
-		expr = &logqlv2.StreamMatcherExpr{}
-		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
-	}
-
-	v.Set(matchParam, expr.String())
+	v.Set(filterParam, expr.String())
 
 	return v.Encode(), nil
 }

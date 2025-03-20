@@ -91,20 +91,17 @@ func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string)
 
 			switch {
 			case strings.HasSuffix(r.URL.Path, "/rules"):
-				fmt.Printf("extractLogRulesSelectors -> selectorNameMap: %v, URL.Query: %v\n", selectorNameMap, r.URL.Query())
-				selectorsInfo, err = extractLogRulesSelectors(selectorNameMap, r.URL.Query())
+				selectorsInfo = extractLogRulesSelectors(selectorNameMap, r.URL.Query())
 			case strings.HasSuffix(r.URL.Path, "/series"):
-				fmt.Printf("extractMatchersSelectors -> selectorNameMap: %v, URL.Query: %v\n", selectorNameMap, r.URL.Query())
-				selectorsInfo, err = extractMatchersSelectors(selectorNameMap, r.URL.Query())
+				selectorsInfo, err = extractLogStreamSelectors(selectorNameMap, r.URL.Query(), "match")
 			default:
-				selectorsInfo, err = extractLogStreamSelectors(selectorNameMap, r.URL.Query())
+				selectorsInfo, err = extractLogStreamSelectors(selectorNameMap, r.URL.Query(), "query")
 			}
 			if err != nil {
 				// Don't error out, just warn about error and continue with empty selectorsInfo
 				level.Warn(logger).Log("msg", err)
 				selectorsInfo = emptySelectorsInfo
 			}
-			fmt.Printf("WithLogsStreamSelectorsExtractor -> selectorsInfo: %v\n", selectorsInfo)
 			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
 		})
 	}
