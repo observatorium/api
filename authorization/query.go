@@ -11,6 +11,7 @@ import (
 
 func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
 	query := values.Get("query")
+	// TODO(JoaoBraveCoding) This is incorrect as both label & series do not use the field query
 	if query == "" {
 		// If query is empty we will assume it's a possibly a rules request
 		selectors := parseLogRulesSelectors(selectorNames, values)
