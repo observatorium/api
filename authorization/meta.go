@@ -1,6 +1,8 @@
 package authorization
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -29,4 +31,18 @@ func isMetadataRequest(path string) bool {
 	}
 
 	return false
+}
+
+func extractMatchersSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
+	match := values.Get("match")
+	fmt.Printf("extractMatchersSelectors -> match: %v\n", match)
+	selectors, hasWildcard, err := parseLogStreamSelectors(selectorNames, match)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting selectors from match %#q: %w", match, err)
+	}
+
+	return &SelectorsInfo{
+		Selectors:   selectors,
+		HasWildcard: hasWildcard,
+	}, nil
 }

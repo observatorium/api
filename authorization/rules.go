@@ -4,6 +4,14 @@ import (
 	"net/url"
 )
 
+func extractLogRulesSelectors(selectorNames map[string]bool, values url.Values) (*SelectorsInfo, error) {
+	selectors := parseLogRulesSelectors(selectorNames, values)
+
+	return &SelectorsInfo{
+		Selectors: selectors,
+	}, nil
+}
+
 func parseLogRulesSelectors(selectorNames map[string]bool, queryParameter url.Values) map[string][]string {
 	selectors := make(map[string][]string)
 	appendSelector := func(selector, value string) {

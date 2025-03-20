@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -83,13 +84,27 @@ func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string)
 				return
 			}
 
-			selectorsInfo, err := extractLogStreamSelectors(selectorNameMap, r.URL.Query())
+			var (
+				selectorsInfo *SelectorsInfo
+				err           error
+			)
+
+			switch {
+			case strings.HasSuffix(r.URL.Path, "/rules"):
+				fmt.Printf("extractLogRulesSelectors -> selectorNameMap: %v, URL.Query: %v\n", selectorNameMap, r.URL.Query())
+				selectorsInfo, err = extractLogRulesSelectors(selectorNameMap, r.URL.Query())
+			case strings.HasSuffix(r.URL.Path, "/series"):
+				fmt.Printf("extractMatchersSelectors -> selectorNameMap: %v, URL.Query: %v\n", selectorNameMap, r.URL.Query())
+				selectorsInfo, err = extractMatchersSelectors(selectorNameMap, r.URL.Query())
+			default:
+				selectorsInfo, err = extractLogStreamSelectors(selectorNameMap, r.URL.Query())
+			}
 			if err != nil {
 				// Don't error out, just warn about error and continue with empty selectorsInfo
 				level.Warn(logger).Log("msg", err)
 				selectorsInfo = emptySelectorsInfo
 			}
-
+			fmt.Printf("WithLogsStreamSelectorsExtractor -> selectorsInfo: %v\n", selectorsInfo)
 			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
 		})
 	}
