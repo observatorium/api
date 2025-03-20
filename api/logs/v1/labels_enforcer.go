@@ -22,6 +22,7 @@ type AuthzResponseData struct {
 const (
 	logicalOr  = "or"
 	queryParam = "query"
+	matchParam = "match"
 )
 
 type matchersContextKey struct{}
@@ -70,13 +71,16 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 func enforceValues(mInfo AuthzResponseData, u *url.URL) (values string, err error) {
 	switch {
 	case strings.HasSuffix(u.Path, "/values"):
-		return enforceValuesOnLabelValues(mInfo, u.Query())
+		return enforceValuesOnFilter(mInfo, u.Query(), queryParam)
+	case strings.HasSuffix(u.Path, "/series"):
+		return enforceValuesOnFilter(mInfo, u.Query(), matchParam)
 	default:
 		return enforceValuesOnQuery(mInfo, u.Query())
 	}
 }
 
-func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values string, err error) {
+func enforceValuesOnFilter(mInfo AuthzResponseData, v url.Values, filterParam string) (values string, err error) {
+
 	lm, err := initAuthzMatchers(mInfo.Matchers)
 	if err != nil {
 		return "", err
@@ -84,7 +88,7 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 
 	var expr logqlv2.Expr
 
-	if q := v.Get(queryParam); q != "" {
+	if q := v.Get(filterParam); q != "" {
 		expr, err = logqlv2.ParseExpr(q)
 		if err != nil {
 			return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
@@ -99,7 +103,7 @@ func enforceValuesOnLabelValues(mInfo AuthzResponseData, v url.Values) (values s
 		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
 	}
 
-	v.Set(queryParam, expr.String())
+	v.Set(filterParam, expr.String())
 
 	return v.Encode(), nil
 }
