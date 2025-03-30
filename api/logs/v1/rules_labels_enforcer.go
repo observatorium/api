@@ -99,6 +99,12 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Prometheus rules & alert endpoints do not support filtering using the `labels` query parameter.
+			if strings.Contains(r.URL.Path, prometheusRulesRoute) || strings.Contains(r.URL.Path, prometheusAlertsRoute) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			tenant, ok := authentication.GetTenant(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "missing tenant id", http.StatusBadRequest)
