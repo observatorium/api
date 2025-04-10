@@ -102,6 +102,7 @@ func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string)
 				level.Warn(logger).Log("msg", err)
 				selectorsInfo = emptySelectorsInfo
 			}
+
 			next.ServeHTTP(w, r.WithContext(WithSelectorsInfo(r.Context(), selectorsInfo)))
 		})
 	}

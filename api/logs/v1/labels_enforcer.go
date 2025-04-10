@@ -71,83 +71,64 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 func enforceValues(mInfo AuthzResponseData, u *url.URL) (values string, err error) {
 	switch {
 	case strings.HasSuffix(u.Path, "/values"):
-		return enforceValuesOnFilter(mInfo, u.Query(), queryParam)
+		return enforceValuesOnLogQL(mInfo, u.Query(), queryParam, false)
 	case strings.HasSuffix(u.Path, "/series"):
-		return enforceValuesOnFilter(mInfo, u.Query(), matchParam)
+		return enforceValuesOnLogQL(mInfo, u.Query(), matchParam, false)
 	default:
-		return enforceValuesOnQuery(mInfo, u.Query())
+		return enforceValuesOnLogQL(mInfo, u.Query(), queryParam, true)
 	}
 }
 
-func enforceValuesOnFilter(mInfo AuthzResponseData, v url.Values, filterParam string) (values string, err error) {
-
+func enforceValuesOnLogQL(mInfo AuthzResponseData, v url.Values, paramName string, queryEndpoint bool) (values string, err error) {
 	lm, err := initAuthzMatchers(mInfo.Matchers)
 	if err != nil {
 		return "", err
 	}
 
-	var expr logqlv2.Expr
-
-	if q := v.Get(filterParam); q != "" {
-		expr, err = logqlv2.ParseExpr(q)
-		if err != nil {
-			return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
+	paramValue := v.Get(paramName)
+	if paramValue == "" {
+		// For query endpoints, we don't always to enforce the authorization
+		// label matchers, so weskip it if the query is empty.
+		if queryEndpoint {
+			return v.Encode(), nil
 		}
 
-		if le, ok := expr.(*logqlv2.LogQueryExpr); ok {
-			matchers := combineLabelMatchers(le.Matchers(), lm)
-			le.SetMatchers(matchers)
-		}
-	} else {
-		expr = &logqlv2.StreamMatcherExpr{}
-		expr.(*logqlv2.StreamMatcherExpr).SetMatchers(lm)
-	}
-
-	v.Set(filterParam, expr.String())
-
-	return v.Encode(), nil
-}
-
-func enforceValuesOnQuery(mInfo AuthzResponseData, v url.Values) (values string, err error) {
-	if v.Get(queryParam) == "" {
+		// For the other endpoints we want to enforce the authZ label matchers
+		expr := &logqlv2.StreamMatcherExpr{}
+		expr.SetMatchers(lm)
+		v.Set(paramName, expr.String())
 		return v.Encode(), nil
 	}
 
-	lm, err := initAuthzMatchers(mInfo.Matchers)
-	if err != nil {
-		return "", err
-	}
-
-	expr, err := logqlv2.ParseExpr(v.Get(queryParam))
+	expr, err := logqlv2.ParseExpr(paramValue)
 	if err != nil {
 		return "", fmt.Errorf("failed parsing LogQL expression: %w", err)
 	}
 
-	switch mInfo.MatcherOp {
-	case logicalOr:
+	// Logical "OR" only applies to query expressions, not for filter params
+	if mInfo.MatcherOp == logicalOr && paramValue == queryParam {
 		// Logical "OR" to combine multiple matchers needs to be done via LogQueryExpr > LogPipelineExpr
 		expr.Walk(func(expr interface{}) {
-			switch le := expr.(type) {
-			case *logqlv2.LogQueryExpr:
+			if le, ok := expr.(*logqlv2.LogQueryExpr); ok {
 				le.AppendPipelineMatchers(mInfo.Matchers, logicalOr)
-			default:
-				// Do nothing
 			}
 		})
-	default:
-		expr.Walk(func(expr interface{}) {
-			switch le := expr.(type) {
-			case *logqlv2.StreamMatcherExpr:
-				matchers := combineLabelMatchers(le.Matchers(), lm)
-				le.SetMatchers(matchers)
-			default:
-				// Do nothing
-			}
-		})
+		v.Set(paramName, expr.String())
+		return v.Encode(), nil
 	}
 
-	v.Set(queryParam, expr.String())
+	expr.Walk(func(expr interface{}) {
+		switch le := expr.(type) {
+		case *logqlv2.LogQueryExpr:
+			matchers := combineLabelMatchers(le.Matchers(), lm)
+			le.SetMatchers(matchers)
+		case *logqlv2.StreamMatcherExpr:
+			matchers := combineLabelMatchers(le.Matchers(), lm)
+			le.SetMatchers(matchers)
+		}
+	})
 
+	v.Set(paramName, expr.String())
 	return v.Encode(), nil
 }
 
