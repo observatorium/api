@@ -230,6 +230,7 @@ type tenant struct {
 		ServiceAccount string `json:"serviceAccount"`
 		RedirectURL    string `json:"redirectURL"`
 		CookieSecret   string `json:"cookieSecret"`
+		SSREnabled     bool   `json:"ssrEnabled"`
 		config         map[string]interface{}
 	} `json:"openshift"`
 	Authenticator *struct {
