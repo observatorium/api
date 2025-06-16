@@ -15,8 +15,8 @@ import (
 
 const labelsParam = "labels"
 
-// WithEnforceRulesLabelFilters returns a middleware that enforces that every query
-// parameter has a matching matcher returned by authorization endpoint.
+// WithEnforceRulesAuthorizationLabels returns a middleware that enforces that every query
+// matcher returned by authorization endpoint has a matching URL parameter.
 func WithEnforceRulesAuthorizationLabels() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
