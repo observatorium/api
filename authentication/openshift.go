@@ -63,6 +63,7 @@ type openshiftAuthenticatorConfig struct {
 	ServiceAccount   string `json:"serviceAccount"`
 	RedirectURL      string `json:"redirectURL"`
 	CookieSecret     string `json:"cookieSecret"`
+	SSREnabled       bool   `json:"ssrEnabled"`
 	ServiceAccountCA []byte
 }
 
@@ -201,6 +202,10 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 	authenticator, _, err := authConfig.New()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize authenticator")
+	}
+
+	if config.SSREnabled {
+		authenticator = openshift.NewSelfSubjectReview(config.KubeConfigPath, logger)
 	}
 
 	var cipher *openshift.Cipher
