@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/middleware"
-	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/observatorium/api/authentication"
 )
 
 // httpMetricsCollector is responsible for collecting HTTP metrics with extra tenant labels.

@@ -19,7 +19,7 @@ import (
 )
 
 // WithEnforceTenancyOnQuery returns a middleware that ensures that every query has a tenant label enforced.
-func WithEnforceTenancyOnQuery(tenantLabel string, paramName string) func(http.Handler) http.Handler {
+func WithEnforceTenancyOnQuery(tenantLabel, paramName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// Adapted from
 		// https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go.

@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/prometheus/prometheus/model/labels"
 
 	logqlv2 "github.com/observatorium/api/logql/v2"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 func TestEnforceValuesOnLabelValues(t *testing.T) {

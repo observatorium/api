@@ -1,27 +1,43 @@
-# golangci.com configuration
-# https://golangci-lint.run/usage/configuration/
 version: "2"
+run:
+  concurrency: 4
+  tests: true
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
 linters:
   enable:
     - copyloopvar
-    - err113 # checks that errors are wrapped according to go 1.13 error wrapping tools
+    - goconst
+    - godot
     - misspell # spell checker
-    - revive
-    - rowserrcheck # checks whether Err of rows is checked successfully
+    - promlinter
+    - unparam
   settings:
-    copyloopvar:
-      check-alias: true
-    govet:
-      enable:
-        - shadow
+    errcheck:
+      exclude-functions:
+        - (github.com/go-kit/log.Logger).Log
+        - fmt.Fprintln
+        - fmt.Fprint
+    funlen:
+      lines: 140
+      statements: 60
+    goconst:
+      min-occurrences: 5
+    lll:
+      line-length: 160
     misspell:
       locale: US
-    revive:
-      rules:
-        - name: package-comments
-          disabled: true
   exclusions:
     generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     paths:
       - third_party$
       - builtin$

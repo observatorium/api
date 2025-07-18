@@ -13,8 +13,9 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
-	"github.com/observatorium/api/authentication"
 	"github.com/prometheus/prometheus/model/labels"
+
+	"github.com/observatorium/api/authentication"
 )
 
 func TestFilterRules_WithPrometheusAPIRulesResponseBody(t *testing.T) {

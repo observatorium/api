@@ -8,10 +8,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/prometheus/prometheus/model/labels"
+
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
 	logqlv2 "github.com/observatorium/api/logql/v2"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 type AuthzResponseData struct {

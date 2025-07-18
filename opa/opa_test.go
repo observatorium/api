@@ -6,20 +6,22 @@ import (
 	"testing"
 
 	"github.com/go-kit/log"
-	"github.com/observatorium/api/rbac"
 	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/rego"
 	"github.com/open-policy-agent/opa/v1/types"
+
+	"github.com/observatorium/api/rbac"
 )
 
 func dummyCustomRegoFunction(logger log.Logger) func(*rego.Rego) {
 	return rego.Function1(
 		&rego.Function{
 			Name: "isEmailAddress",
-			Decl: types.NewFunction(types.Args(types.A), types.B)},
+			Decl: types.NewFunction(types.Args(types.A), types.B),
+		},
 		func(_ rego.BuiltinContext, subject *ast.Term) (*ast.Term, error) {
 			// Dummy check, allow only email-based subjects
-			var validEmail = regexp.MustCompile(`^\S+@\S+\.\S+$`)
+			validEmail := regexp.MustCompile(`^\S+@\S+\.\S+$`)
 			return ast.BooleanTerm(validEmail.Match([]byte(subject.Value.String()))), nil
 		})
 }

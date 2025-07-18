@@ -112,18 +112,18 @@ func GenerateCerts(
 		"client.pem": clientBundle.cert,
 	} {
 		// Write certificates
-		if err := os.MkdirAll(path, 0750); err != nil {
+		if err := os.MkdirAll(path, 0o750); err != nil {
 			return fmt.Errorf("mkdir %s: %v", path, err)
 		}
 
-		if err := os.WriteFile(filepath.Join(path, file), content, 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(path, file), content, 0o644); err != nil {
 			return fmt.Errorf("write file %s: %v", file, err)
 		}
 	}
 	return nil
 }
 
-func generateCert(caCert *x509.Certificate, caPrivateKey crypto.Signer, client bool, commonName string, dnsNames []string, ou []string) (*certBundle, error) {
+func generateCert(caCert *x509.Certificate, caPrivateKey crypto.Signer, client bool, commonName string, dnsNames, ou []string) (*certBundle, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {

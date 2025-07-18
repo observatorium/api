@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
 	"github.com/go-chi/chi"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/logger"

@@ -12,9 +12,10 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/prometheus/prometheus/model/labels"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 const contentTypeApplicationJSON = "application/json"

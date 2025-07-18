@@ -1,4 +1,3 @@
-// nolint:exhaustivestruct,testpackage
 package v2
 
 import (

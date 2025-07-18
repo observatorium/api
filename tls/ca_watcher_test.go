@@ -13,10 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/observatorium/api/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certutil "k8s.io/client-go/util/cert"
+
+	"github.com/observatorium/api/logger"
 )
 
 func TestCertWatcher(t *testing.T) {
@@ -60,12 +61,10 @@ func TestCertWatcher(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		return rootCAs.Equal(reloader.pool())
-
 	}, 5*reloadInterval, reloadInterval)
 
 	cancel()
 	wg.Wait()
-
 }
 
 func newSelfSignedCA(hostname string) (*x509.Certificate, string, func(), error) {

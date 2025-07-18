@@ -239,7 +239,7 @@ func TestCleanTrace(t *testing.T) {
 	}
 }
 
-func createStringAttribute(key string, value string) *commonv1.KeyValue {
+func createStringAttribute(key, value string) *commonv1.KeyValue {
 	return &commonv1.KeyValue{
 		Key:   key,
 		Value: &commonv1.AnyValue{Value: &commonv1.AnyValue_StringValue{StringValue: value}},
