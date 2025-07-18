@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/observatorium/api/rbac"
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/types"
+	"github.com/open-policy-agent/opa/v1/ast"
+	"github.com/open-policy-agent/opa/v1/rego"
+	"github.com/open-policy-agent/opa/v1/types"
 )
 
 func dummyCustomRegoFunction(logger log.Logger) func(*rego.Rego) {

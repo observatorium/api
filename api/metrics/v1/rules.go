@@ -19,7 +19,7 @@ import (
 
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
 	// creates new tenant label enforcer
-	e := injectproxy.NewEnforcer(false, []*labels.Matcher{{
+	e := injectproxy.NewPromQLEnforcer(false, []*labels.Matcher{{
 		Name:  tenantLabel,
 		Type:  labels.MatchEqual,
 		Value: tenantID,
@@ -63,7 +63,7 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID str
 	return nil
 }
 
-func enforceLabelsInExpr(e *injectproxy.Enforcer, expr string) (string, error) {
+func enforceLabelsInExpr(e *injectproxy.PromQLEnforcer, expr string) (string, error) {
 	parsedExpr, err := parser.ParseExpr(expr)
 	if err != nil {
 		return "", fmt.Errorf("parse expr error: %w", err)
