@@ -54,10 +54,8 @@ var (
 						Value: "a",
 					},
 				},
-				Point: promql.Point{
-					T: 123000,
-					V: 2,
-				},
+				T: 123000,
+				F: 2,
 			},
 			{
 				Metric: labels.Labels{
@@ -74,10 +72,8 @@ var (
 						Value: "a",
 					},
 				},
-				Point: promql.Point{
-					T: 123000,
-					V: 2,
-				},
+				T: 123000,
+				F: 2,
 			},
 			{
 				Metric: labels.Labels{
@@ -94,10 +90,8 @@ var (
 						Value: "b",
 					},
 				},
-				Point: promql.Point{
-					T: 123000,
-					V: 2,
-				},
+				T: 123000,
+				F: 2,
 			},
 		},
 	}
