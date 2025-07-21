@@ -32,7 +32,7 @@ func TestCustomRegoFunctions(t *testing.T) {
 	dir := t.TempDir()
 	defer os.RemoveAll(dir)
 
-	regoFile, err := os.CreateTemp(dir, "test.rego")
+	regoFile, err := os.CreateTemp(dir, "test.*.rego")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -46,7 +46,7 @@ import input
 
 default allow = false
 
-allow {
+allow if {
 	isEmailAddress(input.subject)
 }
 `
