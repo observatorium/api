@@ -23,8 +23,8 @@ type UpstreamOptions struct {
 
 // NewUpstreamOptions create a new UpstreamOptions, if interval is nil, the watcher will not be enabled.
 func NewUpstreamOptions(ctx context.Context, upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
-	interval *time.Duration, logger log.Logger, g run.Group) (*UpstreamOptions, error) {
-
+	interval *time.Duration, logger log.Logger, g run.Group,
+) (*UpstreamOptions, error) {
 	// reload enabled
 	if interval != nil {
 		return newWithWatchers(ctx, upstreamCertFile, upstreamKeyFile, upstreamCAFile, *interval, logger, g)
@@ -34,7 +34,8 @@ func NewUpstreamOptions(ctx context.Context, upstreamCertFile, upstreamKeyFile, 
 }
 
 func newWithWatchers(ctx context.Context, upstreamCertFile, upstreamKeyFile, upstreamCAFile string,
-	interval time.Duration, logger log.Logger, g run.Group) (*UpstreamOptions, error) {
+	interval time.Duration, logger log.Logger, g run.Group,
+) (*UpstreamOptions, error) {
 	options := &UpstreamOptions{}
 
 	if upstreamCertFile != "" && upstreamKeyFile != "" {
@@ -76,7 +77,8 @@ func newNoWatchers(upstreamCertFile, upstreamKeyFile, upstreamCAFile string) (*U
 }
 
 func startCertReloader(ctx context.Context, g run.Group,
-	upstreamKeyFile, upstreamCertFile string, interval time.Duration) (*rbacproxytls.CertReloader, error) {
+	upstreamKeyFile, upstreamCertFile string, interval time.Duration,
+) (*rbacproxytls.CertReloader, error) {
 	certReloader, err := rbacproxytls.NewCertReloader(
 		upstreamKeyFile,
 		upstreamCertFile,
@@ -95,7 +97,8 @@ func startCertReloader(ctx context.Context, g run.Group,
 }
 
 func startCAReloader(ctx context.Context, g run.Group, upstreamCAFile string, interval time.Duration, logger log.Logger,
-	pool *x509.CertPool) (*caCertificateWatcher, error) {
+	pool *x509.CertPool,
+) (*caCertificateWatcher, error) {
 	caReloader, err := newCACertificateWatcher(upstreamCAFile, logger, interval, pool)
 	if err != nil {
 		return nil, err

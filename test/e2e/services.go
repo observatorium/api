@@ -31,7 +31,7 @@ const (
 	tempoImage          = "grafana/tempo:2.2.4"
 
 	dexImage              = "dexidp/dex:v2.30.0"
-	opaImage              = "openpolicyagent/opa:0.47.4-static"
+	opaImage              = "openpolicyagent/opa:1.5.1-static"
 	gubernatorImage       = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
 	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
 
@@ -327,9 +327,11 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--server": "",
+		"--server":            "",
+		"--disable-telemetry": "",
+		"--addr":              ":8181",
+		"--ignore":            "*.json",
 		filepath.Join(e.SharedDir(), configSharedDir): "",
-		"--ignore": "*.json",
 	})
 
 	return e2emon.AsInstrumented(e.Runnable("opa").WithPorts(ports).Init(

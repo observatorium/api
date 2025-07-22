@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/efficientgo/core/testutil"
+	"github.com/prometheus/prometheus/model/labels"
 
 	logqlv2 "github.com/observatorium/api/logql/v2"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 func TestEnforceValuesOnLabelValues(t *testing.T) {
@@ -88,7 +88,7 @@ func TestEnforceValuesOnLabelValues(t *testing.T) {
 				return mExp[i].Name < mExp[j].Name
 			})
 
-			testutil.Equals(t, m, mExp)
+			testutil.Equals(t, matchersToStrings(mExp), matchersToStrings(m))
 		})
 	}
 }
@@ -204,7 +204,15 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 				return mExp[i].Name < mExp[j].Name
 			})
 
-			testutil.Equals(t, m, mExp)
+			testutil.Equals(t, matchersToStrings(mExp), matchersToStrings(m))
 		})
 	}
+}
+
+func matchersToStrings(m []*labels.Matcher) []string {
+	s := make([]string, len(m))
+	for i, v := range m {
+		s[i] = v.String()
+	}
+	return s
 }

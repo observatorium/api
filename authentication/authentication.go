@@ -7,9 +7,10 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+
+	"github.com/observatorium/api/httperr"
 )
 
 // providerFactories map is used for the providers' self-registration.
@@ -68,7 +69,7 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 // InitializeProvider initializes an authenticator provider and register the created
 // authentication middleware and handler.
 func (pm *ProviderManager) InitializeProvider(config map[string]interface{},
-	tenant string, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger,
+	tenant, authenticatorType string, registrationRetryCount *prometheus.CounterVec, logger log.Logger,
 ) chan Provider {
 	authCh := make(chan Provider)
 

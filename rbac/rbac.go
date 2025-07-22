@@ -79,7 +79,8 @@ type resources struct {
 
 // Authorize implements the Authorizer interface.
 func (rs resources) Authorize(subject string, groups []string, permission Permission, resource, tenant,
-	tenantID, token string, _ *ExtraAttributes) (int, bool, string) {
+	tenantID, token string, _ *ExtraAttributes,
+) (int, bool, string) {
 	ts, ok := rs.tenants[resource]
 	if !ok {
 		level.Debug(rs.logger).Log("msg",

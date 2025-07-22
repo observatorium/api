@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
@@ -34,11 +35,9 @@ type SelectorsInfo struct {
 	HasWildcard bool
 }
 
-var (
-	emptySelectorsInfo = &SelectorsInfo{
-		Selectors: map[string][]string{},
-	}
-)
+var emptySelectorsInfo = &SelectorsInfo{
+	Selectors: map[string][]string{},
+}
 
 // GetData extracts the authz response data from provided context.
 func GetData(ctx context.Context) (string, bool) {

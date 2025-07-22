@@ -19,7 +19,7 @@ import (
 )
 
 // WithEnforceTenancyOnQuery returns a middleware that ensures that every query has a tenant label enforced.
-func WithEnforceTenancyOnQuery(tenantLabel string, paramName string) func(http.Handler) http.Handler {
+func WithEnforceTenancyOnQuery(tenantLabel, paramName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		// Adapted from
 		// https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go.
@@ -35,7 +35,7 @@ func WithEnforceTenancyOnQuery(tenantLabel string, paramName string) func(http.H
 				Type:  labels.MatchEqual,
 				Value: tenantID,
 			}
-			e := injectproxy.NewEnforcer(false, tenantMatcher)
+			e := injectproxy.NewPromQLEnforcer(false, tenantMatcher)
 			// If we cannot enforce, don't continue.
 			if ok := enforceRequestQueryLabels(e, paramName, w, r); !ok {
 				return
@@ -72,7 +72,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 				return
 			}
 
-			e := injectproxy.NewEnforcer(false, lm...)
+			e := injectproxy.NewPromQLEnforcer(false, lm...)
 			// If we cannot enforce, don't continue.
 			if ok := enforceRequestQueryLabels(e, "query", w, r); !ok {
 				return
@@ -82,7 +82,7 @@ func WithEnforceAuthorizationLabels() func(http.Handler) http.Handler {
 	}
 }
 
-func enforceRequestQueryLabels(e *injectproxy.Enforcer, paramName string, w http.ResponseWriter, r *http.Request) bool {
+func enforceRequestQueryLabels(e *injectproxy.PromQLEnforcer, paramName string, w http.ResponseWriter, r *http.Request) bool {
 	// The `query` can come in the URL query string and/or the POST body.
 	// For this reason, we need to try to enforcing in both places.
 	// Note: a POST request may include some values in the URL query string
@@ -132,7 +132,7 @@ func enforceRequestQueryLabels(e *injectproxy.Enforcer, paramName string, w http
 
 // Adapted from
 // https://github.com/prometheus-community/prom-label-proxy/blob/952266db4e0b8ab66b690501e532eaef33300596/injectproxy/routes.go.
-func enforceQueryValues(e *injectproxy.Enforcer, paramName string, requestParams url.Values) (values string, foundQuery bool, err error) {
+func enforceQueryValues(e *injectproxy.PromQLEnforcer, paramName string, requestParams url.Values) (values string, foundQuery bool, err error) {
 	if len(requestParams[paramName]) == 0 {
 		// This is a dirty hack to force the introduction of a match[] param to add tenancy
 		// enforcement even when the param isn't present. This is needed because match[] is

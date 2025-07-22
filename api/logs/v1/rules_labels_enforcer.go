@@ -7,10 +7,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/prometheus/prometheus/model/labels"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 const labelsParam = "labels"
@@ -123,7 +124,6 @@ func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.
 			r.URL.RawQuery = transformParametersInLabelFilter(keys, matchers, r.URL.Query())
 
 			next.ServeHTTP(w, r)
-
 		})
 	}
 }

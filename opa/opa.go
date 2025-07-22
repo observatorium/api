@@ -13,8 +13,8 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/server/types"
+	"github.com/open-policy-agent/opa/v1/rego"
+	"github.com/open-policy-agent/opa/v1/server/types"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/observatorium/api/rbac"

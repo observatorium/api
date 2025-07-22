@@ -2,11 +2,12 @@ package ratelimit
 
 import (
 	"context"
-	_ "embed"
 	"strconv"
 	"time"
 
 	"github.com/redis/rueidis"
+
+	_ "embed"
 )
 
 //go:embed gcra_rate_limit.lua

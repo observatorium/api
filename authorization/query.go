@@ -5,8 +5,9 @@ import (
 	"net/url"
 	"strings"
 
-	logqlv2 "github.com/observatorium/api/logql/v2"
 	"github.com/prometheus/prometheus/model/labels"
+
+	logqlv2 "github.com/observatorium/api/logql/v2"
 )
 
 func extractLogStreamSelectors(selectorNames map[string]bool, values url.Values, param string) (*SelectorsInfo, error) {

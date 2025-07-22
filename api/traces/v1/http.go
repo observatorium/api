@@ -116,8 +116,7 @@ func (n nopInstrumentHandler) NewHandler(labels prometheus.Labels, handler http.
 // The web UI handler is able to rewrite
 // HTML to change the <base> attribute so that it works with the Observatorium-style
 // "/api/v1/traces/{tenant}/" URLs.
-func NewV2Handler(read *url.URL, readTemplate string, tempo *url.URL, writeOTLPHttp *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
-
+func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOption) http.Handler {
 	if read == nil && readTemplate == "" && tempo == nil {
 		panic("missing Jaeger read url")
 	}

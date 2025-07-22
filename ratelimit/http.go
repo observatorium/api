@@ -70,7 +70,8 @@ func WithSharedRateLimiter(logger log.Logger, client SharedRateLimiter, configs 
 		middlewares[c.Tenant] = append(middlewares[c.Tenant],
 			middleware{
 				c.Matcher,
-				rateLimiter{logger, client,
+				rateLimiter{
+					logger, client,
 					&Request{
 						name:          requestName,
 						Key:           fmt.Sprintf("%s:%s", c.Tenant, c.Matcher.String()),

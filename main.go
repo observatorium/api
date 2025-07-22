@@ -52,7 +52,6 @@ import (
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
 	tracesv1 "github.com/observatorium/api/api/traces/v1"
 	"github.com/observatorium/api/authentication"
-
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/logger"
@@ -774,7 +773,6 @@ func main() {
 					loadInterval,
 					logger,
 					g)
-
 				if err != nil {
 					stdlog.Fatalf("failed to read upstream traces TLS: %v", err)
 				}
