@@ -26,6 +26,7 @@ const (
 	tracesTempo    testType = "tracesTempo"
 	tenants        testType = "tenants"
 	interactive    testType = "interactive"
+	probes         testType = "probes"
 
 	certsSharedDir  = "certs"
 	configSharedDir = "config"
@@ -39,6 +40,7 @@ const (
 	envTracesTemplateName = "traces-template"
 	envTenantsName        = "tenants"
 	envInteractive        = "interactive"
+	envProbesName         = "probes"
 
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
@@ -112,6 +114,20 @@ tenants:
     - endpoint: "/api/logs/v1/.*"
       limit: 1
       window: 1s
+- name: test-probes
+  id: 76480613-1952-48a0-8025-34307a07a822
+  oidc:
+    clientID: test
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerCAPath: %[1]s
+    issuerURL: https://%[2]s
+    redirectURL: https://%[7]s:8443/oidc/test-probes/callback
+    usernameClaim: email
+  opa:
+    query: data.observatorium.allow
+    paths:
+    - %[3]s
+    - %[4]s
 `
 
 func createTenantsYAML(
@@ -163,6 +179,7 @@ staticClients:
   redirectURIs:
   - https://%s:8443/oidc/test-oidc/callback
   - https://%s:8443/oidc/another-tenant/callback
+  - https://%s:8443/oidc/test-probes/callback
 enablePasswordDB: true
 staticPasswords:
 - email: "admin@example.com"
@@ -183,6 +200,7 @@ func createDexYAML(
 		issuer,
 		filepath.Join(e.SharedDir(), certsSharedDir, "dex.pem"),
 		filepath.Join(e.SharedDir(), certsSharedDir, "dex.key"),
+		redirectURI,
 		redirectURI,
 		redirectURI,
 	))
@@ -398,7 +416,7 @@ ruler:
   wal:
    dir: /tmp/loki/ruler/wal
   rule_path: /tmp/loki/
- 
+
 schema_config:
   configs:
   - from: 2019-01-01

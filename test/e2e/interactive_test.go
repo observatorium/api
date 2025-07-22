@@ -31,6 +31,7 @@ func TestInteractiveSetup(t *testing.T) {
 		withLogsEndpoints("http://"+logsEndpoint),
 		withRulesEndpoint("http://"+rulesEndpoint),
 		withRateLimiter(rateLimiterAddr),
+		withProbesEndpoint("http://host.docker.internal:8943"),
 		withGRPCListenEndpoint(":8317"),
 		withOTLPGRPCTraceEndpoint(internalOTLPGRPCEndpoint),
 		withOTLPHTTPTraceEndpoint(internalOTLPHTTPEndpoint),

@@ -349,6 +349,7 @@ type apiOptions struct {
 	metricsRulesEndpoint        string
 	alertmanagerEndpoint        string
 	ratelimiterAddr             string
+	probesEndpoint              string
 	tracesWriteOTLPGRPCEndpoint string
 	tracesWriteOTLPHTTPEndpoint string
 	gRPCListenEndpoint          string
@@ -364,6 +365,12 @@ type apiOption func(*apiOptions)
 func withLogsEndpoints(endpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.logsEndpoint = endpoint
+	}
+}
+
+func withProbesEndpoint(endpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.probesEndpoint = endpoint
 	}
 }
 
@@ -476,6 +483,10 @@ func newObservatoriumAPIService(
 
 	if opts.ratelimiterAddr != "" {
 		args = append(args, "--middleware.rate-limiter.grpc-address="+opts.ratelimiterAddr)
+	}
+
+	if opts.probesEndpoint != "" {
+		args = append(args, "--probes.endpoint="+opts.probesEndpoint)
 	}
 
 	if opts.tracesWriteOTLPGRPCEndpoint != "" {

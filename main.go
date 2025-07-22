@@ -50,6 +50,7 @@ import (
 	logsv1 "github.com/observatorium/api/api/logs/v1"
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
+	probesv1 "github.com/observatorium/api/api/probes/v1"
 	tracesv1 "github.com/observatorium/api/api/traces/v1"
 	"github.com/observatorium/api/authentication"
 
@@ -103,6 +104,7 @@ type config struct {
 	metrics         metricsConfig
 	logs            logsConfig
 	traces          tracesConfig
+	probes          probesConfig
 	middleware      middlewareConfig
 	internalTracing internalTracingConfig
 }
@@ -191,6 +193,18 @@ type tracesConfig struct {
 	tenantHeader          string
 	queryRBAC             bool
 	// enable traces if readTemplateEndpoint, readEndpoint, or writeEndpoint is provided.
+	enabled           bool
+	enableCertWatcher bool
+}
+
+type probesConfig struct {
+	endpoint             *url.URL
+	upstreamWriteTimeout time.Duration
+	upstreamCAFile       string
+	upstreamCertFile     string
+	upstreamKeyFile      string
+	tenantHeader         string
+	// enable probes if endpoint is provided.
 	enabled           bool
 	enableCertWatcher bool
 }
@@ -670,6 +684,48 @@ func main() {
 						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 					))
 
+					// enable probes if endpoint is provided.
+					// Since probes are part of the metrics API, we mount them within the metrics route group.
+					if cfg.probes.enabled {
+						var loadInterval *time.Duration
+						if cfg.probes.enableCertWatcher {
+							loadInterval = &cfg.tls.reloadInterval
+						}
+
+						probesUpstreamClientOptions, err := tls.NewUpstreamOptions(
+							context.Background(),
+							cfg.probes.upstreamCertFile,
+							cfg.probes.upstreamKeyFile,
+							cfg.probes.upstreamCAFile,
+							loadInterval,
+							logger,
+							g,
+						)
+						if err != nil {
+							stdlog.Fatalf("failed to read upstream probes TLS: %v", err)
+						}
+
+						probesHandler, err := probesv1.NewHandler(
+							cfg.probes.endpoint,
+							probesv1.WithLogger(logger),
+							probesv1.WithUpstreamTLSOptions(probesUpstreamClientOptions),
+							probesv1.WithTenantHeader(cfg.probes.tenantHeader),
+							probesv1.WithReadMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+							probesv1.WithReadMiddleware(rateLimitMiddleware),
+							probesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "probes")),
+							probesv1.WithWriteMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+							probesv1.WithWriteMiddleware(rateLimitMiddleware),
+							probesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "probes")),
+						)
+						if err != nil {
+							level.Error(logger).Log("msg", "failed to create probes handler", "err", err)
+						} else {
+							r.Mount("/api/metrics/v1/{tenant}/probes",
+								stripTenantPrefix("/api/metrics/v1", probesHandler),
+							)
+						}
+					}
+
 					const matchParamName = "match[]"
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
@@ -1058,6 +1114,7 @@ func parseFlags() (config, error) {
 		rawTracesTempoEndpoint         string
 		rawTracesWriteOTLPGRPCEndpoint string
 		rawTracesWriteOTLPHTTPEndpoint string
+		rawProbesEndpoint              string
 	)
 
 	cfg := config{}
@@ -1169,6 +1226,20 @@ func parseFlags() (config, error) {
 		"The name of the HTTP header containing the tenant ID to forward to upstream OpenTelemetry collector.")
 	flag.BoolVar(&cfg.traces.queryRBAC, "traces.query-rbac", false,
 		"Enables query RBAC. A user will be able to see attributes only from namespaces it has access to. Only the spans with allowed k8s.namespace.name attribute are fully visible.")
+	flag.StringVar(&rawProbesEndpoint, "probes.endpoint", "",
+		"The endpoint against which to make HTTP requests for probes.")
+	flag.DurationVar(&cfg.probes.upstreamWriteTimeout, "probes.write-timeout", writeTimeout,
+		"The HTTP write timeout for proxied requests to the probes endpoint. Defaults to the server's write timeout.")
+	flag.StringVar(&cfg.probes.upstreamCAFile, "probes.tls.ca-file", "",
+		"File containing the TLS CA against which to upstream probes servers. Leave blank to disable TLS.")
+	flag.StringVar(&cfg.probes.upstreamCertFile, "probes.tls.cert-file", "",
+		"File containing the TLS client certificates to authenticate against upstream probes servers. Leave blank to disable mTLS.")
+	flag.StringVar(&cfg.probes.upstreamKeyFile, "probes.tls.key-file", "",
+		"File containing the TLS client key to authenticate against upstream probes servers. Leave blank to disable mTLS.")
+	flag.BoolVar(&cfg.probes.enableCertWatcher, "probes.tls.watch-certs", false,
+		"Watch for certificate changes and reload")
+	flag.StringVar(&cfg.probes.tenantHeader, "probes.tenant-header", "X-Tenant",
+		"The name of the HTTP header containing the tenant ID to forward to the probes upstream.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
@@ -1378,6 +1449,15 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.traces.writeOTLPHTTPEndpoint = tracesOTLPHTTPEndpoint
+	}
+
+	if rawProbesEndpoint != "" {
+		cfg.probes.enabled = true
+		var err error
+		cfg.probes.endpoint, err = url.ParseRequestURI(rawProbesEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("failed to parse probes endpoint: %w", err)
+		}
 	}
 
 	if cfg.traces.enabled && cfg.server.grpcListen == "" {

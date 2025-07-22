@@ -36,6 +36,14 @@ roles:
   permissions:
   - read
   - write
+- name: read-write-probes
+  resources:
+  - probes
+  tenants:
+  - test-probes
+  permissions:
+  - read
+  - write
 roleBindings:
 - name: test-oidc
   roles:
@@ -56,3 +64,9 @@ roleBindings:
   subjects:
   - name: test
     kind: group
+- name: test-probes
+  roles:
+  - read-write-probes
+  subjects:
+  - name: admin@example.com
+    kind: user
