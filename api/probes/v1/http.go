@@ -1,6 +1,10 @@
 package v1
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -89,12 +93,53 @@ func NewHandler(downstream *url.URL, opts ...HandlerOption) (http.Handler, error
 			tenant, ok := authentication.GetTenant(req.Context())
 			if !ok {
 				level.Warn(options.logger).Log("msg", "could not find tenant in request context for proxy")
-			} else {
-				req.Header.Set(options.tenantHeader, tenant)
+				return
+			}
+
+			// Set tenant header
+			req.Header.Set(options.tenantHeader, tenant)
+
+			// Inject tenant label into POST request body.
+			if req.Method == http.MethodPost {
+				if req.Body == nil {
+					return // Nothing to do
+				}
+
+				bodyBytes, err := io.ReadAll(req.Body)
+				if err != nil {
+					level.Error(options.logger).Log("msg", "failed to read request body", "err", err)
+					req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body
+					return
+				}
+				// Restore body since it's been consumed
+				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+				var payload map[string]interface{}
+				if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+					level.Warn(options.logger).Log("msg", "failed to unmarshal JSON body, forwarding unmodified", "err", err)
+					return
+				}
+
+				labels, ok := payload["labels"].(map[string]interface{})
+				if !ok {
+					labels = make(map[string]interface{})
+				}
+
+				labels["tenant"] = tenant
+				payload["labels"] = labels
+
+				newBodyBytes, err := json.Marshal(payload)
+				if err != nil {
+					level.Error(options.logger).Log("msg", "failed to marshal modified JSON body, forwarding unmodified", "err", err)
+					return
+				}
+
+				req.Body = io.NopCloser(bytes.NewBuffer(newBodyBytes))
+				req.ContentLength = int64(len(newBodyBytes))
+				req.Header.Set("Content-Length", fmt.Sprint(len(newBodyBytes)))
 			}
 		}
 	}
-
 	proxyHandler := http.HandlerFunc(proxy.ServeHTTP)
 
 	r.Group(func(r chi.Router) {

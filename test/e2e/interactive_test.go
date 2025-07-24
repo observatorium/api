@@ -24,6 +24,7 @@ func TestInteractiveSetup(t *testing.T) {
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 	rulesEndpoint := startServicesForRules(t, e)
 	internalOTLPGRPCEndpoint, internalOTLPHTTPEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
+	probesEndpoint := startServicesForProbes(t, e)
 
 	api, err := newObservatoriumAPIService(
 		e,
@@ -31,11 +32,11 @@ func TestInteractiveSetup(t *testing.T) {
 		withLogsEndpoints("http://"+logsEndpoint),
 		withRulesEndpoint("http://"+rulesEndpoint),
 		withRateLimiter(rateLimiterAddr),
-		withProbesEndpoint("http://host.docker.internal:8943"),
 		withGRPCListenEndpoint(":8317"),
 		withOTLPGRPCTraceEndpoint(internalOTLPGRPCEndpoint),
 		withOTLPHTTPTraceEndpoint(internalOTLPHTTPEndpoint),
 		withJaegerEndpoint("http://"+httpInternalQueryEndpoint),
+		withProbesEndpoint("http://"+probesEndpoint),
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))

@@ -25,6 +25,7 @@ const (
 	lokiImage         = "grafana/loki:2.6.1"
 	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
+	probesImage       = "quay.io/jimd_openshift/rhobs-synthetics-api:0.0.3" // This is a placeholder for the actual image, we're pending Konflux setup being completed.
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.57.0"
 	otelCollectorImage  = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.101.0"
@@ -168,6 +169,13 @@ func startTempoServicesForTraces(t *testing.T, e e2e.Environment) (tempoDistribu
 	testutil.Ok(t, e2e.StartAndWaitReady(tempo))
 
 	return tempo.InternalEndpoint("grpc.otlp"), tempo.InternalEndpoint("http.tempo"), tempo.Endpoint("http.tempo")
+}
+
+func startServicesForProbes(t *testing.T, e e2e.Environment) (probesEndpoint string) {
+	probes := newProbesService(e)
+	testutil.Ok(t, e2e.StartAndWaitReady(probes))
+
+	return probes.InternalEndpoint("http")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
@@ -338,6 +346,18 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 			Command:   e2e.NewCommand("run", args...),
 			Readiness: e2e.NewHTTPReadinessProbe("http", "/health", 200, 200),
 			User:      strconv.Itoa(os.Getuid()),
+		},
+	), "http")
+}
+
+func newProbesService(e e2e.Environment) *e2emon.InstrumentedRunnable {
+	ports := map[string]int{"http": 8080}
+
+	return e2emon.AsInstrumented(e.Runnable("rhobs-synthetics-api").WithPorts(ports).Init(
+		e2e.StartOptions{
+			Image:     probesImage,
+			EnvVars:   map[string]string{"APP_ENV": "dev"},
+			Readiness: e2e.NewHTTPReadinessProbe("http", "/livez", 200, 200),
 		},
 	), "http")
 }
