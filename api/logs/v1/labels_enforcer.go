@@ -89,7 +89,7 @@ func enforceValuesOnLogQL(mInfo AuthzResponseData, v url.Values, paramName strin
 	paramValue := v.Get(paramName)
 	if paramValue == "" {
 		// For query endpoints, we don't always to enforce the authorization
-		// label matchers, so weskip it if the query is empty.
+		// label matchers, so we skip it if the query is empty.
 		if queryEndpoint {
 			return v.Encode(), nil
 		}
@@ -107,7 +107,7 @@ func enforceValuesOnLogQL(mInfo AuthzResponseData, v url.Values, paramName strin
 	}
 
 	// Logical "OR" only applies to query expressions, not for filter params
-	if mInfo.MatcherOp == logicalOr && paramValue == queryParam {
+	if mInfo.MatcherOp == logicalOr && paramName == queryParam {
 		// Logical "OR" to combine multiple matchers needs to be done via LogQueryExpr > LogPipelineExpr
 		expr.Walk(func(expr interface{}) {
 			if le, ok := expr.(*logqlv2.LogQueryExpr); ok {
