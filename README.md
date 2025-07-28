@@ -151,6 +151,20 @@ Usage of ./observatorium-api:
     	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used. Has precedence over other rate limiter options.
   -middleware.rate-limiter.type string
     	The type of rate limiter to use when not using a gRPC rate limiter. Options: 'local' (default), 'redis' (leaky bucket algorithm). (default "local")
+  -probes.endpoint string
+    	The endpoint against which to make HTTP requests for probes.
+  -probes.tenant-header string
+    	The name of the HTTP header containing the tenant ID to forward to the probes upstream. (default "X-Tenant")
+  -probes.tls.ca-file string
+    	File containing the TLS CA against which to upstream probes servers. Leave blank to disable TLS.
+  -probes.tls.cert-file string
+    	File containing the TLS client certificates to authenticate against upstream probes servers. Leave blank to disable mTLS.
+  -probes.tls.key-file string
+    	File containing the TLS client key to authenticate against upstream probes servers. Leave blank to disable mTLS.
+  -probes.tls.watch-certs
+    	Watch for certificate changes and reload
+  -probes.write-timeout duration
+    	The HTTP write timeout for proxied requests to the probes endpoint. Defaults to the server's write timeout. (default 12m0s)
   -rbac.config string
     	Path to the RBAC configuration file. (default "rbac.yaml")
   -server.read-header-timeout duration
