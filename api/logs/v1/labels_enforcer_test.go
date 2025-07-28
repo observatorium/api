@@ -97,6 +97,7 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 	tt := []struct {
 		desc           string
 		accessMatchers []*labels.Matcher
+		matcherOp      string
 		urlValues      url.Values
 		expValues      url.Values
 	}{
@@ -160,6 +161,45 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 				"query": []string{"{kubernetes_namespace_name=~\"ns-name|another-ns-name|openshift-.*\", kubernetes_container_name=\"logger\", kubernetes_pod_name=\"pod-name\"}"},
 			},
 		},
+		{
+			desc: "logical OR with query parameter",
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-1|ns-2",
+				},
+			},
+			matcherOp: logicalOr,
+			urlValues: url.Values{
+				"query": []string{`{app="test"}`},
+			},
+			expValues: url.Values{
+				"query": []string{"{app=\"test\"} | kubernetes_namespace_name =~ \"ns-1|ns-2\""},
+			},
+		},
+		{
+			desc: "logical OR with multiple matchers",
+			accessMatchers: []*labels.Matcher{
+				{
+					Type:  labels.MatchRegexp,
+					Name:  "kubernetes_namespace_name",
+					Value: "ns-1|ns-2",
+				},
+				{
+					Type:  labels.MatchEqual,
+					Name:  "cluster",
+					Value: "prod",
+				},
+			},
+			matcherOp: logicalOr,
+			urlValues: url.Values{
+				"query": []string{`{service="api"}`},
+			},
+			expValues: url.Values{
+				"query": []string{"{service=\"api\"} | kubernetes_namespace_name =~ \"ns-1|ns-2\" or cluster = \"prod\""},
+			},
+		},
 	}
 
 	for _, tc := range tt {
@@ -169,7 +209,12 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 			ou, err := url.Parse(fmt.Sprintf("/loki/api/v1/query_range?%s", tc.urlValues.Encode()))
 			testutil.Ok(t, err)
 
-			v, err := enforceValues(AuthzResponseData{Matchers: tc.accessMatchers}, ou)
+			authzData := AuthzResponseData{Matchers: tc.accessMatchers}
+			if tc.matcherOp != "" {
+				authzData.MatcherOp = tc.matcherOp
+			}
+
+			v, err := enforceValues(authzData, ou)
 			testutil.Ok(t, err)
 
 			if len(tc.urlValues.Encode()) == 0 {
@@ -205,6 +250,12 @@ func TestEnforceValuesOnQuery(t *testing.T) {
 			})
 
 			testutil.Equals(t, matchersToStrings(mExp), matchersToStrings(m))
+
+			if tc.matcherOp != "" {
+				expQuery := tc.expValues.Get("query")
+				actualQuery := smExpr.String()
+				testutil.Equals(t, expQuery, actualQuery)
+			}
 		})
 	}
 }
