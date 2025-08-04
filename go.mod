@@ -6,7 +6,7 @@ toolchain go1.23.9
 
 require (
 	github.com/brancz/kube-rbac-proxy v0.19.0
-	github.com/coreos/go-oidc/v3 v3.14.1
+	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/deepmap/oapi-codegen v1.16.3
 	github.com/efficientgo/core v1.0.0-rc.3
 	github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f
