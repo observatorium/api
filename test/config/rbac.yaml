@@ -4,6 +4,7 @@ roles:
   - metrics
   - logs
   - traces
+  - probes
   tenants:
   - test-oidc
   permissions:
