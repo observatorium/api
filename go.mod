@@ -27,12 +27,12 @@ require (
 	github.com/metalmatze/signal v0.0.0-20210307161603-1c9aa721a97a
 	github.com/mitchellh/mapstructure v1.5.1-0.20231216201459-8508981c8b6c
 	github.com/mwitkow/grpc-proxy v0.0.0-20181017164139-0f1106ef9c76
-	github.com/oklog/run v1.1.0
+	github.com/oklog/run v1.2.0
 	github.com/open-policy-agent/opa v1.5.1
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-community/prom-label-proxy v0.11.0
+	github.com/prometheus-community/prom-label-proxy v0.12.0
 	github.com/prometheus/alertmanager v0.28.1
-	github.com/prometheus/client_golang v1.22.0
+	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/common v0.65.0
 	github.com/prometheus/prometheus v0.305.0
 	github.com/redis/rueidis v1.0.45
@@ -142,7 +142,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/schollz/closestmatch v2.1.0+incompatible // indirect
