@@ -301,9 +301,9 @@ func main() {
 
 	stdlog.Println(version.Info())
 
-	if !cfg.metrics.enabled && !cfg.logs.enabled && !cfg.traces.enabled {
-		stdlog.Fatal("Neither logging, metrics not traces endpoints are enabled. " +
-			"Specifying at least a logging or a metrics endpoint is mandatory")
+	if !cfg.metrics.enabled && !cfg.logs.enabled && !cfg.traces.enabled && !cfg.probes.enabled {
+		stdlog.Fatal("Neither logging, metrics, traces, nor probes endpoints are enabled. " +
+			"Specifying at least one endpoint is mandatory")
 	}
 
 	logger := logger.NewLogger(cfg.logLevel, cfg.logFormat, cfg.debug.name)

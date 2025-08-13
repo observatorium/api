@@ -29,6 +29,7 @@ func TestProbes_CreateAndGetProbe(t *testing.T) {
 		e,
 		withProbesEndpoint("http://"+probesEndpoint),
 		withRateLimiter(rateLimiterAddr),
+		withMetricsEndpoints("http://dummy-metrics:9090", "http://dummy-metrics:9090"), // Add minimal metrics endpoints since probes are mounted within metrics route group
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
@@ -47,7 +48,7 @@ func TestProbes_CreateAndGetProbe(t *testing.T) {
 		payloadBytes, err := json.Marshal(probePayload)
 		testutil.Ok(t, err)
 
-		createURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes", api.InternalEndpoint("https"), defaultTenantName)
+		createURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes", api.Endpoint("https"), defaultTenantName)
 		req, err := http.NewRequest("POST", createURL, bytes.NewBuffer(payloadBytes))
 		testutil.Ok(t, err)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -77,7 +78,7 @@ func TestProbes_CreateAndGetProbe(t *testing.T) {
 		testutil.Assert(t, probeID != "", "probe ID should not be empty")
 
 		// Get probe by ID
-		getURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes/%s", api.InternalEndpoint("https"), defaultTenantName, probeID)
+		getURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes/%s", api.Endpoint("https"), defaultTenantName, probeID)
 		getReq, err := http.NewRequest("GET", getURL, nil)
 		testutil.Ok(t, err)
 		getReq.Header.Set("Authorization", "Bearer "+token)
@@ -126,6 +127,7 @@ func TestProbes_ListProbes(t *testing.T) {
 		e,
 		withProbesEndpoint("http://"+probesEndpoint),
 		withRateLimiter(rateLimiterAddr),
+		withMetricsEndpoints("http://dummy-metrics:9090", "http://dummy-metrics:9090"), // Add minimal metrics endpoints since probes are mounted within metrics route group
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
@@ -150,7 +152,7 @@ func TestProbes_ListProbes(t *testing.T) {
 			payloadBytes, err := json.Marshal(probePayload)
 			testutil.Ok(t, err)
 
-			createURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes", api.InternalEndpoint("https"), defaultTenantName)
+			createURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes", api.Endpoint("https"), defaultTenantName)
 			req, err := http.NewRequest("POST", createURL, bytes.NewBuffer(payloadBytes))
 			testutil.Ok(t, err)
 			req.Header.Set("Authorization", "Bearer "+token)
@@ -163,7 +165,7 @@ func TestProbes_ListProbes(t *testing.T) {
 		}
 
 		// List all probes
-		listURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes", api.InternalEndpoint("https"), defaultTenantName)
+		listURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes", api.Endpoint("https"), defaultTenantName)
 		listReq, err := http.NewRequest("GET", listURL, nil)
 		testutil.Ok(t, err)
 		listReq.Header.Set("Authorization", "Bearer "+token)
@@ -184,7 +186,7 @@ func TestProbes_ListProbes(t *testing.T) {
 		testutil.Assert(t, len(probes) >= 2, "should have at least 2 probes")
 
 		// Test label selector filtering
-		filterURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes?label_selector=env=prod", api.InternalEndpoint("https"), defaultTenantName)
+		filterURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes?label_selector=env=prod", api.Endpoint("https"), defaultTenantName)
 		filterReq, err := http.NewRequest("GET", filterURL, nil)
 		testutil.Ok(t, err)
 		filterReq.Header.Set("Authorization", "Bearer "+token)
@@ -225,6 +227,7 @@ func TestProbes_CreateProbeConflict(t *testing.T) {
 		e,
 		withProbesEndpoint("http://"+probesEndpoint),
 		withRateLimiter(rateLimiterAddr),
+		withMetricsEndpoints("http://dummy-metrics:9090", "http://dummy-metrics:9090"), // Add minimal metrics endpoints since probes are mounted within metrics route group
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
@@ -247,7 +250,7 @@ func TestProbes_CreateProbeConflict(t *testing.T) {
 		payloadBytes, err := json.Marshal(probePayload)
 		testutil.Ok(t, err)
 
-		createURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes", api.InternalEndpoint("https"), defaultTenantName)
+		createURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes", api.Endpoint("https"), defaultTenantName)
 
 		// Create first probe
 		req1, err := http.NewRequest("POST", createURL, bytes.NewBuffer(payloadBytes))
@@ -290,6 +293,7 @@ func TestProbes_UnauthorizedAccess(t *testing.T) {
 		e,
 		withProbesEndpoint("http://"+probesEndpoint),
 		withRateLimiter(rateLimiterAddr),
+		withMetricsEndpoints("http://dummy-metrics:9090", "http://dummy-metrics:9090"), // Add minimal metrics endpoints since probes are mounted within metrics route group
 	)
 	testutil.Ok(t, err)
 	testutil.Ok(t, e2e.StartAndWaitReady(api))
@@ -302,7 +306,7 @@ func TestProbes_UnauthorizedAccess(t *testing.T) {
 		}
 
 		// Test without authorization header
-		listURL := fmt.Sprintf("https://%s/api/probes/v1/%s/probes", api.InternalEndpoint("https"), defaultTenantName)
+		listURL := fmt.Sprintf("https://%s/api/metrics/v1/%s/probes", api.Endpoint("https"), defaultTenantName)
 		req, err := http.NewRequest("GET", listURL, nil)
 		testutil.Ok(t, err)
 		// Deliberately not setting Authorization header
