@@ -15,8 +15,6 @@ import (
 )
 
 func TestProbes_CreateAndGetProbe(t *testing.T) {
-	t.Parallel()
-
 	e, err := e2e.New(e2e.WithName(envProbesName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
@@ -114,8 +112,6 @@ func TestProbes_CreateAndGetProbe(t *testing.T) {
 }
 
 func TestProbes_ListProbes(t *testing.T) {
-	t.Parallel()
-
 	e, err := e2e.New(e2e.WithName(envProbesName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
@@ -222,8 +218,6 @@ func TestProbes_ListProbes(t *testing.T) {
 }
 
 func TestProbes_CreateProbeConflict(t *testing.T) {
-	t.Parallel()
-
 	e, err := e2e.New(e2e.WithName(envProbesName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
@@ -288,8 +282,6 @@ func TestProbes_CreateProbeConflict(t *testing.T) {
 }
 
 func TestProbes_UnauthorizedAccess(t *testing.T) {
-	t.Parallel()
-
 	e, err := e2e.New(e2e.WithName(envProbesName))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
