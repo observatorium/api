@@ -670,10 +670,13 @@ func main() {
 					))
 
 					const matchParamName = "match[]"
+					// we are not going to log the write requests, as the output is not useful
+					// we get a lot of write requests, and the metrics are more useful
+					// which include status code per tenant
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
 						metricsUpstreamClientOptions,
-						metricsv1.WithLogger(logger),
+						metricsv1.WithLogger(log.NewNopLogger()),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
