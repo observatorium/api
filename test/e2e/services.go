@@ -25,7 +25,7 @@ const (
 	lokiImage         = "grafana/loki:2.6.1"
 	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
-	probesImage       = "quay.io/jimd_openshift/rhobs-synthetics-api:0.0.3" // This is a placeholder for the actual image, we're pending Konflux setup being completed.
+	probesImage       = "quay.io/redhat-services-prod/openshift/rhobs-synthetics-api:latest"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.57.0"
 	otelCollectorImage  = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.101.0"
