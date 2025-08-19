@@ -19,11 +19,14 @@ import (
 )
 
 type handlerOptions struct {
-	logger           log.Logger
-	tenantHeader     string
-	tlsOptions       *tls.UpstreamOptions
-	readMiddlewares  []func(http.Handler) http.Handler
-	writeMiddlewares []func(http.Handler) http.Handler
+	logger              log.Logger
+	tenantHeader        string
+	tlsOptions          *tls.UpstreamOptions
+	dialTimeout         time.Duration
+	keepAliveTimeout    time.Duration
+	tlsHandshakeTimeout time.Duration
+	readMiddlewares     []func(http.Handler) http.Handler
+	writeMiddlewares    []func(http.Handler) http.Handler
 }
 
 // HandlerOption is a function that configures the handler.
@@ -50,6 +53,27 @@ func WithUpstreamTLSOptions(opts *tls.UpstreamOptions) HandlerOption {
 	}
 }
 
+// WithDialTimeout sets the dial timeout for upstream connections.
+func WithDialTimeout(timeout time.Duration) HandlerOption {
+	return func(o *handlerOptions) {
+		o.dialTimeout = timeout
+	}
+}
+
+// WithKeepAliveTimeout sets the keep-alive timeout for upstream connections.
+func WithKeepAliveTimeout(timeout time.Duration) HandlerOption {
+	return func(o *handlerOptions) {
+		o.keepAliveTimeout = timeout
+	}
+}
+
+// WithTLSHandshakeTimeout sets the TLS handshake timeout for upstream connections.
+func WithTLSHandshakeTimeout(timeout time.Duration) HandlerOption {
+	return func(o *handlerOptions) {
+		o.tlsHandshakeTimeout = timeout
+	}
+}
+
 // WithReadMiddleware adds a middleware for read operations.
 func WithReadMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(o *handlerOptions) {
@@ -67,7 +91,10 @@ func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 // NewHandler creates a new handler for the probes API.
 func NewHandler(downstream *url.URL, opts ...HandlerOption) (http.Handler, error) {
 	options := &handlerOptions{
-		logger: log.NewNopLogger(),
+		logger:              log.NewNopLogger(),
+		dialTimeout:         30 * time.Second,
+		keepAliveTimeout:    30 * time.Second,
+		tlsHandshakeTimeout: 10 * time.Second,
 	}
 	for _, o := range opts {
 		o(options)
@@ -79,10 +106,10 @@ func NewHandler(downstream *url.URL, opts ...HandlerOption) (http.Handler, error
 	proxy.Transport = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
+			Timeout:   options.dialTimeout,
+			KeepAlive: options.keepAliveTimeout,
 		}).DialContext,
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: options.tlsHandshakeTimeout,
 		TLSClientConfig:     options.tlsOptions.NewClientConfig(),
 	}
 

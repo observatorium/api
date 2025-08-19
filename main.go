@@ -200,6 +200,9 @@ type tracesConfig struct {
 type probesConfig struct {
 	endpoint             *url.URL
 	upstreamWriteTimeout time.Duration
+	dialTimeout          time.Duration
+	keepAliveTimeout     time.Duration
+	tlsHandshakeTimeout  time.Duration
 	upstreamCAFile       string
 	upstreamCertFile     string
 	upstreamKeyFile      string
@@ -710,6 +713,9 @@ func main() {
 							probesv1.WithLogger(logger),
 							probesv1.WithUpstreamTLSOptions(probesUpstreamClientOptions),
 							probesv1.WithTenantHeader(cfg.probes.tenantHeader),
+							probesv1.WithDialTimeout(cfg.probes.dialTimeout),
+							probesv1.WithKeepAliveTimeout(cfg.probes.keepAliveTimeout),
+							probesv1.WithTLSHandshakeTimeout(cfg.probes.tlsHandshakeTimeout),
 							probesv1.WithReadMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 							probesv1.WithReadMiddleware(rateLimitMiddleware),
 							probesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "probes")),
@@ -1240,6 +1246,12 @@ func parseFlags() (config, error) {
 		"Watch for certificate changes and reload")
 	flag.StringVar(&cfg.probes.tenantHeader, "probes.tenant-header", "X-Tenant",
 		"The name of the HTTP header containing the tenant ID to forward to the probes upstream.")
+	flag.DurationVar(&cfg.probes.dialTimeout, "probes.dial-timeout", 30*time.Second,
+		"The timeout for establishing connections to the probes upstream.")
+	flag.DurationVar(&cfg.probes.keepAliveTimeout, "probes.keep-alive-timeout", 30*time.Second,
+		"The keep-alive timeout for connections to the probes upstream.")
+	flag.DurationVar(&cfg.probes.tlsHandshakeTimeout, "probes.tls-handshake-timeout", 10*time.Second,
+		"The TLS handshake timeout for connections to the probes upstream.")
 	flag.StringVar(&cfg.tls.serverCertFile, "tls.server.cert-file", "",
 		"File containing the default x509 Certificate for HTTPS. Leave blank to disable TLS.")
 	flag.StringVar(&cfg.tls.serverKeyFile, "tls.server.key-file", "",
