@@ -19,8 +19,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
-	"github.com/observatorium/api/authentication/openshift"
-	"github.com/observatorium/api/httperr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -33,6 +31,9 @@ import (
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
+
+	"github.com/observatorium/api/authentication/openshift"
+	"github.com/observatorium/api/httperr"
 )
 
 const OpenShiftAuthenticatorType = "openshift"
@@ -80,7 +81,8 @@ type OpenShiftAuthenticator struct {
 
 //nolint:funlen
 func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
-	registrationRetryCount *prometheus.CounterVec, logger log.Logger) (Provider, error) {
+	registrationRetryCount *prometheus.CounterVec, logger log.Logger,
+) (Provider, error) {
 	var config openshiftAuthenticatorConfig
 
 	const (

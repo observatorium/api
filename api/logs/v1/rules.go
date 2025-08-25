@@ -8,6 +8,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/go-chi/chi"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rules"

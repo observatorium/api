@@ -12,9 +12,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-
-	// nolint:staticcheck
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb" // nolint:staticcheck
 	"github.com/grafana/tempo/pkg/tempopb"
 	commonv1 "github.com/grafana/tempo/pkg/tempopb/common/v1"
 	tracev1 "github.com/grafana/tempo/pkg/tempopb/trace/v1"
@@ -72,7 +70,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 			for _, ns := range namespaces {
 				allowedNamespaces[ns] = true
 			}
-			level.Debug(log).Log("AllowedNamespaces", allowedNamespaces)
+			level.Debug(log).Log("AllowedNamespaces", fmt.Sprintf("%v", allowedNamespaces))
 
 			if response.StatusCode == http.StatusOK {
 				// Uncompressed reader

@@ -25,13 +25,14 @@ const (
 	lokiImage         = "grafana/loki:2.6.1"
 	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
 	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
+	probesImage       = "quay.io/redhat-services-prod/openshift/rhobs-synthetics-api:latest"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.57.0"
 	otelCollectorImage  = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.101.0"
 	tempoImage          = "grafana/tempo:2.2.4"
 
 	dexImage              = "dexidp/dex:v2.30.0"
-	opaImage              = "openpolicyagent/opa:0.47.4-static"
+	opaImage              = "openpolicyagent/opa:1.5.1-static"
 	gubernatorImage       = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
 	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
 
@@ -168,6 +169,13 @@ func startTempoServicesForTraces(t *testing.T, e e2e.Environment) (tempoDistribu
 	testutil.Ok(t, e2e.StartAndWaitReady(tempo))
 
 	return tempo.InternalEndpoint("grpc.otlp"), tempo.InternalEndpoint("http.tempo"), tempo.Endpoint("http.tempo")
+}
+
+func startServicesForProbes(t *testing.T, e e2e.Environment) (probesEndpoint string) {
+	probes := newProbesService(e)
+	testutil.Ok(t, e2e.StartAndWaitReady(probes))
+
+	return probes.InternalEndpoint("http")
 }
 
 // startBaseServices starts and waits until all base services required for the test are ready.
@@ -327,9 +335,11 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	ports := map[string]int{"http": 8181}
 
 	args := e2e.BuildArgs(map[string]string{
-		"--server": "",
+		"--server":            "",
+		"--disable-telemetry": "",
+		"--addr":              ":8181",
+		"--ignore":            "*.json",
 		filepath.Join(e.SharedDir(), configSharedDir): "",
-		"--ignore": "*.json",
 	})
 
 	return e2emon.AsInstrumented(e.Runnable("opa").WithPorts(ports).Init(
@@ -342,6 +352,18 @@ func newOPAService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 	), "http")
 }
 
+func newProbesService(e e2e.Environment) *e2emon.InstrumentedRunnable {
+	ports := map[string]int{"http": 8080}
+
+	return e2emon.AsInstrumented(e.Runnable("rhobs-synthetics-api").WithPorts(ports).Init(
+		e2e.StartOptions{
+			Image:     probesImage,
+			EnvVars:   map[string]string{"APP_ENV": "dev"},
+			Readiness: e2e.NewHTTPReadinessProbe("http", "/livez", 200, 200),
+		},
+	), "http")
+}
+
 type apiOptions struct {
 	logsEndpoint                string
 	metricsReadEndpoint         string
@@ -349,6 +371,7 @@ type apiOptions struct {
 	metricsRulesEndpoint        string
 	alertmanagerEndpoint        string
 	ratelimiterAddr             string
+	probesEndpoint              string
 	tracesWriteOTLPGRPCEndpoint string
 	tracesWriteOTLPHTTPEndpoint string
 	gRPCListenEndpoint          string
@@ -364,6 +387,12 @@ type apiOption func(*apiOptions)
 func withLogsEndpoints(endpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.logsEndpoint = endpoint
+	}
+}
+
+func withProbesEndpoint(endpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.probesEndpoint = endpoint
 	}
 }
 
@@ -476,6 +505,10 @@ func newObservatoriumAPIService(
 
 	if opts.ratelimiterAddr != "" {
 		args = append(args, "--middleware.rate-limiter.grpc-address="+opts.ratelimiterAddr)
+	}
+
+	if opts.probesEndpoint != "" {
+		args = append(args, "--probes.endpoint="+opts.probesEndpoint)
 	}
 
 	if opts.tracesWriteOTLPGRPCEndpoint != "" {

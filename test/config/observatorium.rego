@@ -1,24 +1,30 @@
 package observatorium
 
-import input
-import data.roles
 import data.roleBindings
+import data.roles
 
-default allow = false
+default allow := false
 
-allow {
-  some roleNames
-  roleNames = roleBindings[matched_role_binding[_]].roles
-  roles[i].name == roleNames[_]
-  roles[i].resources[_] = input.resource
-  roles[i].permissions[_] = input.permission
-  roles[i].tenants[_] = input.tenant
+allow if {
+  some role_binding in roleBindings
+  matched_role_binding(role_binding.subjects, input.subject, input.groups)
+  some role_name in role_binding.roles
+  some data_role in roles
+  role_name == data_role.name
+  input.resource in data_role.resources
+  input.permission in data_role.permissions
+  input.tenant in data_role.tenants
 }
 
-matched_role_binding[i] {
-  roleBindings[i].subjects[_] == {"name": input.subject, "kind": "user"}
+matched_role_binding(subjects, input_req_subject, _) if {
+	some subject in subjects
+	subject.kind == "user"
+	subject.name == input_req_subject
 }
 
-matched_role_binding[i] {
-  roleBindings[i].subjects[_] == {"name": input.groups[_], "kind": "group"}
+matched_role_binding(subjects, _, input_req_groups) if {
+	some group in subjects
+	some input_req_group in input_req_groups
+	group.kind == "group"
+	group.name == input_req_group
 }

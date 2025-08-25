@@ -7,40 +7,26 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/prometheus/prometheus/model/labels"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/httperr"
-	"github.com/prometheus/prometheus/model/labels"
 )
 
 const labelsParam = "labels"
 
-// WithEnforceRulesLabelFilters returns a middleware that enforces that every query
-// parameter has a matching matcher returned by authorization endpoint.
-func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handler) http.Handler {
+// WithEnforceRulesAuthorizationLabels returns a middleware that enforces that every query
+// matcher returned by authorization endpoint has a matching URL parameter.
+func WithEnforceRulesAuthorizationLabels() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant, ok := authentication.GetTenant(r.Context())
-			if !ok {
-				httperr.PrometheusAPIError(w, "missing tenant id", http.StatusBadRequest)
-
-				return
-			}
-
-			keys, ok := labelKeys[tenant]
-			if !ok || len(keys) == 0 {
-				next.ServeHTTP(w, r)
-
-				return
-			}
-
 			data, ok := authorization.GetData(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "error finding authorization label matcher", http.StatusInternalServerError)
 
 				return
 			}
-
 			// Early pass to the next if no authz label enforcement configured.
 			if data == "" {
 				next.ServeHTTP(w, r)
@@ -65,26 +51,14 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 			// If the authorization endpoint provides any matchers, ensure that the URL parameter value
 			// matches an authorization matcher with the same URL parameter key.
 			queryParams := r.URL.Query()
-			for _, key := range keys {
-				var (
-					val     = queryParams.Get(key)
-					matched = false
-				)
-
-				for _, matcher := range matchers {
-					if matcher == nil {
-						continue
-					}
-
-					if matcher.Name == key && matcher.Matches(val) {
-						matched = true
-						break
-					}
+			for _, matcher := range matchers {
+				if matcher == nil {
+					continue
 				}
+				val := queryParams.Get(matcher.Name)
 
-				if !matched {
-					httperr.PrometheusAPIError(w, fmt.Sprintf("unauthorized access for URL parameter %q and value %q", key, val), http.StatusForbidden)
-
+				if !matcher.Matches(val) {
+					httperr.PrometheusAPIError(w, fmt.Sprintf("unauthorized access for URL parameter %q and value %q", matcher.Name, val), http.StatusForbidden)
 					return
 				}
 			}
@@ -99,6 +73,12 @@ func WithEnforceRulesLabelFilters(labelKeys map[string][]string) func(http.Handl
 func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Prometheus rules & alert endpoints do not support filtering using the `labels` query parameter.
+			if strings.Contains(r.URL.Path, prometheusRulesRoute) || strings.Contains(r.URL.Path, prometheusAlertsRoute) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			tenant, ok := authentication.GetTenant(r.Context())
 			if !ok {
 				httperr.PrometheusAPIError(w, "missing tenant id", http.StatusBadRequest)
@@ -144,7 +124,6 @@ func WithParametersAsLabelsFilterRules(labelKeys map[string][]string) func(http.
 			r.URL.RawQuery = transformParametersInLabelFilter(keys, matchers, r.URL.Query())
 
 			next.ServeHTTP(w, r)
-
 		})
 	}
 }

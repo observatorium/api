@@ -6,11 +6,12 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
-	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/rbac"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/rbac"
 )
 
 // AccessRequirement holds a permission for a particular resource type.

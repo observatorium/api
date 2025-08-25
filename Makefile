@@ -7,7 +7,6 @@ FIRST_GOPATH := $(firstword $(subst :, ,$(shell go env GOPATH)))
 OS ?= $(shell go env GOOS)
 ARCH ?= $(shell go env GOARCH)
 BIN_NAME ?= observatorium-api
-FILES_TO_FMT ?= $(filter-out ./ratelimit/gubernator/gubernator.pb.go, $(shell find . -path ./vendor -not -prune -o -name '*.go' -print))
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 GIT_REVISION := $(shell git rev-parse --short HEAD)
 
@@ -98,11 +97,8 @@ deps: go.mod go.sum
 	go mod verify
 
 .PHONY: format
-format: ## Formats Go code.
-format: $(GOIMPORTS) $(GOLANGCI_LINT)
-	@echo ">> formatting code"
-	@gofmt -s -w $(FILES_TO_FMT)
-	@$(GOIMPORTS) -w $(FILES_TO_FMT)
+format: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run --fix --timeout=5m ./...
 
 .PHONY: check-git
 check-git:
@@ -118,16 +114,15 @@ shellcheck: $(SHELLCHECK)
 
 .PHONY: lint
 lint: ## Runs various static analysis against our code.
-lint: $(FAILLINT) $(GOLANGCI_LINT) $(MISSPELL) generate format deps build check-git shellcheck jsonnet-fmt
+lint: $(FAILLINT) $(GOLANGCI_LINT) generate format deps build check-git shellcheck jsonnet-fmt
 	$(call require_clean_work_tree,'detected not clean work tree before running lint, previous job changed something?')
 	@echo ">> verifying modules being imported"
 	@$(FAILLINT) -paths "fmt.{Print,Printf,Println},io/ioutil.{Discard,NopCloser,ReadAll,ReadDir,ReadFile,TempDir,TempFile,Writefile}" -ignore-tests ./...
 	@echo ">> examining all of the Go files"
 	@go vet -stdmethods=false ./...
-	@echo ">> linting all of the Go files GOGC=${GOGC}"
-	@$(GOLANGCI_LINT) run
-	@echo ">> detecting misspells"
-	@find . -type f | grep -v vendor/ | grep -vE '\./\..*' | xargs $(MISSPELL) -error
+	@echo ">> linting all of the Go files GOLANGCI_LINT=${GOLANGCI_LINT}"
+	@$(GOLANGCI_LINT) config verify
+	@$(GOLANGCI_LINT) run --timeout=5m ./...
 	$(call require_clean_work_tree,'detected files without copyright, run make lint and commit changes')
 
 .PHONY: test
@@ -173,7 +168,7 @@ proto: ratelimit/gubernator/proto/google ratelimit/gubernator/gubernator.proto $
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin scripts/generate_proto.sh
 
 .PHONY: container-test
-container-test: 
+container-test:
 	$(OCI_BIN) build \
 		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
@@ -201,7 +196,7 @@ container-build:
 	docker buildx build \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
-	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
@@ -217,7 +212,7 @@ container-build-push:
 		--push \
 		--platform linux/amd64,linux/arm64 \
 		--cache-to type=local,dest=./.buildxcache/ \
-	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
@@ -238,7 +233,7 @@ container-release-build-push: container-build-push
 		--push \
 		--platform linux/amd64,linux/arm64 \
 		--cache-from type=local,src=./.buildxcache/ \
-	    --build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
+		--build-arg BUILD_DATE="$(BUILD_TIMESTAMP)" \
 		--build-arg VERSION="$(VERSION)" \
 		--build-arg VCS_REF="$(VCS_REF)" \
 		--build-arg VCS_BRANCH="$(VCS_BRANCH)" \
@@ -315,7 +310,7 @@ client/models/models.gen.go: $(OAPI_CODEGEN) client/models/models.yaml
 client/responses/responses.gen.go: $(OAPI_CODEGEN) client/responses/responses.yaml
 	$(OAPI_CODEGEN) -generate types,skip-prune -import-mapping="../models/models.yaml:github.com/observatorium/api/client/models" -package responses client/responses/responses.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
 
-gen-oapi-client: 
+gen-oapi-client:
 	$(MAKE) client/parameters/parameters.gen.go
 	$(MAKE) client/models/models.gen.go
 	$(MAKE) client/responses/responses.gen.go
