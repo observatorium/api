@@ -53,8 +53,7 @@ func DiscoverCredentials(name string) (string, string, error) {
 
 // DiscoverOAuth return the authorization and token endpoints of the OpenShift OAuth server.
 // Returns an error if requesting the `/.well-known/oauth-authorization-server` fails.
-// nolint:intefacer
-func DiscoverOAuth(client *http.Client) (authURL *url.URL, tokenURL *url.URL, err error) {
+func DiscoverOAuth(client *http.Client) (authURL, tokenURL *url.URL, err error) {
 	oauthURL := toKubeAPIURLWithPath(oauthWellKnownPath)
 
 	req, err := http.NewRequest(http.MethodGet, oauthURL.String(), nil)

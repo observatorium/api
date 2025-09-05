@@ -8,11 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/observatorium/api/logger"
 	"github.com/oklog/run"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	certutil "k8s.io/client-go/util/cert"
+
+	"github.com/observatorium/api/logger"
 )
 
 func newSelfSignedCert(t *testing.T, hostname string) (string, string, func(), error) {
@@ -42,7 +43,6 @@ func newSelfSignedCert(t *testing.T, hostname string) (string, string, func(), e
 }
 
 func TestUpstreamOptions_NewClientConfigNoTimeInteval(t *testing.T) {
-
 	ca, caPath, cleanCA, err := newSelfSignedCA("ok")
 	defer cleanCA()
 	require.NoError(t, err)

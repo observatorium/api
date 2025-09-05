@@ -1,59 +1,63 @@
+version: "2"
 run:
-  # default concurrency is a available CPU number
   concurrency: 4
-  # timeout for analysis, e.g. 30s, 5m, default is 1m
-  timeout: 5m
   tests: true
-
-  # exit code when at least one issue was found, default is 1
-  issues-exit-code: 1
-  issues:
-    exclude-dirs:
-    - vendor
-
-# output configuration options
 output:
-  # colored-line-number|line-number|json|tab|checkstyle, default is "colored-line-number"
   formats:
-  - format: colored-line-number
-
-  # print lines of code with issue, default is true
-  print-issued-lines: true
-
-  # print linter name in the end of issue text, default is true
-  print-linter-name: true
-
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
 linters:
   enable:
-    # Sorted alphabetically.
     - copyloopvar
-    - errcheck
     - goconst
     - godot
-    - gofmt
-    - goimports
-    - gosimple
-    - govet
-    - ineffassign
-    - misspell
-    - staticcheck
-    - typecheck
-    - unparam
-    - unused
+    - misspell # spell checker
     - promlinter
-
-linters-settings:
-  errcheck:
-    exclude-functions:
-    - (github.com/go-kit/log.Logger).Log
-    - fmt.Fprintln
-    - fmt.Fprint
-  lll:
-    line-length: 160
-  funlen:
-    lines: 140
-    statements: 60
-  misspell:
-    locale: US
-  goconst:
-    min-occurrences: 5
+    - unparam
+  settings:
+    errcheck:
+      exclude-functions:
+        - (github.com/go-kit/log.Logger).Log
+        - fmt.Fprintln
+        - fmt.Fprint
+    funlen:
+      lines: 140
+      statements: 60
+    goconst:
+      min-occurrences: 5
+    lll:
+      line-length: 160
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci # Gci controls Go package import order and makes it always deterministic
+    - gofumpt # checks that gofumpt was run on all source code
+    - goimports # checks that goimports was run on all source code
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/observatorium/api)
+        - blank
+        - dot
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

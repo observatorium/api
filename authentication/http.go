@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi"
+
 	"github.com/observatorium/api/httperr"
 )
 

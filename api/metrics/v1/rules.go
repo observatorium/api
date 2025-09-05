@@ -9,17 +9,18 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/httperr"
-	"github.com/observatorium/api/rules"
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql/parser"
+
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/httperr"
+	"github.com/observatorium/api/rules"
 )
 
-func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID string) error {
+func enforceLabelsInRules(rawRules rules.Rules, tenantLabel, tenantID string) error {
 	// creates new tenant label enforcer
-	e := injectproxy.NewEnforcer(false, []*labels.Matcher{{
+	e := injectproxy.NewPromQLEnforcer(false, []*labels.Matcher{{
 		Name:  tenantLabel,
 		Type:  labels.MatchEqual,
 		Value: tenantID,
@@ -63,7 +64,7 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel string, tenantID str
 	return nil
 }
 
-func enforceLabelsInExpr(e *injectproxy.Enforcer, expr string) (string, error) {
+func enforceLabelsInExpr(e *injectproxy.PromQLEnforcer, expr string) (string, error) {
 	parsedExpr, err := parser.ParseExpr(expr)
 	if err != nil {
 		return "", fmt.Errorf("parse expr error: %w", err)

@@ -58,6 +58,7 @@ type handlerConfiguration struct {
 	registry              *prometheus.Registry
 	instrument            handlerInstrumenter
 	spanRoutePrefix       string
+	rulesLabelFilters     map[string][]string
 	readMiddlewares       []func(http.Handler) http.Handler
 	writeMiddlewares      []func(http.Handler) http.Handler
 	rulesReadMiddlewares  []func(http.Handler) http.Handler
@@ -128,6 +129,13 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.writeMiddlewares = append(h.writeMiddlewares, m...)
 		h.readMiddlewares = append(h.readMiddlewares, m...)
+	}
+}
+
+// WithRulesLabelFilters adds the slice of rule labels filters to the handler configuration.
+func WithRulesLabelFilters(f map[string][]string) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.rulesLabelFilters = f
 	}
 }
 
@@ -231,7 +239,7 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOption
 	}
 
 	if rules != nil {
-		var proxyRules http.Handler
+		var proxyRules, proxyPrometheusReadRules http.Handler
 		{
 			middlewares := proxy.Middlewares(
 				proxy.MiddlewareSetUpstream(rules),
@@ -240,18 +248,27 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOption
 				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "logsv1-rules"}),
 			)
 
+			logger := proxy.Logger(c.logger)
 			t := &http.Transport{
 				DialContext: (&net.Dialer{
 					Timeout: dialTimeout,
 				}).DialContext,
 				TLSClientConfig: tlsOptions.NewClientConfig(),
 			}
+			transport := otelhttp.NewTransport(t)
 
+			proxyPrometheusReadRules = &httputil.ReverseProxy{
+				Director:       middlewares,
+				ErrorLog:       logger,
+				Transport:      transport,
+				ModifyResponse: newModifyResponseProm(c.logger, c.rulesLabelFilters),
+			}
 			proxyRules = &httputil.ReverseProxy{
 				Director:  middlewares,
-				ErrorLog:  proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(t),
+				ErrorLog:  logger,
+				Transport: transport,
 			}
+
 		}
 		r.Group(func(r chi.Router) {
 			r.Use(c.readMiddlewares...)
@@ -270,11 +287,11 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOption
 			))
 			r.Get(prometheusRulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusRulesRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusRulesRoute, proxyPrometheusReadRules),
 			))
 			r.Get(prometheusAlertsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "alerts"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusAlertsRoute, proxyRules),
+				otelhttp.WithRouteTag(c.spanRoutePrefix+prometheusAlertsRoute, proxyPrometheusReadRules),
 			))
 			r.Get(promRulesRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "rules"},

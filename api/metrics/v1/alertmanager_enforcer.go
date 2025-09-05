@@ -8,11 +8,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/alertmanager/api/v2/models"
 	amlabels "github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/prometheus/prometheus/model/labels"
+
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/httperr"
 )
 
 // WithEnforceTenancyOnFilter returns a middleware that ensures that every filter has a tenant label enforced.
@@ -41,7 +42,6 @@ func WithEnforceTenancyOnFilter(label string) func(http.Handler) http.Handler {
 			if len(filters) == 0 {
 				q.Set("filter", matcherStr)
 			} else {
-
 				for _, filter := range filters {
 					m, err := amlabels.ParseMatcher(filter)
 					if err != nil {
@@ -80,9 +80,7 @@ func WithEnforceTenancyOnSilenceMatchers(label string) func(http.Handler) http.H
 				return
 			}
 
-			var (
-				sil models.PostableSilence
-			)
+			var sil models.PostableSilence
 
 			if err := json.NewDecoder(r.Body).Decode(&sil); err != nil {
 				httperr.PrometheusAPIError(w, fmt.Sprintf("bad request: can't decode: %v", err), http.StatusBadRequest)

@@ -20,7 +20,6 @@ import (
 	"github.com/go-kit/log/level"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
-	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
@@ -28,6 +27,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	"github.com/observatorium/api/httperr"
 )
 
 // OIDCAuthenticatorType represents the oidc authentication provider type.

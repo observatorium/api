@@ -6,13 +6,13 @@ import (
 	"path"
 	"strings"
 
-	"github.com/observatorium/api/authentication"
-	"github.com/observatorium/api/httperr"
-	"github.com/observatorium/api/proxy"
-
 	"github.com/go-chi/chi"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
+	"github.com/observatorium/api/authentication"
+	"github.com/observatorium/api/httperr"
+	"github.com/observatorium/api/proxy"
 )
 
 // PathsHandlerFunc lists all paths available from the provided routes.

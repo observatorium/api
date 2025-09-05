@@ -7,10 +7,11 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
-	"github.com/observatorium/api/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/observatorium/api/tls"
 )
 
 // TraceRoute represents the fully-qualified gRPC method name for exporting a trace.

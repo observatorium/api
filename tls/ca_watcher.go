@@ -59,11 +59,9 @@ func (w *caCertificateWatcher) Watch(ctx context.Context) error {
 			scheduleNext()
 		}
 	}
-
 }
 
 func (w *caCertificateWatcher) loadCA() error {
-
 	hash, err := w.hashFile(w.CAPath)
 	if err != nil {
 		level.Error(w.logger).Log("unable to read the file", "error", err.Error())

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/rbac"
@@ -33,11 +35,9 @@ type SelectorsInfo struct {
 	HasWildcard bool
 }
 
-var (
-	emptySelectorsInfo = &SelectorsInfo{
-		Selectors: map[string][]string{},
-	}
-)
+var emptySelectorsInfo = &SelectorsInfo{
+	Selectors: map[string][]string{},
+}
 
 // GetData extracts the authz response data from provided context.
 func GetData(ctx context.Context) (string, bool) {
@@ -83,7 +83,19 @@ func WithLogsStreamSelectorsExtractor(logger log.Logger, selectorNames []string)
 				return
 			}
 
-			selectorsInfo, err := extractLogStreamSelectors(selectorNameMap, r.URL.Query())
+			var (
+				selectorsInfo *SelectorsInfo
+				err           error
+			)
+
+			switch {
+			case strings.HasSuffix(r.URL.Path, "/rules"):
+				selectorsInfo = extractLogRulesSelectors(selectorNameMap, r.URL.Query())
+			case strings.HasSuffix(r.URL.Path, "/series"):
+				selectorsInfo, err = extractLogStreamSelectors(selectorNameMap, r.URL.Query(), "match")
+			default:
+				selectorsInfo, err = extractLogStreamSelectors(selectorNameMap, r.URL.Query(), "query")
+			}
 			if err != nil {
 				// Don't error out, just warn about error and continue with empty selectorsInfo
 				level.Warn(logger).Log("msg", err)

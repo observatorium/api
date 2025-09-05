@@ -1,4 +1,3 @@
-// nolint:exhaustivestruct
 package v2
 
 import (
@@ -990,7 +989,7 @@ type LogNumberExpr struct {
 func (LogNumberExpr) logQLExpr() {}
 
 func newLogNumberExpr(value string, isNegative bool) LogNumberExpr {
-	n, _ := strconv.ParseFloat(value, 64) //nolint:gomnd
+	n, _ := strconv.ParseFloat(value, 64)
 
 	return LogNumberExpr{value: n, isNeg: isNegative}
 }

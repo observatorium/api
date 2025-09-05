@@ -12,11 +12,12 @@ import (
 	"github.com/go-kit/log"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
-	"github.com/observatorium/api/httperr"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/observatorium/api/httperr"
 )
 
 // MTLSAuthenticatorType represents the mTLS authentication provider type.
@@ -56,7 +57,7 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 
 		var (
 			block *pem.Block
-			rest  []byte = rawCA
+			rest  = rawCA
 			cert  *x509.Certificate
 			cas   []*x509.Certificate
 		)

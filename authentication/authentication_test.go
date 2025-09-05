@@ -8,9 +8,10 @@ import (
 	"github.com/go-kit/log"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
-	"github.com/observatorium/api/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
+
+	"github.com/observatorium/api/logger"
 )
 
 type dummyAuthenticator struct {
