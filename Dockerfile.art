@@ -1,4 +1,4 @@
-FROM registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:v1.23.9-202506111225.g6c23478.el9 AS builder
+FROM golang:1.23 AS builder
 
 ENV GOEXPERIMENT=strictfipsruntime
 ENV CGO_ENABLED=1
@@ -15,7 +15,7 @@ WORKDIR /opt/app-root/src/lokistack-gateway
 
 RUN go build -tags strictfipsruntime -a -ldflags '-s -w' -o lokistack-gateway .
 
-FROM registry.redhat.io/rhel9-6-els/rhel-minimal:9.6@sha256:2bdf19e0877fdbb0696330159ed72a12deef8a60eed819c4e2fc0064147b39df
+FROM registry.access.redhat.com/ubi9/ubi-minimal
 
 COPY --from=builder /opt/app-root/src/lokistack-gateway/lokistack-gateway /usr/bin/lokistack-gateway
 
