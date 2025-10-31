@@ -151,6 +151,8 @@ Usage of ./observatorium-api:
     	The gRPC Server Address against which to run rate limit checks when the rate limits are specified for a given tenant. If not specified, local, non-shared rate limiting will be used. Has precedence over other rate limiter options.
   -middleware.rate-limiter.type string
     	The type of rate limiter to use when not using a gRPC rate limiter. Options: 'local' (default), 'redis' (leaky bucket algorithm). (default "local")
+  -oidc.skip-client-id-check
+    	Skip checking audience field against client ID on tokens.
   -probes.dial-timeout duration
     	The timeout for establishing connections to the probes upstream. (default 30s)
   -probes.endpoint string

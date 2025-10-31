@@ -33,6 +33,7 @@ import (
 
 // OIDCAuthenticatorType represents the oidc authentication provider type.
 const OIDCAuthenticatorType = "oidc"
+const SkipClientIDCheckConfigKey = "skipClientIDCheck"
 
 func init() {
 	onboardNewProvider(OIDCAuthenticatorType, newOIDCAuthenticator)
@@ -144,7 +145,13 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		Scopes:       []string{"openid", "profile", "email", "groups"},
 	}
 
-	verifier := provider.Verifier(&oidc.Config{ClientID: config.ClientID})
+	var skipIDResult bool
+	skipClientIDCheck := c[SkipClientIDCheckConfigKey]
+	if skipClientIDCheckBool, ok := skipClientIDCheck.(bool); ok {
+		skipIDResult = skipClientIDCheckBool
+	}
+
+	verifier := provider.Verifier(&oidc.Config{ClientID: config.ClientID, SkipClientIDCheck: skipIDResult})
 
 	oidcProvider := &oidcAuthenticator{
 		tenant:       tenant,
