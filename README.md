@@ -120,7 +120,7 @@ Usage of ./observatorium-api:
   -metrics.alertmanager.endpoint string
     	The endpoint against which to make requests for alerts and silences
   -metrics.read.endpoint string
-    	The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.
+    	The endpoint against which to send read requests for metrics.
   -metrics.rules.endpoint string
     	The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.
   -metrics.tenant-header string
