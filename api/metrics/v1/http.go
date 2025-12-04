@@ -33,6 +33,7 @@ const (
 	ReceiveRoute     = "/api/v1/receive"
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
+	TSDBStatusRoute  = "/api/v1/status/tsdb"
 
 	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
 	AlertmanagerSilencesRoute = "/am/api/v2/silences"
@@ -53,8 +54,10 @@ type handlerConfiguration struct {
 	queryMiddlewares       []func(http.Handler) http.Handler
 	readMiddlewares        []func(http.Handler) http.Handler
 	uiMiddlewares          []func(http.Handler) http.Handler
+	statusMiddlewares      []func(http.Handler) http.Handler
 	writeMiddlewares       []func(http.Handler) http.Handler
 	alertmanagerMiddleware alertmanagerMiddleware
+	enableStatusEndpoints  bool
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -109,6 +112,13 @@ func WithQueryMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
+// WithStatusMiddleware adds a middleware for all status operations.
+func WithStatusMiddleware(m func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.statusMiddlewares = append(h.statusMiddlewares, m)
+	}
+}
+
 // WithUIMiddleware adds a middleware for all non read, non query, non write operations (e.g ui).
 func WithUIMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
@@ -146,11 +156,19 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.writeMiddlewares = append(h.writeMiddlewares, m...)
 		h.uiMiddlewares = append(h.uiMiddlewares, m...)
+		h.statusMiddlewares = append(h.statusMiddlewares, m...)
 		h.queryMiddlewares = append(h.queryMiddlewares, m...)
 		h.readMiddlewares = append(h.readMiddlewares, m...)
 		h.alertmanagerMiddleware.alertsReadMiddlewares = append(h.alertmanagerMiddleware.alertsReadMiddlewares, m...)
 		h.alertmanagerMiddleware.silenceReadMiddlewares = append(h.alertmanagerMiddleware.silenceReadMiddlewares, m...)
 		h.alertmanagerMiddleware.silenceWriteMiddlewares = append(h.alertmanagerMiddleware.silenceWriteMiddlewares, m...)
+	}
+}
+
+// WithStatusEndpoints enables/disables the /status/* endpoints.
+func WithStatusEndpoints(enabled bool) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.enableStatusEndpoints = enabled
 	}
 }
 
@@ -333,6 +351,25 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 				),
 			)
 		})
+
+		if c.enableStatusEndpoints {
+			r.Group(func(r chi.Router) {
+				r.Use(func(handler http.Handler) http.Handler {
+					return server.InjectLabelsCtx(
+						prometheus.Labels{"group": "metricsv1", "handler": "status"},
+						handler,
+					)
+				})
+				r.Use(c.statusMiddlewares...)
+				r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+				r.Handle(TSDBStatusRoute,
+					otelhttp.WithRouteTag(
+						c.spanRoutePrefix+TSDBStatusRoute,
+						proxyRead,
+					),
+				)
+			})
+		}
 
 		var uiProxy http.Handler
 		{
