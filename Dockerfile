@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.23.9-alpine3.20 as builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine as builder
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -10,7 +10,7 @@ WORKDIR /opt
 
 RUN git update-index --refresh; make build OS=${TARGETOS} ARCH=${TARGETARCH}
 
-FROM alpine:3.20 as runner
+FROM alpine:3.23 as runner
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /opt/observatorium-api /bin/observatorium-api
