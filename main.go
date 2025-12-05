@@ -97,6 +97,7 @@ type config struct {
 	rbacConfigPath    string
 	tenantsConfigPath string
 
+	auth            authConfig
 	debug           debugConfig
 	server          serverConfig
 	tls             tlsConfig
@@ -106,6 +107,10 @@ type config struct {
 	probes          probesConfig
 	middleware      middlewareConfig
 	internalTracing internalTracingConfig
+}
+
+type authConfig struct {
+	skipClientIDCheck bool
 }
 
 type debugConfig struct {
@@ -360,8 +365,10 @@ func main() {
 					tenantsCfg.Tenants[i] = nil
 					continue
 				}
-
 				t.OIDC.config = oidcConfig
+				if cfg.auth.skipClientIDCheck {
+					t.OIDC.config[authentication.SkipClientIDCheckConfigKey] = true
+				}
 			}
 
 			if t.MTLS != nil {
@@ -1136,6 +1143,7 @@ func parseFlags() (config, error) {
 		"The log filtering level. Options: 'error', 'warn', 'info', 'debug'.")
 	flag.StringVar(&cfg.logFormat, "log.format", logger.LogFormatLogfmt,
 		"The log format to use. Options: 'logfmt', 'json'.")
+	flag.BoolVar(&cfg.auth.skipClientIDCheck, "oidc.skip-client-id-check", false, "Skip checking audience field against client ID on tokens.")
 	flag.StringVar(&cfg.internalTracing.serviceName, "internal.tracing.service-name", "observatorium_api",
 		"The service name to report to the tracing backend.")
 	flag.StringVar(&cfg.internalTracing.endpoint, "internal.tracing.otlp-http-endpoint", "",
