@@ -153,8 +153,9 @@ type metricsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
-	enabled           bool
-	enableCertWatcher bool
+	enabled               bool
+	enableCertWatcher     bool
+	enableStatusEndpoints bool
 }
 
 type logsConfig struct {
@@ -748,6 +749,8 @@ func main() {
 						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, matchParamName)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
+						metricsv1.WithStatusEndpoints(cfg.metrics.enableStatusEndpoints),
+						metricsv1.WithStatusMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithAlertmanagerAlertsReadMiddleware(
 							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
@@ -1186,6 +1189,8 @@ func parseFlags() (config, error) {
 		"Comma-separated list of stream selectors that should be extracted from queries and sent to OPA during authorization.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
+	flag.BoolVar(&cfg.metrics.enableStatusEndpoints, "metrics.read.enable-status-endpoints", false,
+		"Enable the metric status endpoints")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
