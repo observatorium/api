@@ -146,6 +146,7 @@ type metricsConfig struct {
 	writeEndpoint        *url.URL
 	rulesEndpoint        *url.URL
 	alertmanagerEndpoint *url.URL
+	statusEndpoint       *url.URL
 	upstreamWriteTimeout time.Duration
 	upstreamCAFile       string
 	upstreamCertFile     string
@@ -153,9 +154,8 @@ type metricsConfig struct {
 	tenantHeader         string
 	tenantLabel          string
 	// enable metrics if at least one {read|write}Endpoint} is provided.
-	enabled               bool
-	enableCertWatcher     bool
-	enableStatusEndpoints bool
+	enabled           bool
+	enableCertWatcher bool
 }
 
 type logsConfig struct {
@@ -646,6 +646,7 @@ func main() {
 					WriteEndpoint:        cfg.metrics.writeEndpoint,
 					RulesEndpoint:        cfg.metrics.rulesEndpoint,
 					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
+					StatusEndpoint:       cfg.metrics.statusEndpoint,
 				}
 
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
@@ -734,7 +735,6 @@ func main() {
 					}
 
 					const matchParamName = "match[]"
-					level.Info(logger).Log("msg", "status API", "enabled", cfg.metrics.enableStatusEndpoints)
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
 						metricsUpstreamClientOptions,
@@ -751,7 +751,6 @@ func main() {
 						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, matchParamName)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
-						metricsv1.WithStatusEndpoints(cfg.metrics.enableStatusEndpoints),
 						metricsv1.WithStatusMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricsv1.WithAlertmanagerAlertsReadMiddleware(
@@ -1113,6 +1112,7 @@ func parseFlags() (config, error) {
 		rawMetricsWriteEndpoint        string
 		rawMetricsRulesEndpoint        string
 		rawMetricsAlertmanagerEndpoint string
+		rawMetricsStatusEndpoint       string
 		rawLogsReadEndpoint            string
 		rawLogsRulesEndpoint           string
 		rawLogsTailEndpoint            string
@@ -1191,14 +1191,14 @@ func parseFlags() (config, error) {
 		"Comma-separated list of stream selectors that should be extracted from queries and sent to OPA during authorization.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
 		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
-	flag.BoolVar(&cfg.metrics.enableStatusEndpoints, "metrics.read.enable-status-endpoints", false,
-		"Enable the metric status endpoints")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
 	flag.StringVar(&rawMetricsAlertmanagerEndpoint, "metrics.alertmanager.endpoint", "",
 		"The endpoint against which to make requests for alerts and silences")
+	flag.StringVar(&rawMetricsStatusEndpoint, "metrics.status.endpoint", "",
+		"The endpoint against which to make requests for status information about metrics (e.g. '/api/v1/status/tsdb').")
 	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the metrics endpoint.")
 	flag.StringVar(&cfg.metrics.upstreamCAFile, "metrics.tls.ca-file", "",
@@ -1343,6 +1343,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.metrics.alertmanagerEndpoint = alertmanagerEndpoint
+	}
+
+	if rawMetricsStatusEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		statusEndpoint, err := url.ParseRequestURI(rawMetricsStatusEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.status.endpoint %q is invalid: %w", rawMetricsStatusEndpoint, err)
+		}
+
+		cfg.metrics.statusEndpoint = statusEndpoint
 	}
 
 	if rawLogsReadEndpoint != "" {
