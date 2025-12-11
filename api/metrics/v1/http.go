@@ -470,7 +470,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			proxy.MiddlewareSetUpstream(endpoints.ReadEndpoint),
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
-			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
+			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-status"}),
 		)
 
 		t := http.DefaultTransport.(*http.Transport)
