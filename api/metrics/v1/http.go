@@ -57,7 +57,6 @@ type handlerConfiguration struct {
 	statusMiddlewares      []func(http.Handler) http.Handler
 	writeMiddlewares       []func(http.Handler) http.Handler
 	alertmanagerMiddleware alertmanagerMiddleware
-	enableStatusEndpoints  bool
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -165,13 +164,6 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-// WithStatusEndpoints enables/disables the /status/* endpoints.
-func WithStatusEndpoints(enabled bool) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.enableStatusEndpoints = enabled
-	}
-}
-
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
 }
@@ -187,6 +179,7 @@ type Endpoints struct {
 	WriteEndpoint        *url.URL
 	RulesEndpoint        *url.URL
 	AlertmanagerEndpoint *url.URL
+	StatusEndpoint       *url.URL
 }
 
 // NewHandler creates the new metrics v1 handler.
@@ -352,25 +345,6 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			)
 		})
 
-		if c.enableStatusEndpoints {
-			r.Group(func(r chi.Router) {
-				r.Use(func(handler http.Handler) http.Handler {
-					return server.InjectLabelsCtx(
-						prometheus.Labels{"group": "metricsv1", "handler": "status"},
-						handler,
-					)
-				})
-				r.Use(c.statusMiddlewares...)
-				r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-				r.Handle(TSDBStatusRoute,
-					otelhttp.WithRouteTag(
-						c.spanRoutePrefix+TSDBStatusRoute,
-						proxyRead,
-					),
-				)
-			})
-		}
-
 		var uiProxy http.Handler
 		{
 			middlewares := proxy.Middlewares(
@@ -486,6 +460,40 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+RulesRawRoute,
 					http.HandlerFunc(rh.put),
+				),
+			)
+		})
+	}
+
+	if endpoints.StatusEndpoint != nil {
+		middlewares := proxy.Middlewares(
+			proxy.MiddlewareSetUpstream(endpoints.ReadEndpoint),
+			proxy.MiddlewareSetPrefixHeader(),
+			proxy.MiddlewareLogger(c.logger),
+			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-ui"}),
+		)
+
+		t := http.DefaultTransport.(*http.Transport)
+		t.TLSClientConfig = tlsOptions.NewClientConfig()
+
+		statusProxy := &httputil.ReverseProxy{
+			Director:  middlewares,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+		}
+
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "status"},
+					handler,
+				)
+			})
+			r.Use(c.statusMiddlewares...)
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+			r.Handle(TSDBStatusRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+TSDBStatusRoute,
+					statusProxy,
 				),
 			)
 		})
