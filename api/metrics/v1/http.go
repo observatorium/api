@@ -467,7 +467,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 
 	if endpoints.StatusEndpoint != nil {
 		middlewares := proxy.Middlewares(
-			proxy.MiddlewareSetUpstream(endpoints.ReadEndpoint),
+			proxy.MiddlewareSetUpstream(endpoints.StatusEndpoint),
 			proxy.MiddlewareSetPrefixHeader(),
 			proxy.MiddlewareLogger(c.logger),
 			proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-status"}),
