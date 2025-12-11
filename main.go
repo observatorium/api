@@ -689,6 +689,7 @@ func main() {
 
 					// enable probes if endpoint is provided.
 					// Since probes are part of the metrics API, we mount them within the metrics route group.
+					level.Info(logger).Log("msg", "probes API", "enabled", cfg.probes.enabled)
 					if cfg.probes.enabled {
 						var loadInterval *time.Duration
 						if cfg.probes.enableCertWatcher {
@@ -733,6 +734,7 @@ func main() {
 					}
 
 					const matchParamName = "match[]"
+					level.Info(logger).Log("msg", "status API", "enabled", cfg.metrics.enableStatusEndpoints)
 					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
 						eps,
 						metricsUpstreamClientOptions,
