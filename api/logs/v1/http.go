@@ -35,9 +35,9 @@ const (
 	volumeRoute            = "/loki/api/v1/index/volume"
 	volumeRangeRoute       = "/loki/api/v1/index/volume_range"
 	patternsRoute          = "/loki/api/v1/patterns"
-	detectedLabelsRoute    = "/loki/api/v1/detect_labels"
-	detectedFieldRoute     = "/loki/api/v1/detect_field"
-	detectedFieldsRoute    = "/loki/api/v1/detect_fields"
+	detectedLabelsRoute    = "/loki/api/v1/detected_labels"
+	detectedFieldRoute     = "/loki/api/v1/detected_field"
+	detectedFieldsRoute    = "/loki/api/v1/detected_fields"
 
 	otlpRoute = "/otlp/v1/logs"
 	pushRoute = "/loki/api/v1/push"
