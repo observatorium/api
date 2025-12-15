@@ -16,6 +16,7 @@ linters:
     - misspell # spell checker
     - promlinter
     - unparam
+    - forbidigo
   settings:
     errcheck:
       exclude-functions:

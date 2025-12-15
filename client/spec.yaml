@@ -477,8 +477,8 @@ paths:
         schema:
           type: integer
           oneOf:
-            - minimum: 0 
-            - maximum: 5 
+            - minimum: 0
+            - maximum: 5
     get:
       tags:
         - logs/tailV1

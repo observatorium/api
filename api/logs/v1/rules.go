@@ -105,25 +105,43 @@ func unmarshalRuleGroup(r io.Reader) (rules.RuleGroup, error) {
 }
 
 func enforceLabelsInRules(rg *rules.RuleGroup, tenantLabel, tenantID string) error {
-	for i := range rg.Rules {
-		switch r := rg.Rules[i].(type) {
-		case rules.RecordingRule:
-			if r.Labels.AdditionalProperties == nil {
-				r.Labels.AdditionalProperties = make(map[string]string)
+	for i, r := range rg.Rules {
+		switch {
+		case r.IsRecordingRule():
+			rr, err := r.AsRecordingRule()
+			if err != nil {
+				return fmt.Errorf("failed to convert recording rule: %w", err)
 			}
 
-			r.Labels.AdditionalProperties[tenantLabel] = tenantID
-			rg.Rules[i] = r
-		case rules.AlertingRule:
-			if r.Labels.AdditionalProperties == nil {
-				r.Labels.AdditionalProperties = make(map[string]string)
+			if rr.Labels == nil {
+				rr.Labels = make(map[string]string)
 			}
 
-			r.Labels.AdditionalProperties[tenantLabel] = tenantID
-			rg.Rules[i] = r
+			rr.Labels[tenantLabel] = tenantID
+			if err := r.FromRecordingRule(rr); err != nil {
+				return err
+			}
+
+		case r.IsAlertingRule():
+			ar, err := r.AsAlertingRule()
+			if err != nil {
+				return fmt.Errorf("failed to convert alerting rule: %w", err)
+			}
+
+			if ar.Labels == nil {
+				ar.Labels = make(map[string]string)
+			}
+
+			ar.Labels[tenantLabel] = tenantID
+			if err := r.FromAlertingRule(ar); err != nil {
+				return err
+			}
+
 		default:
 			return fmt.Errorf("failed to convert rule type: %#v", r)
 		}
+
+		rg.Rules[i] = r
 	}
 
 	return nil

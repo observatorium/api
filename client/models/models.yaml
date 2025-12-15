@@ -223,8 +223,7 @@ components:
             oneOf:
               - $ref: "#/components/schemas/RangeVectors" #matrix
               - $ref: "#/components/schemas/InstantVectors" #vector
-              - $ref: "#/components/schemas/ScalarOrString" # scalar
-              - $ref: "#/components/schemas/ScalarOrString" #string 
+              - $ref: "#/components/schemas/ScalarOrString" # scalar or string
               - $ref: "#/components/schemas/StreamValues" #streams
     MetricRangeQueryResponse:
       type: object
@@ -354,8 +353,7 @@ components:
             oneOf:
               - $ref: "#/components/schemas/RangeVectors" #matrix
               - $ref: "#/components/schemas/InstantVectors" #vector
-              - $ref: "#/components/schemas/ScalarOrString" # scalar
-              - $ref: "#/components/schemas/ScalarOrString" #string 
+              - $ref: "#/components/schemas/ScalarOrString" # scalar or string
               - $ref: "#/components/schemas/StreamValues" #streams
     LogRangeQueryResponse:
       type: object

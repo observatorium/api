@@ -111,6 +111,7 @@ components:
           example: 'count:cluster_halted'
         labels:
           type: object
+          x-omitempty: true
           additionalProperties:
             type: string
     AlertingRule:
@@ -133,9 +134,11 @@ components:
           example: '10m'
         labels:
           type: object
+          x-omitempty: true
           additionalProperties:
             type: string
         annotations:
           type: object
+          x-omitempty: true
           additionalProperties:
             type: string

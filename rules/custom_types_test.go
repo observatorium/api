@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/ghodss/yaml"
@@ -28,12 +29,15 @@ rules:
 			out: RuleGroup{
 				Name:     "foo",
 				Interval: "5s",
-				Rules: []interface{}{
-					RecordingRule{
-						Record: "bar",
-						Expr:   "vector(1)",
-						Labels: RecordingRule_Labels{AdditionalProperties: make(map[string]string)},
-					},
+				Rules: []RuleGroup_Rules_Item{
+					func() RuleGroup_Rules_Item {
+						r := &RuleGroup_Rules_Item{}
+						_ = r.FromRecordingRule(RecordingRule{
+							Record: "bar",
+							Expr:   "vector(1)",
+						})
+						return *r
+					}(),
 				},
 			},
 		},
@@ -49,14 +53,18 @@ rules:
 			out: RuleGroup{
 				Name:     "foo",
 				Interval: "5s",
-				Rules: []interface{}{
-					AlertingRule{
-						Alert:       "HighRequestLatency",
-						Expr:        `job:request_latency_seconds:mean5m{job="myjob"} > 0.5`,
-						For:         "10m",
-						Annotations: AlertingRule_Annotations{AdditionalProperties: make(map[string]string)},
-						Labels:      AlertingRule_Labels{AdditionalProperties: make(map[string]string)},
-					},
+				Rules: []RuleGroup_Rules_Item{
+					func() RuleGroup_Rules_Item {
+						r := &RuleGroup_Rules_Item{}
+						_ = r.FromAlertingRule(AlertingRule{
+							Alert: "HighRequestLatency",
+							Expr:  `job:request_latency_seconds:mean5m{job="myjob"} > 0.5`,
+							For:   "10m",
+							//			Annotations: map[string]string{},
+							//			Labels:      map[string]string{},
+						})
+						return *r
+					}(),
 				},
 			},
 		},
@@ -74,19 +82,27 @@ rules:
 			out: RuleGroup{
 				Name:     "foo",
 				Interval: "5s",
-				Rules: []interface{}{
-					RecordingRule{
-						Record: "bar",
-						Expr:   "vector(1)",
-						Labels: RecordingRule_Labels{AdditionalProperties: make(map[string]string)},
-					},
-					AlertingRule{
-						Alert:       "HighRequestLatency",
-						Expr:        `job:request_latency_seconds:mean5m{job="myjob"} > 0.5`,
-						For:         "10m",
-						Annotations: AlertingRule_Annotations{AdditionalProperties: make(map[string]string)},
-						Labels:      AlertingRule_Labels{AdditionalProperties: make(map[string]string)},
-					},
+				Rules: []RuleGroup_Rules_Item{
+					func() RuleGroup_Rules_Item {
+						r := &RuleGroup_Rules_Item{}
+						_ = r.FromRecordingRule(RecordingRule{
+							Record: "bar",
+							Expr:   "vector(1)",
+							Labels: map[string]string{},
+						})
+						return *r
+					}(),
+					func() RuleGroup_Rules_Item {
+						r := &RuleGroup_Rules_Item{}
+						_ = r.FromAlertingRule(AlertingRule{
+							Alert:       "HighRequestLatency",
+							Expr:        `job:request_latency_seconds:mean5m{job="myjob"} > 0.5`,
+							For:         "10m",
+							Annotations: map[string]string{},
+							Labels:      map[string]string{},
+						})
+						return *r
+					}(),
 				},
 			},
 		},
@@ -103,6 +119,9 @@ rules:
 					t.Fatal("expected error")
 				}
 				if !ruleGroupsEqual(out, tc.out) {
+					t.Log(string(tc.raw))
+					b, _ := json.Marshal(tc.out)
+					t.Log(string(b))
 					t.Errorf("expected %v; got %v", tc.out, out)
 				}
 			}
@@ -128,14 +147,18 @@ func ruleGroupsEqual(a, b RuleGroup) bool {
 	}
 
 	for i := range a.Rules {
-		ara, aok := a.Rules[i].(AlertingRule)
-		bra, bok := b.Rules[i].(AlertingRule)
-
-		if aok != bok {
+		isa, isb := a.Rules[i].IsAlertingRule(), b.Rules[i].IsAlertingRule()
+		if isa != isb {
 			return false
 		}
 
-		if aok {
+		if isa {
+			ara, erra := a.Rules[i].AsAlertingRule()
+			bra, errb := a.Rules[i].AsAlertingRule()
+			if erra != nil || errb != nil {
+				return false
+			}
+
 			if ara.Alert != bra.Alert {
 				return false
 			}
@@ -148,25 +171,29 @@ func ruleGroupsEqual(a, b RuleGroup) bool {
 				return false
 			}
 
-			if mapsEqual(ara.Annotations.AdditionalProperties, bra.Annotations.AdditionalProperties) {
+			if !mapsEqual(ara.Annotations, bra.Annotations) {
 				return false
 			}
 
-			if mapsEqual(ara.Labels.AdditionalProperties, bra.Labels.AdditionalProperties) {
+			if !mapsEqual(ara.Labels, bra.Labels) {
 				return false
 			}
 
 			continue
 		}
 
-		arr, aok := a.Rules[i].(RecordingRule)
-		brr, bok := b.Rules[i].(RecordingRule)
-
-		if aok != bok {
+		isa, isb = a.Rules[i].IsRecordingRule(), b.Rules[i].IsRecordingRule()
+		if isa != isb {
 			return false
 		}
 
-		if aok {
+		if isa {
+			arr, aerr := a.Rules[i].AsRecordingRule()
+			brr, berr := b.Rules[i].AsRecordingRule()
+
+			if (aerr == nil) != (berr == nil) {
+				return false
+			}
 			if arr.Expr != brr.Expr {
 				return false
 			}
@@ -175,7 +202,7 @@ func ruleGroupsEqual(a, b RuleGroup) bool {
 				return false
 			}
 
-			if mapsEqual(arr.Labels.AdditionalProperties, brr.Labels.AdditionalProperties) {
+			if !mapsEqual(arr.Labels, brr.Labels) {
 				return false
 			}
 
