@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/ghodss/yaml"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/httperr"

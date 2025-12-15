@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/efficientgo/core/backoff"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"github.com/golang-jwt/jwt/v4"
