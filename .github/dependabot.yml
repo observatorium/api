@@ -17,3 +17,12 @@ updates:
   - match:
       dependency-name: "k8s.io/client-go"
       update-type: "semver-patch"
+
+- package-ecosystem: github-actions
+  directory: "/"
+  schedule:
+    interval: weekly
+  groups:
+    patch-updates:
+      update-types:
+        - "patch"
