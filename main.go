@@ -1185,7 +1185,7 @@ func parseFlags() (config, error) {
 	flag.StringVar(&rawLogsAuthExtractSelectors, "logs.auth.extract-selectors", "",
 		"Comma-separated list of stream selectors that should be extracted from queries and sent to OPA during authorization.")
 	flag.StringVar(&rawMetricsReadEndpoint, "metrics.read.endpoint", "",
-		"The endpoint against which to send read requests for metrics. It used as a fallback to 'query.endpoint' and 'query-range.endpoint'.")
+		"The endpoint against which to send read requests for metrics.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
