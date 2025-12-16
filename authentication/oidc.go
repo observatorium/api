@@ -15,7 +15,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/efficientgo/core/backoff"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
