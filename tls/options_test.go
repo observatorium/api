@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -16,24 +17,23 @@ import (
 	"github.com/observatorium/api/logger"
 )
 
-func newSelfSignedCert(t *testing.T, hostname string) (string, string, func(), error) {
+func newSelfSignedCert(hostname string) (string, string, func(), error) {
 	var err error
 	certBytes, keyBytes, err := certutil.GenerateSelfSignedCertKey(hostname, nil, nil)
 	if err != nil {
-		t.Fatalf("generation of self signed cert and key failed: %v", err)
+		return "", "", func() {}, fmt.Errorf("generation of self signed cert and key failed: %w", err)
 	}
 
 	certPath, err := writeTempFile("cert", certBytes)
 	if err != nil {
-		t.Fatalf("error writing cert data: %v", err)
-		return certPath, "", func() {}, err
+		return "", "", func() {}, fmt.Errorf("error writing cert data: %w", err)
 	}
+
 	keyPath, err := writeTempFile("key", keyBytes)
 	if err != nil {
-		t.Fatalf("error writing key data: %v", err)
-		return certPath, keyPath, func() {
+		return "", "", func() {
 			_ = os.Remove(certPath)
-		}, err
+		}, fmt.Errorf("error writing key data: %w", err)
 	}
 
 	return certPath, keyPath, func() {
@@ -50,7 +50,7 @@ func TestUpstreamOptions_NewClientConfigNoTimeInteval(t *testing.T) {
 	caPool := x509.NewCertPool()
 	caPool.AddCert(ca)
 
-	certPath, keyPath, cleanCerts, err := newSelfSignedCert(t, "local")
+	certPath, keyPath, cleanCerts, err := newSelfSignedCert("local")
 	defer cleanCerts()
 	require.NoError(t, err)
 
@@ -158,7 +158,7 @@ func TestUpstreamOptions_NewClientConfigTimeInterval(t *testing.T) {
 	caPool := x509.NewCertPool()
 	caPool.AddCert(ca)
 
-	certPath, keyPath, cleanCerts, err := newSelfSignedCert(t, "local")
+	certPath, keyPath, cleanCerts, err := newSelfSignedCert("local")
 	defer cleanCerts()
 	require.NoError(t, err)
 

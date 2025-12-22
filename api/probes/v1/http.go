@@ -11,9 +11,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/tls"
 )

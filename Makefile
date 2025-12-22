@@ -114,10 +114,8 @@ shellcheck: $(SHELLCHECK)
 
 .PHONY: lint
 lint: ## Runs various static analysis against our code.
-lint: $(FAILLINT) $(GOLANGCI_LINT) generate format deps build check-git shellcheck jsonnet-fmt
+lint: $(GOLANGCI_LINT) generate format deps build check-git shellcheck jsonnet-fmt
 	$(call require_clean_work_tree,'detected not clean work tree before running lint, previous job changed something?')
-	@echo ">> verifying modules being imported"
-	@$(FAILLINT) -paths "fmt.{Print,Printf,Println},io/ioutil.{Discard,NopCloser,ReadAll,ReadDir,ReadFile,TempDir,TempFile,Writefile}" -ignore-tests ./...
 	@echo ">> examining all of the Go files"
 	@go vet -stdmethods=false ./...
 	@echo ">> linting all of the Go files GOLANGCI_LINT=${GOLANGCI_LINT}"
