@@ -140,7 +140,7 @@ const (
 	// queriedV2Dependencies is dependencies JSON returned through Jaeger's V2 API.
 	queriedV2Dependencies = `{"data":[],"total":0,"limit":0,"offset":0,"errors":null}`
 
-	tempoTraceResponse5B = `{"batches":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"my.service"}}]},"scopeSpans":[{"scope":{"name":"my.library","version":"1.0.0"},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXQ=","parentSpanId":"7uGbfsPBsXM=","name":"I'm a server span","kind":"SPAN_KIND_SERVER","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"my.span.attr","value":{"stringValue":"some value"}}],"status":{}}]}]}]}`
+	tempoTraceResponse5B = `{"batches":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"my.service"}}]},"scopeSpans":[{"scope":{"name":"my.library","version":"1.0.0","attributes":[{"key":"my.scope.attribute","value":{"stringValue":"some scope attribute"}}]},"spans":[{"traceId":"W47/95gDgQPSabYzgT/GDA==","spanId":"7uGbfsPBsXQ=","parentSpanId":"7uGbfsPBsXM=","name":"I'm a server span","kind":"SPAN_KIND_SERVER","startTimeUnixNano":"1544712660000000000","endTimeUnixNano":"1544712661000000000","attributes":[{"key":"my.span.attr","value":{"stringValue":"some value"}}],"status":{}}]}]}]}`
 )
 
 func TestTracesExport(t *testing.T) {
@@ -556,6 +556,7 @@ func TestTracesTempo(t *testing.T) {
 					"grpc":         4317,
 					"health_check": 13133,
 					"telemetry":    8888,
+					"zpages":       55679,
 				}).
 			Init(e2e.StartOptions{
 				Image: otelCollectorImage,
@@ -606,6 +607,5 @@ func TestTracesTempo(t *testing.T) {
 			httpObservatoriumTempoEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		assertResponse(t, returnedTrace, tempoTraceResponse5B)
-
 	})
 }
