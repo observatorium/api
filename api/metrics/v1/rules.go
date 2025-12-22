@@ -27,37 +27,54 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel, tenantID string) er
 	}}...)
 
 	for i := range rawRules.Groups {
-		for j := range rawRules.Groups[i].Rules {
-			switch r := rawRules.Groups[i].Rules[j].(type) {
-			case rules.RecordingRule:
-				if r.Labels.AdditionalProperties == nil {
-					r.Labels.AdditionalProperties = make(map[string]string)
+		for j, r := range rawRules.Groups[i].Rules {
+			switch {
+			case r.IsRecordingRule():
+				rr, err := r.AsRecordingRule()
+				if err != nil {
+					return fmt.Errorf("failed to convert recording rule: %w", err)
 				}
 
-				r.Labels.AdditionalProperties[tenantLabel] = tenantID
+				if rr.Labels == nil {
+					rr.Labels = make(map[string]string)
+				}
+				rr.Labels[tenantLabel] = tenantID
 
-				expr, err := enforceLabelsInExpr(e, r.Expr)
+				expr, err := enforceLabelsInExpr(e, rr.Expr)
 				if err != nil {
 					return err
 				}
-
-				r.Expr = expr
-				rawRules.Groups[i].Rules[j] = r
-			case rules.AlertingRule:
-				if r.Labels.AdditionalProperties == nil {
-					r.Labels.AdditionalProperties = make(map[string]string)
-				}
-
-				r.Labels.AdditionalProperties[tenantLabel] = tenantID
-
-				expr, err := enforceLabelsInExpr(e, r.Expr)
-				if err != nil {
+				rr.Expr = expr
+				if err := r.FromRecordingRule(rr); err != nil {
 					return err
 				}
 
-				r.Expr = expr
-				rawRules.Groups[i].Rules[j] = r
+			case r.IsAlertingRule():
+				ar, err := r.AsAlertingRule()
+				if err != nil {
+					return fmt.Errorf("failed to convert alerting rule: %w", err)
+				}
+
+				if ar.Labels == nil {
+					ar.Labels = make(map[string]string)
+				}
+				ar.Labels[tenantLabel] = tenantID
+
+				expr, err := enforceLabelsInExpr(e, ar.Expr)
+				if err != nil {
+					return err
+				}
+				ar.Expr = expr
+
+				if err := r.FromAlertingRule(ar); err != nil {
+					return err
+				}
+
+			default:
+				return fmt.Errorf("failed to convert rule type: %#v", r)
 			}
+
+			rawRules.Groups[i].Rules[j] = r
 		}
 	}
 

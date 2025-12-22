@@ -11,7 +11,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/log"
 	"github.com/prometheus/prometheus/model/labels"
 
