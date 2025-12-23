@@ -266,7 +266,18 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.
 
 		r.Group(func(r chi.Router) {
 			r.Use(c.tempoMiddlewares...)
+			r.Get("/tempo/ready", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
+				tempoProxyRead))
 			r.Get("/tempo/api*", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
+				tempoProxyRead))
+			// The MCP endpoint at /api/mcp uses JSON-RPC
+			r.Post("/tempo/api/mcp", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
+				tempoProxyRead))
+			// HTTP DELETE is sent to terminate a MCP session
+			r.Delete("/tempo/api/mcp", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
 				tempoProxyRead))
 		})
