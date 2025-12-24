@@ -556,6 +556,7 @@ func TestTracesTempo(t *testing.T) {
 					"grpc":         4317,
 					"health_check": 13133,
 					"telemetry":    8888,
+					"zpages":       55679,
 				}).
 			Init(e2e.StartOptions{
 				Image: otelCollectorImage,
@@ -606,6 +607,5 @@ func TestTracesTempo(t *testing.T) {
 			httpObservatoriumTempoEndpoint, "5B8EFFF798038103D269B633813FC60C",
 			true, fmt.Sprintf("bearer %s", token), http.StatusOK)
 		assertResponse(t, returnedTrace, tempoTraceResponse5B)
-
 	})
 }
