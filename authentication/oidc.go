@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -40,15 +41,16 @@ func init() {
 
 // oidcConfig represents the oidc authenticator config.
 type oidcConfig struct {
-	ClientID      string `json:"clientID"`
-	ClientSecret  string `json:"clientSecret"`
-	GroupClaim    string `json:"groupClaim"`
-	IssuerRawCA   []byte `json:"issuerCA"`
-	IssuerCAPath  string `json:"issuerCAPath"`
+	ClientID      string   `json:"clientID"`
+	ClientSecret  string   `json:"clientSecret"`
+	GroupClaim    string   `json:"groupClaim"`
+	IssuerRawCA   []byte   `json:"issuerCA"`
+	IssuerCAPath  string   `json:"issuerCAPath"`
 	issuerCA      *x509.Certificate
-	IssuerURL     string `json:"issuerURL"`
-	RedirectURL   string `json:"redirectURL"`
-	UsernameClaim string `json:"usernameClaim"`
+	IssuerURL     string   `json:"issuerURL"`
+	RedirectURL   string   `json:"redirectURL"`
+	UsernameClaim string   `json:"usernameClaim"`
+	PathPatterns  []string `json:"pathPatterns"`
 }
 
 type oidcAuthenticator struct {
@@ -62,6 +64,7 @@ type oidcAuthenticator struct {
 	redirectURL  string
 	oauth2Config oauth2.Config
 	handler      http.Handler
+	pathMatchers []*regexp.Regexp
 }
 
 func newOIDCAuthenticator(c map[string]interface{}, tenant string,
@@ -146,6 +149,16 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 
 	verifier := provider.Verifier(&oidc.Config{ClientID: config.ClientID})
 
+	// Compile path patterns
+	var pathMatchers []*regexp.Regexp
+	for _, pattern := range config.PathPatterns {
+		matcher, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile OIDC path pattern %q: %v", pattern, err)
+		}
+		pathMatchers = append(pathMatchers, matcher)
+	}
+
 	oidcProvider := &oidcAuthenticator{
 		tenant:       tenant,
 		logger:       logger,
@@ -156,6 +169,7 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		client:       client,
 		cookieName:   fmt.Sprintf("observatorium_%s", tenant),
 		redirectURL:  path.Join("/", tenant),
+		pathMatchers: pathMatchers,
 	}
 
 	r := chi.NewRouter()
@@ -276,6 +290,24 @@ func (a oidcAuthenticator) Handler() (string, http.Handler) {
 func (a oidcAuthenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if OIDC is required for this path
+			if len(a.pathMatchers) > 0 {
+				pathMatches := false
+				for _, matcher := range a.pathMatchers {
+					if matcher.MatchString(r.URL.Path) {
+						pathMatches = true
+						break
+					}
+				}
+				
+				// If path doesn't match, skip OIDC enforcement
+				if !pathMatches {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Path matches or no paths configured, enforce OIDC
 			var token string
 
 			authorizationHeader := r.Header.Get("Authorization")
