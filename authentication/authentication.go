@@ -19,14 +19,13 @@ var providerFactories map[string]ProviderFactory
 // providersMtx is used to protect the providerFactories.
 var providersMtx sync.RWMutex
 
-func init() {
-	providerFactories = make(map[string]ProviderFactory)
-}
-
 // onboardNewProvider is used by the providers to register themselves.
 func onboardNewProvider(providerType string, factory ProviderFactory) {
 	providersMtx.Lock()
 	defer providersMtx.Unlock()
+	if providerFactories == nil {
+		providerFactories = map[string]ProviderFactory{}
+	}
 
 	providerFactories[providerType] = factory
 }
