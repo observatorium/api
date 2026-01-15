@@ -16,19 +16,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: 1.24
-
-      - name: Update and Install necessary dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get -y install xz-utils unzip openssl
-
-      - name: Install Go 1.24.11
-        run: |
-          sudo rm -rf /usr/local/go
-          wget -qO- https://dl.google.com/go/go1.24.11.linux-amd64.tar.gz | sudo tar -C /usr/local -xzf -
-          echo "/usr/local/go/bin" >> $GITHUB_PATH
-          go version
+          go-version-file: 'go.mod'
 
       - name: Run tests
         run: make test --always-make
