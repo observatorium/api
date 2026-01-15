@@ -283,8 +283,8 @@ ${MANIFESTS}: examples/main.jsonnet jsonnet/lib/* | $(JSONNET) $(GOJSONTOYAML)
 	$(JSONNET) -m ${MANIFESTS} examples/main.jsonnet | xargs -I{} sh -c 'cat {} | $(GOJSONTOYAML) > {}.yaml && rm -f {}' -- {
 
 .PHONY: validate
-validate: $(KUBEVAL)
-	$(KUBEVAL) ${MANIFESTS}/*.yaml
+validate: $(KUBECONFORM)
+	$(KUBECONFORM) -exit-on-error -summary -output json ${MANIFESTS}
 
 JSONNET_SRC = $(shell find . -name 'vendor' -prune -o -name 'examples/vendor' -prune -o -name 'tmp' -prune -o -name '*.libsonnet' -print -o -name '*.jsonnet' -print)
 JSONNETFMT_CMD := $(JSONNETFMT) -n 2 --max-blank-lines 2 --string-style s --comment-style s

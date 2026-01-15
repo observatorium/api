@@ -77,11 +77,11 @@ $(JSONNETFMT): $(BINGO_DIR)/jsonnetfmt.mod
 	@echo "(re)installing $(GOBIN)/jsonnetfmt-v0.21.0"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=jsonnetfmt.mod -o=$(GOBIN)/jsonnetfmt-v0.21.0 "github.com/google/go-jsonnet/cmd/jsonnetfmt"
 
-KUBEVAL := $(GOBIN)/kubeval-v0.0.0-20201005082916-38668c6c5b23
-$(KUBEVAL): $(BINGO_DIR)/kubeval.mod
+KUBECONFORM := $(GOBIN)/kubeconform-v0.7.0
+$(KUBECONFORM): $(BINGO_DIR)/kubeconform.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/kubeval-v0.0.0-20201005082916-38668c6c5b23"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kubeval.mod -o=$(GOBIN)/kubeval-v0.0.0-20201005082916-38668c6c5b23 "github.com/instrumenta/kubeval"
+	@echo "(re)installing $(GOBIN)/kubeconform-v0.7.0"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kubeconform.mod -o=$(GOBIN)/kubeconform-v0.7.0 "github.com/yannh/kubeconform/cmd/kubeconform"
 
 OAPI_CODEGEN := $(GOBIN)/oapi-codegen-v2.5.1
 $(OAPI_CODEGEN): $(BINGO_DIR)/oapi-codegen.mod
