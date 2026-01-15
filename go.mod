@@ -7,8 +7,8 @@ toolchain go1.23.9
 require (
 	github.com/brancz/kube-rbac-proxy v0.19.0
 	github.com/coreos/go-oidc/v3 v3.15.0
-	github.com/efficientgo/core v1.0.0-rc.3
-	github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f
+	github.com/efficientgo/core v1.0.0-rc.3.0.20250509094815-bd2ec8febb66
+	github.com/efficientgo/e2e v0.14.1-0.20251204144843-44570aa52a90
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-chi/httprate v0.14.1

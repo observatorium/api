@@ -20,16 +20,15 @@ import (
 const (
 	apiImage = "quay.io/observatorium/api:local_e2e_test" // Image that is built if you run `make container-test`.
 
-	// Labels matching below thanos v0.24 will fail with "no matchers specified (excluding external labels)" if you specify only tenant matcher. Fixed later on.
-	thanosImage       = "quay.io/thanos/thanos:v0.32.4"
-	lokiImage         = "grafana/loki:2.6.1"
-	upImage           = "quay.io/observatorium/up:master-2022-10-27-d8bb06f"
-	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.25.0"
+	thanosImage       = "quay.io/thanos/thanos:v0.40.1"
+	lokiImage         = "grafana/loki:2.9.17"
+	upImage           = "quay.io/observatorium/up:master-2025-12-18-b1c89d2"
+	alertmanagerImage = "quay.io/prometheus/alertmanager:v0.30.1"
 	probesImage       = "quay.io/redhat-services-prod/openshift/rhobs-synthetics-api:latest"
 
 	jaegerAllInOneImage = "jaegertracing/all-in-one:1.57.0"
-	otelCollectorImage  = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.101.0"
-	tempoImage          = "grafana/tempo:2.2.4"
+	otelCollectorImage  = "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.142.0"
+	tempoImage          = "grafana/tempo:2.9.0"
 
 	dexImage              = "dexidp/dex:v2.30.0"
 	opaImage              = "openpolicyagent/opa:1.5.1-static"
@@ -164,7 +163,6 @@ func startTempoServicesForTraces(t *testing.T, e e2e.Environment) (tempoDistribu
 				},
 			},
 		})
-	createTempoConfigYAML(t, e)
 
 	testutil.Ok(t, e2e.StartAndWaitReady(tempo))
 

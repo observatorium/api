@@ -123,6 +123,7 @@ func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
 }
 
 func assertResponse(t *testing.T, response string, expected string) {
+	t.Helper()
 	testutil.Assert(
 		t,
 		strings.Contains(response, expected),
