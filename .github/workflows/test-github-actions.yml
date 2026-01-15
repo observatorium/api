@@ -75,10 +75,7 @@ jobs:
         run: make container-test
 
       - name: Run e2e tests
-        run: |
-          # Remove the dependency check and just run the tests
-          rm -rf test/e2e/e2e_*
-          CGO_ENABLED=1 GO111MODULE=on go test -v -race -short -tags integration ./test/e2e
+        run: make test-e2e
 
   generate:
     runs-on: ubuntu-latest
