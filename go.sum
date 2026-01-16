@@ -102,10 +102,10 @@ github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkp
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/edsrzf/mmap-go v1.2.0 h1:hXLYlkbaPzt1SaQk+anYwKSRNhufIDCchSPkUD6dD84=
 github.com/edsrzf/mmap-go v1.2.0/go.mod h1:19H/e8pUPLicwkyNgOykDXkJ9F0MHE+Z52B8EIth78Q=
-github.com/efficientgo/core v1.0.0-rc.3 h1:X6CdgycYWDcbYiJr1H1+lQGzx13o7bq3EUkbB9DsSPc=
-github.com/efficientgo/core v1.0.0-rc.3/go.mod h1:FfGdkzWarkuzOlY04VY+bGfb1lWrjaL6x/GLcQ4vJps=
-github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f h1:o6k4pEAY+B54emx/ZkSo1aeBDgzIIvBYluezcWjKilw=
-github.com/efficientgo/e2e v0.14.1-0.20230413162904-ebc233c5a32f/go.mod h1:plsKU0YHE9uX+7utvr7SiDtVBSHJyEfHRO4UnUgDmts=
+github.com/efficientgo/core v1.0.0-rc.3.0.20250509094815-bd2ec8febb66 h1:dbyJxOkY0GfW7gCJw2T0XPkxUeal/eKKI24jMJVEd0w=
+github.com/efficientgo/core v1.0.0-rc.3.0.20250509094815-bd2ec8febb66/go.mod h1:FfGdkzWarkuzOlY04VY+bGfb1lWrjaL6x/GLcQ4vJps=
+github.com/efficientgo/e2e v0.14.1-0.20251204144843-44570aa52a90 h1:IxIFadkrIijEI41AgVvLjx7ePtBi+c7Fhmq/Zwkrb9g=
+github.com/efficientgo/e2e v0.14.1-0.20251204144843-44570aa52a90/go.mod h1:plsKU0YHE9uX+7utvr7SiDtVBSHJyEfHRO4UnUgDmts=
 github.com/emicklei/go-restful/v3 v3.11.0 h1:rAQeMHw1c7zTmncogyy8VvRZwtkmkZ4FxERmMY4rD+g=
 github.com/emicklei/go-restful/v3 v3.11.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

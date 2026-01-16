@@ -263,10 +263,16 @@ exporters:
 
 service:
     telemetry:
-        metrics:
-            address: localhost:8888
-        logs:
-            level: "debug"
+      metrics:
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888
+        level: detailed
+      logs:
+        level: DEBUG
 
     pipelines:
         traces/grpc:
@@ -320,17 +326,25 @@ exporters:
       headers:
         x-tenant: test-oidc
         # (Use hard-coded auth header, because this forwarding collector
-        # is unable to do OIDC password grant.)
+        # is unable to do OIDC password grant)
         authorization: bearer %[2]s
 
 extensions:
   health_check:
+    endpoint: 0.0.0.0:13133
+  zpages:
+    endpoint: 0.0.0.0:55679
 
 service:
-    extensions: [health_check]
+    extensions: [health_check, zpages]
     telemetry:
       metrics:
-        address: :8888
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888
         level: detailed
     # extensions: [oauth2client]
     pipelines:
@@ -471,7 +485,9 @@ distributor:
     otlp:
       protocols:
         http:
+          endpoint: 0.0.0.0:4318
         grpc:
+          endpoint: 0.0.0.0:4317
     opencensus:
 
 ingester:
