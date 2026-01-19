@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 
 	"github.com/go-kit/log"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
@@ -28,9 +29,11 @@ func init() {
 }
 
 type mTLSConfig struct {
-	RawCA  []byte `json:"ca"`
-	CAPath string `json:"caPath"`
-	CAs    []*x509.Certificate
+	RawCA        []byte   `json:"ca"`
+	CAPath       string   `json:"caPath"`
+	PathPatterns []string `json:"pathPatterns"`
+	CAs          []*x509.Certificate
+	pathMatchers []*regexp.Regexp
 }
 
 type MTLSAuthenticator struct {
@@ -83,6 +86,15 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 		config.CAs = cas
 	}
 
+	// Compile path patterns
+	for _, pattern := range config.PathPatterns {
+		matcher, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile mTLS path pattern %q: %v", pattern, err)
+		}
+		config.pathMatchers = append(config.pathMatchers, matcher)
+	}
+
 	return MTLSAuthenticator{
 		tenant: tenant,
 		logger: logger,
@@ -93,6 +105,29 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 func (a MTLSAuthenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check if mTLS is required for this path
+			if len(a.config.pathMatchers) > 0 {
+				pathMatches := false
+				for _, matcher := range a.config.pathMatchers {
+					if matcher.MatchString(r.URL.Path) {
+						pathMatches = true
+						break
+					}
+				}
+
+				// If path doesn't match, skip mTLS enforcement
+				if !pathMatches {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			// Path matches or no paths configured, enforce mTLS
+			if r.TLS == nil {
+				httperr.PrometheusAPIError(w, "mTLS required but no TLS connection", http.StatusBadRequest)
+				return
+			}
+
 			caPool := x509.NewCertPool()
 			for _, ca := range a.config.CAs {
 				caPool.AddCert(ca)
@@ -157,3 +192,4 @@ func (a MTLSAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a MTLSAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
+
