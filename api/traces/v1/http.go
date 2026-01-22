@@ -260,8 +260,19 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.
 			ErrorLog:  proxy.Logger(c.logger),
 			Transport: otelhttp.NewTransport(t),
 		}
+
+		mcpHandler := http.NotFoundHandler()
 		if c.enableRBAC {
 			tempoProxyRead.ModifyResponse = responseRBACModifier(c.logger)
+			// The responses from the Tempo MCP server are different to regular responses of the Tempo API
+			// See https://github.com/grafana/tempo/pull/5962 for details. The format is subject to change.
+			level.Warn(c.logger).Log("msg", "Tempo MCP server is not compatible with query RBAC and will be disabled")
+		} else {
+			var err error
+			mcpHandler, err = NewMCPProxy(c.logger, t.TLSClientConfig, fmt.Sprintf("%s/api/mcp", tempo), true)
+			if err != nil {
+				level.Error(c.logger).Log("msg", "error initializing Tempo MCP proxy", "err", err)
+			}
 		}
 
 		r.Group(func(r chi.Router) {
@@ -269,15 +280,10 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.
 			r.Get("/tempo/ready", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
 				tempoProxyRead))
+			r.Handle("/tempo/api/mcp", c.instrument.NewHandler(
+				prometheus.Labels{"group": "tracesv1api", "handler": "mcp"},
+				mcpHandler))
 			r.Get("/tempo/api*", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
-				tempoProxyRead))
-			// The MCP endpoint at /api/mcp uses JSON-RPC
-			r.Post("/tempo/api/mcp", c.instrument.NewHandler(
-				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
-				tempoProxyRead))
-			// HTTP DELETE is sent to terminate a MCP session
-			r.Delete("/tempo/api/mcp", c.instrument.NewHandler(
 				prometheus.Labels{"group": "tracesv1api", "handler": "traces"},
 				tempoProxyRead))
 		})
