@@ -9,8 +9,6 @@ PROMETHEUS=${PROMETHEUS:-prometheus}
 MOCKPROVIDER=${MOCKPROVIDER:-mockprovider}
 PROMREMOTEBENCH=${PROMREMOTEBENCH:-promremotebench}
 
-trap 'kill $(jobs -p); exit 0' EXIT
-
 generate_report() {
     printf "\tGenerating report...\n"
 
@@ -67,9 +65,8 @@ plot() {
     done
 }
 
-# ---
-
-(
+run_observatorium() {
+  (
     # In order to collect process metrics, it needs to run in container. os x doesn't support it.
     platform="$(uname -s | tr '[:upper:]' '[:lower:]')"
     case $platform in
@@ -91,19 +88,24 @@ plot() {
         echo "unknown platform: $platform"
         ;;
     esac
-) &
+  ) &
+}
 
-(
+run_mock() {
+  (
     $MOCKPROVIDER \
         --listen=0.0.0.0:8888
-) &
+  ) &
+}
 
-(
+run_prometheus() {
+  (
     $PROMETHEUS \
         --log.level=warn \
         --config.file=./test/config/prometheus.yml \
         --storage.tsdb.path="$(mktemp -d)"
-) &
+  ) &
+}
 
 usage="$(basename "$0") [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium api and report results.
 
@@ -159,6 +161,12 @@ while getopts "h?o:r:c:m:q:" opt; do
     esac
 done
 shift $((OPTIND - 1))
+
+trap 'kill $(jobs -p); exit 0' EXIT
+
+run_observatorium
+run_mock
+run_prometheus
 
 hosts=$((number_of_clusters * number_of_machines))
 printf "\tStarting with %s clusters, will run for %s.\n", "$hosts", "$run_for"
