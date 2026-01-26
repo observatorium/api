@@ -266,8 +266,8 @@ components:
             type: string
           warnings:
             type: array
-          items:
-            type: string
+            items:
+              type: string
           status:
             type: string
             example: "success"
