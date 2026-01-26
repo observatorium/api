@@ -54,6 +54,7 @@ import (
 	tracesv1 "github.com/observatorium/api/api/traces/v1"
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
+	"github.com/observatorium/api/client"
 	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/logger"
 	"github.com/observatorium/api/opa"
@@ -918,6 +919,9 @@ func main() {
 			})
 		}
 
+		r.Get("/openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(client.OpenAPISpecification)
+		})
 		r.Get("/", server.PathsHandlerFunc(logger, r.Routes()))
 
 		s := http.Server{
