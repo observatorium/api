@@ -51,10 +51,9 @@ type LogReadResponse struct {
 	DroppedEntries *[]externalRef0.TailLogs `json:"dropped_entries,omitempty"`
 	Error          *string                  `json:"error,omitempty"`
 	ErrorType      *string                  `json:"errorType,omitempty"`
-	Items          *string                  `json:"items,omitempty"`
 	Status         string                   `json:"status"`
 	Streams        []externalRef0.PushLogs  `json:"streams"`
-	Warnings       *[]interface{}           `json:"warnings,omitempty"`
+	Warnings       *[]string                `json:"warnings,omitempty"`
 }
 
 // LogRulesGroupResponse defines model for LogRulesGroupResponse.
