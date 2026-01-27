@@ -1,5 +1,184 @@
 components:
   schemas:
+    Matcher:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        isRegex:
+          type: boolean
+        isEqual:
+          type: boolean
+          default: true
+      required:
+        - name
+        - value
+        - isRegex
+    Matchers:
+      type: array
+      items:
+        $ref: '#/components/schemas/Matcher'
+      minItems: 1
+    LabelSet:
+      type: object
+      additionalProperties:
+        type: string
+    Silence:
+      type: object
+      properties:
+        matchers:
+          $ref: '#/components/schemas/Matchers'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        comment:
+          type: string
+      required:
+        - matchers
+        - startsAt
+        - endsAt
+        - createdBy
+        - comment
+    SilenceStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: ["expired", "active", "pending"]
+      required:
+        - state
+    GettableSilence:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+            status:
+              $ref: '#/components/schemas/SilenceStatus'
+            updatedAt:
+              type: string
+              format: date-time
+          required:
+            - id
+            - status
+            - updatedAt
+        - $ref: '#/components/schemas/Silence'
+    GettableSilences:
+      type: array
+      items:
+        $ref: '#/components/schemas/GettableSilence'
+    PostableSilence:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+        - $ref: '#/components/schemas/Silence'
+    PostSilenceResponse:
+      type: object
+      properties:
+        silenceID:
+          type: string
+    Receiver:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+    Alert:
+      type: object
+      properties:
+        labels:
+          $ref: '#/components/schemas/LabelSet'
+        generatorURL:
+          type: string
+          format: uri
+      required:
+        - labels
+    AlertStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: ['unprocessed', 'active', 'suppressed']
+        silencedBy:
+          type: array
+          items:
+            type: string
+        inhibitedBy:
+          type: array
+          items:
+            type: string
+        mutedBy:
+          type: array
+          items:
+            type: string
+      required:
+        - state
+        - silencedBy
+        - inhibitedBy
+        - mutedBy
+    GettableAlert:
+      allOf:
+        - type: object
+          properties:
+            annotations:
+              $ref: '#/components/schemas/LabelSet'
+            receivers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Receiver'
+            fingerprint:
+              type: string
+            startsAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            endsAt:
+              type: string
+              format: date-time
+            status:
+              $ref: '#/components/schemas/AlertStatus'
+          required:
+            - receivers
+            - fingerprint
+            - startsAt
+            - updatedAt
+            - endsAt
+            - annotations
+            - status
+        - $ref: '#/components/schemas/Alert'
+    GettableAlerts:
+      type: array
+      items:
+        $ref: '#/components/schemas/GettableAlert'
+    PostableAlert:
+      allOf:
+        - type: object
+          properties:
+            startsAt:
+              type: string
+              format: date-time
+            endsAt:
+              type: string
+              format: date-time
+            annotations:
+              $ref: '#/components/schemas/LabelSet'
+        - $ref: '#/components/schemas/Alert'
+    PostableAlerts:
+      type: array
+      items:
+        $ref: '#/components/schemas/PostableAlert'
     Rules:
       type: object
       required:

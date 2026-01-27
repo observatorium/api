@@ -5,8 +5,16 @@ package models
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
+)
+
+// Defines values for AlertStatusState.
+const (
+	AlertStatusStateActive      AlertStatusState = "active"
+	AlertStatusStateSuppressed  AlertStatusState = "suppressed"
+	AlertStatusStateUnprocessed AlertStatusState = "unprocessed"
 )
 
 // Defines values for AlertingRuleEvaluatedType.
@@ -47,6 +55,13 @@ const (
 	Recording RecordingRuleEvaluatedType = "recording"
 )
 
+// Defines values for SilenceStatusState.
+const (
+	SilenceStatusStateActive  SilenceStatusState = "active"
+	SilenceStatusStateExpired SilenceStatusState = "expired"
+	SilenceStatusStatePending SilenceStatusState = "pending"
+)
+
 // ActiveAlert defines model for ActiveAlert.
 type ActiveAlert struct {
 	ActiveAt    string             `json:"activeAt"`
@@ -55,6 +70,23 @@ type ActiveAlert struct {
 	State       string             `json:"state"`
 	Value       string             `json:"value"`
 }
+
+// Alert defines model for Alert.
+type Alert struct {
+	GeneratorURL *string  `json:"generatorURL,omitempty"`
+	Labels       LabelSet `json:"labels"`
+}
+
+// AlertStatus defines model for AlertStatus.
+type AlertStatus struct {
+	InhibitedBy []string         `json:"inhibitedBy"`
+	MutedBy     []string         `json:"mutedBy"`
+	SilencedBy  []string         `json:"silencedBy"`
+	State       AlertStatusState `json:"state"`
+}
+
+// AlertStatusState defines model for AlertStatus.State.
+type AlertStatusState string
 
 // AlertingRule defines model for AlertingRule.
 type AlertingRule struct {
@@ -83,11 +115,45 @@ type AlertingRuleEvaluated struct {
 // AlertingRuleEvaluatedType defines model for AlertingRuleEvaluated.Type.
 type AlertingRuleEvaluatedType string
 
+// GettableAlert defines model for GettableAlert.
+type GettableAlert struct {
+	Annotations  LabelSet    `json:"annotations"`
+	EndsAt       time.Time   `json:"endsAt"`
+	Fingerprint  string      `json:"fingerprint"`
+	GeneratorURL *string     `json:"generatorURL,omitempty"`
+	Labels       LabelSet    `json:"labels"`
+	Receivers    []Receiver  `json:"receivers"`
+	StartsAt     time.Time   `json:"startsAt"`
+	Status       AlertStatus `json:"status"`
+	UpdatedAt    time.Time   `json:"updatedAt"`
+}
+
+// GettableAlerts defines model for GettableAlerts.
+type GettableAlerts = []GettableAlert
+
+// GettableSilence defines model for GettableSilence.
+type GettableSilence struct {
+	Comment   string        `json:"comment"`
+	CreatedBy string        `json:"createdBy"`
+	EndsAt    time.Time     `json:"endsAt"`
+	Id        string        `json:"id"`
+	Matchers  Matchers      `json:"matchers"`
+	StartsAt  time.Time     `json:"startsAt"`
+	Status    SilenceStatus `json:"status"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}
+
+// GettableSilences defines model for GettableSilences.
+type GettableSilences = []GettableSilence
+
 // InstantVectors defines model for InstantVectors.
 type InstantVectors struct {
 	Metric map[string]string `json:"metric"`
 	Values []ScalarOrString  `json:"values"`
 }
+
+// LabelSet defines model for LabelSet.
+type LabelSet map[string]string
 
 // LogInstantQueryResponse defines model for LogInstantQueryResponse.
 type LogInstantQueryResponse struct {
@@ -124,6 +190,17 @@ type LogSeriesRequest struct {
 	Start *string  `json:"start,omitempty"`
 }
 
+// Matcher defines model for Matcher.
+type Matcher struct {
+	IsEqual *bool  `json:"isEqual,omitempty"`
+	IsRegex bool   `json:"isRegex"`
+	Name    string `json:"name"`
+	Value   string `json:"value"`
+}
+
+// Matchers defines model for Matchers.
+type Matchers = []Matcher
+
 // MetricInstantQueryResponse defines model for MetricInstantQueryResponse.
 type MetricInstantQueryResponse struct {
 	Result     []MetricInstantQueryResponse_Result_Item `json:"result"`
@@ -152,6 +229,33 @@ type MetricRangeQueryResponse_Result_Item struct {
 // MetricRangeQueryResponseResultType defines model for MetricRangeQueryResponse.ResultType.
 type MetricRangeQueryResponseResultType string
 
+// PostSilenceResponse defines model for PostSilenceResponse.
+type PostSilenceResponse struct {
+	SilenceID *string `json:"silenceID,omitempty"`
+}
+
+// PostableAlert defines model for PostableAlert.
+type PostableAlert struct {
+	Annotations  *LabelSet  `json:"annotations,omitempty"`
+	EndsAt       *time.Time `json:"endsAt,omitempty"`
+	GeneratorURL *string    `json:"generatorURL,omitempty"`
+	Labels       LabelSet   `json:"labels"`
+	StartsAt     *time.Time `json:"startsAt,omitempty"`
+}
+
+// PostableAlerts defines model for PostableAlerts.
+type PostableAlerts = []PostableAlert
+
+// PostableSilence defines model for PostableSilence.
+type PostableSilence struct {
+	Comment   string    `json:"comment"`
+	CreatedBy string    `json:"createdBy"`
+	EndsAt    time.Time `json:"endsAt"`
+	Id        *string   `json:"id,omitempty"`
+	Matchers  Matchers  `json:"matchers"`
+	StartsAt  time.Time `json:"startsAt"`
+}
+
 // PushLogs defines model for PushLogs.
 type PushLogs struct {
 	Stream map[string]string `json:"stream"`
@@ -162,6 +266,11 @@ type PushLogs struct {
 type RangeVectors struct {
 	Metric map[string]string `json:"metric"`
 	Values []ScalarOrString  `json:"values"`
+}
+
+// Receiver defines model for Receiver.
+type Receiver struct {
+	Name string `json:"name"`
 }
 
 // RecordingRule defines model for RecordingRule.
@@ -238,6 +347,23 @@ type ScalarOrString1 = string
 type ScalarOrString_Item struct {
 	union json.RawMessage
 }
+
+// Silence defines model for Silence.
+type Silence struct {
+	Comment   string    `json:"comment"`
+	CreatedBy string    `json:"createdBy"`
+	EndsAt    time.Time `json:"endsAt"`
+	Matchers  Matchers  `json:"matchers"`
+	StartsAt  time.Time `json:"startsAt"`
+}
+
+// SilenceStatus defines model for SilenceStatus.
+type SilenceStatus struct {
+	State SilenceStatusState `json:"state"`
+}
+
+// SilenceStatusState defines model for SilenceStatus.State.
+type SilenceStatusState string
 
 // StreamValues defines model for StreamValues.
 type StreamValues struct {

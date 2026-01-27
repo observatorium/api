@@ -16,6 +16,7 @@ import (
 	"github.com/ghodss/yaml"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	externalRef0 "github.com/observatorium/api/client/models"
 	externalRef1 "github.com/observatorium/api/client/parameters"
 	externalRef2 "github.com/observatorium/api/client/responses"
@@ -121,6 +122,39 @@ type GetLogsParams struct {
 	Delay *int `form:"delay,omitempty" json:"delay,omitempty"`
 }
 
+// GetAlertsParams defines parameters for GetAlerts.
+type GetAlertsParams struct {
+	// Active Include active alerts in results. If false, excludes active alerts and returns only suppressed (silenced or inhibited) alerts.
+	Active *bool `form:"active,omitempty" json:"active,omitempty"`
+
+	// Silenced Include silenced alerts in results. If false, excludes silenced alerts. Note that true (default) shows both silenced and non-silenced alerts.
+	Silenced *bool `form:"silenced,omitempty" json:"silenced,omitempty"`
+
+	// Inhibited Include inhibited alerts in results. If false, excludes inhibited alerts. Note that true (default) shows both inhibited and non-inhibited alerts.
+	Inhibited *bool `form:"inhibited,omitempty" json:"inhibited,omitempty"`
+
+	// Unprocessed Include unprocessed alerts in results. If false, excludes unprocessed alerts. Note that true (default) shows both processed and unprocessed alerts.
+	Unprocessed *bool `form:"unprocessed,omitempty" json:"unprocessed,omitempty"`
+
+	// Receiver A regex matching receivers to filter alerts by
+	Receiver *string `form:"receiver,omitempty" json:"receiver,omitempty"`
+
+	// Filter A matcher expression to filter alerts. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
+// GetSilencesParams defines parameters for GetSilences.
+type GetSilencesParams struct {
+	// Filter A matcher expression to filter silences. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
+// PostSilenceParams defines parameters for PostSilence.
+type PostSilenceParams struct {
+	// Filter A matcher expression to filter silences. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
 // GetLabelValuesParams defines parameters for GetLabelValues.
 type GetLabelValuesParams struct {
 	// Match Repeated series selector argument
@@ -213,6 +247,9 @@ type PostlogEntriesJSONRequestBody = externalRef0.PushLogs
 
 // PostLogSeriesFormdataRequestBody defines body for PostLogSeries for application/x-www-form-urlencoded ContentType.
 type PostLogSeriesFormdataRequestBody PostLogSeriesFormdataBody
+
+// PostSilenceJSONRequestBody defines body for PostSilence for application/json ContentType.
+type PostSilenceJSONRequestBody = externalRef0.PostableSilence
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -338,6 +375,23 @@ type ClientInterface interface {
 
 	// GetLogsPromRules request
 	GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAlerts request
+	GetAlerts(ctx context.Context, tenant externalRef1.Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSilence request
+	DeleteSilence(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSilence request
+	GetSilence(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSilences request
+	GetSilences(ctx context.Context, tenant externalRef1.Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSilenceWithBody request with any body
+	PostSilenceWithBody(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostSilence(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabelValues request
 	GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -570,6 +624,78 @@ func (c *Client) GetLogsPromAlerts(ctx context.Context, tenant externalRef1.Tena
 
 func (c *Client) GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsPromRulesRequest(c.Server, tenant)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAlerts(ctx context.Context, tenant externalRef1.Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAlertsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSilence(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSilenceRequest(c.Server, tenant, silenceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSilence(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSilenceRequest(c.Server, tenant, silenceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSilences(ctx context.Context, tenant externalRef1.Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSilencesRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSilenceWithBody(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSilenceRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSilence(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSilenceRequest(c.Server, tenant, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1722,6 +1848,349 @@ func NewGetLogsPromRulesRequest(server string, tenant externalRef1.Tenant) (*htt
 	return req, nil
 }
 
+// NewGetAlertsRequest generates requests for GetAlerts
+func NewGetAlertsRequest(server string, tenant externalRef1.Tenant, params *GetAlertsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/alerts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Active != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "active", runtime.ParamLocationQuery, *params.Active); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Silenced != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "silenced", runtime.ParamLocationQuery, *params.Silenced); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Inhibited != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "inhibited", runtime.ParamLocationQuery, *params.Inhibited); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Unprocessed != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "unprocessed", runtime.ParamLocationQuery, *params.Unprocessed); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Receiver != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "receiver", runtime.ParamLocationQuery, *params.Receiver); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteSilenceRequest generates requests for DeleteSilence
+func NewDeleteSilenceRequest(server string, tenant externalRef1.Tenant, silenceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "silenceID", runtime.ParamLocationPath, silenceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silence/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSilenceRequest generates requests for GetSilence
+func NewGetSilenceRequest(server string, tenant externalRef1.Tenant, silenceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "silenceID", runtime.ParamLocationPath, silenceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silence/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSilencesRequest generates requests for GetSilences
+func NewGetSilencesRequest(server string, tenant externalRef1.Tenant, params *GetSilencesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silences", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostSilenceRequest calls the generic PostSilence builder with application/json body
+func NewPostSilenceRequest(server string, tenant externalRef1.Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostSilenceRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewPostSilenceRequestWithBody generates requests for PostSilence with any type of body
+func NewPostSilenceRequestWithBody(server string, tenant externalRef1.Tenant, params *PostSilenceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silences", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetLabelValuesRequest generates requests for GetLabelValues
 func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams) (*http.Request, error) {
 	var err error
@@ -2498,6 +2967,23 @@ type ClientWithResponsesInterface interface {
 	// GetLogsPromRulesWithResponse request
 	GetLogsPromRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error)
 
+	// GetAlertsWithResponse request
+	GetAlertsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*GetAlertsResponse, error)
+
+	// DeleteSilenceWithResponse request
+	DeleteSilenceWithResponse(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSilenceResponse, error)
+
+	// GetSilenceWithResponse request
+	GetSilenceWithResponse(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSilenceResponse, error)
+
+	// GetSilencesWithResponse request
+	GetSilencesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*GetSilencesResponse, error)
+
+	// PostSilenceWithBodyWithResponse request with any body
+	PostSilenceWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error)
+
+	PostSilenceWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error)
+
 	// GetLabelValuesWithResponse request
 	GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
 
@@ -2870,6 +3356,115 @@ func (r GetLogsPromRulesResponse) StatusCode() int {
 	return 0
 }
 
+type GetAlertsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *externalRef0.GettableAlerts
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAlertsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAlertsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSilenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSilenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSilenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSilenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *externalRef0.GettableSilence
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSilenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSilenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSilencesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *externalRef0.GettableSilences
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSilencesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSilencesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostSilenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *externalRef0.PostSilenceResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSilenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSilenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3203,6 +3798,59 @@ func (c *ClientWithResponses) GetLogsPromRulesWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetLogsPromRulesResponse(rsp)
+}
+
+// GetAlertsWithResponse request returning *GetAlertsResponse
+func (c *ClientWithResponses) GetAlertsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*GetAlertsResponse, error) {
+	rsp, err := c.GetAlerts(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAlertsResponse(rsp)
+}
+
+// DeleteSilenceWithResponse request returning *DeleteSilenceResponse
+func (c *ClientWithResponses) DeleteSilenceWithResponse(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSilenceResponse, error) {
+	rsp, err := c.DeleteSilence(ctx, tenant, silenceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSilenceResponse(rsp)
+}
+
+// GetSilenceWithResponse request returning *GetSilenceResponse
+func (c *ClientWithResponses) GetSilenceWithResponse(ctx context.Context, tenant externalRef1.Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSilenceResponse, error) {
+	rsp, err := c.GetSilence(ctx, tenant, silenceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSilenceResponse(rsp)
+}
+
+// GetSilencesWithResponse request returning *GetSilencesResponse
+func (c *ClientWithResponses) GetSilencesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*GetSilencesResponse, error) {
+	rsp, err := c.GetSilences(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSilencesResponse(rsp)
+}
+
+// PostSilenceWithBodyWithResponse request with arbitrary body returning *PostSilenceResponse
+func (c *ClientWithResponses) PostSilenceWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error) {
+	rsp, err := c.PostSilenceWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSilenceResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostSilenceWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error) {
+	rsp, err := c.PostSilence(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSilenceResponse(rsp)
 }
 
 // GetLabelValuesWithResponse request returning *GetLabelValuesResponse
@@ -3633,6 +4281,126 @@ func ParseGetLogsPromRulesResponse(rsp *http.Response) (*GetLogsPromRulesRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
 		var dest externalRef2.LogRulesPrometheusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAlertsResponse parses an HTTP response from a GetAlertsWithResponse call
+func ParseGetAlertsResponse(rsp *http.Response) (*GetAlertsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAlertsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest externalRef0.GettableAlerts
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSilenceResponse parses an HTTP response from a DeleteSilenceWithResponse call
+func ParseDeleteSilenceResponse(rsp *http.Response) (*DeleteSilenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSilenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetSilenceResponse parses an HTTP response from a GetSilenceWithResponse call
+func ParseGetSilenceResponse(rsp *http.Response) (*GetSilenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSilenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest externalRef0.GettableSilence
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSilencesResponse parses an HTTP response from a GetSilencesWithResponse call
+func ParseGetSilencesResponse(rsp *http.Response) (*GetSilencesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSilencesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest externalRef0.GettableSilences
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostSilenceResponse parses an HTTP response from a PostSilenceWithResponse call
+func ParsePostSilenceResponse(rsp *http.Response) (*PostSilenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSilenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest externalRef0.PostSilenceResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
