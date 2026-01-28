@@ -1,47 +1,25 @@
 openapi: 3.0.0
 info:
   description: The Observatorium API
-  version: "0.0.1"
+  version: 0.0.1
   title: Observatorium API
   license:
     name: Apache 2.0
-    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
   x-logo:
-    url: 'https://observatorium.io/observatorium.png'
-    altText: 'Observatorium logo'
+    url: https://observatorium.io/observatorium.png
+    altText: Observatorium logo
 tags:
   - name: observatoriumv1
     description: Calls related to Observatorium
-  - name: metrics 
-    description: Calls related to metric endpoints 
-  - name: logs 
-    description: Calls related to logs endpoint 
-x-tagGroups:
   - name: metrics
-    tags:
-      - metrics/rulesrawv1
-      - metrics/rulesv1
-      - metrics/labelsv1
-      - metrics/labelvaluesv1
-      - metrics/queryv1
-      - metrics/seriesv1
+    description: Calls related to metric endpoints
   - name: logs
-    tags: 
-      - logs/pushv1
-      - logs/labelsv1
-      - logs/labelvaluesv1
-      - logs/queryv1
-      - logs/rulesrawv1
-      - logs/rulesv1
-      - logs/seriesv1
-      - logs/tailV1
-
-# Keeping all the API paths here, but likely need to separate it out to another file,
-# once paths for other signals are also added.
+    description: Calls related to logs endpoint
 paths:
   /api/metrics/v1/{tenant}/api/v1/rules/raw:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
     get:
       tags:
         - metrics/rulesrawv1
@@ -50,17 +28,17 @@ paths:
       description: |
         You can list all configured rules for a tenant in YAML form
       responses:
-        "200":
+        '200':
           description: all rules for a tenant
           content:
             application/yaml:
               schema:
-                $ref: ./models/models.yaml#/components/schemas/RulesRaw
-        "401":
+                $ref: '#/components/schemas/RulesRaw'
+        '401':
           description: error finding tenant ID
-        "403":
+        '403':
           description: unauthorized
-        "500":
+        '500':
           description: server side error while listing rules
     put:
       tags:
@@ -69,23 +47,23 @@ paths:
       operationId: setRawRules
       description: You can set rules for a tenant
       responses:
-        "200":
+        '200':
           description: successfully updated rules file
-        "401":
+        '401':
           description: error finding tenant ID
-        "403":
+        '403':
           description: unauthorized
-        "500":
+        '500':
           description: server error while saving rules
       requestBody:
         content:
           application/yaml:
             schema:
-              $ref: ./models/models.yaml#/components/schemas/RulesRaw
+              $ref: '#/components/schemas/RulesRaw'
         description: Rules to set for a tenant
   /api/metrics/v1/{tenant}/api/v1/rules:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
       - in: query
         name: type
         description: type of Rules
@@ -109,22 +87,22 @@ paths:
       description: |
         You can get rules for a tenant with health data
       responses:
-        "2XX":
+        2XX:
           description: rule for a tenant
           content:
             application/json:
               schema:
-                $ref: "./responses/responses.yaml#/components/schemas/MetricRulesResponse"
-        "4XX":
+                $ref: '#/components/schemas/MetricRulesResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/labels:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/optionalSeriesMatcher
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/optionalSeriesMatcher'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
     get:
       tags:
         - metrics/labelsv1
@@ -133,28 +111,28 @@ paths:
       description: |
         You can get labels for a tenant
       responses:
-        "2XX":
+        2XX:
           description: labels for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/MetricLabelsResponse
-        "4XX":
+                $ref: '#/components/schemas/MetricLabelsResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/label/{label_name}/values:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
       - in: path
         name: label_name
         description: label name to get values for
         required: true
         schema:
           type: string
-      - $ref: ./parameters/parameters.yaml#/components/parameters/optionalSeriesMatcher
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: '#/components/parameters/optionalSeriesMatcher'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
     get:
       tags:
         - metrics/labelvaluesv1
@@ -163,23 +141,23 @@ paths:
       description: |
         You can get label values for a label of a tenant
       responses:
-        "2XX":
+        2XX:
           description: label values for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/MetricLabelValuesResponse
-        "4XX":
+                $ref: '#/components/schemas/MetricLabelValuesResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/query:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/promqlQuery
-      - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
-      - $ref: ./parameters/parameters.yaml#/components/parameters/queryDedup
-      - $ref: ./parameters/parameters.yaml#/components/parameters/queryPartialResponse
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/promqlQuery'
+      - $ref: '#/components/parameters/queryTimeout'
+      - $ref: '#/components/parameters/queryDedup'
+      - $ref: '#/components/parameters/queryPartialResponse'
       - in: query
         name: time
         description: Evaluation timestamp
@@ -194,25 +172,25 @@ paths:
       description: |
         You can evaluate instant queries for a tenant
       responses:
-        "2XX":
+        2XX:
           description: instance query result for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/MetricQueryResponse
-        "4XX":
+                $ref: '#/components/schemas/MetricQueryResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/query_range:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/promqlQuery
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/queryTimeout
-      - $ref: ./parameters/parameters.yaml#/components/parameters/queryDedup
-      - $ref: ./parameters/parameters.yaml#/components/parameters/queryPartialResponse
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/promqlQuery'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
+      - $ref: '#/components/parameters/queryTimeout'
+      - $ref: '#/components/parameters/queryDedup'
+      - $ref: '#/components/parameters/queryPartialResponse'
       - in: query
         name: step
         description: Query resolution step width
@@ -226,22 +204,22 @@ paths:
       description: |
         You can evaluate range queries for a tenant
       responses:
-        "2XX":
+        2XX:
           description: range query result for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/MetricQueryRangeResponse
-        "4XX":
+                $ref: '#/components/schemas/MetricQueryRangeResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/metrics/v1/{tenant}/api/v1/series:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/seriesMatcher'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
     get:
       tags:
         - metrics/seriesv1
@@ -250,19 +228,171 @@ paths:
       description: |
         You can get series for a tenant
       responses:
-        "2XX":
+        2XX:
           description: series for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/MetricSeriesResponse
-        "4XX":
+                $ref: '#/components/schemas/MetricSeriesResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
+          description: Server side error
+  /api/metrics/v1/{tenant}/am/api/v2/alerts:
+    parameters:
+      - $ref: '#/components/parameters/tenant'
+      - in: query
+        name: active
+        description: Include active alerts in results. If false, excludes active alerts and returns only suppressed (silenced or inhibited) alerts.
+        schema:
+          type: boolean
+          default: true
+      - in: query
+        name: silenced
+        description: Include silenced alerts in results. If false, excludes silenced alerts. Note that true (default) shows both silenced and non-silenced alerts.
+        schema:
+          type: boolean
+          default: true
+      - in: query
+        name: inhibited
+        description: Include inhibited alerts in results. If false, excludes inhibited alerts. Note that true (default) shows both inhibited and non-inhibited alerts.
+        schema:
+          type: boolean
+          default: true
+      - in: query
+        name: unprocessed
+        description: Include unprocessed alerts in results. If false, excludes unprocessed alerts. Note that true (default) shows both processed and unprocessed alerts.
+        schema:
+          type: boolean
+          default: true
+      - in: query
+        name: receiver
+        description: A regex matching receivers to filter alerts by
+        schema:
+          type: string
+      - in: query
+        name: filter
+        description: A matcher expression to filter alerts. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+        schema:
+          type: array
+          items:
+            type: string
+    get:
+      tags:
+        - metrics/alertmanagerv2
+      summary: Get list of alerts from Alertmanager
+      operationId: getAlerts
+      description: |
+        Get list of alerts from Alertmanager for a tenant
+      responses:
+        2XX:
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GettableAlerts'
+        4XX:
+          description: Bad request
+        5XX:
+          description: Server side error
+  /api/metrics/v1/{tenant}/am/api/v2/silences:
+    parameters:
+      - $ref: '#/components/parameters/tenant'
+      - in: query
+        name: filter
+        description: A matcher expression to filter silences. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+        schema:
+          type: array
+          items:
+            type: string
+    get:
+      tags:
+        - metrics/alertmanagerv2
+      summary: Get list of silences from Alertmanager
+      operationId: getSilences
+      description: |
+        Get list of silences from Alertmanager for a tenant
+      responses:
+        2XX:
+          description: List of silences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GettableSilences'
+        4XX:
+          description: Bad request
+        5XX:
+          description: Server side error
+    post:
+      tags:
+        - metrics/alertmanagerv2
+      summary: Create a new silence in Alertmanager
+      operationId: postSilence
+      description: |
+        Post a new silence or update an existing one
+      requestBody:
+        description: The silence to create
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostableSilence'
+      responses:
+        2XX:
+          description: Silence created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostableSilenceResponse'
+        4XX:
+          description: Bad request
+        5XX:
+          description: Server side error
+  /api/metrics/v1/{tenant}/am/api/v2/silence/{silenceID}:
+    parameters:
+      - $ref: '#/components/parameters/tenant'
+      - in: path
+        name: silenceID
+        required: true
+        description: ID of the silence to get
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags:
+        - metrics/alertmanagerv2
+      summary: Get a silence by its ID
+      operationId: getSilence
+      description: |
+        Get a silence by its ID
+      responses:
+        '404':
+          description: A silence with the specified ID was not found
+        2XX:
+          description: Get silence response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GettableSilence'
+        5XX:
+          description: Server side error
+    delete:
+      tags:
+        - metrics/alertmanagerv2
+      summary: Delete a silence by its ID
+      operationId: deleteSilence
+      description: |
+        Delete a silence by its ID
+      responses:
+        '404':
+          description: A silence with the specified ID was not found
+        2XX:
+          description: Delete silence response
+        5XX:
           description: Server side error
   /api/logs/v1/{tenant}/loki/api/v1/push:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
     post:
       tags:
         - logs/pushv1
@@ -274,21 +404,21 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ./models/models.yaml#/components/schemas/PushLogs
+              $ref: '#/components/schemas/PushLogs'
       responses:
-        "204":
+        '204':
           description: writes all log entries of corresponding tenenat to Loki
-        "401":
+        '401':
           description: error finding tenant ID
-        "403":
+        '403':
           description: unauthorized
-        "500":
+        '500':
           description: server side error while pushing logs
   /api/logs/v1/{tenant}/loki/api/v1/labels:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
     get:
       tags:
         - logs/labelsv1
@@ -297,27 +427,27 @@ paths:
       description: |
         You can get labels for a tenant
       responses:
-        "2XX":
+        2XX:
           description: labels for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogLabelsResponse
-        "4XX":
+                $ref: '#/components/schemas/LogLabelsResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error while getting labels
   /api/logs/v1/{tenant}/loki/api/v1/label/{name}/values:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
       - in: path
         name: name
         description: label name to get values for
         required: true
         schema:
-          type: string 
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+          type: string
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
     get:
       tags:
         - logs/labelvaluesv1
@@ -326,22 +456,22 @@ paths:
       description: |
         You can get label values for a label of a tenant
       responses:
-        "2XX":
+        2XX:
           description: label values for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogLabelValuesResponse
-        "4XX":
+                $ref: '#/components/schemas/LogLabelValuesResponse'
+        4XX:
           description: Bad request
-        "5XX":
-          description: Server side error while getting label values 
+        5XX:
+          description: Server side error while getting label values
   /api/logs/v1/{tenant}/loki/api/v1/series:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/seriesMatcher
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/seriesMatcher'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
     get:
       tags:
         - logs/seriesv1
@@ -350,16 +480,16 @@ paths:
       description: |
         You can get series for a tenant
       responses:
-        "2XX":
+        2XX:
           description: series for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogSeriesResponse
-        "4XX":
+                $ref: '#/components/schemas/LogSeriesResponse'
+        4XX:
           description: Bad request
-        "5XX":
-          description: Server side error while getting series 
+        5XX:
+          description: Server side error while getting series
     post:
       tags:
         - logs/seriesv1
@@ -383,20 +513,19 @@ paths:
                   type: string
                   format: rfc3339 | unix_timestamp
       responses:
-        "201":
+        '201':
           description: successfully writes series to tenant
-        "401":
+        '401':
           description: error finding tenant ID
-        "403":
+        '403':
           description: unauthorized
-        "500":
-          description: server side error while writing series 
-
+        '500':
+          description: server side error while writing series
   /api/logs/v1/{tenant}/loki/api/v1/query:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
-      - $ref: ./parameters/parameters.yaml#/components/parameters/limit
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/logqlQuery'
+      - $ref: '#/components/parameters/limit'
       - in: query
         name: time
         description: Evaluation timestamp
@@ -416,23 +545,23 @@ paths:
       description: |
         You can evaluate instant queries for a tenant
       responses:
-        "2XX":
+        2XX:
           description: instance query result for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogQueryResponse
-        "4XX":
+                $ref: '#/components/schemas/LogQueryResponse'
+        4XX:
           description: Bad request
-        "5XX":
-          description: Server side error while getting queries 
+        5XX:
+          description: Server side error while getting queries
   /api/logs/v1/{tenant}/loki/api/v1/query_range:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/endTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/limit
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/logqlQuery'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/endTS'
+      - $ref: '#/components/parameters/limit'
       - in: query
         name: step
         description: Query resolution step width
@@ -456,24 +585,24 @@ paths:
       description: |
         You can evaluate range queries for a tenant
       responses:
-        "2XX":
+        2XX:
           description: range query result for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogQueryRangeResponse
-        "4XX":
+                $ref: '#/components/schemas/LogQueryRangeResponse'
+        4XX:
           description: Bad request
-        "5XX":
-          description: Server side error while getting range queries 
+        5XX:
+          description: Server side error while getting range queries
   /api/logs/v1/{tenant}/loki/api/v1/tail:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/startTS
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logqlQuery
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/startTS'
+      - $ref: '#/components/parameters/logqlQuery'
       - in: query
         name: delay
-        description: delay retrieving logs  
+        description: delay retrieving logs
         schema:
           type: integer
           oneOf:
@@ -482,24 +611,24 @@ paths:
     get:
       tags:
         - logs/tailV1
-      summary: lists log messages based on query 
-      operationId: getLogs 
+      summary: lists log messages based on query
+      operationId: getLogs
       description: |
         You can get log messages based on query 
       responses:
-        "2XX":
+        2XX:
           description: logs for a tenant
           content:
             application/json:
               schema:
-                $ref: ./responses/responses.yaml#/components/schemas/LogReadResponse
-        "4XX":
+                $ref: '#/components/schemas/LogReadResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error while tailing logs
   /api/logs/v1/{tenant}/loki/api/v1/rules:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
     get:
       tags:
         - logs/rulesrawv1
@@ -508,20 +637,20 @@ paths:
       description: |
         You can get all logs rules for a tenant in YAML form for all known namespaces and groups.
       responses:
-        "2XX":
+        2XX:
           description: All logs rules for a tenant
           content:
             application/yaml:
               schema:
-                $ref: "./responses/responses.yaml#/components/schemas/AllLogRulesResponse"
-        "4XX":
+                $ref: '#/components/schemas/AllLogRulesResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/logs/v1/{tenant}/loki/api/v1/rules/{namespace}:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logRulesNamespace
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/logRulesNamespace'
     get:
       tags:
         - logs/rulesrawv1
@@ -530,15 +659,15 @@ paths:
       description: |
         You can get all logs rules in a namespace for a tenant.
       responses:
-        "2XX":
+        2XX:
           description: All rule groups in a namespace for a tenant
           content:
             application/yaml:
               schema:
-                $ref: "./responses/responses.yaml#/components/schemas/LogRulesNamespaceResponse"
-        "4XX":
+                $ref: '#/components/schemas/LogRulesNamespaceResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
     post:
       tags:
@@ -561,14 +690,14 @@ paths:
                   type: array
                   items:
                     anyOf:
-                      - $ref: "./models/models.yaml#/components/schemas/RecordingRule"
-                      - $ref: "./models/models.yaml#/components/schemas/AlertingRule"
+                      - $ref: '#/components/schemas/RecordingRule'
+                      - $ref: '#/components/schemas/AlertingRule'
       responses:
-        "2XX":
+        2XX:
           description: Successfully created and/or updated rule groups in a namespace for a tenant
-        "4XX":
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
     delete:
       tags:
@@ -578,17 +707,17 @@ paths:
       description: |
         You can delete all the rule groups in a namespace (including the namespace itself).
       responses:
-        "202":
+        '202':
           description: Successfully deleted all rule groups in a namespace including the namespace itself
-        "4XX":
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/logs/v1/{tenant}/loki/api/v1/rules/{namespace}/{group}:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logRulesNamespace
-      - $ref: ./parameters/parameters.yaml#/components/parameters/logRulesGroup
+      - $ref: '#/components/parameters/tenant'
+      - $ref: '#/components/parameters/logRulesNamespace'
+      - $ref: '#/components/parameters/logRulesGroup'
     get:
       tags:
         - logs/rulesrawv1
@@ -597,15 +726,15 @@ paths:
       description: |
         You get the logs Rule group in a namespace for a tenant
       responses:
-        "2XX":
+        2XX:
           description: rule group for a tenant
           content:
             application/yaml:
               schema:
-                $ref: "./responses/responses.yaml#/components/schemas/LogRulesGroupResponse"
-        "4XX":
+                $ref: '#/components/schemas/LogRulesGroupResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
     delete:
       tags:
@@ -615,15 +744,15 @@ paths:
       description: |
         You delete a rule group by namespace and group name for a tenant.
       responses:
-        "202":
+        '202':
           description: Successfully deleted a rule group in a namespace for a tenant
-        "4XX":
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/logs/v1/{tenant}/prometheus/api/v1/rules:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
     get:
       tags:
         - logs/rulesv1
@@ -632,19 +761,19 @@ paths:
       description: |
         Prometheus-compatible rules endpoint to list alerting and recording rules that are currently loaded for a tenant.
       responses:
-        "2XX":
+        2XX:
           description: All rules for a tenant
           content:
             application/json:
               schema:
-                $ref: "./responses/responses.yaml#/components/schemas/LogRulesPrometheusResponse"
-        "4XX":
+                $ref: '#/components/schemas/LogRulesPrometheusResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
   /api/logs/v1/{tenant}/prometheus/api/v1/alerts:
     parameters:
-      - $ref: ./parameters/parameters.yaml#/components/parameters/tenant
+      - $ref: '#/components/parameters/tenant'
     get:
       tags:
         - logs/rulesv1
@@ -653,13 +782,950 @@ paths:
       description: |
         Prometheus-compatible rules endpoint to list all active alerts for a tenant.
       responses:
-        "2XX":
+        2XX:
           description: All active alerts for a tenant
           content:
             application/json:
               schema:
-                $ref: "./responses/responses.yaml#/components/schemas/LogRulesPrometheusResponse"
-        "4XX":
+                $ref: '#/components/schemas/LogRulesPrometheusResponse'
+        4XX:
           description: Bad request
-        "5XX":
+        5XX:
           description: Server side error
+components:
+  parameters:
+    tenant:
+      in: path
+      name: tenant
+      description: name of the tenant
+      required: true
+      schema:
+        type: string
+    optionalSeriesMatcher:
+      in: query
+      name: match[]
+      description: Repeated series selector argument
+      schema:
+        type: array
+        items:
+          type: string
+    startTS:
+      in: query
+      name: start
+      description: Start timestamp
+      schema:
+        type: string
+        format: rfc3339 | unix_timestamp
+    endTS:
+      in: query
+      name: end
+      description: End timestamp
+      schema:
+        type: string
+        format: rfc3339 | unix_timestamp
+    promqlQuery:
+      in: query
+      name: query
+      description: PromQL query to fetch result for metrics
+      schema:
+        type: string
+    queryTimeout:
+      in: query
+      name: timeout
+      description: Evaluation timeout
+      schema:
+        type: string
+    queryDedup:
+      in: query
+      name: dedup
+      description: Query deduplication (Thanos)
+      schema:
+        type: boolean
+    queryPartialResponse:
+      in: query
+      name: partial_response
+      description: Query partial response (Thanos)
+      schema:
+        type: boolean
+    seriesMatcher:
+      in: query
+      name: match[]
+      description: Repeated series selector argument
+      required: true
+      schema:
+        type: array
+        items:
+          type: string
+    logqlQuery:
+      in: query
+      name: query
+      description: LogQL query to fetch result for logs
+      schema:
+        type: string
+    limit:
+      in: query
+      name: limit
+      description: Max number of entries
+      schema:
+        type: number
+    logRulesNamespace:
+      in: path
+      name: namespace
+      description: namespace of the log rule group
+      required: true
+      schema:
+        type: string
+    logRulesGroup:
+      in: path
+      name: group
+      description: group of the log rule
+      required: true
+      schema:
+        type: string
+  schemas:
+    RecordingRule:
+      type: object
+      required:
+        - expr
+        - record
+      properties:
+        expr:
+          type: string
+          example: count by (name) (cluster{condition="halted"} == 1)
+        record:
+          type: string
+          example: count:cluster_halted
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+    AlertingRule:
+      type: object
+      required:
+        - alert
+        - expr
+      properties:
+        alert:
+          type: string
+          example: HighRequestLatency
+        expr:
+          type: string
+          example: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
+        for:
+          type: string
+          example: 10m
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+    RuleGroup:
+      type: object
+      required:
+        - name
+        - rules
+      properties:
+        interval:
+          type: number
+        name:
+          type: string
+          example: telemeter.rules
+        rules:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RecordingRule'
+              - $ref: '#/components/schemas/AlertingRule'
+    RulesRaw:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleGroup'
+    RecordingRuleEvaluated:
+      type: object
+      required:
+        - query
+        - name
+      properties:
+        query:
+          type: string
+          example: count by (name) (cluster{condition="halted"} == 1)
+        name:
+          type: string
+          example: count:cluster_halted
+        health:
+          type: string
+          example: ok
+        evaluationTime:
+          type: number
+          example: 0.002900887
+        lastError:
+          type: string
+        lastEvaluation:
+          type: string
+          example: '2022-02-20T15:32:12.759781322Z'
+        type:
+          type: string
+          enum:
+            - recording
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+    ActiveAlert:
+      type: object
+      required:
+        - activeAt
+        - state
+        - value
+      properties:
+        activeAt:
+          type: string
+          example: '2018-07-04T20:27:12.60602144+02:00'
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+        state:
+          type: string
+          example: firing
+        value:
+          type: string
+          example: '1e+00'
+    AlertingRuleEvaluated:
+      type: object
+      required:
+        - query
+        - name
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActiveAlert'
+        query:
+          type: string
+          example: job:request_latency_seconds:mean5m{job="myjob"} > 0.5
+        name:
+          type: string
+          example: count:cluster_halted
+        health:
+          type: string
+          example: ok
+        evaluationTime:
+          type: number
+          example: 0.002900887
+        lastError:
+          type: string
+        lastEvaluation:
+          type: string
+          example: '2022-02-20T15:32:12.759781322Z'
+        type:
+          type: string
+          enum:
+            - alerting
+        duration:
+          type: number
+          example: 600
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+    RuleGroupEvaluated:
+      type: object
+      required:
+        - name
+        - rules
+      properties:
+        interval:
+          type: number
+        name:
+          type: string
+          example: telemeter.rules
+        file:
+          type: string
+          example: rules.yaml
+        limit:
+          type: number
+          example: 0
+        evaluationTime:
+          type: number
+          example: 0.002900887
+        lastEvaluation:
+          type: string
+          example: '2022-02-20T15:32:12.759781322Z'
+        partialResponseStrategy:
+          type: string
+          example: WARN
+        rules:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RecordingRuleEvaluated'
+              - $ref: '#/components/schemas/AlertingRuleEvaluated'
+    Rules:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuleGroupEvaluated'
+    MetricRulesResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          $ref: '#/components/schemas/Rules'
+    MetricLabelsResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            type: string
+    MetricLabelValuesResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            type: string
+            example: node
+    ScalarOrString:
+      type: array
+      items:
+        oneOf:
+          - type: string
+            format: unix_timestamp
+          - type: string
+            format: sample_value
+    RangeVectors:
+      type: object
+      required:
+        - metric
+        - values
+      properties:
+        metric:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            type: array
+            $ref: '#/components/schemas/ScalarOrString'
+    InstantVectors:
+      type: object
+      required:
+        - metric
+        - values
+      properties:
+        metric:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScalarOrString'
+    StreamValues:
+      type: object
+      required:
+        - stream
+        - values
+      properties:
+        stream:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScalarOrString'
+    MetricInstantQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+            - vector
+            - scalar
+            - string
+            - streams
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RangeVectors'
+              - $ref: '#/components/schemas/InstantVectors'
+              - $ref: '#/components/schemas/ScalarOrString'
+              - $ref: '#/components/schemas/StreamValues'
+    MetricQueryResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          $ref: '#/components/schemas/MetricInstantQueryResponse'
+    MetricRangeQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RangeVectors'
+    MetricQueryRangeResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          $ref: '#/components/schemas/MetricRangeQueryResponse'
+    MetricSeriesResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+    LabelSet:
+      type: object
+      additionalProperties:
+        type: string
+    Receiver:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+    AlertStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+            - unprocessed
+            - active
+            - suppressed
+        silencedBy:
+          type: array
+          items:
+            type: string
+        inhibitedBy:
+          type: array
+          items:
+            type: string
+        mutedBy:
+          type: array
+          items:
+            type: string
+      required:
+        - state
+        - silencedBy
+        - inhibitedBy
+        - mutedBy
+    Alert:
+      type: object
+      properties:
+        labels:
+          $ref: '#/components/schemas/LabelSet'
+        generatorURL:
+          type: string
+          format: uri
+      required:
+        - labels
+    GettableAlert:
+      allOf:
+        - type: object
+          properties:
+            annotations:
+              $ref: '#/components/schemas/LabelSet'
+            receivers:
+              type: array
+              items:
+                $ref: '#/components/schemas/Receiver'
+            fingerprint:
+              type: string
+            startsAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            endsAt:
+              type: string
+              format: date-time
+            status:
+              $ref: '#/components/schemas/AlertStatus'
+          required:
+            - receivers
+            - fingerprint
+            - startsAt
+            - updatedAt
+            - endsAt
+            - annotations
+            - status
+        - $ref: '#/components/schemas/Alert'
+    GettableAlerts:
+      type: array
+      items:
+        $ref: '#/components/schemas/GettableAlert'
+    SilenceStatus:
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+            - expired
+            - active
+            - pending
+      required:
+        - state
+    Matcher:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        isRegex:
+          type: boolean
+        isEqual:
+          type: boolean
+          default: true
+      required:
+        - name
+        - value
+        - isRegex
+    Matchers:
+      type: array
+      items:
+        $ref: '#/components/schemas/Matcher'
+      minItems: 1
+    Silence:
+      type: object
+      properties:
+        matchers:
+          $ref: '#/components/schemas/Matchers'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        comment:
+          type: string
+      required:
+        - matchers
+        - startsAt
+        - endsAt
+        - createdBy
+        - comment
+    GettableSilence:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+            status:
+              $ref: '#/components/schemas/SilenceStatus'
+            updatedAt:
+              type: string
+              format: date-time
+          required:
+            - id
+            - status
+            - updatedAt
+        - $ref: '#/components/schemas/Silence'
+    GettableSilences:
+      type: array
+      items:
+        $ref: '#/components/schemas/GettableSilence'
+    PostableSilence:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+        - $ref: '#/components/schemas/Silence'
+    PostableSilenceResponse:
+      type: object
+      properties:
+        silenceID:
+          type: string
+    PushLogs:
+      type: object
+      required:
+        - stream
+        - values
+      properties:
+        stream:
+          type: object
+          additionalProperties:
+            type: string
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScalarOrString'
+    LogLabelsResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            type: string
+    LogLabelValuesResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+        data:
+          type: array
+          items:
+            type: string
+            example: node
+    LogSeriesResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+    LogInstantQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+            - vector
+            - scalar
+            - string
+            - streams
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RangeVectors'
+              - $ref: '#/components/schemas/InstantVectors'
+              - $ref: '#/components/schemas/ScalarOrString'
+              - $ref: '#/components/schemas/StreamValues'
+    LogQueryResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          $ref: '#/components/schemas/LogInstantQueryResponse'
+    LogRangeQueryResponse:
+      type: object
+      required:
+        - resultType
+        - result
+      properties:
+        resultType:
+          type: string
+          enum:
+            - matrix
+        result:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/RangeVectors'
+    LogQueryRangeResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          $ref: '#/components/schemas/LogRangeQueryResponse'
+    TailLogs:
+      type: object
+      required:
+        - labels
+        - timestamp
+      properties:
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: unix_timestamp
+    LogReadResponse:
+      type: object
+      required:
+        - status
+        - streams
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        streams:
+          type: array
+          items:
+            type: object
+            $ref: '#/components/schemas/PushLogs'
+        dropped_entries:
+          type: array
+          items:
+            type: object
+            $ref: '#/components/schemas/TailLogs'
+    AllLogRulesResponse:
+      type: object
+    LogRulesNamespaceResponse:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            type: object
+            $ref: '#/components/schemas/RuleGroup'
+    LogRulesGroupResponse:
+      type: object
+      required:
+        - name
+        - rules
+      properties:
+        name:
+          type: string
+        interval:
+          type: string
+        rules:
+          type: array
+          items:
+            type: object
+            $ref: '#/components/schemas/RulesRaw'
+    LogRulesPrometheusResponse:
+      type: object
+      required:
+        - status
+        - data
+      properties:
+        error:
+          type: string
+        errorType:
+          type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          $ref: '#/components/schemas/Rules'
+x-tagGroups:
+  - name: metrics
+    tags:
+      - metrics/rulesrawv1
+      - metrics/rulesv1
+      - metrics/labelsv1
+      - metrics/labelvaluesv1
+      - metrics/queryv1
+      - metrics/seriesv1
+  - name: logs
+    tags:
+      - logs/pushv1
+      - logs/labelsv1
+      - logs/labelvaluesv1
+      - logs/queryv1
+      - logs/rulesrawv1
+      - logs/rulesv1
+      - logs/seriesv1
+      - logs/tailV1

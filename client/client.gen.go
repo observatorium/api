@@ -12,40 +12,559 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 
 	"github.com/oapi-codegen/runtime"
-	externalRef0 "github.com/observatorium/api/client/models"
-	externalRef1 "github.com/observatorium/api/client/parameters"
-	externalRef2 "github.com/observatorium/api/client/responses"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AlertStatusState.
+const (
+	AlertStatusStateActive      AlertStatusState = "active"
+	AlertStatusStateSuppressed  AlertStatusState = "suppressed"
+	AlertStatusStateUnprocessed AlertStatusState = "unprocessed"
+)
+
+// Defines values for AlertingRuleEvaluatedType.
+const (
+	Alerting AlertingRuleEvaluatedType = "alerting"
+)
+
+// Defines values for LogInstantQueryResponseResultType.
+const (
+	LogInstantQueryResponseResultTypeMatrix  LogInstantQueryResponseResultType = "matrix"
+	LogInstantQueryResponseResultTypeScalar  LogInstantQueryResponseResultType = "scalar"
+	LogInstantQueryResponseResultTypeStreams LogInstantQueryResponseResultType = "streams"
+	LogInstantQueryResponseResultTypeString  LogInstantQueryResponseResultType = "string"
+	LogInstantQueryResponseResultTypeVector  LogInstantQueryResponseResultType = "vector"
+)
+
+// Defines values for LogRangeQueryResponseResultType.
+const (
+	LogRangeQueryResponseResultTypeMatrix LogRangeQueryResponseResultType = "matrix"
+)
+
+// Defines values for MetricInstantQueryResponseResultType.
+const (
+	MetricInstantQueryResponseResultTypeMatrix  MetricInstantQueryResponseResultType = "matrix"
+	MetricInstantQueryResponseResultTypeScalar  MetricInstantQueryResponseResultType = "scalar"
+	MetricInstantQueryResponseResultTypeStreams MetricInstantQueryResponseResultType = "streams"
+	MetricInstantQueryResponseResultTypeString  MetricInstantQueryResponseResultType = "string"
+	MetricInstantQueryResponseResultTypeVector  MetricInstantQueryResponseResultType = "vector"
+)
+
+// Defines values for MetricRangeQueryResponseResultType.
+const (
+	MetricRangeQueryResponseResultTypeMatrix MetricRangeQueryResponseResultType = "matrix"
+)
+
+// Defines values for RecordingRuleEvaluatedType.
+const (
+	Recording RecordingRuleEvaluatedType = "recording"
+)
+
+// Defines values for SilenceStatusState.
+const (
+	SilenceStatusStateActive  SilenceStatusState = "active"
+	SilenceStatusStateExpired SilenceStatusState = "expired"
+	SilenceStatusStatePending SilenceStatusState = "pending"
+)
+
+// ActiveAlert defines model for ActiveAlert.
+type ActiveAlert struct {
+	ActiveAt    string             `json:"activeAt"`
+	Annotations *map[string]string `json:"annotations,omitempty"`
+	Labels      *map[string]string `json:"labels,omitempty"`
+	State       string             `json:"state"`
+	Value       string             `json:"value"`
+}
+
+// Alert defines model for Alert.
+type Alert struct {
+	GeneratorURL *string  `json:"generatorURL,omitempty"`
+	Labels       LabelSet `json:"labels"`
+}
+
+// AlertStatus defines model for AlertStatus.
+type AlertStatus struct {
+	InhibitedBy []string         `json:"inhibitedBy"`
+	MutedBy     []string         `json:"mutedBy"`
+	SilencedBy  []string         `json:"silencedBy"`
+	State       AlertStatusState `json:"state"`
+}
+
+// AlertStatusState defines model for AlertStatus.State.
+type AlertStatusState string
+
+// AlertingRule defines model for AlertingRule.
+type AlertingRule struct {
+	Alert       string             `json:"alert"`
+	Annotations *map[string]string `json:"annotations,omitempty"`
+	Expr        string             `json:"expr"`
+	For         *string            `json:"for,omitempty"`
+	Labels      *map[string]string `json:"labels,omitempty"`
+}
+
+// AlertingRuleEvaluated defines model for AlertingRuleEvaluated.
+type AlertingRuleEvaluated struct {
+	Alerts         *[]ActiveAlert             `json:"alerts,omitempty"`
+	Annotations    *map[string]string         `json:"annotations,omitempty"`
+	Duration       *float32                   `json:"duration,omitempty"`
+	EvaluationTime *float32                   `json:"evaluationTime,omitempty"`
+	Health         *string                    `json:"health,omitempty"`
+	Labels         *map[string]string         `json:"labels,omitempty"`
+	LastError      *string                    `json:"lastError,omitempty"`
+	LastEvaluation *string                    `json:"lastEvaluation,omitempty"`
+	Name           string                     `json:"name"`
+	Query          string                     `json:"query"`
+	Type           *AlertingRuleEvaluatedType `json:"type,omitempty"`
+}
+
+// AlertingRuleEvaluatedType defines model for AlertingRuleEvaluated.Type.
+type AlertingRuleEvaluatedType string
+
+// AllLogRulesResponse defines model for AllLogRulesResponse.
+type AllLogRulesResponse = map[string]interface{}
+
+// GettableAlert defines model for GettableAlert.
+type GettableAlert struct {
+	Annotations  LabelSet    `json:"annotations"`
+	EndsAt       time.Time   `json:"endsAt"`
+	Fingerprint  string      `json:"fingerprint"`
+	GeneratorURL *string     `json:"generatorURL,omitempty"`
+	Labels       LabelSet    `json:"labels"`
+	Receivers    []Receiver  `json:"receivers"`
+	StartsAt     time.Time   `json:"startsAt"`
+	Status       AlertStatus `json:"status"`
+	UpdatedAt    time.Time   `json:"updatedAt"`
+}
+
+// GettableAlerts defines model for GettableAlerts.
+type GettableAlerts = []GettableAlert
+
+// GettableSilence defines model for GettableSilence.
+type GettableSilence struct {
+	Comment   string        `json:"comment"`
+	CreatedBy string        `json:"createdBy"`
+	EndsAt    time.Time     `json:"endsAt"`
+	Id        string        `json:"id"`
+	Matchers  Matchers      `json:"matchers"`
+	StartsAt  time.Time     `json:"startsAt"`
+	Status    SilenceStatus `json:"status"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}
+
+// GettableSilences defines model for GettableSilences.
+type GettableSilences = []GettableSilence
+
+// InstantVectors defines model for InstantVectors.
+type InstantVectors struct {
+	Metric map[string]string `json:"metric"`
+	Values []ScalarOrString  `json:"values"`
+}
+
+// LabelSet defines model for LabelSet.
+type LabelSet map[string]string
+
+// LogInstantQueryResponse defines model for LogInstantQueryResponse.
+type LogInstantQueryResponse struct {
+	Result     []LogInstantQueryResponse_Result_Item `json:"result"`
+	ResultType LogInstantQueryResponseResultType     `json:"resultType"`
+}
+
+// LogInstantQueryResponse_Result_Item defines model for LogInstantQueryResponse.result.Item.
+type LogInstantQueryResponse_Result_Item struct {
+	union json.RawMessage
+}
+
+// LogInstantQueryResponseResultType defines model for LogInstantQueryResponse.ResultType.
+type LogInstantQueryResponseResultType string
+
+// LogLabelValuesResponse defines model for LogLabelValuesResponse.
+type LogLabelValuesResponse struct {
+	Data      []string  `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// LogLabelsResponse defines model for LogLabelsResponse.
+type LogLabelsResponse struct {
+	Data      []string  `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// LogQueryRangeResponse defines model for LogQueryRangeResponse.
+type LogQueryRangeResponse struct {
+	Data      LogRangeQueryResponse `json:"data"`
+	Error     *string               `json:"error,omitempty"`
+	ErrorType *string               `json:"errorType,omitempty"`
+	Status    string                `json:"status"`
+	Warnings  *[]string             `json:"warnings,omitempty"`
+}
+
+// LogQueryResponse defines model for LogQueryResponse.
+type LogQueryResponse struct {
+	Data      LogInstantQueryResponse `json:"data"`
+	Error     *string                 `json:"error,omitempty"`
+	ErrorType *string                 `json:"errorType,omitempty"`
+	Status    string                  `json:"status"`
+	Warnings  *[]string               `json:"warnings,omitempty"`
+}
+
+// LogRangeQueryResponse defines model for LogRangeQueryResponse.
+type LogRangeQueryResponse struct {
+	Result     []LogRangeQueryResponse_Result_Item `json:"result"`
+	ResultType LogRangeQueryResponseResultType     `json:"resultType"`
+}
+
+// LogRangeQueryResponse_Result_Item defines model for LogRangeQueryResponse.result.Item.
+type LogRangeQueryResponse_Result_Item struct {
+	union json.RawMessage
+}
+
+// LogRangeQueryResponseResultType defines model for LogRangeQueryResponse.ResultType.
+type LogRangeQueryResponseResultType string
+
+// LogReadResponse defines model for LogReadResponse.
+type LogReadResponse struct {
+	DroppedEntries *[]TailLogs `json:"dropped_entries,omitempty"`
+	Error          *string     `json:"error,omitempty"`
+	ErrorType      *string     `json:"errorType,omitempty"`
+	Status         string      `json:"status"`
+	Streams        []PushLogs  `json:"streams"`
+	Warnings       *[]string   `json:"warnings,omitempty"`
+}
+
+// LogRulesGroupResponse defines model for LogRulesGroupResponse.
+type LogRulesGroupResponse struct {
+	Interval *string    `json:"interval,omitempty"`
+	Name     string     `json:"name"`
+	Rules    []RulesRaw `json:"rules"`
+}
+
+// LogRulesNamespaceResponse defines model for LogRulesNamespaceResponse.
+type LogRulesNamespaceResponse struct {
+	Groups []RuleGroup `json:"groups"`
+}
+
+// LogRulesPrometheusResponse defines model for LogRulesPrometheusResponse.
+type LogRulesPrometheusResponse struct {
+	Data      Rules     `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// LogSeriesResponse defines model for LogSeriesResponse.
+type LogSeriesResponse struct {
+	Data      []map[string]string `json:"data"`
+	Error     *string             `json:"error,omitempty"`
+	ErrorType *string             `json:"errorType,omitempty"`
+	Status    string              `json:"status"`
+	Warnings  *[]string           `json:"warnings,omitempty"`
+}
+
+// Matcher defines model for Matcher.
+type Matcher struct {
+	IsEqual *bool  `json:"isEqual,omitempty"`
+	IsRegex bool   `json:"isRegex"`
+	Name    string `json:"name"`
+	Value   string `json:"value"`
+}
+
+// Matchers defines model for Matchers.
+type Matchers = []Matcher
+
+// MetricInstantQueryResponse defines model for MetricInstantQueryResponse.
+type MetricInstantQueryResponse struct {
+	Result     []MetricInstantQueryResponse_Result_Item `json:"result"`
+	ResultType MetricInstantQueryResponseResultType     `json:"resultType"`
+}
+
+// MetricInstantQueryResponse_Result_Item defines model for MetricInstantQueryResponse.result.Item.
+type MetricInstantQueryResponse_Result_Item struct {
+	union json.RawMessage
+}
+
+// MetricInstantQueryResponseResultType defines model for MetricInstantQueryResponse.ResultType.
+type MetricInstantQueryResponseResultType string
+
+// MetricLabelValuesResponse defines model for MetricLabelValuesResponse.
+type MetricLabelValuesResponse struct {
+	Data      []string  `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// MetricLabelsResponse defines model for MetricLabelsResponse.
+type MetricLabelsResponse struct {
+	Data      []string  `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// MetricQueryRangeResponse defines model for MetricQueryRangeResponse.
+type MetricQueryRangeResponse struct {
+	Data      MetricRangeQueryResponse `json:"data"`
+	Error     *string                  `json:"error,omitempty"`
+	ErrorType *string                  `json:"errorType,omitempty"`
+	Status    string                   `json:"status"`
+	Warnings  *[]string                `json:"warnings,omitempty"`
+}
+
+// MetricQueryResponse defines model for MetricQueryResponse.
+type MetricQueryResponse struct {
+	Data      MetricInstantQueryResponse `json:"data"`
+	Error     *string                    `json:"error,omitempty"`
+	ErrorType *string                    `json:"errorType,omitempty"`
+	Status    string                     `json:"status"`
+	Warnings  *[]string                  `json:"warnings,omitempty"`
+}
+
+// MetricRangeQueryResponse defines model for MetricRangeQueryResponse.
+type MetricRangeQueryResponse struct {
+	Result     []MetricRangeQueryResponse_Result_Item `json:"result"`
+	ResultType MetricRangeQueryResponseResultType     `json:"resultType"`
+}
+
+// MetricRangeQueryResponse_Result_Item defines model for MetricRangeQueryResponse.result.Item.
+type MetricRangeQueryResponse_Result_Item struct {
+	union json.RawMessage
+}
+
+// MetricRangeQueryResponseResultType defines model for MetricRangeQueryResponse.ResultType.
+type MetricRangeQueryResponseResultType string
+
+// MetricRulesResponse defines model for MetricRulesResponse.
+type MetricRulesResponse struct {
+	Data      Rules     `json:"data"`
+	Error     *string   `json:"error,omitempty"`
+	ErrorType *string   `json:"errorType,omitempty"`
+	Status    string    `json:"status"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// MetricSeriesResponse defines model for MetricSeriesResponse.
+type MetricSeriesResponse struct {
+	Data      []map[string]string `json:"data"`
+	Error     *string             `json:"error,omitempty"`
+	ErrorType *string             `json:"errorType,omitempty"`
+	Status    string              `json:"status"`
+	Warnings  *[]string           `json:"warnings,omitempty"`
+}
+
+// PostableSilence defines model for PostableSilence.
+type PostableSilence struct {
+	Comment   string    `json:"comment"`
+	CreatedBy string    `json:"createdBy"`
+	EndsAt    time.Time `json:"endsAt"`
+	Id        *string   `json:"id,omitempty"`
+	Matchers  Matchers  `json:"matchers"`
+	StartsAt  time.Time `json:"startsAt"`
+}
+
+// PostableSilenceResponse defines model for PostableSilenceResponse.
+type PostableSilenceResponse struct {
+	SilenceID *string `json:"silenceID,omitempty"`
+}
+
+// PushLogs defines model for PushLogs.
+type PushLogs struct {
+	Stream map[string]string `json:"stream"`
+	Values []ScalarOrString  `json:"values"`
+}
+
+// RangeVectors defines model for RangeVectors.
+type RangeVectors struct {
+	Metric map[string]string `json:"metric"`
+	Values []ScalarOrString  `json:"values"`
+}
+
+// Receiver defines model for Receiver.
+type Receiver struct {
+	Name string `json:"name"`
+}
+
+// RecordingRule defines model for RecordingRule.
+type RecordingRule struct {
+	Expr   string             `json:"expr"`
+	Labels *map[string]string `json:"labels,omitempty"`
+	Record string             `json:"record"`
+}
+
+// RecordingRuleEvaluated defines model for RecordingRuleEvaluated.
+type RecordingRuleEvaluated struct {
+	EvaluationTime *float32                    `json:"evaluationTime,omitempty"`
+	Health         *string                     `json:"health,omitempty"`
+	Labels         *map[string]string          `json:"labels,omitempty"`
+	LastError      *string                     `json:"lastError,omitempty"`
+	LastEvaluation *string                     `json:"lastEvaluation,omitempty"`
+	Name           string                      `json:"name"`
+	Query          string                      `json:"query"`
+	Type           *RecordingRuleEvaluatedType `json:"type,omitempty"`
+}
+
+// RecordingRuleEvaluatedType defines model for RecordingRuleEvaluated.Type.
+type RecordingRuleEvaluatedType string
+
+// RuleGroup defines model for RuleGroup.
+type RuleGroup struct {
+	Interval *float32               `json:"interval,omitempty"`
+	Name     string                 `json:"name"`
+	Rules    []RuleGroup_Rules_Item `json:"rules"`
+}
+
+// RuleGroup_Rules_Item defines model for RuleGroup.rules.Item.
+type RuleGroup_Rules_Item struct {
+	union json.RawMessage
+}
+
+// RuleGroupEvaluated defines model for RuleGroupEvaluated.
+type RuleGroupEvaluated struct {
+	EvaluationTime          *float32                        `json:"evaluationTime,omitempty"`
+	File                    *string                         `json:"file,omitempty"`
+	Interval                *float32                        `json:"interval,omitempty"`
+	LastEvaluation          *string                         `json:"lastEvaluation,omitempty"`
+	Limit                   *float32                        `json:"limit,omitempty"`
+	Name                    string                          `json:"name"`
+	PartialResponseStrategy *string                         `json:"partialResponseStrategy,omitempty"`
+	Rules                   []RuleGroupEvaluated_Rules_Item `json:"rules"`
+}
+
+// RuleGroupEvaluated_Rules_Item defines model for RuleGroupEvaluated.rules.Item.
+type RuleGroupEvaluated_Rules_Item struct {
+	union json.RawMessage
+}
+
+// Rules defines model for Rules.
+type Rules struct {
+	Groups []RuleGroupEvaluated `json:"groups"`
+}
+
+// RulesRaw defines model for RulesRaw.
+type RulesRaw struct {
+	Groups []RuleGroup `json:"groups"`
+}
+
+// ScalarOrString defines model for ScalarOrString.
+type ScalarOrString = []ScalarOrString_Item
+
+// ScalarOrString0 defines model for .
+type ScalarOrString0 = string
+
+// ScalarOrString1 defines model for .
+type ScalarOrString1 = string
+
+// ScalarOrString_Item defines model for ScalarOrString.Item.
+type ScalarOrString_Item struct {
+	union json.RawMessage
+}
+
+// Silence defines model for Silence.
+type Silence struct {
+	Comment   string    `json:"comment"`
+	CreatedBy string    `json:"createdBy"`
+	EndsAt    time.Time `json:"endsAt"`
+	Matchers  Matchers  `json:"matchers"`
+	StartsAt  time.Time `json:"startsAt"`
+}
+
+// SilenceStatus defines model for SilenceStatus.
+type SilenceStatus struct {
+	State SilenceStatusState `json:"state"`
+}
+
+// SilenceStatusState defines model for SilenceStatus.State.
+type SilenceStatusState string
+
+// StreamValues defines model for StreamValues.
+type StreamValues struct {
+	Stream map[string]string `json:"stream"`
+	Values []ScalarOrString  `json:"values"`
+}
+
+// TailLogs defines model for TailLogs.
+type TailLogs struct {
+	Labels    map[string]string `json:"labels"`
+	Timestamp string            `json:"timestamp"`
+}
+
+// EndTS defines model for endTS.
+type EndTS = string
+
+// Limit defines model for limit.
+type Limit = float32
+
+// LogRulesGroup defines model for logRulesGroup.
+type LogRulesGroup = string
+
+// LogRulesNamespace defines model for logRulesNamespace.
+type LogRulesNamespace = string
+
+// LogqlQuery defines model for logqlQuery.
+type LogqlQuery = string
+
+// OptionalSeriesMatcher defines model for optionalSeriesMatcher.
+type OptionalSeriesMatcher = []string
+
+// PromqlQuery defines model for promqlQuery.
+type PromqlQuery = string
+
+// QueryDedup defines model for queryDedup.
+type QueryDedup = bool
+
+// QueryPartialResponse defines model for queryPartialResponse.
+type QueryPartialResponse = bool
+
+// QueryTimeout defines model for queryTimeout.
+type QueryTimeout = string
+
+// SeriesMatcher defines model for seriesMatcher.
+type SeriesMatcher = []string
+
+// StartTS defines model for startTS.
+type StartTS = string
+
+// Tenant defines model for tenant.
+type Tenant = string
 
 // GetLogLabelValuesParams defines parameters for GetLogLabelValues.
 type GetLogLabelValuesParams struct {
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // GetLogLabelsParams defines parameters for GetLogLabels.
 type GetLogLabelsParams struct {
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // GetLogInstantQueryParams defines parameters for GetLogInstantQuery.
 type GetLogInstantQueryParams struct {
 	// Query LogQL query to fetch result for logs
-	Query *externalRef1.LogqlQuery `form:"query,omitempty" json:"query,omitempty"`
+	Query *LogqlQuery `form:"query,omitempty" json:"query,omitempty"`
 
 	// Limit Max number of entries
-	Limit *externalRef1.Limit `form:"limit,omitempty" json:"limit,omitempty"`
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Time Evaluation timestamp
 	Time *string `form:"time,omitempty" json:"time,omitempty"`
@@ -57,16 +576,16 @@ type GetLogInstantQueryParams struct {
 // GetLogRangeQueryParams defines parameters for GetLogRangeQuery.
 type GetLogRangeQueryParams struct {
 	// Query LogQL query to fetch result for logs
-	Query *externalRef1.LogqlQuery `form:"query,omitempty" json:"query,omitempty"`
+	Query *LogqlQuery `form:"query,omitempty" json:"query,omitempty"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 
 	// Limit Max number of entries
-	Limit *externalRef1.Limit `form:"limit,omitempty" json:"limit,omitempty"`
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Step Query resolution step width
 	Step *string `form:"step,omitempty" json:"step,omitempty"`
@@ -81,13 +600,13 @@ type GetLogRangeQueryParams struct {
 // GetLogSeriesParams defines parameters for GetLogSeries.
 type GetLogSeriesParams struct {
 	// Match Repeated series selector argument
-	Match externalRef1.SeriesMatcher `form:"match[]" json:"match[]"`
+	Match SeriesMatcher `form:"match[]" json:"match[]"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // PostLogSeriesFormdataBody defines parameters for PostLogSeries.
@@ -100,64 +619,97 @@ type PostLogSeriesFormdataBody struct {
 // PostLogSeriesParams defines parameters for PostLogSeries.
 type PostLogSeriesParams struct {
 	// Match Repeated series selector argument
-	Match externalRef1.SeriesMatcher `form:"match[]" json:"match[]"`
+	Match SeriesMatcher `form:"match[]" json:"match[]"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // GetLogsParams defines parameters for GetLogs.
 type GetLogsParams struct {
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// Query LogQL query to fetch result for logs
-	Query *externalRef1.LogqlQuery `form:"query,omitempty" json:"query,omitempty"`
+	Query *LogqlQuery `form:"query,omitempty" json:"query,omitempty"`
 
 	// Delay delay retrieving logs
 	Delay *int `form:"delay,omitempty" json:"delay,omitempty"`
 }
 
+// GetAlertsParams defines parameters for GetAlerts.
+type GetAlertsParams struct {
+	// Active Include active alerts in results. If false, excludes active alerts and returns only suppressed (silenced or inhibited) alerts.
+	Active *bool `form:"active,omitempty" json:"active,omitempty"`
+
+	// Silenced Include silenced alerts in results. If false, excludes silenced alerts. Note that true (default) shows both silenced and non-silenced alerts.
+	Silenced *bool `form:"silenced,omitempty" json:"silenced,omitempty"`
+
+	// Inhibited Include inhibited alerts in results. If false, excludes inhibited alerts. Note that true (default) shows both inhibited and non-inhibited alerts.
+	Inhibited *bool `form:"inhibited,omitempty" json:"inhibited,omitempty"`
+
+	// Unprocessed Include unprocessed alerts in results. If false, excludes unprocessed alerts. Note that true (default) shows both processed and unprocessed alerts.
+	Unprocessed *bool `form:"unprocessed,omitempty" json:"unprocessed,omitempty"`
+
+	// Receiver A regex matching receivers to filter alerts by
+	Receiver *string `form:"receiver,omitempty" json:"receiver,omitempty"`
+
+	// Filter A matcher expression to filter alerts. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
+// GetSilencesParams defines parameters for GetSilences.
+type GetSilencesParams struct {
+	// Filter A matcher expression to filter silences. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
+// PostSilenceParams defines parameters for PostSilence.
+type PostSilenceParams struct {
+	// Filter A matcher expression to filter silences. For example `alertname="MyAlert"`. It can be repeated to apply multiple matchers.
+	Filter *[]string `form:"filter,omitempty" json:"filter,omitempty"`
+}
+
 // GetLabelValuesParams defines parameters for GetLabelValues.
 type GetLabelValuesParams struct {
 	// Match Repeated series selector argument
-	Match *externalRef1.OptionalSeriesMatcher `form:"match[],omitempty" json:"match[],omitempty"`
+	Match *OptionalSeriesMatcher `form:"match[],omitempty" json:"match[],omitempty"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // GetLabelsParams defines parameters for GetLabels.
 type GetLabelsParams struct {
 	// Match Repeated series selector argument
-	Match *externalRef1.OptionalSeriesMatcher `form:"match[],omitempty" json:"match[],omitempty"`
+	Match *OptionalSeriesMatcher `form:"match[],omitempty" json:"match[],omitempty"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // GetInstantQueryParams defines parameters for GetInstantQuery.
 type GetInstantQueryParams struct {
 	// Query PromQL query to fetch result for metrics
-	Query *externalRef1.PromqlQuery `form:"query,omitempty" json:"query,omitempty"`
+	Query *PromqlQuery `form:"query,omitempty" json:"query,omitempty"`
 
 	// Timeout Evaluation timeout
-	Timeout *externalRef1.QueryTimeout `form:"timeout,omitempty" json:"timeout,omitempty"`
+	Timeout *QueryTimeout `form:"timeout,omitempty" json:"timeout,omitempty"`
 
 	// Dedup Query deduplication (Thanos)
-	Dedup *externalRef1.QueryDedup `form:"dedup,omitempty" json:"dedup,omitempty"`
+	Dedup *QueryDedup `form:"dedup,omitempty" json:"dedup,omitempty"`
 
 	// PartialResponse Query partial response (Thanos)
-	PartialResponse *externalRef1.QueryPartialResponse `form:"partial_response,omitempty" json:"partial_response,omitempty"`
+	PartialResponse *QueryPartialResponse `form:"partial_response,omitempty" json:"partial_response,omitempty"`
 
 	// Time Evaluation timestamp
 	Time *string `form:"time,omitempty" json:"time,omitempty"`
@@ -166,22 +718,22 @@ type GetInstantQueryParams struct {
 // GetRangeQueryParams defines parameters for GetRangeQuery.
 type GetRangeQueryParams struct {
 	// Query PromQL query to fetch result for metrics
-	Query *externalRef1.PromqlQuery `form:"query,omitempty" json:"query,omitempty"`
+	Query *PromqlQuery `form:"query,omitempty" json:"query,omitempty"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 
 	// Timeout Evaluation timeout
-	Timeout *externalRef1.QueryTimeout `form:"timeout,omitempty" json:"timeout,omitempty"`
+	Timeout *QueryTimeout `form:"timeout,omitempty" json:"timeout,omitempty"`
 
 	// Dedup Query deduplication (Thanos)
-	Dedup *externalRef1.QueryDedup `form:"dedup,omitempty" json:"dedup,omitempty"`
+	Dedup *QueryDedup `form:"dedup,omitempty" json:"dedup,omitempty"`
 
 	// PartialResponse Query partial response (Thanos)
-	PartialResponse *externalRef1.QueryPartialResponse `form:"partial_response,omitempty" json:"partial_response,omitempty"`
+	PartialResponse *QueryPartialResponse `form:"partial_response,omitempty" json:"partial_response,omitempty"`
 
 	// Step Query resolution step width
 	Step *string `form:"step,omitempty" json:"step,omitempty"`
@@ -199,20 +751,509 @@ type GetRulesParams struct {
 // GetSeriesParams defines parameters for GetSeries.
 type GetSeriesParams struct {
 	// Match Repeated series selector argument
-	Match externalRef1.SeriesMatcher `form:"match[]" json:"match[]"`
+	Match SeriesMatcher `form:"match[]" json:"match[]"`
 
 	// Start Start timestamp
-	Start *externalRef1.StartTS `form:"start,omitempty" json:"start,omitempty"`
+	Start *StartTS `form:"start,omitempty" json:"start,omitempty"`
 
 	// End End timestamp
-	End *externalRef1.EndTS `form:"end,omitempty" json:"end,omitempty"`
+	End *EndTS `form:"end,omitempty" json:"end,omitempty"`
 }
 
 // PostlogEntriesJSONRequestBody defines body for PostlogEntries for application/json ContentType.
-type PostlogEntriesJSONRequestBody = externalRef0.PushLogs
+type PostlogEntriesJSONRequestBody = PushLogs
 
 // PostLogSeriesFormdataRequestBody defines body for PostLogSeries for application/x-www-form-urlencoded ContentType.
 type PostLogSeriesFormdataRequestBody PostLogSeriesFormdataBody
+
+// PostSilenceJSONRequestBody defines body for PostSilence for application/json ContentType.
+type PostSilenceJSONRequestBody = PostableSilence
+
+// AsRangeVectors returns the union data inside the LogInstantQueryResponse_Result_Item as a RangeVectors
+func (t LogInstantQueryResponse_Result_Item) AsRangeVectors() (RangeVectors, error) {
+	var body RangeVectors
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRangeVectors overwrites any union data inside the LogInstantQueryResponse_Result_Item as the provided RangeVectors
+func (t *LogInstantQueryResponse_Result_Item) FromRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRangeVectors performs a merge with any union data inside the LogInstantQueryResponse_Result_Item, using the provided RangeVectors
+func (t *LogInstantQueryResponse_Result_Item) MergeRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstantVectors returns the union data inside the LogInstantQueryResponse_Result_Item as a InstantVectors
+func (t LogInstantQueryResponse_Result_Item) AsInstantVectors() (InstantVectors, error) {
+	var body InstantVectors
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstantVectors overwrites any union data inside the LogInstantQueryResponse_Result_Item as the provided InstantVectors
+func (t *LogInstantQueryResponse_Result_Item) FromInstantVectors(v InstantVectors) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstantVectors performs a merge with any union data inside the LogInstantQueryResponse_Result_Item, using the provided InstantVectors
+func (t *LogInstantQueryResponse_Result_Item) MergeInstantVectors(v InstantVectors) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsScalarOrString returns the union data inside the LogInstantQueryResponse_Result_Item as a ScalarOrString
+func (t LogInstantQueryResponse_Result_Item) AsScalarOrString() (ScalarOrString, error) {
+	var body ScalarOrString
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromScalarOrString overwrites any union data inside the LogInstantQueryResponse_Result_Item as the provided ScalarOrString
+func (t *LogInstantQueryResponse_Result_Item) FromScalarOrString(v ScalarOrString) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeScalarOrString performs a merge with any union data inside the LogInstantQueryResponse_Result_Item, using the provided ScalarOrString
+func (t *LogInstantQueryResponse_Result_Item) MergeScalarOrString(v ScalarOrString) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStreamValues returns the union data inside the LogInstantQueryResponse_Result_Item as a StreamValues
+func (t LogInstantQueryResponse_Result_Item) AsStreamValues() (StreamValues, error) {
+	var body StreamValues
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStreamValues overwrites any union data inside the LogInstantQueryResponse_Result_Item as the provided StreamValues
+func (t *LogInstantQueryResponse_Result_Item) FromStreamValues(v StreamValues) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStreamValues performs a merge with any union data inside the LogInstantQueryResponse_Result_Item, using the provided StreamValues
+func (t *LogInstantQueryResponse_Result_Item) MergeStreamValues(v StreamValues) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LogInstantQueryResponse_Result_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LogInstantQueryResponse_Result_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRangeVectors returns the union data inside the LogRangeQueryResponse_Result_Item as a RangeVectors
+func (t LogRangeQueryResponse_Result_Item) AsRangeVectors() (RangeVectors, error) {
+	var body RangeVectors
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRangeVectors overwrites any union data inside the LogRangeQueryResponse_Result_Item as the provided RangeVectors
+func (t *LogRangeQueryResponse_Result_Item) FromRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRangeVectors performs a merge with any union data inside the LogRangeQueryResponse_Result_Item, using the provided RangeVectors
+func (t *LogRangeQueryResponse_Result_Item) MergeRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LogRangeQueryResponse_Result_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LogRangeQueryResponse_Result_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRangeVectors returns the union data inside the MetricInstantQueryResponse_Result_Item as a RangeVectors
+func (t MetricInstantQueryResponse_Result_Item) AsRangeVectors() (RangeVectors, error) {
+	var body RangeVectors
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRangeVectors overwrites any union data inside the MetricInstantQueryResponse_Result_Item as the provided RangeVectors
+func (t *MetricInstantQueryResponse_Result_Item) FromRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRangeVectors performs a merge with any union data inside the MetricInstantQueryResponse_Result_Item, using the provided RangeVectors
+func (t *MetricInstantQueryResponse_Result_Item) MergeRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstantVectors returns the union data inside the MetricInstantQueryResponse_Result_Item as a InstantVectors
+func (t MetricInstantQueryResponse_Result_Item) AsInstantVectors() (InstantVectors, error) {
+	var body InstantVectors
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstantVectors overwrites any union data inside the MetricInstantQueryResponse_Result_Item as the provided InstantVectors
+func (t *MetricInstantQueryResponse_Result_Item) FromInstantVectors(v InstantVectors) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstantVectors performs a merge with any union data inside the MetricInstantQueryResponse_Result_Item, using the provided InstantVectors
+func (t *MetricInstantQueryResponse_Result_Item) MergeInstantVectors(v InstantVectors) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsScalarOrString returns the union data inside the MetricInstantQueryResponse_Result_Item as a ScalarOrString
+func (t MetricInstantQueryResponse_Result_Item) AsScalarOrString() (ScalarOrString, error) {
+	var body ScalarOrString
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromScalarOrString overwrites any union data inside the MetricInstantQueryResponse_Result_Item as the provided ScalarOrString
+func (t *MetricInstantQueryResponse_Result_Item) FromScalarOrString(v ScalarOrString) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeScalarOrString performs a merge with any union data inside the MetricInstantQueryResponse_Result_Item, using the provided ScalarOrString
+func (t *MetricInstantQueryResponse_Result_Item) MergeScalarOrString(v ScalarOrString) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsStreamValues returns the union data inside the MetricInstantQueryResponse_Result_Item as a StreamValues
+func (t MetricInstantQueryResponse_Result_Item) AsStreamValues() (StreamValues, error) {
+	var body StreamValues
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromStreamValues overwrites any union data inside the MetricInstantQueryResponse_Result_Item as the provided StreamValues
+func (t *MetricInstantQueryResponse_Result_Item) FromStreamValues(v StreamValues) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeStreamValues performs a merge with any union data inside the MetricInstantQueryResponse_Result_Item, using the provided StreamValues
+func (t *MetricInstantQueryResponse_Result_Item) MergeStreamValues(v StreamValues) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MetricInstantQueryResponse_Result_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MetricInstantQueryResponse_Result_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRangeVectors returns the union data inside the MetricRangeQueryResponse_Result_Item as a RangeVectors
+func (t MetricRangeQueryResponse_Result_Item) AsRangeVectors() (RangeVectors, error) {
+	var body RangeVectors
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRangeVectors overwrites any union data inside the MetricRangeQueryResponse_Result_Item as the provided RangeVectors
+func (t *MetricRangeQueryResponse_Result_Item) FromRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRangeVectors performs a merge with any union data inside the MetricRangeQueryResponse_Result_Item, using the provided RangeVectors
+func (t *MetricRangeQueryResponse_Result_Item) MergeRangeVectors(v RangeVectors) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MetricRangeQueryResponse_Result_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MetricRangeQueryResponse_Result_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRecordingRule returns the union data inside the RuleGroup_Rules_Item as a RecordingRule
+func (t RuleGroup_Rules_Item) AsRecordingRule() (RecordingRule, error) {
+	var body RecordingRule
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRecordingRule overwrites any union data inside the RuleGroup_Rules_Item as the provided RecordingRule
+func (t *RuleGroup_Rules_Item) FromRecordingRule(v RecordingRule) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRecordingRule performs a merge with any union data inside the RuleGroup_Rules_Item, using the provided RecordingRule
+func (t *RuleGroup_Rules_Item) MergeRecordingRule(v RecordingRule) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAlertingRule returns the union data inside the RuleGroup_Rules_Item as a AlertingRule
+func (t RuleGroup_Rules_Item) AsAlertingRule() (AlertingRule, error) {
+	var body AlertingRule
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAlertingRule overwrites any union data inside the RuleGroup_Rules_Item as the provided AlertingRule
+func (t *RuleGroup_Rules_Item) FromAlertingRule(v AlertingRule) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAlertingRule performs a merge with any union data inside the RuleGroup_Rules_Item, using the provided AlertingRule
+func (t *RuleGroup_Rules_Item) MergeAlertingRule(v AlertingRule) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RuleGroup_Rules_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *RuleGroup_Rules_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsRecordingRuleEvaluated returns the union data inside the RuleGroupEvaluated_Rules_Item as a RecordingRuleEvaluated
+func (t RuleGroupEvaluated_Rules_Item) AsRecordingRuleEvaluated() (RecordingRuleEvaluated, error) {
+	var body RecordingRuleEvaluated
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromRecordingRuleEvaluated overwrites any union data inside the RuleGroupEvaluated_Rules_Item as the provided RecordingRuleEvaluated
+func (t *RuleGroupEvaluated_Rules_Item) FromRecordingRuleEvaluated(v RecordingRuleEvaluated) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeRecordingRuleEvaluated performs a merge with any union data inside the RuleGroupEvaluated_Rules_Item, using the provided RecordingRuleEvaluated
+func (t *RuleGroupEvaluated_Rules_Item) MergeRecordingRuleEvaluated(v RecordingRuleEvaluated) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsAlertingRuleEvaluated returns the union data inside the RuleGroupEvaluated_Rules_Item as a AlertingRuleEvaluated
+func (t RuleGroupEvaluated_Rules_Item) AsAlertingRuleEvaluated() (AlertingRuleEvaluated, error) {
+	var body AlertingRuleEvaluated
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromAlertingRuleEvaluated overwrites any union data inside the RuleGroupEvaluated_Rules_Item as the provided AlertingRuleEvaluated
+func (t *RuleGroupEvaluated_Rules_Item) FromAlertingRuleEvaluated(v AlertingRuleEvaluated) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeAlertingRuleEvaluated performs a merge with any union data inside the RuleGroupEvaluated_Rules_Item, using the provided AlertingRuleEvaluated
+func (t *RuleGroupEvaluated_Rules_Item) MergeAlertingRuleEvaluated(v AlertingRuleEvaluated) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t RuleGroupEvaluated_Rules_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *RuleGroupEvaluated_Rules_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsScalarOrString0 returns the union data inside the ScalarOrString_Item as a ScalarOrString0
+func (t ScalarOrString_Item) AsScalarOrString0() (ScalarOrString0, error) {
+	var body ScalarOrString0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromScalarOrString0 overwrites any union data inside the ScalarOrString_Item as the provided ScalarOrString0
+func (t *ScalarOrString_Item) FromScalarOrString0(v ScalarOrString0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeScalarOrString0 performs a merge with any union data inside the ScalarOrString_Item, using the provided ScalarOrString0
+func (t *ScalarOrString_Item) MergeScalarOrString0(v ScalarOrString0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsScalarOrString1 returns the union data inside the ScalarOrString_Item as a ScalarOrString1
+func (t ScalarOrString_Item) AsScalarOrString1() (ScalarOrString1, error) {
+	var body ScalarOrString1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromScalarOrString1 overwrites any union data inside the ScalarOrString_Item as the provided ScalarOrString1
+func (t *ScalarOrString_Item) FromScalarOrString1(v ScalarOrString1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeScalarOrString1 performs a merge with any union data inside the ScalarOrString_Item, using the provided ScalarOrString1
+func (t *ScalarOrString_Item) MergeScalarOrString1(v ScalarOrString1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ScalarOrString_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ScalarOrString_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -288,83 +1329,100 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// GetLogLabelValues request
-	GetLogLabelValues(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogLabelValues(ctx context.Context, tenant Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogLabels request
-	GetLogLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogLabels(ctx context.Context, tenant Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostlogEntriesWithBody request with any body
-	PostlogEntriesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostlogEntriesWithBody(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostlogEntries(ctx context.Context, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostlogEntries(ctx context.Context, tenant Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogInstantQuery request
-	GetLogInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogInstantQuery(ctx context.Context, tenant Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogRangeQuery request
-	GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogRangeQuery(ctx context.Context, tenant Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAllLogsRules request
-	GetAllLogsRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetAllLogsRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteLogsRules request
-	DeleteLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteLogsRules(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogsRules request
-	GetLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogsRules(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetLogsRulesWithBody request with any body
-	SetLogsRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SetLogsRulesWithBody(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteLogsRulesGroup request
-	DeleteLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteLogsRulesGroup(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogsRulesGroup request
-	GetLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogsRulesGroup(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogSeries request
-	GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogSeries(ctx context.Context, tenant Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostLogSeriesWithBody request with any body
-	PostLogSeriesWithBody(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostLogSeriesWithBody(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PostLogSeriesWithFormdataBody(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostLogSeriesWithFormdataBody(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogs request
-	GetLogs(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogs(ctx context.Context, tenant Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogsPromAlerts request
-	GetLogsPromAlerts(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogsPromAlerts(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLogsPromRules request
-	GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLogsPromRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAlerts request
+	GetAlerts(ctx context.Context, tenant Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSilence request
+	DeleteSilence(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSilence request
+	GetSilence(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSilences request
+	GetSilences(ctx context.Context, tenant Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostSilenceWithBody request with any body
+	PostSilenceWithBody(ctx context.Context, tenant Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostSilence(ctx context.Context, tenant Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabelValues request
-	GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLabelValues(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabels request
-	GetLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLabels(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetInstantQuery request
-	GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetInstantQuery(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRangeQuery request
-	GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRangeQuery(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRules request
-	GetRules(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRules(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRawRules request
-	GetRawRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRawRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetRawRulesWithBody request with any body
-	SetRawRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SetRawRulesWithBody(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetSeries request
-	GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetSeries(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetLogLabelValues(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogLabelValues(ctx context.Context, tenant Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogLabelValuesRequest(c.Server, tenant, name, params)
 	if err != nil {
 		return nil, err
@@ -376,7 +1434,7 @@ func (c *Client) GetLogLabelValues(ctx context.Context, tenant externalRef1.Tena
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogLabels(ctx context.Context, tenant Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogLabelsRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -388,7 +1446,7 @@ func (c *Client) GetLogLabels(ctx context.Context, tenant externalRef1.Tenant, p
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostlogEntriesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostlogEntriesWithBody(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostlogEntriesRequestWithBody(c.Server, tenant, contentType, body)
 	if err != nil {
 		return nil, err
@@ -400,7 +1458,7 @@ func (c *Client) PostlogEntriesWithBody(ctx context.Context, tenant externalRef1
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostlogEntries(ctx context.Context, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostlogEntries(ctx context.Context, tenant Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostlogEntriesRequest(c.Server, tenant, body)
 	if err != nil {
 		return nil, err
@@ -412,7 +1470,7 @@ func (c *Client) PostlogEntries(ctx context.Context, tenant externalRef1.Tenant,
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogInstantQuery(ctx context.Context, tenant Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogInstantQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -424,7 +1482,7 @@ func (c *Client) GetLogInstantQuery(ctx context.Context, tenant externalRef1.Ten
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogRangeQuery(ctx context.Context, tenant Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogRangeQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -436,7 +1494,7 @@ func (c *Client) GetLogRangeQuery(ctx context.Context, tenant externalRef1.Tenan
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAllLogsRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetAllLogsRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAllLogsRulesRequest(c.Server, tenant)
 	if err != nil {
 		return nil, err
@@ -448,7 +1506,7 @@ func (c *Client) GetAllLogsRules(ctx context.Context, tenant externalRef1.Tenant
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) DeleteLogsRules(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteLogsRulesRequest(c.Server, tenant, namespace)
 	if err != nil {
 		return nil, err
@@ -460,7 +1518,7 @@ func (c *Client) DeleteLogsRules(ctx context.Context, tenant externalRef1.Tenant
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogsRules(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogsRules(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsRulesRequest(c.Server, tenant, namespace)
 	if err != nil {
 		return nil, err
@@ -472,7 +1530,7 @@ func (c *Client) GetLogsRules(ctx context.Context, tenant externalRef1.Tenant, n
 	return c.Client.Do(req)
 }
 
-func (c *Client) SetLogsRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) SetLogsRulesWithBody(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetLogsRulesRequestWithBody(c.Server, tenant, namespace, contentType, body)
 	if err != nil {
 		return nil, err
@@ -484,7 +1542,7 @@ func (c *Client) SetLogsRulesWithBody(ctx context.Context, tenant externalRef1.T
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) DeleteLogsRulesGroup(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteLogsRulesGroupRequest(c.Server, tenant, namespace, group)
 	if err != nil {
 		return nil, err
@@ -496,7 +1554,7 @@ func (c *Client) DeleteLogsRulesGroup(ctx context.Context, tenant externalRef1.T
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogsRulesGroup(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogsRulesGroup(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsRulesGroupRequest(c.Server, tenant, namespace, group)
 	if err != nil {
 		return nil, err
@@ -508,7 +1566,7 @@ func (c *Client) GetLogsRulesGroup(ctx context.Context, tenant externalRef1.Tena
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogSeries(ctx context.Context, tenant Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogSeriesRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -520,7 +1578,7 @@ func (c *Client) GetLogSeries(ctx context.Context, tenant externalRef1.Tenant, p
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostLogSeriesWithBody(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostLogSeriesWithBody(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostLogSeriesRequestWithBody(c.Server, tenant, params, contentType, body)
 	if err != nil {
 		return nil, err
@@ -532,7 +1590,7 @@ func (c *Client) PostLogSeriesWithBody(ctx context.Context, tenant externalRef1.
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostLogSeriesWithFormdataBody(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) PostLogSeriesWithFormdataBody(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostLogSeriesRequestWithFormdataBody(c.Server, tenant, params, body)
 	if err != nil {
 		return nil, err
@@ -544,7 +1602,7 @@ func (c *Client) PostLogSeriesWithFormdataBody(ctx context.Context, tenant exter
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogs(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogs(ctx context.Context, tenant Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -556,7 +1614,7 @@ func (c *Client) GetLogs(ctx context.Context, tenant externalRef1.Tenant, params
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogsPromAlerts(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogsPromAlerts(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsPromAlertsRequest(c.Server, tenant)
 	if err != nil {
 		return nil, err
@@ -568,7 +1626,7 @@ func (c *Client) GetLogsPromAlerts(ctx context.Context, tenant externalRef1.Tena
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLogsPromRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLogsPromRulesRequest(c.Server, tenant)
 	if err != nil {
 		return nil, err
@@ -580,7 +1638,79 @@ func (c *Client) GetLogsPromRules(ctx context.Context, tenant externalRef1.Tenan
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLabelValues(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetAlerts(ctx context.Context, tenant Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAlertsRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSilence(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSilenceRequest(c.Server, tenant, silenceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSilence(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSilenceRequest(c.Server, tenant, silenceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSilences(ctx context.Context, tenant Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSilencesRequest(c.Server, tenant, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSilenceWithBody(ctx context.Context, tenant Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSilenceRequestWithBody(c.Server, tenant, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostSilence(ctx context.Context, tenant Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostSilenceRequest(c.Server, tenant, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLabelValues(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLabelValuesRequest(c.Server, tenant, labelName, params)
 	if err != nil {
 		return nil, err
@@ -592,7 +1722,7 @@ func (c *Client) GetLabelValues(ctx context.Context, tenant externalRef1.Tenant,
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLabels(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetLabels(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLabelsRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -604,7 +1734,7 @@ func (c *Client) GetLabels(ctx context.Context, tenant externalRef1.Tenant, para
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetInstantQuery(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetInstantQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -616,7 +1746,7 @@ func (c *Client) GetInstantQuery(ctx context.Context, tenant externalRef1.Tenant
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetRangeQuery(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRangeQueryRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -628,7 +1758,7 @@ func (c *Client) GetRangeQuery(ctx context.Context, tenant externalRef1.Tenant, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRules(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetRules(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRulesRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -640,7 +1770,7 @@ func (c *Client) GetRules(ctx context.Context, tenant externalRef1.Tenant, param
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRawRules(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetRawRules(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRawRulesRequest(c.Server, tenant)
 	if err != nil {
 		return nil, err
@@ -652,7 +1782,7 @@ func (c *Client) GetRawRules(ctx context.Context, tenant externalRef1.Tenant, re
 	return c.Client.Do(req)
 }
 
-func (c *Client) SetRawRulesWithBody(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) SetRawRulesWithBody(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetRawRulesRequestWithBody(c.Server, tenant, contentType, body)
 	if err != nil {
 		return nil, err
@@ -664,7 +1794,7 @@ func (c *Client) SetRawRulesWithBody(ctx context.Context, tenant externalRef1.Te
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetSeries(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+func (c *Client) GetSeries(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetSeriesRequest(c.Server, tenant, params)
 	if err != nil {
 		return nil, err
@@ -677,7 +1807,7 @@ func (c *Client) GetSeries(ctx context.Context, tenant externalRef1.Tenant, para
 }
 
 // NewGetLogLabelValuesRequest generates requests for GetLogLabelValues
-func NewGetLogLabelValuesRequest(server string, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams) (*http.Request, error) {
+func NewGetLogLabelValuesRequest(server string, tenant Tenant, name string, params *GetLogLabelValuesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -756,7 +1886,7 @@ func NewGetLogLabelValuesRequest(server string, tenant externalRef1.Tenant, name
 }
 
 // NewGetLogLabelsRequest generates requests for GetLogLabels
-func NewGetLogLabelsRequest(server string, tenant externalRef1.Tenant, params *GetLogLabelsParams) (*http.Request, error) {
+func NewGetLogLabelsRequest(server string, tenant Tenant, params *GetLogLabelsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -828,7 +1958,7 @@ func NewGetLogLabelsRequest(server string, tenant externalRef1.Tenant, params *G
 }
 
 // NewPostlogEntriesRequest calls the generic PostlogEntries builder with application/json body
-func NewPostlogEntriesRequest(server string, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody) (*http.Request, error) {
+func NewPostlogEntriesRequest(server string, tenant Tenant, body PostlogEntriesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -839,7 +1969,7 @@ func NewPostlogEntriesRequest(server string, tenant externalRef1.Tenant, body Po
 }
 
 // NewPostlogEntriesRequestWithBody generates requests for PostlogEntries with any type of body
-func NewPostlogEntriesRequestWithBody(server string, tenant externalRef1.Tenant, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostlogEntriesRequestWithBody(server string, tenant Tenant, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -875,7 +2005,7 @@ func NewPostlogEntriesRequestWithBody(server string, tenant externalRef1.Tenant,
 }
 
 // NewGetLogInstantQueryRequest generates requests for GetLogInstantQuery
-func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, params *GetLogInstantQueryParams) (*http.Request, error) {
+func NewGetLogInstantQueryRequest(server string, tenant Tenant, params *GetLogInstantQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -979,7 +2109,7 @@ func NewGetLogInstantQueryRequest(server string, tenant externalRef1.Tenant, par
 }
 
 // NewGetLogRangeQueryRequest generates requests for GetLogRangeQuery
-func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, params *GetLogRangeQueryParams) (*http.Request, error) {
+func NewGetLogRangeQueryRequest(server string, tenant Tenant, params *GetLogRangeQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1131,7 +2261,7 @@ func NewGetLogRangeQueryRequest(server string, tenant externalRef1.Tenant, param
 }
 
 // NewGetAllLogsRulesRequest generates requests for GetAllLogsRules
-func NewGetAllLogsRulesRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+func NewGetAllLogsRulesRequest(server string, tenant Tenant) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1165,7 +2295,7 @@ func NewGetAllLogsRulesRequest(server string, tenant externalRef1.Tenant) (*http
 }
 
 // NewDeleteLogsRulesRequest generates requests for DeleteLogsRules
-func NewDeleteLogsRulesRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace) (*http.Request, error) {
+func NewDeleteLogsRulesRequest(server string, tenant Tenant, namespace LogRulesNamespace) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1206,7 +2336,7 @@ func NewDeleteLogsRulesRequest(server string, tenant externalRef1.Tenant, namesp
 }
 
 // NewGetLogsRulesRequest generates requests for GetLogsRules
-func NewGetLogsRulesRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace) (*http.Request, error) {
+func NewGetLogsRulesRequest(server string, tenant Tenant, namespace LogRulesNamespace) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1247,7 +2377,7 @@ func NewGetLogsRulesRequest(server string, tenant externalRef1.Tenant, namespace
 }
 
 // NewSetLogsRulesRequestWithBody generates requests for SetLogsRules with any type of body
-func NewSetLogsRulesRequestWithBody(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader) (*http.Request, error) {
+func NewSetLogsRulesRequestWithBody(server string, tenant Tenant, namespace LogRulesNamespace, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1290,7 +2420,7 @@ func NewSetLogsRulesRequestWithBody(server string, tenant externalRef1.Tenant, n
 }
 
 // NewDeleteLogsRulesGroupRequest generates requests for DeleteLogsRulesGroup
-func NewDeleteLogsRulesGroupRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup) (*http.Request, error) {
+func NewDeleteLogsRulesGroupRequest(server string, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1338,7 +2468,7 @@ func NewDeleteLogsRulesGroupRequest(server string, tenant externalRef1.Tenant, n
 }
 
 // NewGetLogsRulesGroupRequest generates requests for GetLogsRulesGroup
-func NewGetLogsRulesGroupRequest(server string, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup) (*http.Request, error) {
+func NewGetLogsRulesGroupRequest(server string, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1386,7 +2516,7 @@ func NewGetLogsRulesGroupRequest(server string, tenant externalRef1.Tenant, name
 }
 
 // NewGetLogSeriesRequest generates requests for GetLogSeries
-func NewGetLogSeriesRequest(server string, tenant externalRef1.Tenant, params *GetLogSeriesParams) (*http.Request, error) {
+func NewGetLogSeriesRequest(server string, tenant Tenant, params *GetLogSeriesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1470,7 +2600,7 @@ func NewGetLogSeriesRequest(server string, tenant externalRef1.Tenant, params *G
 }
 
 // NewPostLogSeriesRequestWithFormdataBody calls the generic PostLogSeries builder with application/x-www-form-urlencoded body
-func NewPostLogSeriesRequestWithFormdataBody(server string, tenant externalRef1.Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody) (*http.Request, error) {
+func NewPostLogSeriesRequestWithFormdataBody(server string, tenant Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	bodyStr, err := runtime.MarshalForm(body, nil)
 	if err != nil {
@@ -1481,7 +2611,7 @@ func NewPostLogSeriesRequestWithFormdataBody(server string, tenant externalRef1.
 }
 
 // NewPostLogSeriesRequestWithBody generates requests for PostLogSeries with any type of body
-func NewPostLogSeriesRequestWithBody(server string, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader) (*http.Request, error) {
+func NewPostLogSeriesRequestWithBody(server string, tenant Tenant, params *PostLogSeriesParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1567,7 +2697,7 @@ func NewPostLogSeriesRequestWithBody(server string, tenant externalRef1.Tenant, 
 }
 
 // NewGetLogsRequest generates requests for GetLogs
-func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLogsParams) (*http.Request, error) {
+func NewGetLogsRequest(server string, tenant Tenant, params *GetLogsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1655,7 +2785,7 @@ func NewGetLogsRequest(server string, tenant externalRef1.Tenant, params *GetLog
 }
 
 // NewGetLogsPromAlertsRequest generates requests for GetLogsPromAlerts
-func NewGetLogsPromAlertsRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+func NewGetLogsPromAlertsRequest(server string, tenant Tenant) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1689,7 +2819,7 @@ func NewGetLogsPromAlertsRequest(server string, tenant externalRef1.Tenant) (*ht
 }
 
 // NewGetLogsPromRulesRequest generates requests for GetLogsPromRules
-func NewGetLogsPromRulesRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+func NewGetLogsPromRulesRequest(server string, tenant Tenant) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1722,8 +2852,351 @@ func NewGetLogsPromRulesRequest(server string, tenant externalRef1.Tenant) (*htt
 	return req, nil
 }
 
+// NewGetAlertsRequest generates requests for GetAlerts
+func NewGetAlertsRequest(server string, tenant Tenant, params *GetAlertsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/alerts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Active != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "active", runtime.ParamLocationQuery, *params.Active); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Silenced != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "silenced", runtime.ParamLocationQuery, *params.Silenced); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Inhibited != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "inhibited", runtime.ParamLocationQuery, *params.Inhibited); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Unprocessed != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "unprocessed", runtime.ParamLocationQuery, *params.Unprocessed); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Receiver != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "receiver", runtime.ParamLocationQuery, *params.Receiver); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteSilenceRequest generates requests for DeleteSilence
+func NewDeleteSilenceRequest(server string, tenant Tenant, silenceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "silenceID", runtime.ParamLocationPath, silenceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silence/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSilenceRequest generates requests for GetSilence
+func NewGetSilenceRequest(server string, tenant Tenant, silenceID openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "silenceID", runtime.ParamLocationPath, silenceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silence/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSilencesRequest generates requests for GetSilences
+func NewGetSilencesRequest(server string, tenant Tenant, params *GetSilencesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silences", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostSilenceRequest calls the generic PostSilence builder with application/json body
+func NewPostSilenceRequest(server string, tenant Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostSilenceRequestWithBody(server, tenant, params, "application/json", bodyReader)
+}
+
+// NewPostSilenceRequestWithBody generates requests for PostSilence with any type of body
+func NewPostSilenceRequestWithBody(server string, tenant Tenant, params *PostSilenceParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "tenant", runtime.ParamLocationPath, tenant)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/metrics/v1/%s/am/api/v2/silences", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Filter != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "filter", runtime.ParamLocationQuery, *params.Filter); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetLabelValuesRequest generates requests for GetLabelValues
-func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams) (*http.Request, error) {
+func NewGetLabelValuesRequest(server string, tenant Tenant, labelName string, params *GetLabelValuesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1818,7 +3291,7 @@ func NewGetLabelValuesRequest(server string, tenant externalRef1.Tenant, labelNa
 }
 
 // NewGetLabelsRequest generates requests for GetLabels
-func NewGetLabelsRequest(server string, tenant externalRef1.Tenant, params *GetLabelsParams) (*http.Request, error) {
+func NewGetLabelsRequest(server string, tenant Tenant, params *GetLabelsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1906,7 +3379,7 @@ func NewGetLabelsRequest(server string, tenant externalRef1.Tenant, params *GetL
 }
 
 // NewGetInstantQueryRequest generates requests for GetInstantQuery
-func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params *GetInstantQueryParams) (*http.Request, error) {
+func NewGetInstantQueryRequest(server string, tenant Tenant, params *GetInstantQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2026,7 +3499,7 @@ func NewGetInstantQueryRequest(server string, tenant externalRef1.Tenant, params
 }
 
 // NewGetRangeQueryRequest generates requests for GetRangeQuery
-func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *GetRangeQueryParams) (*http.Request, error) {
+func NewGetRangeQueryRequest(server string, tenant Tenant, params *GetRangeQueryParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2178,7 +3651,7 @@ func NewGetRangeQueryRequest(server string, tenant externalRef1.Tenant, params *
 }
 
 // NewGetRulesRequest generates requests for GetRules
-func NewGetRulesRequest(server string, tenant externalRef1.Tenant, params *GetRulesParams) (*http.Request, error) {
+func NewGetRulesRequest(server string, tenant Tenant, params *GetRulesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2250,7 +3723,7 @@ func NewGetRulesRequest(server string, tenant externalRef1.Tenant, params *GetRu
 }
 
 // NewGetRawRulesRequest generates requests for GetRawRules
-func NewGetRawRulesRequest(server string, tenant externalRef1.Tenant) (*http.Request, error) {
+func NewGetRawRulesRequest(server string, tenant Tenant) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2284,7 +3757,7 @@ func NewGetRawRulesRequest(server string, tenant externalRef1.Tenant) (*http.Req
 }
 
 // NewSetRawRulesRequestWithBody generates requests for SetRawRules with any type of body
-func NewSetRawRulesRequestWithBody(server string, tenant externalRef1.Tenant, contentType string, body io.Reader) (*http.Request, error) {
+func NewSetRawRulesRequestWithBody(server string, tenant Tenant, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2320,7 +3793,7 @@ func NewSetRawRulesRequestWithBody(server string, tenant externalRef1.Tenant, co
 }
 
 // NewGetSeriesRequest generates requests for GetSeries
-func NewGetSeriesRequest(server string, tenant externalRef1.Tenant, params *GetSeriesParams) (*http.Request, error) {
+func NewGetSeriesRequest(server string, tenant Tenant, params *GetSeriesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2447,86 +3920,103 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// GetLogLabelValuesWithResponse request
-	GetLogLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLogLabelValuesResponse, error)
+	GetLogLabelValuesWithResponse(ctx context.Context, tenant Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLogLabelValuesResponse, error)
 
 	// GetLogLabelsWithResponse request
-	GetLogLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*GetLogLabelsResponse, error)
+	GetLogLabelsWithResponse(ctx context.Context, tenant Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*GetLogLabelsResponse, error)
 
 	// PostlogEntriesWithBodyWithResponse request with any body
-	PostlogEntriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error)
+	PostlogEntriesWithBodyWithResponse(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error)
 
-	PostlogEntriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error)
+	PostlogEntriesWithResponse(ctx context.Context, tenant Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error)
 
 	// GetLogInstantQueryWithResponse request
-	GetLogInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*GetLogInstantQueryResponse, error)
+	GetLogInstantQueryWithResponse(ctx context.Context, tenant Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*GetLogInstantQueryResponse, error)
 
 	// GetLogRangeQueryWithResponse request
-	GetLogRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error)
+	GetLogRangeQueryWithResponse(ctx context.Context, tenant Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error)
 
 	// GetAllLogsRulesWithResponse request
-	GetAllLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetAllLogsRulesResponse, error)
+	GetAllLogsRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetAllLogsRulesResponse, error)
 
 	// DeleteLogsRulesWithResponse request
-	DeleteLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*DeleteLogsRulesResponse, error)
+	DeleteLogsRulesWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*DeleteLogsRulesResponse, error)
 
 	// GetLogsRulesWithResponse request
-	GetLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*GetLogsRulesResponse, error)
+	GetLogsRulesWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*GetLogsRulesResponse, error)
 
 	// SetLogsRulesWithBodyWithResponse request with any body
-	SetLogsRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLogsRulesResponse, error)
+	SetLogsRulesWithBodyWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLogsRulesResponse, error)
 
 	// DeleteLogsRulesGroupWithResponse request
-	DeleteLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*DeleteLogsRulesGroupResponse, error)
+	DeleteLogsRulesGroupWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*DeleteLogsRulesGroupResponse, error)
 
 	// GetLogsRulesGroupWithResponse request
-	GetLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*GetLogsRulesGroupResponse, error)
+	GetLogsRulesGroupWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*GetLogsRulesGroupResponse, error)
 
 	// GetLogSeriesWithResponse request
-	GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error)
+	GetLogSeriesWithResponse(ctx context.Context, tenant Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error)
 
 	// PostLogSeriesWithBodyWithResponse request with any body
-	PostLogSeriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error)
+	PostLogSeriesWithBodyWithResponse(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error)
 
-	PostLogSeriesWithFormdataBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error)
+	PostLogSeriesWithFormdataBodyWithResponse(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error)
 
 	// GetLogsWithResponse request
-	GetLogsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error)
+	GetLogsWithResponse(ctx context.Context, tenant Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error)
 
 	// GetLogsPromAlertsWithResponse request
-	GetLogsPromAlertsWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromAlertsResponse, error)
+	GetLogsPromAlertsWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromAlertsResponse, error)
 
 	// GetLogsPromRulesWithResponse request
-	GetLogsPromRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error)
+	GetLogsPromRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error)
+
+	// GetAlertsWithResponse request
+	GetAlertsWithResponse(ctx context.Context, tenant Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*GetAlertsResponse, error)
+
+	// DeleteSilenceWithResponse request
+	DeleteSilenceWithResponse(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSilenceResponse, error)
+
+	// GetSilenceWithResponse request
+	GetSilenceWithResponse(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSilenceResponse, error)
+
+	// GetSilencesWithResponse request
+	GetSilencesWithResponse(ctx context.Context, tenant Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*GetSilencesResponse, error)
+
+	// PostSilenceWithBodyWithResponse request with any body
+	PostSilenceWithBodyWithResponse(ctx context.Context, tenant Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error)
+
+	PostSilenceWithResponse(ctx context.Context, tenant Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error)
 
 	// GetLabelValuesWithResponse request
-	GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
+	GetLabelValuesWithResponse(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error)
 
 	// GetLabelsWithResponse request
-	GetLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error)
+	GetLabelsWithResponse(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error)
 
 	// GetInstantQueryWithResponse request
-	GetInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error)
+	GetInstantQueryWithResponse(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error)
 
 	// GetRangeQueryWithResponse request
-	GetRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error)
+	GetRangeQueryWithResponse(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error)
 
 	// GetRulesWithResponse request
-	GetRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error)
+	GetRulesWithResponse(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error)
 
 	// GetRawRulesWithResponse request
-	GetRawRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error)
+	GetRawRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error)
 
 	// SetRawRulesWithBodyWithResponse request with any body
-	SetRawRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error)
+	SetRawRulesWithBodyWithResponse(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error)
 
 	// GetSeriesWithResponse request
-	GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error)
+	GetSeriesWithResponse(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error)
 }
 
 type GetLogLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogLabelValuesResponse
+	JSON2XX      *LogLabelValuesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2548,7 +4038,7 @@ func (r GetLogLabelValuesResponse) StatusCode() int {
 type GetLogLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogLabelsResponse
+	JSON2XX      *LogLabelsResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2591,7 +4081,7 @@ func (r PostlogEntriesResponse) StatusCode() int {
 type GetLogInstantQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogQueryResponse
+	JSON2XX      *LogQueryResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2613,7 +4103,7 @@ func (r GetLogInstantQueryResponse) StatusCode() int {
 type GetLogRangeQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogQueryRangeResponse
+	JSON2XX      *LogQueryRangeResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2635,7 +4125,7 @@ func (r GetLogRangeQueryResponse) StatusCode() int {
 type GetAllLogsRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	YAML2XX      *externalRef2.AllLogRulesResponse
+	YAML2XX      *AllLogRulesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2678,7 +4168,7 @@ func (r DeleteLogsRulesResponse) StatusCode() int {
 type GetLogsRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	YAML2XX      *externalRef2.LogRulesNamespaceResponse
+	YAML2XX      *LogRulesNamespaceResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2742,7 +4232,7 @@ func (r DeleteLogsRulesGroupResponse) StatusCode() int {
 type GetLogsRulesGroupResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	YAML2XX      *externalRef2.LogRulesGroupResponse
+	YAML2XX      *LogRulesGroupResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2764,7 +4254,7 @@ func (r GetLogsRulesGroupResponse) StatusCode() int {
 type GetLogSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogSeriesResponse
+	JSON2XX      *LogSeriesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2807,7 +4297,7 @@ func (r PostLogSeriesResponse) StatusCode() int {
 type GetLogsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogReadResponse
+	JSON2XX      *LogReadResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2829,7 +4319,7 @@ func (r GetLogsResponse) StatusCode() int {
 type GetLogsPromAlertsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogRulesPrometheusResponse
+	JSON2XX      *LogRulesPrometheusResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2851,7 +4341,7 @@ func (r GetLogsPromAlertsResponse) StatusCode() int {
 type GetLogsPromRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.LogRulesPrometheusResponse
+	JSON2XX      *LogRulesPrometheusResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2870,10 +4360,119 @@ func (r GetLogsPromRulesResponse) StatusCode() int {
 	return 0
 }
 
+type GetAlertsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *GettableAlerts
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAlertsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAlertsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSilenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSilenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSilenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSilenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *GettableSilence
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSilenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSilenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSilencesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *GettableSilences
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSilencesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSilencesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostSilenceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON2XX      *PostableSilenceResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostSilenceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostSilenceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.MetricLabelValuesResponse
+	JSON2XX      *MetricLabelValuesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2895,7 +4494,7 @@ func (r GetLabelValuesResponse) StatusCode() int {
 type GetLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.MetricLabelsResponse
+	JSON2XX      *MetricLabelsResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2917,7 +4516,7 @@ func (r GetLabelsResponse) StatusCode() int {
 type GetInstantQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.MetricQueryResponse
+	JSON2XX      *MetricQueryResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2939,7 +4538,7 @@ func (r GetInstantQueryResponse) StatusCode() int {
 type GetRangeQueryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.MetricQueryRangeResponse
+	JSON2XX      *MetricQueryRangeResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2961,7 +4560,7 @@ func (r GetRangeQueryResponse) StatusCode() int {
 type GetRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.MetricRulesResponse
+	JSON2XX      *MetricRulesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2983,7 +4582,7 @@ func (r GetRulesResponse) StatusCode() int {
 type GetRawRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	YAML200      *externalRef0.RulesRaw
+	YAML200      *RulesRaw
 }
 
 // Status returns HTTPResponse.Status
@@ -3026,7 +4625,7 @@ func (r SetRawRulesResponse) StatusCode() int {
 type GetSeriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON2XX      *externalRef2.MetricSeriesResponse
+	JSON2XX      *MetricSeriesResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -3046,7 +4645,7 @@ func (r GetSeriesResponse) StatusCode() int {
 }
 
 // GetLogLabelValuesWithResponse request returning *GetLogLabelValuesResponse
-func (c *ClientWithResponses) GetLogLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLogLabelValuesResponse, error) {
+func (c *ClientWithResponses) GetLogLabelValuesWithResponse(ctx context.Context, tenant Tenant, name string, params *GetLogLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLogLabelValuesResponse, error) {
 	rsp, err := c.GetLogLabelValues(ctx, tenant, name, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3055,7 +4654,7 @@ func (c *ClientWithResponses) GetLogLabelValuesWithResponse(ctx context.Context,
 }
 
 // GetLogLabelsWithResponse request returning *GetLogLabelsResponse
-func (c *ClientWithResponses) GetLogLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*GetLogLabelsResponse, error) {
+func (c *ClientWithResponses) GetLogLabelsWithResponse(ctx context.Context, tenant Tenant, params *GetLogLabelsParams, reqEditors ...RequestEditorFn) (*GetLogLabelsResponse, error) {
 	rsp, err := c.GetLogLabels(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3064,7 +4663,7 @@ func (c *ClientWithResponses) GetLogLabelsWithResponse(ctx context.Context, tena
 }
 
 // PostlogEntriesWithBodyWithResponse request with arbitrary body returning *PostlogEntriesResponse
-func (c *ClientWithResponses) PostlogEntriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error) {
+func (c *ClientWithResponses) PostlogEntriesWithBodyWithResponse(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error) {
 	rsp, err := c.PostlogEntriesWithBody(ctx, tenant, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3072,7 +4671,7 @@ func (c *ClientWithResponses) PostlogEntriesWithBodyWithResponse(ctx context.Con
 	return ParsePostlogEntriesResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostlogEntriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error) {
+func (c *ClientWithResponses) PostlogEntriesWithResponse(ctx context.Context, tenant Tenant, body PostlogEntriesJSONRequestBody, reqEditors ...RequestEditorFn) (*PostlogEntriesResponse, error) {
 	rsp, err := c.PostlogEntries(ctx, tenant, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3081,7 +4680,7 @@ func (c *ClientWithResponses) PostlogEntriesWithResponse(ctx context.Context, te
 }
 
 // GetLogInstantQueryWithResponse request returning *GetLogInstantQueryResponse
-func (c *ClientWithResponses) GetLogInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*GetLogInstantQueryResponse, error) {
+func (c *ClientWithResponses) GetLogInstantQueryWithResponse(ctx context.Context, tenant Tenant, params *GetLogInstantQueryParams, reqEditors ...RequestEditorFn) (*GetLogInstantQueryResponse, error) {
 	rsp, err := c.GetLogInstantQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3090,7 +4689,7 @@ func (c *ClientWithResponses) GetLogInstantQueryWithResponse(ctx context.Context
 }
 
 // GetLogRangeQueryWithResponse request returning *GetLogRangeQueryResponse
-func (c *ClientWithResponses) GetLogRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error) {
+func (c *ClientWithResponses) GetLogRangeQueryWithResponse(ctx context.Context, tenant Tenant, params *GetLogRangeQueryParams, reqEditors ...RequestEditorFn) (*GetLogRangeQueryResponse, error) {
 	rsp, err := c.GetLogRangeQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3099,7 +4698,7 @@ func (c *ClientWithResponses) GetLogRangeQueryWithResponse(ctx context.Context, 
 }
 
 // GetAllLogsRulesWithResponse request returning *GetAllLogsRulesResponse
-func (c *ClientWithResponses) GetAllLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetAllLogsRulesResponse, error) {
+func (c *ClientWithResponses) GetAllLogsRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetAllLogsRulesResponse, error) {
 	rsp, err := c.GetAllLogsRules(ctx, tenant, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3108,7 +4707,7 @@ func (c *ClientWithResponses) GetAllLogsRulesWithResponse(ctx context.Context, t
 }
 
 // DeleteLogsRulesWithResponse request returning *DeleteLogsRulesResponse
-func (c *ClientWithResponses) DeleteLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*DeleteLogsRulesResponse, error) {
+func (c *ClientWithResponses) DeleteLogsRulesWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*DeleteLogsRulesResponse, error) {
 	rsp, err := c.DeleteLogsRules(ctx, tenant, namespace, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3117,7 +4716,7 @@ func (c *ClientWithResponses) DeleteLogsRulesWithResponse(ctx context.Context, t
 }
 
 // GetLogsRulesWithResponse request returning *GetLogsRulesResponse
-func (c *ClientWithResponses) GetLogsRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, reqEditors ...RequestEditorFn) (*GetLogsRulesResponse, error) {
+func (c *ClientWithResponses) GetLogsRulesWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, reqEditors ...RequestEditorFn) (*GetLogsRulesResponse, error) {
 	rsp, err := c.GetLogsRules(ctx, tenant, namespace, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3126,7 +4725,7 @@ func (c *ClientWithResponses) GetLogsRulesWithResponse(ctx context.Context, tena
 }
 
 // SetLogsRulesWithBodyWithResponse request with arbitrary body returning *SetLogsRulesResponse
-func (c *ClientWithResponses) SetLogsRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLogsRulesResponse, error) {
+func (c *ClientWithResponses) SetLogsRulesWithBodyWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLogsRulesResponse, error) {
 	rsp, err := c.SetLogsRulesWithBody(ctx, tenant, namespace, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3135,7 +4734,7 @@ func (c *ClientWithResponses) SetLogsRulesWithBodyWithResponse(ctx context.Conte
 }
 
 // DeleteLogsRulesGroupWithResponse request returning *DeleteLogsRulesGroupResponse
-func (c *ClientWithResponses) DeleteLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*DeleteLogsRulesGroupResponse, error) {
+func (c *ClientWithResponses) DeleteLogsRulesGroupWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*DeleteLogsRulesGroupResponse, error) {
 	rsp, err := c.DeleteLogsRulesGroup(ctx, tenant, namespace, group, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3144,7 +4743,7 @@ func (c *ClientWithResponses) DeleteLogsRulesGroupWithResponse(ctx context.Conte
 }
 
 // GetLogsRulesGroupWithResponse request returning *GetLogsRulesGroupResponse
-func (c *ClientWithResponses) GetLogsRulesGroupWithResponse(ctx context.Context, tenant externalRef1.Tenant, namespace externalRef1.LogRulesNamespace, group externalRef1.LogRulesGroup, reqEditors ...RequestEditorFn) (*GetLogsRulesGroupResponse, error) {
+func (c *ClientWithResponses) GetLogsRulesGroupWithResponse(ctx context.Context, tenant Tenant, namespace LogRulesNamespace, group LogRulesGroup, reqEditors ...RequestEditorFn) (*GetLogsRulesGroupResponse, error) {
 	rsp, err := c.GetLogsRulesGroup(ctx, tenant, namespace, group, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3153,7 +4752,7 @@ func (c *ClientWithResponses) GetLogsRulesGroupWithResponse(ctx context.Context,
 }
 
 // GetLogSeriesWithResponse request returning *GetLogSeriesResponse
-func (c *ClientWithResponses) GetLogSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error) {
+func (c *ClientWithResponses) GetLogSeriesWithResponse(ctx context.Context, tenant Tenant, params *GetLogSeriesParams, reqEditors ...RequestEditorFn) (*GetLogSeriesResponse, error) {
 	rsp, err := c.GetLogSeries(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3162,7 +4761,7 @@ func (c *ClientWithResponses) GetLogSeriesWithResponse(ctx context.Context, tena
 }
 
 // PostLogSeriesWithBodyWithResponse request with arbitrary body returning *PostLogSeriesResponse
-func (c *ClientWithResponses) PostLogSeriesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error) {
+func (c *ClientWithResponses) PostLogSeriesWithBodyWithResponse(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error) {
 	rsp, err := c.PostLogSeriesWithBody(ctx, tenant, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3170,7 +4769,7 @@ func (c *ClientWithResponses) PostLogSeriesWithBodyWithResponse(ctx context.Cont
 	return ParsePostLogSeriesResponse(rsp)
 }
 
-func (c *ClientWithResponses) PostLogSeriesWithFormdataBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error) {
+func (c *ClientWithResponses) PostLogSeriesWithFormdataBodyWithResponse(ctx context.Context, tenant Tenant, params *PostLogSeriesParams, body PostLogSeriesFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostLogSeriesResponse, error) {
 	rsp, err := c.PostLogSeriesWithFormdataBody(ctx, tenant, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3179,7 +4778,7 @@ func (c *ClientWithResponses) PostLogSeriesWithFormdataBodyWithResponse(ctx cont
 }
 
 // GetLogsWithResponse request returning *GetLogsResponse
-func (c *ClientWithResponses) GetLogsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error) {
+func (c *ClientWithResponses) GetLogsWithResponse(ctx context.Context, tenant Tenant, params *GetLogsParams, reqEditors ...RequestEditorFn) (*GetLogsResponse, error) {
 	rsp, err := c.GetLogs(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3188,7 +4787,7 @@ func (c *ClientWithResponses) GetLogsWithResponse(ctx context.Context, tenant ex
 }
 
 // GetLogsPromAlertsWithResponse request returning *GetLogsPromAlertsResponse
-func (c *ClientWithResponses) GetLogsPromAlertsWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromAlertsResponse, error) {
+func (c *ClientWithResponses) GetLogsPromAlertsWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromAlertsResponse, error) {
 	rsp, err := c.GetLogsPromAlerts(ctx, tenant, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3197,7 +4796,7 @@ func (c *ClientWithResponses) GetLogsPromAlertsWithResponse(ctx context.Context,
 }
 
 // GetLogsPromRulesWithResponse request returning *GetLogsPromRulesResponse
-func (c *ClientWithResponses) GetLogsPromRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error) {
+func (c *ClientWithResponses) GetLogsPromRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetLogsPromRulesResponse, error) {
 	rsp, err := c.GetLogsPromRules(ctx, tenant, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3205,8 +4804,61 @@ func (c *ClientWithResponses) GetLogsPromRulesWithResponse(ctx context.Context, 
 	return ParseGetLogsPromRulesResponse(rsp)
 }
 
+// GetAlertsWithResponse request returning *GetAlertsResponse
+func (c *ClientWithResponses) GetAlertsWithResponse(ctx context.Context, tenant Tenant, params *GetAlertsParams, reqEditors ...RequestEditorFn) (*GetAlertsResponse, error) {
+	rsp, err := c.GetAlerts(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAlertsResponse(rsp)
+}
+
+// DeleteSilenceWithResponse request returning *DeleteSilenceResponse
+func (c *ClientWithResponses) DeleteSilenceWithResponse(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*DeleteSilenceResponse, error) {
+	rsp, err := c.DeleteSilence(ctx, tenant, silenceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSilenceResponse(rsp)
+}
+
+// GetSilenceWithResponse request returning *GetSilenceResponse
+func (c *ClientWithResponses) GetSilenceWithResponse(ctx context.Context, tenant Tenant, silenceID openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetSilenceResponse, error) {
+	rsp, err := c.GetSilence(ctx, tenant, silenceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSilenceResponse(rsp)
+}
+
+// GetSilencesWithResponse request returning *GetSilencesResponse
+func (c *ClientWithResponses) GetSilencesWithResponse(ctx context.Context, tenant Tenant, params *GetSilencesParams, reqEditors ...RequestEditorFn) (*GetSilencesResponse, error) {
+	rsp, err := c.GetSilences(ctx, tenant, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSilencesResponse(rsp)
+}
+
+// PostSilenceWithBodyWithResponse request with arbitrary body returning *PostSilenceResponse
+func (c *ClientWithResponses) PostSilenceWithBodyWithResponse(ctx context.Context, tenant Tenant, params *PostSilenceParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error) {
+	rsp, err := c.PostSilenceWithBody(ctx, tenant, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSilenceResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostSilenceWithResponse(ctx context.Context, tenant Tenant, params *PostSilenceParams, body PostSilenceJSONRequestBody, reqEditors ...RequestEditorFn) (*PostSilenceResponse, error) {
+	rsp, err := c.PostSilence(ctx, tenant, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostSilenceResponse(rsp)
+}
+
 // GetLabelValuesWithResponse request returning *GetLabelValuesResponse
-func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, tenant externalRef1.Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error) {
+func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, tenant Tenant, labelName string, params *GetLabelValuesParams, reqEditors ...RequestEditorFn) (*GetLabelValuesResponse, error) {
 	rsp, err := c.GetLabelValues(ctx, tenant, labelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3215,7 +4867,7 @@ func (c *ClientWithResponses) GetLabelValuesWithResponse(ctx context.Context, te
 }
 
 // GetLabelsWithResponse request returning *GetLabelsResponse
-func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error) {
+func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant Tenant, params *GetLabelsParams, reqEditors ...RequestEditorFn) (*GetLabelsResponse, error) {
 	rsp, err := c.GetLabels(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3224,7 +4876,7 @@ func (c *ClientWithResponses) GetLabelsWithResponse(ctx context.Context, tenant 
 }
 
 // GetInstantQueryWithResponse request returning *GetInstantQueryResponse
-func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error) {
+func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, tenant Tenant, params *GetInstantQueryParams, reqEditors ...RequestEditorFn) (*GetInstantQueryResponse, error) {
 	rsp, err := c.GetInstantQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3233,7 +4885,7 @@ func (c *ClientWithResponses) GetInstantQueryWithResponse(ctx context.Context, t
 }
 
 // GetRangeQueryWithResponse request returning *GetRangeQueryResponse
-func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error) {
+func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, tenant Tenant, params *GetRangeQueryParams, reqEditors ...RequestEditorFn) (*GetRangeQueryResponse, error) {
 	rsp, err := c.GetRangeQuery(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3242,7 +4894,7 @@ func (c *ClientWithResponses) GetRangeQueryWithResponse(ctx context.Context, ten
 }
 
 // GetRulesWithResponse request returning *GetRulesResponse
-func (c *ClientWithResponses) GetRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error) {
+func (c *ClientWithResponses) GetRulesWithResponse(ctx context.Context, tenant Tenant, params *GetRulesParams, reqEditors ...RequestEditorFn) (*GetRulesResponse, error) {
 	rsp, err := c.GetRules(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3251,7 +4903,7 @@ func (c *ClientWithResponses) GetRulesWithResponse(ctx context.Context, tenant e
 }
 
 // GetRawRulesWithResponse request returning *GetRawRulesResponse
-func (c *ClientWithResponses) GetRawRulesWithResponse(ctx context.Context, tenant externalRef1.Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error) {
+func (c *ClientWithResponses) GetRawRulesWithResponse(ctx context.Context, tenant Tenant, reqEditors ...RequestEditorFn) (*GetRawRulesResponse, error) {
 	rsp, err := c.GetRawRules(ctx, tenant, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3260,7 +4912,7 @@ func (c *ClientWithResponses) GetRawRulesWithResponse(ctx context.Context, tenan
 }
 
 // SetRawRulesWithBodyWithResponse request with arbitrary body returning *SetRawRulesResponse
-func (c *ClientWithResponses) SetRawRulesWithBodyWithResponse(ctx context.Context, tenant externalRef1.Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error) {
+func (c *ClientWithResponses) SetRawRulesWithBodyWithResponse(ctx context.Context, tenant Tenant, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetRawRulesResponse, error) {
 	rsp, err := c.SetRawRulesWithBody(ctx, tenant, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3269,7 +4921,7 @@ func (c *ClientWithResponses) SetRawRulesWithBodyWithResponse(ctx context.Contex
 }
 
 // GetSeriesWithResponse request returning *GetSeriesResponse
-func (c *ClientWithResponses) GetSeriesWithResponse(ctx context.Context, tenant externalRef1.Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error) {
+func (c *ClientWithResponses) GetSeriesWithResponse(ctx context.Context, tenant Tenant, params *GetSeriesParams, reqEditors ...RequestEditorFn) (*GetSeriesResponse, error) {
 	rsp, err := c.GetSeries(ctx, tenant, params, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -3292,7 +4944,7 @@ func ParseGetLogLabelValuesResponse(rsp *http.Response) (*GetLogLabelValuesRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogLabelValuesResponse
+		var dest LogLabelValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3318,7 +4970,7 @@ func ParseGetLogLabelsResponse(rsp *http.Response) (*GetLogLabelsResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogLabelsResponse
+		var dest LogLabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3360,7 +5012,7 @@ func ParseGetLogInstantQueryResponse(rsp *http.Response) (*GetLogInstantQueryRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogQueryResponse
+		var dest LogQueryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3386,7 +5038,7 @@ func ParseGetLogRangeQueryResponse(rsp *http.Response) (*GetLogRangeQueryRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogQueryRangeResponse
+		var dest LogQueryRangeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3412,7 +5064,7 @@ func ParseGetAllLogsRulesResponse(rsp *http.Response) (*GetAllLogsRulesResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.AllLogRulesResponse
+		var dest AllLogRulesResponse
 		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3454,7 +5106,7 @@ func ParseGetLogsRulesResponse(rsp *http.Response) (*GetLogsRulesResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogRulesNamespaceResponse
+		var dest LogRulesNamespaceResponse
 		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3512,7 +5164,7 @@ func ParseGetLogsRulesGroupResponse(rsp *http.Response) (*GetLogsRulesGroupRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogRulesGroupResponse
+		var dest LogRulesGroupResponse
 		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3538,7 +5190,7 @@ func ParseGetLogSeriesResponse(rsp *http.Response) (*GetLogSeriesResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogSeriesResponse
+		var dest LogSeriesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3580,7 +5232,7 @@ func ParseGetLogsResponse(rsp *http.Response) (*GetLogsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogReadResponse
+		var dest LogReadResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3606,7 +5258,7 @@ func ParseGetLogsPromAlertsResponse(rsp *http.Response) (*GetLogsPromAlertsRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogRulesPrometheusResponse
+		var dest LogRulesPrometheusResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3632,7 +5284,127 @@ func ParseGetLogsPromRulesResponse(rsp *http.Response) (*GetLogsPromRulesRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.LogRulesPrometheusResponse
+		var dest LogRulesPrometheusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAlertsResponse parses an HTTP response from a GetAlertsWithResponse call
+func ParseGetAlertsResponse(rsp *http.Response) (*GetAlertsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAlertsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest GettableAlerts
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSilenceResponse parses an HTTP response from a DeleteSilenceWithResponse call
+func ParseDeleteSilenceResponse(rsp *http.Response) (*DeleteSilenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSilenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetSilenceResponse parses an HTTP response from a GetSilenceWithResponse call
+func ParseGetSilenceResponse(rsp *http.Response) (*GetSilenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSilenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest GettableSilence
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSilencesResponse parses an HTTP response from a GetSilencesWithResponse call
+func ParseGetSilencesResponse(rsp *http.Response) (*GetSilencesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSilencesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest GettableSilences
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON2XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostSilenceResponse parses an HTTP response from a PostSilenceWithResponse call
+func ParsePostSilenceResponse(rsp *http.Response) (*PostSilenceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostSilenceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
+		var dest PostableSilenceResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3658,7 +5430,7 @@ func ParseGetLabelValuesResponse(rsp *http.Response) (*GetLabelValuesResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.MetricLabelValuesResponse
+		var dest MetricLabelValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3684,7 +5456,7 @@ func ParseGetLabelsResponse(rsp *http.Response) (*GetLabelsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.MetricLabelsResponse
+		var dest MetricLabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3710,7 +5482,7 @@ func ParseGetInstantQueryResponse(rsp *http.Response) (*GetInstantQueryResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.MetricQueryResponse
+		var dest MetricQueryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3736,7 +5508,7 @@ func ParseGetRangeQueryResponse(rsp *http.Response) (*GetRangeQueryResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.MetricQueryRangeResponse
+		var dest MetricQueryRangeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3762,7 +5534,7 @@ func ParseGetRulesResponse(rsp *http.Response) (*GetRulesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.MetricRulesResponse
+		var dest MetricRulesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3788,7 +5560,7 @@ func ParseGetRawRulesResponse(rsp *http.Response) (*GetRawRulesResponse, error) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "yaml") && rsp.StatusCode == 200:
-		var dest externalRef0.RulesRaw
+		var dest RulesRaw
 		if err := yaml.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -3830,7 +5602,7 @@ func ParseGetSeriesResponse(rsp *http.Response) (*GetSeriesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 2:
-		var dest externalRef2.MetricSeriesResponse
+		var dest MetricSeriesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

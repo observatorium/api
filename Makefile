@@ -297,19 +297,7 @@ rules/rules.go: $(OAPI_CODEGEN) rules/spec.yaml
 	$(OAPI_CODEGEN) -generate types,client,chi-server -package rules rules/spec.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
 
 client/client.gen.go: $(OAPI_CODEGEN) client/spec.yaml
-	$(OAPI_CODEGEN) -generate types,client -import-mapping="./parameters/parameters.yaml:github.com/observatorium/api/client/parameters,./models/models.yaml:github.com/observatorium/api/client/models,./responses/responses.yaml:github.com/observatorium/api/client/responses" -package client client/spec.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
+	$(OAPI_CODEGEN) -generate types,client -package client client/spec.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
 
-client/parameters/parameters.gen.go: $(OAPI_CODEGEN) client/parameters/parameters.yaml
-	$(OAPI_CODEGEN) -generate types,skip-prune -package parameters client/parameters/parameters.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
-
-client/models/models.gen.go: $(OAPI_CODEGEN) client/models/models.yaml
-	$(OAPI_CODEGEN) -generate types,skip-prune -package models client/models/models.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
-
-client/responses/responses.gen.go: $(OAPI_CODEGEN) client/responses/responses.yaml
-	$(OAPI_CODEGEN) -generate types,skip-prune -import-mapping="../models/models.yaml:github.com/observatorium/api/client/models" -package responses client/responses/responses.yaml | sed 's|gopkg.in/yaml.v2|github.com/ghodss/yaml|g' | gofmt -s > $@
-
-gen-oapi-client:
-	$(MAKE) client/parameters/parameters.gen.go
-	$(MAKE) client/models/models.gen.go
-	$(MAKE) client/responses/responses.gen.go
-	$(MAKE) client/client.gen.go
+.PHONY: gen-oapi-client
+gen-oapi-client: client/client.gen.go
