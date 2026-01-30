@@ -71,13 +71,16 @@ tmp/help.txt: $(BIN_NAME) $(TMP_DIR)
 tmp/load_help.txt: $(TMP_DIR)
 	-./test/load.sh -h > $(TMP_DIR)/load_help.txt 2&>1
 
-README.md: $(EMBEDMD) tmp/help.txt
-	$(EMBEDMD) -w README.md
+README.md: $(MDOX) $(BIN_NAME)
+	$(MDOX) fmt $@
 
-benchmark.md: $(EMBEDMD) tmp/load_help.txt
+.PHONY: docs/benchmark.md
+docs/benchmark.md: $(MDOX)
+	$(MDOX) fmt $@
+
+benchmark:
 	-rm -rf ./docs/loadtests
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
-	$(EMBEDMD) -w docs/benchmark.md
 
 $(BIN_NAME): deps main.go rules/rules.go $(wildcard *.go) $(wildcard */*.go)
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w  -X main.Version=$(VERSION) -X main.Branch=$(GIT_BRANCH) -X main.Revision=$(GIT_REVISION)' -o $(BIN_NAME) .
