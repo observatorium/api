@@ -29,12 +29,6 @@ $(DEX): $(BINGO_DIR)/dex.mod
 	@echo "(re)installing $(GOBIN)/dex-v0.0.0-20200512115545-709d4169d646"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=dex.mod -o=$(GOBIN)/dex-v0.0.0-20200512115545-709d4169d646 "github.com/dexidp/dex/cmd/dex"
 
-EMBEDMD := $(GOBIN)/embedmd-v1.0.0
-$(EMBEDMD): $(BINGO_DIR)/embedmd.mod
-	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/embedmd-v1.0.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=embedmd.mod -o=$(GOBIN)/embedmd-v1.0.0 "github.com/campoy/embedmd"
-
 GOJSONTOYAML := $(GOBIN)/gojsontoyaml-v0.0.0-20200602132005-3697ded27e8c
 $(GOJSONTOYAML): $(BINGO_DIR)/gojsontoyaml.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
@@ -82,6 +76,12 @@ $(KUBECONFORM): $(BINGO_DIR)/kubeconform.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/kubeconform-v0.7.0"
 	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kubeconform.mod -o=$(GOBIN)/kubeconform-v0.7.0 "github.com/yannh/kubeconform/cmd/kubeconform"
+
+MDOX := $(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516
+$(MDOX): $(BINGO_DIR)/mdox.mod
+	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
+	@echo "(re)installing $(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516"
+	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=mdox.mod -o=$(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516 "github.com/bwplotka/mdox"
 
 OAPI_CODEGEN := $(GOBIN)/oapi-codegen-v2.5.1
 $(OAPI_CODEGEN): $(BINGO_DIR)/oapi-codegen.mod

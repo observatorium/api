@@ -1,11 +1,8 @@
 # Observatorium
 
-[![CircleCI](https://circleci.com/gh/observatorium/api.svg?style=svg)](https://circleci.com/gh/observatorium/api)
-[![Go Doc](https://godoc.org/github.com/observatorium/api?status.svg)](http://godoc.org/github.com/observatorium/api)
-[![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/api)](https://goreportcard.com/report/github.com/observatorium/api)
+[![CircleCI](https://circleci.com/gh/observatorium/api.svg?style=svg)](https://circleci.com/gh/observatorium/api) [![Go Doc](https://godoc.org/github.com/observatorium/api?status.svg)](http://godoc.org/github.com/observatorium/api) [![Go Report Card](https://goreportcard.com/badge/github.com/observatorium/api)](https://goreportcard.com/report/github.com/observatorium/api)
 
-This project is an API server for Observatorium.
-The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.
+This project is an API server for Observatorium. The API provides an authenticated and authorized, multi-tenant interface for writing and reading observability signals, i.e. metrics and logs.
 
 ## Getting started
 
@@ -27,18 +24,15 @@ The Observatorium API server fulfills requests by proxying reads and writes to a
 
 ### Metrics
 
-The Observatorium API server can serve read and write requests for Prometheus metrics.
-In order to handle requests for metrics, a compatible backend must be configured.
+The Observatorium API server can serve read and write requests for Prometheus metrics. In order to handle requests for metrics, a compatible backend must be configured.
 
 #### --metrics.read.endpoint
 
-The backend from which to read metrics can be specified with the `--metrics.read.endpoint` flag.
-Compatible backends must implement the Prometheus HTTP API, e.g. Prometheus, Thanos querier, Cortex, etc.
+The backend from which to read metrics can be specified with the `--metrics.read.endpoint` flag. Compatible backends must implement the Prometheus HTTP API, e.g. Prometheus, Thanos querier, Cortex, etc.
 
 #### --metrics.write.endpoint
 
-The backend to which to write metrics can be specified with the `--metrics.write.endpoint` flag.
-Compatible backends must implement the Prometheus remote-write API, e.g. Thanos receiver, Cortex, etc.
+The backend to which to write metrics can be specified with the `--metrics.write.endpoint` flag. Compatible backends must implement the Prometheus remote-write API, e.g. Thanos receiver, Cortex, etc.
 
 #### --metrics.rules.endpoint
 
@@ -46,28 +40,23 @@ The rules backend to where rules can be stored can be specified with the `--metr
 
 ### Logs
 
-The Observatorium API server can serve read and write requests for logs.
-In order to handle requests for logs, a compatible backend must be configured.
+The Observatorium API server can serve read and write requests for logs. In order to handle requests for logs, a compatible backend must be configured.
 
 #### --logs.read.endpoint
 
-The backend from which to read logs can be specified with the `--logs.read.endpoint` flag.
-Compatible backends must implement the Loki read API, e.g. Loki.
+The backend from which to read logs can be specified with the `--logs.read.endpoint` flag. Compatible backends must implement the Loki read API, e.g. Loki.
 
 #### --logs.tail.endpoint
 
-The backend from which to tail logs can be specified with the `--logs.tail.endpoint` flag.
-Compatible backends must implement the Loki tail API, e.g. Loki.
+The backend from which to tail logs can be specified with the `--logs.tail.endpoint` flag. Compatible backends must implement the Loki tail API, e.g. Loki.
 
 #### --logs.write.endpoint
 
-The backend to which to write logs can be specified with the `--logs.write.endpoint` flag.
-Compatible backends must implement the Loki write API, e.g. Loki.
+The backend to which to write logs can be specified with the `--logs.write.endpoint` flag. Compatible backends must implement the Loki write API, e.g. Loki.
 
 ## Usage
 
-[embedmd]:# (tmp/help.txt)
-```txt
+```txt mdox-exec="./observatorium-api -h"
 Usage of ./observatorium-api:
   -debug.block-profile-rate int
     	The percentage of goroutine blocking events that are reported in the blocking profile. (default 10)
