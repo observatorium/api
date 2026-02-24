@@ -1,9 +1,15 @@
-# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.9. DO NOT EDIT.
+# Auto generated binary variables helper managed by https://github.com/bwplotka/bingo v0.10. DO NOT EDIT.
 # All tools are designed to be build inside $GOBIN.
 BINGO_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 GOPATH ?= $(shell go env GOPATH)
 GOBIN  ?= $(firstword $(subst :, ,${GOPATH}))/bin
 GO     ?= $(shell which go)
+
+# Ensure bingo-managed tools are always built for the host platform,
+# even when GOOS/GOARCH are set for cross-compilation of other targets.
+GOHOSTOS     ?= $(shell $(GO) env GOHOSTOS)
+GOHOSTARCH   ?= $(shell $(GO) env GOHOSTARCH)
+GOHOSTARM    ?= $(shell $(GO) env GOHOSTARM)
 
 # Below generated variables ensure that every time a tool under each variable is invoked, the correct version
 # will be used; reinstalling only if needed.
@@ -17,99 +23,87 @@ GO     ?= $(shell which go)
 #	@echo "Running bingo"
 #	@$(BINGO) <flags/args..>
 #
-BINGO := $(GOBIN)/bingo-v0.9.0
+BINGO := $(GOBIN)/bingo-v0.10.0
 $(BINGO): $(BINGO_DIR)/bingo.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/bingo-v0.9.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.9.0 "github.com/bwplotka/bingo"
-
-DEX := $(GOBIN)/dex-v0.0.0-20200512115545-709d4169d646
-$(DEX): $(BINGO_DIR)/dex.mod
-	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/dex-v0.0.0-20200512115545-709d4169d646"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=dex.mod -o=$(GOBIN)/dex-v0.0.0-20200512115545-709d4169d646 "github.com/dexidp/dex/cmd/dex"
+	@echo "(re)installing $(GOBIN)/bingo-v0.10.0"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=bingo.mod -o=$(GOBIN)/bingo-v0.10.0 "github.com/bwplotka/bingo"
 
 GOJSONTOYAML := $(GOBIN)/gojsontoyaml-v0.0.0-20200602132005-3697ded27e8c
 $(GOJSONTOYAML): $(BINGO_DIR)/gojsontoyaml.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/gojsontoyaml-v0.0.0-20200602132005-3697ded27e8c"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=gojsontoyaml.mod -o=$(GOBIN)/gojsontoyaml-v0.0.0-20200602132005-3697ded27e8c "github.com/brancz/gojsontoyaml"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=gojsontoyaml.mod -o=$(GOBIN)/gojsontoyaml-v0.0.0-20200602132005-3697ded27e8c "github.com/brancz/gojsontoyaml"
 
-GOLANGCI_LINT := $(GOBIN)/golangci-lint-v2.7.0
+GOLANGCI_LINT := $(GOBIN)/golangci-lint-v2.10.1
 $(GOLANGCI_LINT): $(BINGO_DIR)/golangci-lint.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/golangci-lint-v2.7.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v2.7.0 "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
+	@echo "(re)installing $(GOBIN)/golangci-lint-v2.10.1"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=golangci-lint.mod -o=$(GOBIN)/golangci-lint-v2.10.1 "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 
-GOYACC := $(GOBIN)/goyacc-v0.1.5
+GOYACC := $(GOBIN)/goyacc-v0.42.0
 $(GOYACC): $(BINGO_DIR)/goyacc.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/goyacc-v0.1.5"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=goyacc.mod -o=$(GOBIN)/goyacc-v0.1.5 "golang.org/x/tools/cmd/goyacc"
+	@echo "(re)installing $(GOBIN)/goyacc-v0.42.0"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=goyacc.mod -o=$(GOBIN)/goyacc-v0.42.0 "golang.org/x/tools/cmd/goyacc"
 
 GUBERNATOR := $(GOBIN)/gubernator-v1.0.0-rc.3
 $(GUBERNATOR): $(BINGO_DIR)/gubernator.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/gubernator-v1.0.0-rc.3"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=gubernator.mod -o=$(GOBIN)/gubernator-v1.0.0-rc.3 "github.com/mailgun/gubernator/cmd/gubernator"
-
-JB := $(GOBIN)/jb-v0.4.0
-$(JB): $(BINGO_DIR)/jb.mod
-	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/jb-v0.4.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=jb.mod -o=$(GOBIN)/jb-v0.4.0 "github.com/jsonnet-bundler/jsonnet-bundler/cmd/jb"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=gubernator.mod -o=$(GOBIN)/gubernator-v1.0.0-rc.3 "github.com/mailgun/gubernator/cmd/gubernator"
 
 JSONNET := $(GOBIN)/jsonnet-v0.21.0
 $(JSONNET): $(BINGO_DIR)/jsonnet.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/jsonnet-v0.21.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=jsonnet.mod -o=$(GOBIN)/jsonnet-v0.21.0 "github.com/google/go-jsonnet/cmd/jsonnet"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=jsonnet.mod -o=$(GOBIN)/jsonnet-v0.21.0 "github.com/google/go-jsonnet/cmd/jsonnet"
 
 JSONNETFMT := $(GOBIN)/jsonnetfmt-v0.21.0
 $(JSONNETFMT): $(BINGO_DIR)/jsonnetfmt.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/jsonnetfmt-v0.21.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=jsonnetfmt.mod -o=$(GOBIN)/jsonnetfmt-v0.21.0 "github.com/google/go-jsonnet/cmd/jsonnetfmt"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=jsonnetfmt.mod -o=$(GOBIN)/jsonnetfmt-v0.21.0 "github.com/google/go-jsonnet/cmd/jsonnetfmt"
 
 KUBECONFORM := $(GOBIN)/kubeconform-v0.7.0
 $(KUBECONFORM): $(BINGO_DIR)/kubeconform.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/kubeconform-v0.7.0"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=kubeconform.mod -o=$(GOBIN)/kubeconform-v0.7.0 "github.com/yannh/kubeconform/cmd/kubeconform"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=kubeconform.mod -o=$(GOBIN)/kubeconform-v0.7.0 "github.com/yannh/kubeconform/cmd/kubeconform"
 
 MDOX := $(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516
 $(MDOX): $(BINGO_DIR)/mdox.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=mdox.mod -o=$(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516 "github.com/bwplotka/mdox"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=mdox.mod -o=$(GOBIN)/mdox-v0.9.1-0.20250909081353-65d927203516 "github.com/bwplotka/mdox"
 
 OAPI_CODEGEN := $(GOBIN)/oapi-codegen-v2.5.1
 $(OAPI_CODEGEN): $(BINGO_DIR)/oapi-codegen.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/oapi-codegen-v2.5.1"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=oapi-codegen.mod -o=$(GOBIN)/oapi-codegen-v2.5.1 "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=oapi-codegen.mod -o=$(GOBIN)/oapi-codegen-v2.5.1 "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen"
 
-OPA := $(GOBIN)/opa-v1.5.1
+OPA := $(GOBIN)/opa-v1.13.2
 $(OPA): $(BINGO_DIR)/opa.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
-	@echo "(re)installing $(GOBIN)/opa-v1.5.1"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=opa.mod -o=$(GOBIN)/opa-v1.5.1 "github.com/open-policy-agent/opa"
+	@echo "(re)installing $(GOBIN)/opa-v1.13.2"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=opa.mod -o=$(GOBIN)/opa-v1.13.2 "github.com/open-policy-agent/opa"
 
 PROTOC_GEN_GO := $(GOBIN)/protoc-gen-go-v1.4.2
 $(PROTOC_GEN_GO): $(BINGO_DIR)/protoc-gen-go.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/protoc-gen-go-v1.4.2"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=protoc-gen-go.mod -o=$(GOBIN)/protoc-gen-go-v1.4.2 "github.com/golang/protobuf/protoc-gen-go"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=protoc-gen-go.mod -o=$(GOBIN)/protoc-gen-go-v1.4.2 "github.com/golang/protobuf/protoc-gen-go"
 
 STYX := $(GOBIN)/styx-v0.0.0-20200109161911-78a77eb717b4
 $(STYX): $(BINGO_DIR)/styx.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/styx-v0.0.0-20200109161911-78a77eb717b4"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=styx.mod -o=$(GOBIN)/styx-v0.0.0-20200109161911-78a77eb717b4 "github.com/go-pluto/styx"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=styx.mod -o=$(GOBIN)/styx-v0.0.0-20200109161911-78a77eb717b4 "github.com/go-pluto/styx"
 
 UP := $(GOBIN)/up-v0.0.0-20200928171403-120d85735d11
 $(UP): $(BINGO_DIR)/up.mod
 	@# Install binary/ries using Go 1.14+ build command. This is using bwplotka/bingo-controlled, separate go module with pinned dependencies.
 	@echo "(re)installing $(GOBIN)/up-v0.0.0-20200928171403-120d85735d11"
-	@cd $(BINGO_DIR) && GOWORK=off $(GO) build -mod=mod -modfile=up.mod -o=$(GOBIN)/up-v0.0.0-20200928171403-120d85735d11 "github.com/observatorium/up/cmd/up"
+	@cd $(BINGO_DIR) && GOWORK=off GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) GOARM=$(GOHOSTARM) $(GO) build -mod=mod -modfile=up.mod -o=$(GOBIN)/up-v0.0.0-20200928171403-120d85735d11 "github.com/observatorium/up/cmd/up"
 
