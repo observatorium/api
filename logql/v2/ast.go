@@ -340,7 +340,7 @@ func (l *LogFormatExpr) String() string {
 		i  int
 	)
 
-	sb.WriteString(fmt.Sprintf("| %s ", ParserLabelFormat))
+	fmt.Fprintf(&sb, "| %s ", ParserLabelFormat)
 
 	keys := make([]string, 0, len(l.kv))
 	for key := range l.kv {
@@ -356,7 +356,7 @@ func (l *LogFormatExpr) String() string {
 		}
 
 		if l.operation != "" {
-			sb.WriteString(fmt.Sprintf("%s(", l.operation))
+			fmt.Fprintf(&sb, "%s(", l.operation)
 		}
 
 		lmv := l.kv[key]
@@ -414,7 +414,7 @@ func (l *LogParserExpr) String() string {
 	sb.WriteString(l.parser)
 
 	if l.operation != "" {
-		sb.WriteString(fmt.Sprintf(" %s(", l.operation))
+		fmt.Fprintf(&sb, " %s(", l.operation)
 	}
 
 	switch l.parser {
@@ -1013,7 +1013,7 @@ type LogOffsetExpr struct {
 
 func (o *LogOffsetExpr) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(" %s %s", "offset", o.Offset.String()))
+	fmt.Fprintf(&sb, " %s %s", "offset", o.Offset.String())
 	return sb.String()
 }
 
