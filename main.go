@@ -1578,7 +1578,7 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 		tracesv1.TraceRoute: connOtel,
 	}
 
-	director := func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
+	director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 		md, _ := metadata.FromIncomingContext(ctx)
 		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
 
