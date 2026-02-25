@@ -236,7 +236,7 @@ type tenant struct {
 		GroupClaim    string `json:"groupClaim"`
 		IssuerRawCA   []byte `json:"issuerCA"`
 		IssuerCAPath  string `json:"issuerCAPath"`
-		issuerCA      *x509.Certificate
+		issuerCAs     []*x509.Certificate
 		IssuerURL     string `json:"issuerURL"`
 		RedirectURL   string `json:"redirectURL"`
 		UsernameClaim string `json:"usernameClaim"`
