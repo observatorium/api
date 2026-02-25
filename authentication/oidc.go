@@ -45,7 +45,7 @@ type oidcConfig struct {
 	GroupClaim    string `json:"groupClaim"`
 	IssuerRawCA   []byte `json:"issuerCA"`
 	IssuerCAPath  string `json:"issuerCAPath"`
-	issuerCA      *x509.Certificate
+	issuerCAs     []*x509.Certificate
 	IssuerURL     string `json:"issuerURL"`
 	RedirectURL   string `json:"redirectURL"`
 	UsernameClaim string `json:"usernameClaim"`
@@ -96,17 +96,28 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 	}
 
 	if len(config.IssuerRawCA) != 0 {
-		block, _ := pem.Decode(config.IssuerRawCA)
-		if block == nil {
-			return nil, fmt.Errorf("failed to parse issuer CA certificate PEM")
-		}
+		var (
+			block *pem.Block
+			rest  = config.IssuerRawCA
+		)
 
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse issuer certificate: %s", err.Error())
-		}
+		for {
+			block, rest = pem.Decode(rest)
+			if block == nil {
+				if len(config.issuerCAs) == 0 {
+					return nil, fmt.Errorf("failed to parse issuer CA certificate PEM")
+				}
 
-		config.issuerCA = cert
+				break
+			}
+
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse issuer certificate: %s", err.Error())
+			}
+
+			config.issuerCAs = append(config.issuerCAs, cert)
+		}
 	}
 
 	t := &http.Transport{
@@ -122,11 +133,13 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	if config.issuerCA != nil {
+	if len(config.issuerCAs) > 0 {
 		t.TLSClientConfig = &tls.Config{
 			RootCAs: x509.NewCertPool(),
 		}
-		t.TLSClientConfig.RootCAs.AddCert(config.issuerCA)
+		for _, ca := range config.issuerCAs {
+			t.TLSClientConfig.RootCAs.AddCert(ca)
+		}
 	}
 
 	client := &http.Client{
