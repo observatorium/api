@@ -128,6 +128,10 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 			input:  `topk(25,(count_over_time({first="value"}[10h])))`,
 			output: `topk(25,(count_over_time({first="value", second="next"}[10h])))`,
 		},
+		{
+			input:  `approx_topk(25,(count_over_time({first="value"}[10h])))`,
+			output: `approx_topk(25,(count_over_time({first="value", second="next"}[10h])))`,
+		},
 	}
 	for _, tc := range tc {
 		expr, err := ParseExpr(tc.input)
