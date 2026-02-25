@@ -1467,6 +1467,31 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		// approx_topk tests
+		{
+			input: `approx_topk(3,rate({foo="bar"}[5m]))`,
+			expr: &LogMetricExpr{
+				metricOp: "approx_topk",
+				preamble: "3",
+				Expr: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: "[5m]",
+						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "foo",
+										Value: "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		{
 			input: `max without(value) (count_over_time({first="value"}[10h]))`,
 			expr: &LogMetricExpr{
