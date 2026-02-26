@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -389,6 +390,11 @@ func (a oidcAuthenticator) checkAuth(ctx context.Context, token string) (context
 		// or expired token.  The HTTP version surfaced this to the user, which we don't want to do.
 		// We log it to allow the possibility of debugging this.
 		level.Debug(a.logger).Log("msg", msg, "err", err)
+
+		var tokenExpiredErr *oidc.TokenExpiredError
+		if errors.As(err, &tokenExpiredErr) {
+			return ctx, "token is expired", http.StatusForbidden, codes.Unauthenticated
+		}
 
 		// The original HTTP implementation returned StatusInternalServerError.
 		// For gRPC we return Unknown, as we can't really

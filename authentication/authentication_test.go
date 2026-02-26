@@ -2,9 +2,12 @@ package authentication
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
+	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-kit/log"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
@@ -108,4 +111,64 @@ func TestNewAuthentication(t *testing.T) {
 			t.Fatalf("intializing a non-exist authenticator should return a nil authenticator")
 		}
 	})
+}
+
+func TestTokenExpiredErrorHandling(t *testing.T) {
+	// Test the error handling logic for TokenExpiredError
+	t.Run("TokenExpiredError is correctly identified", func(t *testing.T) {
+		// Create a TokenExpiredError
+		expiredErr := &oidc.TokenExpiredError{
+			Expiry: time.Now().Add(-time.Hour), // Expired an hour ago
+		}
+		
+		// Test direct error
+		var tokenExpiredErr *oidc.TokenExpiredError
+		if !errors.As(expiredErr, &tokenExpiredErr) {
+			t.Error("errors.As should identify TokenExpiredError")
+		}
+		
+		// Test wrapped error
+		wrappedErr := &wrappedError{
+			msg: "verification failed",
+			err: expiredErr,
+		}
+		
+		if !errors.As(wrappedErr, &tokenExpiredErr) {
+			t.Error("errors.As should identify wrapped TokenExpiredError")
+		}
+	})
+	
+	t.Run("Other errors are not identified as TokenExpiredError", func(t *testing.T) {
+		// Test with a generic error
+		genericErr := errors.New("generic verification error")
+		
+		var tokenExpiredErr *oidc.TokenExpiredError
+		if errors.As(genericErr, &tokenExpiredErr) {
+			t.Error("errors.As should not identify generic error as TokenExpiredError")
+		}
+		
+		// Test with wrapped generic error
+		wrappedGenericErr := &wrappedError{
+			msg: "verification failed",
+			err: genericErr,
+		}
+		
+		if errors.As(wrappedGenericErr, &tokenExpiredErr) {
+			t.Error("errors.As should not identify wrapped generic error as TokenExpiredError")
+		}
+	})
+}
+
+// Helper type to wrap errors for testing
+type wrappedError struct {
+	msg string
+	err error
+}
+
+func (e *wrappedError) Error() string {
+	return e.msg
+}
+
+func (e *wrappedError) Unwrap() error {
+	return e.err
 }
