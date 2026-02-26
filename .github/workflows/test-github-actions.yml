@@ -74,11 +74,16 @@ jobs:
       - name: Build e2e test container
         run: |
           make container-test
-          docker images | grep "local_e2e_test"
+          # Verify the image was built successfully
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep -q 'local_e2e_test' || (echo 'ERROR: Container image local_e2e_test not found' && exit 1)
+          echo "Container image successfully built:"
+          docker images | grep 'local_e2e_test'
 
       - name: Run e2e tests
         run: |
-          # Skip container-test dependency since we already built it
+          # Run tests directly instead of via make to avoid rebuilding the container
+          # The make test-e2e target has a dependency on container-test which would rebuild
+          # Remove any existing test artifacts from previous runs
           rm -rf test/e2e/e2e_*
           CGO_ENABLED=1 GO111MODULE=on go test -v -race -short -tags integration ./test/e2e
 
