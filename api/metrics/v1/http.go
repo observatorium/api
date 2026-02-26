@@ -17,6 +17,7 @@ import (
 	"github.com/observatorium/api/rules"
 	"github.com/observatorium/api/server"
 	"github.com/observatorium/api/tls"
+	"github.com/observatorium/api/tracing"
 )
 
 const (
@@ -48,7 +49,6 @@ type handlerConfiguration struct {
 	logger                 log.Logger
 	registry               *prometheus.Registry
 	instrument             handlerInstrumenter
-	spanRoutePrefix        string
 	tenantLabel            string
 	queryMiddlewares       []func(http.Handler) http.Handler
 	readMiddlewares        []func(http.Handler) http.Handler
@@ -78,13 +78,6 @@ func WithRegistry(r *prometheus.Registry) HandlerOption {
 func WithHandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
-	}
-}
-
-// WithSpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
-func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -185,6 +178,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 	}
 
 	r := chi.NewRouter()
+	r.Use(tracing.WithChiRoutePattern)
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})
@@ -220,12 +214,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.queryMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(QueryRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+QueryRoute,
-					proxyQuery,
-				),
-			)
+			r.Handle(QueryRoute, proxyQuery)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(func(handler http.Handler) http.Handler {
@@ -236,12 +225,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.queryMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(QueryRangeRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+QueryRangeRoute,
-					proxyQuery,
-				),
-			)
+			r.Handle(QueryRangeRoute, proxyQuery)
 		})
 
 		var proxyRead http.Handler
@@ -275,12 +259,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.readMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(SeriesRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+SeriesRoute,
-					proxyRead,
-				),
-			)
+			r.Handle(SeriesRoute, proxyRead)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(func(handler http.Handler) http.Handler {
@@ -291,12 +270,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.readMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(LabelNamesRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+LabelNamesRoute,
-					proxyRead,
-				),
-			)
+			r.Handle(LabelNamesRoute, proxyRead)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(func(handler http.Handler) http.Handler {
@@ -307,12 +281,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.readMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(LabelValuesRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+LabelValuesRoute,
-					proxyRead,
-				),
-			)
+			r.Handle(LabelValuesRoute, proxyRead)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -326,12 +295,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			// Thanos Query Rules API supports matchers from v0.25 so the WithEnforceTenancyOnMatchers
 			// middleware will not work here if prior versions are used.
-			r.Handle(RulesRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+RulesRoute,
-					proxyRead,
-				),
-			)
+			r.Handle(RulesRoute, proxyRead)
 		})
 
 		var uiProxy http.Handler
@@ -360,12 +324,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Mount(UIRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+UIRoute,
-					uiProxy,
-				),
-			)
+			r.Mount(UIRoute, uiProxy)
 		})
 	}
 
@@ -401,12 +360,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Handle(ReceiveRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+ReceiveRoute,
-					proxyWrite,
-				),
-			)
+			r.Handle(ReceiveRoute, proxyWrite)
 		})
 	}
 
@@ -428,12 +382,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.uiMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodGet, RulesRawRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+RulesRawRoute,
-					http.HandlerFunc(rh.get),
-				),
-			)
+			r.Method(http.MethodGet, RulesRawRoute, http.HandlerFunc(rh.get))
 		})
 
 		r.Group(func(r chi.Router) {
@@ -445,12 +394,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			})
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
-			r.Method(http.MethodPut, RulesRawRoute,
-				otelhttp.WithRouteTag(
-					c.spanRoutePrefix+RulesRawRoute,
-					http.HandlerFunc(rh.put),
-				),
-			)
+			r.Method(http.MethodPut, RulesRawRoute, http.HandlerFunc(rh.put))
 		})
 	}
 
@@ -488,10 +432,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			r.Use(c.alertmanagerMiddleware.alertsReadMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
-			r.Method(http.MethodGet, AlertmanagerAlertsRoute, otelhttp.WithRouteTag(
-				c.spanRoutePrefix+AlertmanagerAlertsRoute,
-				proxyAlertmanager,
-			))
+			r.Method(http.MethodGet, AlertmanagerAlertsRoute, proxyAlertmanager)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -504,10 +445,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
-			r.Method(http.MethodGet, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
-				c.spanRoutePrefix+AlertmanagerSilencesRoute,
-				proxyAlertmanager,
-			))
+			r.Method(http.MethodGet, AlertmanagerSilencesRoute, proxyAlertmanager)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -520,10 +458,7 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			r.Use(c.alertmanagerMiddleware.silenceWriteMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
-			r.Method(http.MethodPost, AlertmanagerSilencesRoute, otelhttp.WithRouteTag(
-				c.spanRoutePrefix+AlertmanagerSilencesRoute,
-				proxyAlertmanager,
-			))
+			r.Method(http.MethodPost, AlertmanagerSilencesRoute, proxyAlertmanager)
 		})
 	}
 
