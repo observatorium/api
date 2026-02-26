@@ -15,6 +15,7 @@ import (
 	"github.com/observatorium/api/proxy"
 	"github.com/observatorium/api/server"
 	"github.com/observatorium/api/tls"
+	"github.com/observatorium/api/tracing"
 )
 
 const (
@@ -28,7 +29,6 @@ type handlerConfiguration struct {
 	logger           log.Logger
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
-	spanRoutePrefix  string
 	queryMiddlewares []func(http.Handler) http.Handler
 	uiMiddlewares    []func(http.Handler) http.Handler
 	labelParser      func(r *http.Request) prometheus.Labels
@@ -51,13 +51,6 @@ func WithRegistry(r *prometheus.Registry) HandlerOption {
 func WithHandlerInstrumenter(instrumenter handlerInstrumenter) HandlerOption {
 	return func(h *handlerConfiguration) {
 		h.instrument = instrumenter
-	}
-}
-
-// WithSpanRoutePrefix adds a prefix before the value of route tag in tracing spans.
-func WithSpanRoutePrefix(spanRoutePrefix string) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.spanRoutePrefix = spanRoutePrefix
 	}
 }
 
@@ -113,6 +106,7 @@ func NewHandler(url *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOp
 	}
 
 	r := chi.NewRouter()
+	r.Use(tracing.WithChiRoutePattern)
 	r.Use(func(handler http.Handler) http.Handler {
 		return c.instrument.NewHandler(nil, handler)
 	})
@@ -147,12 +141,7 @@ func NewHandler(url *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOp
 			)
 		})
 		r.Use(c.queryMiddlewares...)
-		r.Handle(QueryRoute,
-			otelhttp.WithRouteTag(
-				c.spanRoutePrefix+QueryRoute,
-				legacyProxy,
-			),
-		)
+		r.Handle(QueryRoute, legacyProxy)
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(func(handler http.Handler) http.Handler {
@@ -162,12 +151,7 @@ func NewHandler(url *url.URL, tlsOptions *tls.UpstreamOptions, opts ...HandlerOp
 			)
 		})
 		r.Use(c.queryMiddlewares...)
-		r.Handle(QueryRangeRoute,
-			otelhttp.WithRouteTag(
-				c.spanRoutePrefix+QueryRangeRoute,
-				legacyProxy,
-			),
-		)
+		r.Handle(QueryRangeRoute, legacyProxy)
 	})
 
 	r.Group(func(r chi.Router) {

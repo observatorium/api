@@ -681,7 +681,6 @@ func main() {
 						metricslegacy.WithRegistry(reg),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
 						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
-						metricslegacy.WithSpanRoutePrefix("/api/v1/{tenant}"),
 						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
 						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
 						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
@@ -739,7 +738,6 @@ func main() {
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
-						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
 						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
@@ -802,7 +800,6 @@ func main() {
 								logsv1.Logger(logger),
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(instrumenter),
-								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
 								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
@@ -1578,7 +1575,7 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 		tracesv1.TraceRoute: connOtel,
 	}
 
-	director := func(ctx context.Context, fullMethodName string) (context.Context, *grpc.ClientConn, error) {
+	director := func(ctx context.Context, fullMethodName string) (context.Context, grpc.ClientConnInterface, error) {
 		md, _ := metadata.FromIncomingContext(ctx)
 		outCtx := metadata.NewOutgoingContext(ctx, md.Copy())
 
