@@ -20,6 +20,12 @@ func Test_AstWalker_SimpleCountExpr(t *testing.T) {
 		}, {
 			input: `{first="value"} |= "baz" |= ip("8.8.8.8")`,
 			total: 2,
+		}, {
+			input: `variants(count_over_time({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			total: 8,
+		}, {
+			input: `variants(count_over_time({foo="bar"}[5m]), rate({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			total: 12,
 		},
 	}
 	for _, tc := range tc {

@@ -123,6 +123,8 @@ var tokens = map[string]int{
 	OpConvDurationSeconds: DURATION_SECONDS_CONV,
 	OpLogFMTStrict:        LOGFMTSTRICT,
 	OpLogFMTKeepEmpty:     LOGFMTKEEPEMPTY,
+	"variants":            VARIANTS,
+	"of":                  OF,
 }
 
 var funcTokens = map[string]int{

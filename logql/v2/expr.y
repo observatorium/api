@@ -23,6 +23,8 @@ import (
   LogStageLabels       LogLabelList
   LogParserLabels      LogLabelList
   LogFMTFlags          []string
+  LogMultiVariantExpr  *LogMultiVariantExpr
+  LogMetricExprs       []LogMetricSampleExpr
   Matcher              *labels.Matcher
   Matchers             []*labels.Matcher
   MetricOp             string
@@ -60,6 +62,8 @@ import (
 %type <LogStageLabels>       logStageLabels
 %type <LogParserLabels>      logParserLabels
 %type <LogFMTFlags>          logFMTFlags
+%type <LogMultiVariantExpr>  logMultiVariantExpr
+%type <LogMetricExprs>       logMetricExprs
 %type <Matcher>              matcher
 %type <Matchers>             matchers
 %type <MetricOp>             metricOp
@@ -74,7 +78,7 @@ import (
                    BYTES_OVER_TIME BYTES_RATE BOOL JSON REGEXP LOGFMT PIPE_MATCH PIPE_EXACT PIPE_MATCH_PATTERN PIPE_NOT_MATCH_PATTERN PIPE LINE_FMT LABEL_FMT UNWRAP AVG_OVER_TIME SUM_OVER_TIME MIN_OVER_TIME
                    MAX_OVER_TIME STDVAR_OVER_TIME STDDEV_OVER_TIME QUANTILE_OVER_TIME FIRST_OVER_TIME LAST_OVER_TIME ABSENT_OVER_TIME
                    BY WITHOUT VECTOR LABEL_REPLACE IP UNPACK PATTERN OFFSET BYTES_CONV DURATION_CONV DURATION_SECONDS_CONV ON IGNORING GROUP_LEFT GROUP_RIGHT
-                   DECOLORIZE DROP KEEP
+                   DECOLORIZE DROP KEEP VARIANTS OF
 
 %left <binaryOp> OR
 %left <binaryOp> AND UNLESS
@@ -91,6 +95,7 @@ expr:
         |       logMetricExpr   { $$ = $1 }
         |       logBinaryOpExpr { $$ = $1 }
         |       logNumberExpr   { $$ = $1 }
+        |       logMultiVariantExpr { $$ = $1 }
         |       OPEN_PARENTHESIS expr CLOSE_PARENTHESIS { $$ = newParenthesisExpr($2) }
         ;
 
@@ -239,6 +244,15 @@ logFMTFlags:
                 LOGFMTSTRICT            { $$ = []string{$1}   }
         |       LOGFMTKEEPEMPTY         { $$ = []string{$1}   }
         |       logFMTFlags logFMTFlags { $$ = mergeParserFlags($1, $2) }
+        ;
+
+logMultiVariantExpr:
+                VARIANTS OPEN_PARENTHESIS logMetricExprs CLOSE_PARENTHESIS OF OPEN_PARENTHESIS logRangeQueryExpr CLOSE_PARENTHESIS { $$ = newLogMultiVariantExpr($3, $7) }
+        ;
+
+logMetricExprs:
+                logMetricExpr                      { $$ = []LogMetricSampleExpr{$1} }
+        |       logMetricExprs COMMA logMetricExpr { $$ = append($1, $3) }
         ;
 
 binaryOpOptions:
