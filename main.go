@@ -1607,13 +1607,20 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 	}
 
 	if cfg.tls.serverCertFile != "" {
-		serverCert, err := credentials.NewServerTLSFromFile(cfg.tls.serverCertFile, cfg.tls.serverKeyFile)
+		tlsConfig, err := tls.NewServerConfig(
+			log.With(logger, "protocol", "gRPC"),
+			cfg.tls.serverCertFile,
+			cfg.tls.serverKeyFile,
+			cfg.tls.minVersion,
+			cfg.tls.maxVersion,
+			cfg.tls.clientAuthType,
+			cfg.tls.cipherSuites,
+		)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create gRPC cert: %v\n", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to create gRPC TLS config: %w", err)
 		}
 
-		opts = append(opts, grpc.Creds(serverCert))
+		opts = append(opts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	}
 
 	gs := grpc.NewServer(opts...)
