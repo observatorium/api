@@ -1041,9 +1041,9 @@ func (v *VectorExpr) String() string {
 func (v *VectorExpr) Walk(fn WalkFn) { fn(v) }
 
 type LogMultiVariantExpr struct {
-	defaultLogQLExpr
-	logRange *LogRangeQueryExpr
-	variants []LogMetricSampleExpr
+	defaultLogQLExpr //nolint:unused
+	logRange         *LogRangeQueryExpr
+	variants         []LogMetricSampleExpr
 	Expr
 }
 
