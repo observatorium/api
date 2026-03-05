@@ -1467,7 +1467,6 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
-		// approx_topk test
 		{
 			input: `approx_topk(3,rate({foo="bar"}[5m]))`,
 			expr: &LogMetricExpr{
