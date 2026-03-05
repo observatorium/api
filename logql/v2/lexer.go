@@ -13,17 +13,18 @@ import (
 )
 
 const (
-	VectorOpTypeSum      = "sum"
-	VectorOpTypeAvg      = "avg"
-	VectorOpTypeMax      = "max"
-	VectorOpTypeMin      = "min"
-	VectorOpTypeCount    = "count"
-	VectorOpTypeStddev   = "stddev"
-	VectorOpTypeStdvar   = "stdvar"
-	VectorOpTypeBottomK  = "bottomk"
-	VectorOpTypeTopK     = "topk"
-	VectorOpTypeSort     = "sort"
-	VectorOpTypeSortDesc = "sort_desc"
+	VectorOpTypeSum        = "sum"
+	VectorOpTypeAvg        = "avg"
+	VectorOpTypeMax        = "max"
+	VectorOpTypeMin        = "min"
+	VectorOpTypeCount      = "count"
+	VectorOpTypeStddev     = "stddev"
+	VectorOpTypeStdvar     = "stdvar"
+	VectorOpTypeBottomK    = "bottomk"
+	VectorOpTypeTopK       = "topk"
+	VectorOpTypeApproxTopK = "approx_topk"
+	VectorOpTypeSort       = "sort"
+	VectorOpTypeSortDesc   = "sort_desc"
 
 	ParserLogFMT      = "logfmt"
 	ParserJSON        = "json"
@@ -122,6 +123,8 @@ var tokens = map[string]int{
 	OpConvDurationSeconds: DURATION_SECONDS_CONV,
 	OpLogFMTStrict:        LOGFMTSTRICT,
 	OpLogFMTKeepEmpty:     LOGFMTKEEPEMPTY,
+	"variants":            VARIANTS,
+	"of":                  OF,
 }
 
 var funcTokens = map[string]int{
@@ -144,17 +147,18 @@ var funcTokens = map[string]int{
 	OpTypeVector:           VECTOR,
 
 	// vector ops
-	VectorOpTypeSum:      SUM,
-	VectorOpTypeAvg:      AVG,
-	VectorOpTypeMax:      MAX,
-	VectorOpTypeMin:      MIN,
-	VectorOpTypeCount:    COUNT,
-	VectorOpTypeStddev:   STDDEV,
-	VectorOpTypeStdvar:   STDVAR,
-	VectorOpTypeBottomK:  BOTTOMK,
-	VectorOpTypeTopK:     TOPK,
-	VectorOpTypeSort:     SORT,
-	VectorOpTypeSortDesc: SORT_DESC,
+	VectorOpTypeSum:        SUM,
+	VectorOpTypeAvg:        AVG,
+	VectorOpTypeMax:        MAX,
+	VectorOpTypeMin:        MIN,
+	VectorOpTypeCount:      COUNT,
+	VectorOpTypeStddev:     STDDEV,
+	VectorOpTypeStdvar:     STDVAR,
+	VectorOpTypeBottomK:    BOTTOMK,
+	VectorOpTypeTopK:       TOPK,
+	VectorOpTypeApproxTopK: APPROX_TOPK,
+	VectorOpTypeSort:       SORT,
+	VectorOpTypeSortDesc:   SORT_DESC,
 
 	OpLabelReplace: LABEL_REPLACE,
 	OpIP:           IP,

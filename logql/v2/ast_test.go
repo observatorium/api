@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/prometheus/model/labels"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_AstWalker_SimpleCountExpr(t *testing.T) {
@@ -20,6 +21,12 @@ func Test_AstWalker_SimpleCountExpr(t *testing.T) {
 		}, {
 			input: `{first="value"} |= "baz" |= ip("8.8.8.8")`,
 			total: 2,
+		}, {
+			input: `variants(count_over_time({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			total: 8,
+		}, {
+			input: `variants(count_over_time({foo="bar"}[5m]), rate({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			total: 12,
 		},
 	}
 	for _, tc := range tc {
@@ -124,9 +131,23 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 			input:  `(count_over_time({first="value"}[10h]))`,
 			output: `(count_over_time({first="value", second="next"}[10h]))`,
 		},
+		// approx_topkk tests
 		{
 			input:  `topk(25,(count_over_time({first="value"}[10h])))`,
 			output: `topk(25,(count_over_time({first="value", second="next"}[10h])))`,
+		},
+		{
+			input:  `approx_topk(25,(count_over_time({first="value"}[10h])))`,
+			output: `approx_topk(25,(count_over_time({first="value", second="next"}[10h])))`,
+		},
+		// variant tests
+		{
+			input:  `variants(count_over_time({job="foo"}[5m])) of ({job="foo"}[5m])`,
+			output: `variants(count_over_time({job="foo", second="next"}[5m])) of ({job="foo", second="next"}[5m])`,
+		},
+		{
+			input:  `variants(count_over_time({job="foo"}[5m]), bytes_over_time({job="foo"}[5m])) of ({job="foo"}[5m])`,
+			output: `variants(count_over_time({job="foo", second="next"}[5m]), bytes_over_time({job="foo", second="next"}[5m])) of ({job="foo", second="next"}[5m])`,
 		},
 	}
 	for _, tc := range tc {
@@ -218,5 +239,38 @@ func Test_AstWalker_AppendORMatcher(t *testing.T) {
 		if got != tc.output {
 			t.Fatalf("\ngot:  %s\nwant: %s", got, tc.output)
 		}
+	}
+}
+
+func Test_VariantsExpr_String(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		expr string
+	}{
+		{
+			`variants(count_over_time({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+		},
+		{
+			`variants(count_over_time({baz="qux", foo=~"bar"}[5m]), bytes_over_time({baz="qux", foo=~"bar"}[5m])) of ({baz="qux", foo=~"bar"} | logfmt | this = "that"[5m])`,
+		},
+		{
+			`variants(count_over_time({baz="qux", foo!="bar"}[5m]),rate({baz="qux", foo!="bar"}[5m])) of ({baz="qux", foo!="bar"} |= "that" [5m])`,
+		},
+		{
+			`variants(sum by (app) (count_over_time({baz="qux", foo!="bar"}[5m])),rate({baz="qux", foo!="bar"}[5m])) of ({baz="qux", foo!="bar"} |= "that" [5m])`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expr, func(t *testing.T) {
+			t.Parallel()
+			expr, err := ParseExpr(tt.expr)
+			require.NoError(t, err)
+
+			expr2, err := ParseExpr(expr.String())
+			require.Nil(t, err)
+
+			require.Equal(t, expr.String(), expr2.String())
+		})
 	}
 }

@@ -1468,6 +1468,30 @@ func TestParseExpr(t *testing.T) {
 			},
 		},
 		{
+			input: `approx_topk(3,rate({foo="bar"}[5m]))`,
+			expr: &LogMetricExpr{
+				metricOp: "approx_topk",
+				preamble: "3",
+				Expr: &LogMetricExpr{
+					metricOp: "rate",
+					left: &LogRangeQueryExpr{
+						rng: "[5m]",
+						left: &LogQueryExpr{
+							left: &StreamMatcherExpr{
+								matchers: []*labels.Matcher{
+									{
+										Type:  labels.MatchEqual,
+										Name:  "foo",
+										Value: "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			input: `max without(value) (count_over_time({first="value"}[10h]))`,
 			expr: &LogMetricExpr{
 				metricOp:        "max",
@@ -2083,6 +2107,99 @@ func TestParseExpr(t *testing.T) {
 							Name:  "first",
 							Value: "value",
 						},
+					},
+				},
+			},
+		},
+		{
+			input: `variants(count_over_time({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			expr: &LogMultiVariantExpr{
+				logRange: &LogRangeQueryExpr{
+					left: &LogQueryExpr{
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Name:  "foo",
+									Value: "bar",
+									Type:  labels.MatchEqual,
+								},
+							},
+						},
+					},
+					rng: "[5m]",
+				},
+				variants: []LogMetricSampleExpr{
+					&LogMetricExpr{
+						left: &LogRangeQueryExpr{
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Name:  "foo",
+											Value: "bar",
+											Type:  labels.MatchEqual,
+										},
+									},
+								},
+							},
+							rng: "[5m]",
+						},
+						metricOp: RangeOpTypeCount,
+					},
+				},
+			},
+		},
+		{
+			input: `variants(count_over_time({foo="bar"}[5m]), rate({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			expr: &LogMultiVariantExpr{
+				logRange: &LogRangeQueryExpr{
+					left: &LogQueryExpr{
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Name:  "foo",
+									Value: "bar",
+									Type:  labels.MatchEqual,
+								},
+							},
+						},
+					},
+					rng: "[5m]",
+				},
+				variants: []LogMetricSampleExpr{
+					&LogMetricExpr{
+						left: &LogRangeQueryExpr{
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Name:  "foo",
+											Value: "bar",
+											Type:  labels.MatchEqual,
+										},
+									},
+								},
+							},
+							rng: "[5m]",
+						},
+						metricOp: RangeOpTypeCount,
+					},
+					&LogMetricExpr{
+						left: &LogRangeQueryExpr{
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Name:  "foo",
+											Value: "bar",
+											Type:  labels.MatchEqual,
+										},
+									},
+								},
+							},
+							rng: "[5m]",
+						},
+						metricOp: RangeOpTypeRate,
 					},
 				},
 			},
