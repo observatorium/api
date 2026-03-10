@@ -145,6 +145,7 @@ type tlsConfig struct {
 type metricsConfig struct {
 	readEndpoint         *url.URL
 	writeEndpoint        *url.URL
+	otlpWriteEndpoint    *url.URL
 	rulesEndpoint        *url.URL
 	alertmanagerEndpoint *url.URL
 	upstreamWriteTimeout time.Duration
@@ -644,6 +645,7 @@ func main() {
 				eps := metricsv1.Endpoints{
 					ReadEndpoint:         cfg.metrics.readEndpoint,
 					WriteEndpoint:        cfg.metrics.writeEndpoint,
+					OTLPWriteEndpoint:    cfg.metrics.otlpWriteEndpoint,
 					RulesEndpoint:        cfg.metrics.rulesEndpoint,
 					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
 				}
@@ -1105,10 +1107,11 @@ func (m *multiStringFlag) String() string {
 func parseFlags() (config, error) {
 	var (
 		rawTLSCipherSuites             string
-		rawMetricsReadEndpoint         string
-		rawMetricsWriteEndpoint        string
-		rawMetricsRulesEndpoint        string
-		rawMetricsAlertmanagerEndpoint string
+		rawMetricsReadEndpoint          string
+		rawMetricsWriteEndpoint         string
+		rawMetricsWriteOTLPHTTPEndpoint string
+		rawMetricsRulesEndpoint         string
+		rawMetricsAlertmanagerEndpoint  string
 		rawLogsReadEndpoint            string
 		rawLogsRulesEndpoint           string
 		rawLogsTailEndpoint            string
@@ -1189,6 +1192,8 @@ func parseFlags() (config, error) {
 		"The endpoint against which to send read requests for metrics.")
 	flag.StringVar(&rawMetricsWriteEndpoint, "metrics.write.endpoint", "",
 		"The endpoint against which to make write requests for metrics.")
+	flag.StringVar(&rawMetricsWriteOTLPHTTPEndpoint, "metrics.write.otlphttp.endpoint", "",
+		"The endpoint against which to make OTLP HTTP write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
 	flag.StringVar(&rawMetricsAlertmanagerEndpoint, "metrics.alertmanager.endpoint", "",
@@ -1315,6 +1320,17 @@ func parseFlags() (config, error) {
 		}
 
 		cfg.metrics.writeEndpoint = metricsWriteEndpoint
+	}
+
+	if rawMetricsWriteOTLPHTTPEndpoint != "" {
+		cfg.metrics.enabled = true
+
+		metricsOTLPWriteEndpoint, err := url.ParseRequestURI(rawMetricsWriteOTLPHTTPEndpoint)
+		if err != nil {
+			return cfg, fmt.Errorf("--metrics.write.otlphttp.endpoint %q is invalid: %w", rawMetricsWriteOTLPHTTPEndpoint, err)
+		}
+
+		cfg.metrics.otlpWriteEndpoint = metricsOTLPWriteEndpoint
 	}
 
 	if rawMetricsRulesEndpoint != "" {
@@ -1646,6 +1662,7 @@ var metricsV1Group = []groupHandler{
 	{"metricsv1", "labels"},
 	{"metricsv1", "labelvalues"},
 	{"metricsv1", "receive"},
+	{"metricsv1", "otlp"},
 	{"metricsv1", "rules"},
 	{"metricsv1", "rules-raw"},
 	{"metricsv1", "alerts"},
