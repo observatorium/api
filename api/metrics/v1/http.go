@@ -34,6 +34,8 @@ const (
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
 
+	OTLPRoute = "/otlp/v1/metrics"
+
 	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
 	AlertmanagerSilencesRoute = "/am/api/v2/silences"
 )
@@ -167,6 +169,7 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 type Endpoints struct {
 	ReadEndpoint         *url.URL
 	WriteEndpoint        *url.URL
+	OTLPWriteEndpoint    *url.URL
 	RulesEndpoint        *url.URL
 	AlertmanagerEndpoint *url.URL
 }
@@ -405,6 +408,47 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 				otelhttp.WithRouteTag(
 					c.spanRoutePrefix+ReceiveRoute,
 					proxyWrite,
+				),
+			)
+		})
+	}
+
+	if endpoints.OTLPWriteEndpoint != nil {
+		var proxyOTLPWrite http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(endpoints.OTLPWriteEndpoint),
+				proxy.MiddlewareSetPrefixHeader(),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-otlp-write"}),
+			)
+
+			t := &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: dialTimeout,
+				}).DialContext,
+				TLSClientConfig: tlsOptions.NewClientConfig(),
+			}
+
+			proxyOTLPWrite = &httputil.ReverseProxy{
+				Director:  middlewares,
+				ErrorLog:  proxy.Logger(c.logger),
+				Transport: otelhttp.NewTransport(t),
+			}
+		}
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "otlp"},
+					handler,
+				)
+			})
+			r.Use(c.writeMiddlewares...)
+			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
+			r.Handle(OTLPRoute,
+				otelhttp.WithRouteTag(
+					c.spanRoutePrefix+OTLPRoute,
+					proxyOTLPWrite,
 				),
 			)
 		})

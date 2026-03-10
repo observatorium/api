@@ -58,6 +58,46 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 		thanosQuery.Endpoint("http")
 }
 
+func startServicesForMetricsOTLP(t *testing.T, e e2e.Environment) (
+	metricsReadEndpoint string,
+	metricsWriteEndpoint string,
+	metricsExtReadEndpoint string,
+	otlpHTTPEndpoint string,
+) {
+	thanosReceive := newThanosReceiveService(e)
+	thanosQuery := e2edb.NewThanosQuerier(
+		e,
+		"thanos-query",
+		[]string{thanosReceive.InternalEndpoint("grpc")},
+		e2edb.WithImage(thanosImage),
+	)
+	testutil.Ok(t, e2e.StartAndWaitReady(thanosReceive, thanosQuery))
+
+	createOtelMetricsCollectorConfigYAML(t, e, thanosReceive.InternalEndpoint("remote_write"), defaultTenantID)
+
+	otel := e.Runnable("otel-metrics-collector").
+		WithPorts(
+			map[string]int{
+				"http": 4318,
+			}).
+		Init(e2e.StartOptions{
+			Image: otelCollectorImage,
+			Volumes: []string{
+				fmt.Sprintf("%s:/conf/metrics-collector.yaml",
+					filepath.Join(filepath.Join(e.SharedDir(), configSharedDir, "metrics-collector.yaml"))),
+			},
+			Command: e2e.Command{
+				Args: []string{"--config=/conf/metrics-collector.yaml"},
+			},
+		})
+	testutil.Ok(t, e2e.StartAndWaitReady(otel))
+
+	return thanosQuery.InternalEndpoint("http"),
+		thanosReceive.InternalEndpoint("remote_write"),
+		thanosQuery.Endpoint("http"),
+		otel.InternalEndpoint("http")
+}
+
 func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
 	// Create S3 replacement for rules backend
 	const bucket = "obs-rules-test"
@@ -363,18 +403,19 @@ func newProbesService(e e2e.Environment) *e2emon.InstrumentedRunnable {
 }
 
 type apiOptions struct {
-	logsEndpoint                string
-	metricsReadEndpoint         string
-	metricsWriteEndpoint        string
-	metricsRulesEndpoint        string
-	alertmanagerEndpoint        string
-	ratelimiterAddr             string
-	probesEndpoint              string
-	tracesWriteOTLPGRPCEndpoint string
-	tracesWriteOTLPHTTPEndpoint string
-	gRPCListenEndpoint          string
-	jaegerQueryEndpoint         string
-	tempoEndpoint               string
+	logsEndpoint                 string
+	metricsReadEndpoint          string
+	metricsWriteEndpoint         string
+	metricsWriteOTLPHTTPEndpoint string
+	metricsRulesEndpoint         string
+	alertmanagerEndpoint         string
+	ratelimiterAddr              string
+	probesEndpoint               string
+	tracesWriteOTLPGRPCEndpoint  string
+	tracesWriteOTLPHTTPEndpoint  string
+	gRPCListenEndpoint           string
+	jaegerQueryEndpoint          string
+	tempoEndpoint                string
 
 	// "experimental.traces.read.endpoint-template" value.
 	tracesExperimentalTemplateReadEndpoint string
@@ -398,6 +439,12 @@ func withMetricsEndpoints(readEndpoint string, writeEndpoint string) apiOption {
 	return func(o *apiOptions) {
 		o.metricsReadEndpoint = readEndpoint
 		o.metricsWriteEndpoint = writeEndpoint
+	}
+}
+
+func withOTLPHTTPMetricsEndpoint(endpoint string) apiOption {
+	return func(o *apiOptions) {
+		o.metricsWriteOTLPHTTPEndpoint = endpoint
 	}
 }
 
@@ -507,6 +554,10 @@ func newObservatoriumAPIService(
 
 	if opts.probesEndpoint != "" {
 		args = append(args, "--probes.endpoint="+opts.probesEndpoint)
+	}
+
+	if opts.metricsWriteOTLPHTTPEndpoint != "" {
+		args = append(args, "--metrics.write.otlphttp.endpoint="+opts.metricsWriteOTLPHTTPEndpoint)
 	}
 
 	if opts.tracesWriteOTLPGRPCEndpoint != "" {
