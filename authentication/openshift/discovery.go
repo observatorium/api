@@ -73,6 +73,9 @@ func DiscoverOAuth(client *http.Client) (authURL, tokenURL *url.URL, err error) 
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode == 404 {
+			return nil, nil, fmt.Errorf("OAuth server not found")
+		}
 		return nil, nil, fmt.Errorf("got %d %s", resp.StatusCode, body)
 	}
 

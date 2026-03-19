@@ -77,6 +77,7 @@ type OpenShiftAuthenticator struct {
 	oauth2Config  oauth2.Config
 	cookieName    string
 	handler       http.Handler
+	oauthEnabled  bool
 }
 
 //nolint:funlen
@@ -143,19 +144,29 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 
 	var tokenURL *url.URL
 
-	for b.Reset(); b.Ongoing(); {
-		authURL, tokenURL, err = openshift.DiscoverOAuth(client)
-		if err != nil {
-			level.Error(logger).Log(
+	authURL, tokenURL, err = openshift.DiscoverOAuth(client)
+	if err != nil {
+		if strings.Contains(err.Error(), "got 404") || strings.Contains(err.Error(), "OAuth server not found") {
+			level.Warn(logger).Log(
 				"tenant", tenant,
-				"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
-			registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-			b.Wait()
-
-			continue
+				"msg", errors.Wrap(err, "OpenShift OAuth endpoint not available"))
 		}
-
-		break
+		authURL = nil
+		tokenURL = nil
+	} else {
+		// Other errors
+		for b.Reset(); b.Ongoing(); {
+			authURL, tokenURL, err = openshift.DiscoverOAuth(client)
+			if err != nil {
+				level.Error(logger).Log(
+					"tenant", tenant,
+					"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
+				registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+				b.Wait()
+				continue
+			}
+			break
+		}
 	}
 
 	var clientID string
@@ -221,7 +232,11 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		client:        client,
 		config:        config,
 		cookieName:    fmt.Sprintf("observatorium_%s", tenant),
-		oauth2Config: oauth2.Config{
+		oauthEnabled:  authURL != nil && tokenURL != nil,
+	}
+
+	if osAuthenticator.oauthEnabled {
+		osAuthenticator.oauth2Config = oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Endpoint: oauth2.Endpoint{
@@ -235,14 +250,16 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 				defaultOAuthScopeListProjects,
 			},
 			RedirectURL: config.RedirectURL,
-		},
-	}
+		}
+		r := chi.NewRouter()
+		r.Use(tracing.WithChiRoutePattern)
+		r.Handle(loginRoute, osAuthenticator.openshiftLoginHandler())
+		r.Handle(callbackRoute, osAuthenticator.openshiftCallbackHandler())
+		osAuthenticator.handler = r
 
-	r := chi.NewRouter()
-	r.Use(tracing.WithChiRoutePattern)
-	r.Handle(loginRoute, osAuthenticator.openshiftLoginHandler())
-	r.Handle(callbackRoute, osAuthenticator.openshiftCallbackHandler())
-	osAuthenticator.handler = r
+	} else {
+		osAuthenticator.handler = chi.NewRouter()
+	}
 
 	return osAuthenticator, nil
 }
@@ -442,6 +459,13 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 			// when users went through the OAuth2 flow supported by this
 			// provider. Observatorium stores a self-signed JWT token on a
 			// cookie per tenant to identify the subject of incoming requests.
+			if !a.oauthEnabled {
+				msg := "OAuth authentication not available"
+				level.Debug(a.logger).Log("msg", msg)
+				httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+				return
+			}
+
 			cookie, err := r.Cookie(a.cookieName)
 			if err != nil {
 				tenant, ok := GetTenant(r.Context())
