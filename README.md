@@ -174,6 +174,8 @@ Usage of ./observatorium-api:
     	Comma-separated list of cipher suites for the server. Values are from tls package constants (https://golang.org/pkg/crypto/tls/#pkg-constants). If omitted, the default Go cipher suites will be used. Note that TLS 1.3 ciphersuites are not configurable.
   -tls.client-auth-type string
     	Policy for TLS client-side authentication. Values are from ClientAuthType constants in https://pkg.go.dev/crypto/tls#ClientAuthType (default "RequestClientCert")
+  -tls.curve-preferences string
+    	Comma-separated list of key exchange groups for the server. Values are IANA "TLS Supported Groups" names (e.g. X25519, secp256r1, X25519MLKEM768); Go crypto/tls constant names (e.g. CurveP256) are also accepted for the classic curves. If omitted, the default Go groups will be used. The list is a filter of allowed groups; crypto/tls chooses the preference order.
   -tls.healthchecks.server-ca-file string
     	File containing the TLS CA against which to verify servers. If no server CA is specified, the client will use the system certificates.
   -tls.healthchecks.server-name string
