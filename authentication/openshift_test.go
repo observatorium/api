@@ -11,13 +11,14 @@ import (
 
 	"github.com/efficientgo/core/backoff"
 	"github.com/go-chi/chi/v5"
-	"github.com/observatorium/api/authentication/openshift"
-	"github.com/observatorium/api/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/observatorium/api/authentication/openshift"
+	"github.com/observatorium/api/logger"
 )
 
-// redirectTransport redirects all requests to the target host
+// redirectTransport redirects all requests to the target host.
 type redirectTransport struct {
 	targetHost string
 	transport  http.RoundTripper
@@ -37,10 +38,12 @@ func TestDiscoverOAuthEndpoints_OAuthEnabled(t *testing.T) {
 
 	r.Get(openshift.OauthWellKnownPath, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		if _, err := w.Write([]byte(`{
             "authorization_endpoint": "https://oauth.example.com/authorize",
             "token_endpoint": "https://oauth.example.com/token"
-        }`))
+        }`)); err != nil {
+			t.Fatalf("failed to write response %v", err)
+		}
 	})
 
 	mockAPIServer := httptest.NewServer(r)
@@ -61,7 +64,9 @@ func TestDiscoverOAuthEndpoints_OAuthEnabled(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_PORT", port)
 
 	retryCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "test_retries"},
+		Name: "test_retries_total",
+		Help: "Total number of OAuth discovery retries",
+	},
 		[]string{"tenant", "type"},
 	)
 
@@ -94,7 +99,9 @@ func TestDiscoverOAuthEndpoints_OAuthDisabled(t *testing.T) {
 
 	r.Get(openshift.OauthWellKnownPath, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("404 page not found"))
+		if _, err := w.Write([]byte("404 page not found")); err != nil {
+			t.Fatalf("failed to write response %v", err)
+		}
 	})
 
 	mockAPIServer := httptest.NewServer(r)
@@ -115,7 +122,9 @@ func TestDiscoverOAuthEndpoints_OAuthDisabled(t *testing.T) {
 	t.Setenv("KUBERNETES_SERVICE_PORT", port)
 
 	retryCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "test_retries"},
+		Name: "test_retries_total",
+		Help: "Total number of OAuth discovery retries",
+	},
 		[]string{"tenant", "type"},
 	)
 
