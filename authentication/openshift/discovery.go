@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	oauthWellKnownPath = "/.well-known/oauth-authorization-server"
+	OauthWellKnownPath = "/.well-known/oauth-authorization-server"
 
 	// ServiceAccountNamespacePath is the path to the default serviceaccount namespace.
 	ServiceAccountNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
@@ -54,7 +54,7 @@ func DiscoverCredentials(name string) (string, string, error) {
 // DiscoverOAuth return the authorization and token endpoints of the OpenShift OAuth server.
 // Returns an error if requesting the `/.well-known/oauth-authorization-server` fails.
 func DiscoverOAuth(client *http.Client) (authURL, tokenURL *url.URL, err error) {
-	oauthURL := toKubeAPIURLWithPath(oauthWellKnownPath)
+	oauthURL := toKubeAPIURLWithPath(OauthWellKnownPath)
 
 	req, err := http.NewRequest(http.MethodGet, oauthURL.String(), nil)
 	if err != nil {

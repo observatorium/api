@@ -140,37 +140,9 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		MaxRetries: 0, // Retry indefinitely.
 	})
 
-	var authURL *url.URL
-
-	var tokenURL *url.URL
-
-	authURL, tokenURL, err = openshift.DiscoverOAuth(client)
-	if err != nil {
-		if strings.Contains(err.Error(), "got 404") || strings.Contains(err.Error(), "OAuth server not found") {
-			level.Warn(logger).Log(
-				"tenant", tenant,
-				"msg", errors.Wrap(err, "OpenShift OAuth endpoint not available"))
-		}
-		authURL = nil
-		tokenURL = nil
-	} else {
-		// Other errors
-		for b.Reset(); b.Ongoing(); {
-			authURL, tokenURL, err = openshift.DiscoverOAuth(client)
-			if err != nil {
-				level.Error(logger).Log(
-					"tenant", tenant,
-					"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
-				registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-				b.Wait()
-				continue
-			}
-			break
-		}
-	}
+	authURL, tokenURL, oauthEnabled := discoverOAuthEndpoints(client, logger, tenant, registrationRetryCount, b)
 
 	var clientID string
-
 	var clientSecret string
 
 	for b.Reset(); b.Ongoing(); {
@@ -232,10 +204,10 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		client:        client,
 		config:        config,
 		cookieName:    fmt.Sprintf("observatorium_%s", tenant),
-		oauthEnabled:  authURL != nil && tokenURL != nil,
+		oauthEnabled:  oauthEnabled,
 	}
 
-	if osAuthenticator.oauthEnabled {
+	if oauthEnabled {
 		osAuthenticator.oauth2Config = oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
@@ -564,4 +536,31 @@ func (a OpenShiftAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 
 func (a OpenShiftAuthenticator) Handler() (string, http.Handler) {
 	return "/openshift/{tenant}", a.handler
+}
+
+func discoverOAuthEndpoints(client *http.Client, logger log.Logger, tenant string, registrationRetryCount *prometheus.CounterVec, b *backoff.Backoff) (*url.URL, *url.URL, bool) {
+	authURL, tokenURL, err := openshift.DiscoverOAuth(client)
+	if err != nil {
+		if strings.Contains(err.Error(), "got 404") || strings.Contains(err.Error(), "OAuth server not found") {
+			level.Warn(logger).Log(
+				"tenant", tenant,
+				"msg", errors.Wrap(err, "OpenShift OAuth endpoint not available, likely using external OIDC authentication. But bearer token authentication will continue to work"))
+			return nil, nil, false
+		} else {
+			// Other errors, retry with backoff
+			for b.Reset(); b.Ongoing(); {
+				authURL, tokenURL, err = openshift.DiscoverOAuth(client)
+				if err != nil {
+					level.Error(logger).Log(
+						"tenant", tenant,
+						"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
+					registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+					b.Wait()
+					continue
+				}
+				break
+			}
+		}
+	}
+	return authURL, tokenURL, true
 }
