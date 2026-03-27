@@ -35,6 +35,7 @@ const (
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
 
+	AlertmanagerUIRoute       = "/am"
 	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
 	AlertmanagerSilencesRoute = "/am/api/v2/silences"
 )
@@ -422,6 +423,24 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			}
 		}
 
+		var alertmanagerUIProxy http.Handler
+		{
+			middlewares := proxy.Middlewares(
+				proxy.MiddlewareSetUpstream(endpoints.AlertmanagerEndpoint),
+				proxy.MiddlewareSetPrefixHeader(),
+				proxy.MiddlewareLogger(c.logger),
+				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "metricsv1-am-ui"}),
+			)
+
+			t := http.DefaultTransport.(*http.Transport)
+			t.TLSClientConfig = tlsOptions.NewClientConfig()
+
+			alertmanagerUIProxy = &httputil.ReverseProxy{
+				Director:  middlewares,
+				Transport: otelhttp.NewTransport(http.DefaultTransport),
+			}
+		}
+
 		r.Group(func(r chi.Router) {
 			r.Use(func(handler http.Handler) http.Handler {
 				return server.InjectLabelsCtx(
@@ -446,6 +465,22 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
 			r.Method(http.MethodGet, AlertmanagerSilencesRoute, proxyAlertmanager)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(func(handler http.Handler) http.Handler {
+				return server.InjectLabelsCtx(
+					prometheus.Labels{"group": "metricsv1", "handler": "am-ui"},
+					handler,
+				)
+			})
+			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
+			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
+
+			r.Method(http.MethodGet, AlertmanagerUIRoute, otelhttp.WithRouteTag(
+				c.spanRoutePrefix+AlertmanagerUIRoute,
+				alertmanagerUIProxy,
+			))
 		})
 
 		r.Group(func(r chi.Router) {
