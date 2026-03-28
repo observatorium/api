@@ -390,6 +390,45 @@ paths:
           description: Delete silence response
         5XX:
           description: Server side error
+  /api/metrics/v1/{tenant}/otlp/v1/metrics:
+    parameters:
+      - $ref: '#/components/parameters/tenant'
+    post:
+      tags:
+        - metrics/otlpv1
+      summary: Send metrics in OTLP format
+      operationId: postOTLPMetrics
+      description: |
+        Send metrics in OpenTelemetry Protocol (OTLP) format.
+        The request is proxied to the configured OTLP HTTP backend.
+      requestBody:
+        description: OTLP ExportMetricsServiceRequest
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OTLPExportMetricsServiceRequest'
+          application/x-protobuf:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Successfully exported metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OTLPExportMetricsServiceResponse'
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized - missing or invalid tenant ID
+        '403':
+          description: Forbidden - insufficient permissions
+        '429':
+          description: Too many requests - rate limit exceeded
+        5XX:
+          description: Server side error
   /api/logs/v1/{tenant}/loki/api/v1/push:
     parameters:
       - $ref: '#/components/parameters/tenant'
@@ -1710,6 +1749,73 @@ components:
         data:
           type: object
           $ref: '#/components/schemas/Rules'
+    OTLPExportMetricsServiceRequest:
+      type: object
+      description: OTLP ExportMetricsServiceRequest containing resource metrics
+      properties:
+        resourceMetrics:
+          type: array
+          items:
+            type: object
+            properties:
+              resource:
+                type: object
+                properties:
+                  attributes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OTLPKeyValue'
+              scopeMetrics:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    scope:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        version:
+                          type: string
+                    metrics:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          unit:
+                            type: string
+                          description:
+                            type: string
+    OTLPExportMetricsServiceResponse:
+      type: object
+      description: OTLP ExportMetricsServiceResponse
+      properties:
+        partialSuccess:
+          type: object
+          properties:
+            rejectedDataPoints:
+              type: integer
+              format: int64
+            errorMessage:
+              type: string
+    OTLPKeyValue:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: object
+          properties:
+            stringValue:
+              type: string
+            intValue:
+              type: string
+            doubleValue:
+              type: number
+            boolValue:
+              type: boolean
 x-tagGroups:
   - name: metrics
     tags:
@@ -1719,6 +1825,7 @@ x-tagGroups:
       - metrics/labelvaluesv1
       - metrics/queryv1
       - metrics/seriesv1
+      - metrics/otlpv1
   - name: logs
     tags:
       - logs/pushv1

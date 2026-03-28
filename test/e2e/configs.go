@@ -18,6 +18,7 @@ type testType string
 
 const (
 	metrics        testType = "metrics"
+	metricsOTLP    testType = "metricsOTLP"
 	rules          testType = "rules"
 	alerts         testType = "alerts"
 	logs           testType = "logs"
@@ -32,6 +33,7 @@ const (
 	configSharedDir = "config"
 
 	envMetricsName        = "metrics"
+	envMetricsOTLPName    = "metrics-otlp"
 	envRulesAPIName       = "rules-api"
 	envAlertmanagerName   = "alertmanager-api"
 	envLogsName           = "logs-tail"
@@ -373,6 +375,65 @@ func createOtelForwardingCollectorConfigYAML(
 
 	err := os.WriteFile(
 		filepath.Join(e.SharedDir(), configSharedDir, "forwarding-collector.yaml"),
+		yamlContent,
+		os.FileMode(0644),
+	)
+	testutil.Ok(t, err)
+}
+
+// OTel collector config for metrics: receives OTLP metrics and exports via Prometheus remote write.
+const otelMetricsConfigTpl = `
+receivers:
+    otlp:
+      protocols:
+        http:
+            endpoint: "0.0.0.0:4318"
+
+exporters:
+    debug:
+        verbosity: detailed
+    prometheusremotewrite:
+        endpoint: "http://%[1]s/api/v1/receive"
+        tls:
+          insecure: true
+        headers:
+          THANOS-TENANT: "%[2]s"
+
+service:
+    telemetry:
+      metrics:
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888
+        level: detailed
+      logs:
+        level: DEBUG
+    pipelines:
+        metrics:
+            receivers: [otlp]
+            exporters: [debug,prometheusremotewrite]
+`
+
+func createOtelMetricsCollectorConfigYAML(
+	t *testing.T,
+	e e2e.Environment,
+	thanosReceiveEndpoint string,
+	tenantID string,
+) {
+	if strings.ContainsRune(otelMetricsConfigTpl, '\t') {
+		t.Errorf("Tab in the YAML")
+	}
+
+	yamlContent := []byte(fmt.Sprintf(
+		otelMetricsConfigTpl,
+		thanosReceiveEndpoint,
+		tenantID))
+
+	err := os.WriteFile(
+		filepath.Join(e.SharedDir(), configSharedDir, "metrics-collector.yaml"),
 		yamlContent,
 		os.FileMode(0644),
 	)
