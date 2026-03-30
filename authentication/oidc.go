@@ -104,10 +104,6 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		for {
 			block, rest = pem.Decode(rest)
 			if block == nil {
-				if len(config.issuerCAs) == 0 {
-					return nil, fmt.Errorf("failed to parse issuer CA certificate PEM")
-				}
-
 				break
 			}
 
@@ -117,6 +113,10 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 			}
 
 			config.issuerCAs = append(config.issuerCAs, cert)
+		}
+
+		if len(config.issuerCAs) == 0 {
+			return nil, fmt.Errorf("failed to parse issuer CA certificate PEM")
 		}
 	}
 
