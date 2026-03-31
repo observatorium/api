@@ -18,12 +18,12 @@ import (
 func TestLogs(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envLogsName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, logs, e)
-	_, token, rateLimiterAddr := startBaseServices(t, e, logs)
+	prepareConfigsAndCerts(t, e)
+	_, token, rateLimiterAddr := startBaseServices(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 
 	api, err := newObservatoriumAPIService(

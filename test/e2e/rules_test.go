@@ -110,12 +110,12 @@ const metricsNilRulesYamlTpl = ``
 func TestRulesAPI(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envRulesAPIName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, rules, e)
-	_, token, rateLimiterAddr := startBaseServices(t, e, rules)
+	prepareConfigsAndCerts(t, e)
+	_, token, rateLimiterAddr := startBaseServices(t, e)
 	metricsRulesEndpoint := startServicesForRules(t, e)
 	logsRulesEndpoint, _ := startServicesForLogs(t, e)
 

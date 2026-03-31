@@ -17,7 +17,7 @@ import (
 func TestRedisRateLimiter_GetRateLimits(t *testing.T) {
 	t.Parallel()
 	// Start isolated environment with given ref.
-	e, err := e2e.New(e2e.WithName("redis-rate-li"))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 

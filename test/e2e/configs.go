@@ -31,17 +31,6 @@ const (
 	certsSharedDir  = "certs"
 	configSharedDir = "config"
 
-	envMetricsName        = "metrics"
-	envRulesAPIName       = "rules-api"
-	envAlertmanagerName   = "alertmanager-api"
-	envLogsName           = "logs-tail"
-	envTracesName         = "traces-export"
-	envTracesTempoName    = "traces-tempo"
-	envTracesTemplateName = "traces-template"
-	envTenantsName        = "tenants"
-	envInteractive        = "interactive"
-	envProbesName         = "probes"
-
 	defaultTenantID = "1610b0c3-c509-4592-a256-a1871353dbfa"
 	mtlsTenantID    = "845cdfd9-f936-443c-979c-2ee7dc91f646"
 

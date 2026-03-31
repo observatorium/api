@@ -15,12 +15,12 @@ import (
 func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envTenantsName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, tenants, e)
-	dex, _, _ := startBaseServices(t, e, tenants)
+	prepareConfigsAndCerts(t, e)
+	dex, _, _ := startBaseServices(t, e)
 	readEndpoint, writeEndpoint, _ := startServicesForMetrics(t, e)
 
 	// Start API with stopped Dex and observe retries.
