@@ -59,7 +59,7 @@ func TestTenantsRetryAuthenticationProviderRegistration(t *testing.T) {
 
 		// Restart Dex.
 		testutil.Ok(t, e2e.StartAndWaitReady(dex))
-		token, err := obtainToken(dex.Endpoint("https"), getTLSClientConfig(t, e))
+		token, err := obtainToken(dex.Endpoint("https"), getContainerName(e, "dex"), getTLSClientConfig(t, e))
 		testutil.Ok(t, err)
 
 		up, err := newUpRun(

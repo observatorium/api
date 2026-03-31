@@ -191,7 +191,7 @@ func startBaseServices(t *testing.T, e e2e.Environment) (
 
 	createTenantsYAML(t, e, dex.InternalEndpoint("https"), opa.InternalEndpoint("http"), getContainerName(e, "observatorium-api"))
 
-	token, err := obtainToken(dex.Endpoint("https"), getTLSClientConfig(t, e))
+	token, err := obtainToken(dex.Endpoint("https"), getContainerName(e, "dex"), getTLSClientConfig(t, e))
 	testutil.Ok(t, err)
 
 	return dex, token, gubernator.InternalEndpoint("grpc")

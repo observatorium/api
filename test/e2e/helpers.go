@@ -23,9 +23,8 @@ import (
 )
 
 // uniqueE2ENetworkName returns a Docker-valid e2e network name (≤16 chars, [-a-zA-Z0-9])
-// that is distinct for each Go test. efficientgo/e2e's default name hashes runtime.Caller(3),
-// which resolves to testing.tRunner for every test, so bare e2e.New() would assign the same
-// network to all parallel tests and reproduce Docker network races.
+// that is distinct for each Go test. efficientgo/e2e's bare e2e.New() would assign the same
+// network to all parallel tests leading to Docker network races.
 func uniqueE2ENetworkName(t *testing.T) string {
 	t.Helper()
 	sum := sha256.Sum256([]byte(t.Name()))
@@ -39,9 +38,17 @@ func prepareConfigsAndCerts(t *testing.T, e e2e.Environment) {
 		testtls.GenerateCerts(
 			filepath.Join(e.SharedDir(), certsSharedDir),
 			getContainerName(e, "observatorium-api"),
-			[]string{getContainerName(e, "observatorium-api"), "127.0.0.1"},
+			[]string{
+				getContainerName(e, "observatorium-api"),
+				"127.0.0.1",
+				"host.docker.internal",
+			},
 			getContainerName(e, "dex"),
-			[]string{getContainerName(e, "dex"), "127.0.0.1"},
+			[]string{
+				getContainerName(e, "dex"),
+				"127.0.0.1",
+				"host.docker.internal",
+			},
 		),
 	)
 
@@ -49,9 +56,16 @@ func prepareConfigsAndCerts(t *testing.T, e e2e.Environment) {
 }
 
 // obtainToken obtains a bearer token needed for communication with the API.
-func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
+// dexTLSHost is the Dex DNS name from the test CA (e.g. {network}-dex); set it so TLS verifies the
+// server cert when the TCP dial target is 127.0.0.1 or host.docker.internal (e2e.Endpoint).
+func obtainToken(endpoint, dexTLSHost string, tlsConf *tls.Config) (string, error) {
 	type token struct {
 		IDToken string `json:"id_token"`
+	}
+
+	tlsClient := tlsConf.Clone()
+	if dexTLSHost != "" {
+		tlsClient.ServerName = dexTLSHost
 	}
 
 	data := url.Values{}
@@ -70,7 +84,7 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 
 	c := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: tlsConf,
+			TLSClientConfig: tlsClient,
 		},
 	}
 
@@ -104,7 +118,9 @@ func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
 	testutil.Ok(t, err)
 
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(cert)
+	if ok := cp.AppendCertsFromPEM(cert); !ok {
+		t.Fatal("failed to parse CA certificate from ca.pem")
+	}
 
 	return &tls.Config{
 		RootCAs: cp,
