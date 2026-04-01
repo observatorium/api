@@ -1,0 +1,222 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: path-rbac-tests
+  namespace: proxy
+data:
+  test-config.yaml: |
+    tests:
+      - name: "admin_full_access"
+        user: "admin@example.com"
+        tenant: "tenant-a"
+        endpoints:
+          - path: "/api/metrics/v1/query?query=up"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/query_range?query=up&start=0&end=1&step=1"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/receive"
+            method: "POST"
+            expected_status: 200
+          - path: "/api/logs/v1/query?query={}"
+            method: "GET"
+            expected_status: 200
+      
+      - name: "test_user_limited_access"
+        user: "test@example.com"
+        tenant: "tenant-a"
+        endpoints:
+          - path: "/api/metrics/v1/query?query=up"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/query_range?query=up&start=0&end=1&step=1"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/receive"
+            method: "POST"
+            expected_status: 403
+          - path: "/api/metrics/v1/series"
+            method: "GET"
+            expected_status: 200
+      
+      - name: "test_user_cross_tenant_denied"
+        user: "test@example.com"
+        tenant: "tenant-b"
+        endpoints:
+          - path: "/api/metrics/v1/query?query=up"
+            method: "GET"
+            expected_status: 403
+      
+      - name: "query_user_restricted_paths"
+        user: "query@example.com"
+        tenant: "tenant-a"
+        endpoints:
+          - path: "/api/metrics/v1/query?query=up"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/query_range?query=up&start=0&end=1&step=1"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/series"
+            method: "GET"
+            expected_status: 403
+          - path: "/api/metrics/v1/receive"
+            method: "POST"
+            expected_status: 403
+      
+      - name: "write_user_write_only"
+        user: "write@example.com"
+        tenant: "tenant-b"
+        endpoints:
+          - path: "/api/metrics/v1/receive"
+            method: "POST"
+            expected_status: 200
+          - path: "/api/metrics/v1/query?query=up"
+            method: "GET"
+            expected_status: 403
+      
+      - name: "logs_reader_logs_only"
+        user: "logs-reader@example.com"
+        tenant: "tenant-a"
+        endpoints:
+          - path: "/api/logs/v1/query?query={}"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/logs/v1/query_range?query={}&start=0&end=1&step=1"
+            method: "GET"
+            expected_status: 200
+          - path: "/api/metrics/v1/query?query=up"
+            method: "GET"
+            expected_status: 403
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: path-rbac-test-job
+  namespace: proxy
+spec:
+  template:
+    spec:
+      containers:
+      - name: test-runner
+        image: golang:1.21-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          
+          echo "🚀 Starting automated path-based RBAC tests in Kubernetes..."
+          
+          # Install required tools
+          apk add --no-cache curl openssl netcat-openbsd
+          
+          # Wait for API to be ready
+          echo "⏳ Waiting for Observatorium API to be ready..."
+          until nc -z observatorium-api 8080; do
+            echo "Waiting for API..."
+            sleep 2
+          done
+          
+          echo "✅ API is ready, starting tests..."
+          
+          # Create test directory
+          mkdir -p /tmp/tests
+          cd /tmp/tests
+          
+          # Extract certificates
+          echo "🔑 Extracting certificates..."
+          echo "$ADMIN_CERT" | base64 -d > admin-client.crt
+          echo "$ADMIN_KEY" | base64 -d > admin-client.key
+          echo "$TEST_CERT" | base64 -d > test-client.crt
+          echo "$TEST_KEY" | base64 -d > test-client.key
+          echo "$CA_CERT" | base64 -d > ca.crt
+          
+          # Test admin access
+          echo "🧪 Testing admin access..."
+          if curl -s --cert admin-client.crt --key admin-client.key --cacert ca.crt \
+             -H "X-Tenant: tenant-a" \
+             "https://observatorium-api:8080/api/metrics/v1/query?query=up" >/dev/null 2>&1; then
+            echo "✅ Admin access: PASS"
+          else
+            echo "❌ Admin access: FAIL"
+            exit 1
+          fi
+          
+          # Test read-only access
+          echo "🧪 Testing read-only access..."
+          if curl -s --cert test-client.crt --key test-client.key --cacert ca.crt \
+             -H "X-Tenant: tenant-a" \
+             "https://observatorium-api:8080/api/metrics/v1/query?query=up" >/dev/null 2>&1; then
+            echo "✅ Read access: PASS"
+          else
+            echo "❌ Read access: FAIL"
+            exit 1
+          fi
+          
+          # Test write access denial
+          echo "🧪 Testing write access denial..."
+          response_code=$(curl -s -w "%{http_code}" --cert test-client.crt --key test-client.key --cacert ca.crt \
+             -H "X-Tenant: tenant-a" -H "Content-Type: application/x-protobuf" \
+             -X POST "https://observatorium-api:8080/api/metrics/v1/receive" \
+             -d "test_metric 1" 2>/dev/null | tail -c 3)
+          
+          if [[ "$response_code" == "403" ]]; then
+            echo "✅ Write denial: PASS"
+          else
+            echo "❌ Write denial: FAIL (got $response_code, expected 403)"
+            exit 1
+          fi
+          
+          # Test cross-tenant access denial
+          echo "🧪 Testing cross-tenant access denial..."
+          response_code=$(curl -s -w "%{http_code}" --cert test-client.crt --key test-client.key --cacert ca.crt \
+             -H "X-Tenant: tenant-b" \
+             "https://observatorium-api:8080/api/metrics/v1/query?query=up" 2>/dev/null | tail -c 3)
+          
+          if [[ "$response_code" == "403" ]]; then
+            echo "✅ Cross-tenant denial: PASS"
+          else
+            echo "❌ Cross-tenant denial: FAIL (got $response_code, expected 403)"
+            exit 1
+          fi
+          
+          echo "🎉 All core path-based RBAC tests passed!"
+          
+        env:
+        - name: ADMIN_CERT
+          valueFrom:
+            secretKeyRef:
+              name: admin-client-cert
+              key: tls.crt
+        - name: ADMIN_KEY
+          valueFrom:
+            secretKeyRef:
+              name: admin-client-cert
+              key: tls.key
+        - name: TEST_CERT
+          valueFrom:
+            secretKeyRef:
+              name: test-client-cert
+              key: tls.crt
+        - name: TEST_KEY
+          valueFrom:
+            secretKeyRef:
+              name: test-client-cert
+              key: tls.key
+        - name: CA_CERT
+          valueFrom:
+            secretKeyRef:
+              name: root-ca-secret
+              key: ca.crt
+        volumeMounts:
+        - name: test-config
+          mountPath: /etc/test-config
+          readOnly: true
+      volumes:
+      - name: test-config
+        configMap:
+          name: path-rbac-tests
+      restartPolicy: Never
+  backoffLimit: 3
