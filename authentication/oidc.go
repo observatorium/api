@@ -160,6 +160,16 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		pathMatchers = append(pathMatchers, matcher)
 	}
 
+	// Compile path patterns
+	var pathMatchers []*regexp.Regexp
+	for _, pattern := range config.PathPatterns {
+		matcher, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile OIDC path pattern %q: %v", pattern, err)
+		}
+		pathMatchers = append(pathMatchers, matcher)
+	}
+
 	oidcProvider := &oidcAuthenticator{
 		tenant:       tenant,
 		logger:       logger,
