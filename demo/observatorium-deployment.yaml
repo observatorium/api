@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: observatorium-api
+  namespace: proxy
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observatorium-config
+  namespace: proxy
+data:
+  tenants.yaml: |
+    tenants:
+    - name: tenant-a
+      id: 11111111-1111-1111-1111-111111111111
+      authenticator:
+        type: mtls
+        config:
+          caPath: "/etc/certs/ca.crt"
+    - name: tenant-b
+      id: 22222222-2222-2222-2222-222222222222
+      authenticator:
+        type: mtls
+        config:
+          caPath: "/etc/certs/ca.crt"
+  rbac.yaml: |
+    roles:
+    - name: admin-role
+      resources:
+      - metrics
+      - logs
+      - traces
+      tenants:
+      - tenant-a
+      - tenant-b
+      permissions:
+      - read
+      - write
+    - name: readonly-role
+      resources:
+      - metrics
+      - logs
+      tenants:
+      - tenant-a
+      permissions:
+      - read
+    - name: metrics-only-role
+      resources:
+      - metrics
+      tenants:
+      - tenant-b
+      permissions:
+      - read
+      - write
+
+    roleBindings:
+    - name: admin-binding
+      roles:
+      - admin-role
+      subjects:
+      - kind: user
+        name: admin@example.com
+    - name: test-readonly-binding
+      roles:
+      - readonly-role
+      subjects:
+      - kind: user
+        name: test@example.com
+    - name: metrics-user-binding
+      roles:
+      - metrics-only-role
+      subjects:
+      - kind: user
+        name: metrics@example.com
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observatorium-api
+  namespace: proxy
+  labels:
+    app: observatorium-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: observatorium-api
+  template:
+    metadata:
+      labels:
+        app: observatorium-api
+    spec:
+      serviceAccountName: observatorium-api
+      containers:
+      - name: observatorium-api
+        # You'll need to build and push the image or use a pre-built one
+        image: quay.io/observatorium/api:latest
+        ports:
+        - containerPort: 8080
+          name: public
+        - containerPort: 8081
+          name: internal
+        args:
+        - --web.listen=0.0.0.0:8080
+        - --web.internal.listen=0.0.0.0:8081
+        - --log.level=debug
+        - --tenants.config=/etc/config/tenants.yaml
+        - --rbac.config=/etc/config/rbac.yaml
+        - --tls.server.cert-file=/etc/tls/tls.crt
+        - --tls.server.key-file=/etc/tls/tls.key
+        - --tls.client-auth-type=RequireAndVerifyClientCert
+        - --web.healthchecks.url=http://localhost:8081
+        - --metrics.read.endpoint=http://httpbin-metrics:9090
+        - --metrics.write.endpoint=http://httpbin-metrics:9090
+        - --logs.read.endpoint=http://httpbin-logs:3100
+        - --logs.write.endpoint=http://httpbin-logs:3100
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+        - name: server-tls
+          mountPath: /etc/tls
+        - name: ca-cert
+          mountPath: /etc/certs
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: observatorium-config
+      - name: server-tls
+        secret:
+          secretName: observatorium-server-tls
+      - name: ca-cert
+        secret:
+          secretName: root-ca-secret
+          items:
+          - key: ca.crt
+            path: ca.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: observatorium-api
+  namespace: proxy
+  labels:
+    app: observatorium-api
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: public
+  - port: 8081
+    targetPort: 8081
+    protocol: TCP
+    name: internal
+  selector:
+    app: observatorium-api
+  type: ClusterIP
+---
+# NodePort service for external access during testing
+apiVersion: v1
+kind: Service
+metadata:
+  name: observatorium-api-nodeport
+  namespace: proxy
+  labels:
+    app: observatorium-api
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: public
+    nodePort: 30080
+  selector:
+    app: observatorium-api
+  type: NodePort
