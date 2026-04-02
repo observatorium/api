@@ -1,0 +1,116 @@
+# TLS Certificates for mixed authentication
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: proxy
+---
+# Self-signed ClusterIssuer for development
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# CA Certificate for mTLS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ca-cert
+  namespace: proxy
+spec:
+  secretName: ca-cert
+  isCA: true
+  commonName: "Observatorium CA"
+  dnsNames:
+  - "observatorium-ca"
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+  subject:
+    organizationalUnits:
+    - "Observatorium"
+    - "Development"
+---
+# CA Issuer using the CA certificate
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ca-issuer
+  namespace: proxy
+spec:
+  ca:
+    secretName: ca-cert
+---
+# Client certificate for mTLS authentication (test client)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: client-cert
+  namespace: proxy
+spec:
+  secretName: client-cert
+  commonName: "test-client"
+  dnsNames:
+  - "test-client"
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  issuerRef:
+    name: ca-issuer
+    kind: Issuer
+  subject:
+    organizationalUnits:
+    - "Observatorium"
+    - "Test Client"
+  usages:
+  - client auth
+---
+# Admin client certificate for mTLS authentication
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: admin-cert
+  namespace: proxy
+spec:
+  secretName: admin-cert
+  commonName: "admin-client"
+  dnsNames:
+  - "admin-client"
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  issuerRef:
+    name: ca-issuer
+    kind: Issuer
+  subject:
+    organizationalUnits:
+    - "Observatorium"
+    - "Admin Client"
+  usages:
+  - client auth
+---
+# Server certificate for HTTPS
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-cert
+  namespace: proxy
+spec:
+  secretName: server-cert
+  commonName: "observatorium-api"
+  dnsNames:
+  - "observatorium-api"
+  - "observatorium-api.proxy.svc.cluster.local"
+  - "localhost"
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  issuerRef:
+    name: ca-issuer
+    kind: Issuer
+  subject:
+    organizationalUnits:
+    - "Observatorium"
+    - "API Server"
+  usages:
+  - server auth

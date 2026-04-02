@@ -1,0 +1,49 @@
+# Services for port forwarding
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: proxy
+---
+# Observatorium API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: observatorium-api
+  namespace: proxy
+  labels:
+    app: observatorium-api
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: internal
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+  selector:
+    app: observatorium-api
+---
+# Dex OIDC Provider Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: proxy
+  labels:
+    app: dex
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 5556
+    targetPort: 5556
+    protocol: TCP
+  - name: grpc
+    port: 5557
+    targetPort: 5557
+    protocol: TCP
+  selector:
+    app: dex

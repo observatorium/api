@@ -1,0 +1,16 @@
+tenants:
+- name: auth-tenant
+  id: "1610702597"
+  oidc:
+    clientID: observatorium-api
+    clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    issuerURL: http://dex.proxy.svc.cluster.local:5556/dex
+    redirectURL: http://localhost:8080/oidc/auth-tenant/callback
+    usernameClaim: email
+    paths:
+    - "!^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"
+  mTLS:
+    caPath: /etc/certs/ca.crt
+    paths:
+    - "^/api/metrics/v1/auth-tenant/api/v1/receive.*"
+    - "^/api/logs/v1/auth-tenant/loki/api/v1/push.*"
