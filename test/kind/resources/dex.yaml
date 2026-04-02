@@ -1,0 +1,88 @@
+# Dex OIDC Provider
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: proxy
+---
+# Dex Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex-config
+  namespace: proxy
+data:
+  config.yaml: |
+    issuer: http://dex.proxy.svc.cluster.local:5556/dex
+    storage:
+      type: sqlite3
+      config:
+        file: /tmp/dex.db
+    web:
+      http: 0.0.0.0:5556
+    oauth2:
+      passwordConnector: local
+    staticClients:
+    - id: test
+      redirectURIs:
+      - 'http://localhost:8080/oidc/auth-tenant/callback'
+      name: 'test'
+      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    - id: observatorium-api
+      redirectURIs:
+      - 'http://localhost:8080/oidc/auth-tenant/callback'
+      name: 'observatorium-api'
+      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    enablePasswordDB: true
+    staticPasswords:
+    - email: "admin@example.com"
+      hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+      username: "admin"
+      userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+    - email: "test@example.com"  
+      hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+      username: "test"
+      userID: "41331323-6f44-45e6-b3b9-0c5c68e5fc78"
+---
+# Dex Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex
+  namespace: proxy
+  labels:
+    app: dex
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dex
+  template:
+    metadata:
+      labels:
+        app: dex
+    spec:
+      containers:
+      - name: dex
+        image: dexidp/dex:v2.37.0
+        command:
+        - dex
+        - serve
+        - /etc/config/config.yaml
+        ports:
+        - name: http
+          containerPort: 5556
+        - name: grpc
+          containerPort: 5557
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+        env:
+        - name: KUBERNETES_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      volumes:
+      - name: config
+        configMap:
+          name: dex-config

@@ -1,0 +1,181 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tenant-config
+  namespace: proxy
+data:
+  tenants.yaml: |
+    tenants:
+    - name: auth-tenant
+      id: "1610702597"
+      oidc:
+        clientID: observatorium-api
+        clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+        issuerURL: http://dex.proxy.svc.cluster.local:5556/dex
+        redirectURL: http://localhost:8080/oidc/auth-tenant/callback
+        usernameClaim: email
+        paths:
+        - "!^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"
+      mTLS:
+        caPath: /etc/certs/ca.crt
+        paths:
+        - "^/api/metrics/v1/auth-tenant/api/v1/receive.*"
+        - "^/api/logs/v1/auth-tenant/loki/api/v1/push.*"
+---
+# CA Certificate ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ca-cert-config
+  namespace: proxy
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDdzCCAl+gAwIBAgIQeKbBOk1XnoyvsmTA2VZvWDANBgkqhkiG9w0BAQsFADBH
+    MSowEgYDVQQLEwtEZXZlbG9wbWVudDAUBgNVBAsTDU9ic2VydmF0b3JpdW0xGTAX
+    BgNVBAMTEE9ic2VydmF0b3JpdW0gQ0EwHhcNMjYwNDA5MTUwNjQyWhcNMjcwNDA5
+    MTUwNjQyWjBHMSowEgYDVQQLEwtEZXZlbG9wbWVudDAUBgNVBAsTDU9ic2VydmF0
+    b3JpdW0xGTAXBgNVBAMTEE9ic2VydmF0b3JpdW0gQ0EwggEiMA0GCSqGSIb3DQEB
+    AQUAA4IBDwAwggEKAoIBAQC218YfiRVaJsFgLsR/QWpWy7LLmWYY7u6lhr7Jy5ez
+    5H4ZC484TDC+YyeNm9sHufuPaoAuS0r3JaYqmjvXdVEXbXajibkjvzL7152M/aov
+    yUoQ9fd5H4yHrBeFCPzcoc1wi9bUvRDlEVcDpjHDoER6DAx6vTeElYwsO8TfuRZ+
+    fcd/Lbnz7hKr3y3m132OvBNCMOwDiVNFg3+Wawu6jsRux8N6XnBbe0XIpdPkIxhD
+    RPYdRRNgi44VOyytV6/Diklr8I+b6fWuItIB1pMCf4RhpX0cLEXQxhxLhEhatIlP
+    UW7ks94vQwApzI2OdcVkWnMNQNPVxLrvxCLuNlGN82r7AgMBAAGjXzBdMA4GA1Ud
+    DwEB/wQEAwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBThTzLB13O9Jr8M
+    l3I5sK75BfCKnjAbBgNVHREEFDASghBvYnNlcnZhdG9yaXVtLWNhMA0GCSqGSIb3
+    DQEBCwUAA4IBAQB/McIv7+RPRDLPq2X5PYiQ4OdbLx5ciPcF3WfAcbRUMjBT9Azv
+    2MYNZDYkA91YY1V/719+7xoWXTpudg5N45KKBObPJtDs7oQdaKFJ7itH38JHvowf
+    C6TCGIU4oI7q/GVhUSCPTlW6z7np/8jeQDH3mlXit7V3LvsHt0T5BExifln1MbXp
+    O1cnekN4mwog9FX4ooCZek5UtcXC8TBkmGdIUWI86caSNemWqDLInbDWwzi+YhGz
+    2S2A5GUzCxTkkk3cLWU4PbOvBmY9s5ZgHMBCBkD3Z2+KUYzsuPry9JZc1Pjik/fK
+    /VU2/JK1jb6IRWsJCW8qS17X3Bo0WXAep/ve
+    -----END CERTIFICATE-----
+---
+# RBAC Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rbac-config
+  namespace: proxy
+data:
+  rbac.yaml: |
+    roles:
+    - name: read-write
+      resources:
+      - metrics
+      - logs
+      tenants:
+      - auth-tenant
+      permissions:
+      - read
+      - write
+    - name: read
+      resources:
+      - metrics
+      - logs
+      tenants:
+      - auth-tenant
+      permissions:
+      - read
+    - name: write
+      resources:
+      - metrics
+      - logs
+      tenants:
+      - auth-tenant
+      permissions:
+      - write
+    roleBindings:
+    - name: admin-user
+      roles:
+      - read-write
+      subjects:
+      - kind: user
+        name: admin@example.com
+    - name: test-user
+      roles:
+      - read
+      subjects:
+      - kind: user
+        name: test@example.com
+    - name: admin-client
+      roles:
+      - write
+      subjects:
+      - kind: user
+        name: admin-client
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observatorium-api
+  namespace: proxy
+  labels:
+    app: observatorium-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: observatorium-api
+  template:
+    metadata:
+      labels:
+        app: observatorium-api
+    spec:
+      containers:
+      - name: observatorium-api
+        image: observatorium-api-auth-test:latest
+        imagePullPolicy: Never
+        ports:
+        - name: http
+          containerPort: 8080
+        - name: internal
+          containerPort: 8081
+        args:
+        - --web.listen=0.0.0.0:8080
+        - --web.internal.listen=0.0.0.0:8081
+        - --tls.server.cert-file=/etc/server-certs/tls.crt
+        - --tls.server.key-file=/etc/server-certs/tls.key
+        - --tls.client-auth-type=RequestClientCert
+        - --web.healthchecks.url=http://localhost:8081
+        - --tenants.config=/etc/config/tenants.yaml
+        - --rbac.config=/etc/config/rbac.yaml
+        - --metrics.read.endpoint=http://api-proxy.proxy.svc.cluster.local
+        - --metrics.write.endpoint=http://api-proxy.proxy.svc.cluster.local
+        - --logs.read.endpoint=http://api-proxy.proxy.svc.cluster.local
+        - --logs.write.endpoint=http://api-proxy.proxy.svc.cluster.local
+        - --log.level=debug
+        volumeMounts:
+        - name: server-certs
+          mountPath: /etc/server-certs
+          readOnly: true
+        - name: ca-cert
+          mountPath: /etc/certs
+          readOnly: true
+        - name: tenant-config
+          mountPath: /etc/config/tenants.yaml
+          readOnly: true
+          subPath: tenants.yaml
+        - name: rbac-config
+          mountPath: /etc/config/rbac.yaml
+          readOnly: true
+          subPath: rbac.yaml
+        env:
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      volumes:
+      - name: server-certs
+        secret:
+          secretName: server-cert
+      - name: ca-cert
+        configMap:
+          name: ca-cert-config
+      - name: tenant-config
+        configMap:
+          name: tenant-config
+      - name: rbac-config
+        configMap:
+          name: rbac-config
