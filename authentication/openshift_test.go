@@ -55,13 +55,12 @@ func TestDiscoverOAuthEndpoints_OAuthEnabled(t *testing.T) {
 	}
 
 	// Split host and port for KUBERNETES env vars
-	host, port, err := net.SplitHostPort(mockURL.Host)
+	host, _, err := net.SplitHostPort(mockURL.Host)
 	if err != nil {
 		t.Fatalf("failed to parse mock server address: %v", err)
 	}
 
 	t.Setenv("KUBERNETES_SERVICE_HOST", host)
-	t.Setenv("KUBERNETES_SERVICE_PORT", port)
 
 	retryCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "test_retries_total",
@@ -113,13 +112,12 @@ func TestDiscoverOAuthEndpoints_OAuthDisabled(t *testing.T) {
 	}
 
 	// Split host and port for KUBERNETES env vars
-	host, port, err := net.SplitHostPort(mockURL.Host)
+	host, _, err := net.SplitHostPort(mockURL.Host)
 	if err != nil {
 		t.Fatalf("failed to parse mock server address: %v", err)
 	}
 
 	t.Setenv("KUBERNETES_SERVICE_HOST", host)
-	t.Setenv("KUBERNETES_SERVICE_PORT", port)
 
 	retryCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "test_retries_total",

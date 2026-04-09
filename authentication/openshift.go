@@ -145,19 +145,20 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 	var clientID string
 	var clientSecret string
 
-	for b.Reset(); b.Ongoing(); {
-		clientID, clientSecret, err = openshift.DiscoverCredentials(config.ServiceAccount)
-		if err != nil {
-			level.Error(logger).Log(
-				"tenant", tenant,
-				"msg", errors.Wrap(err, "unable to read serviceaccount credentials"))
-			registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-			b.Wait()
+	if oauthEnabled {
+		for b.Reset(); b.Ongoing(); {
+			clientID, clientSecret, err = openshift.DiscoverCredentials(config.ServiceAccount)
+			if err != nil {
+				level.Error(logger).Log(
+					"tenant", tenant,
+					"msg", errors.Wrap(err, "unable to read serviceaccount credentials"))
+				registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+				b.Wait()
 
-			continue
+				continue
+			}
+			break
 		}
-
-		break
 	}
 
 	authOpts := openshift.DelegatingAuthenticationOptions{
@@ -207,6 +208,8 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		oauthEnabled:  oauthEnabled,
 	}
 
+	r := chi.NewRouter()
+	r.Use(tracing.WithChiRoutePattern)
 	if oauthEnabled {
 		osAuthenticator.oauth2Config = oauth2.Config{
 			ClientID:     clientID,
@@ -223,15 +226,12 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 			},
 			RedirectURL: config.RedirectURL,
 		}
-		r := chi.NewRouter()
-		r.Use(tracing.WithChiRoutePattern)
+
 		r.Handle(loginRoute, osAuthenticator.openshiftLoginHandler())
 		r.Handle(callbackRoute, osAuthenticator.openshiftCallbackHandler())
-		osAuthenticator.handler = r
-
-	} else {
-		osAuthenticator.handler = chi.NewRouter()
 	}
+
+	osAuthenticator.handler = r
 
 	return osAuthenticator, nil
 }
@@ -539,28 +539,22 @@ func (a OpenShiftAuthenticator) Handler() (string, http.Handler) {
 }
 
 func discoverOAuthEndpoints(client *http.Client, logger log.Logger, tenant string, registrationRetryCount *prometheus.CounterVec, b *backoff.Backoff) (*url.URL, *url.URL, bool) {
-	authURL, tokenURL, err := openshift.DiscoverOAuth(client)
-	if err != nil {
-		if strings.Contains(err.Error(), "got 404") || strings.Contains(err.Error(), "OAuth server not found") {
-			level.Warn(logger).Log(
-				"tenant", tenant,
-				"msg", errors.Wrap(err, "OpenShift OAuth endpoint not available, likely using external OIDC authentication. But bearer token authentication will continue to work"))
-			return nil, nil, false
-		} else {
-			// Other errors, retry with backoff
-			for b.Reset(); b.Ongoing(); {
-				authURL, tokenURL, err = openshift.DiscoverOAuth(client)
-				if err != nil {
-					level.Error(logger).Log(
-						"tenant", tenant,
-						"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
-					registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-					b.Wait()
-					continue
-				}
-				break
+	var authURL, tokenURL *url.URL
+	var err error
+	for b.Reset(); b.Ongoing(); {
+		authURL, tokenURL, err = openshift.DiscoverOAuth(client)
+		if err != nil {
+			if errors.Is(err, openshift.ErrOAuthServerNotFound) {
+				return nil, nil, false
 			}
+			level.Error(logger).Log(
+				"tenant", tenant,
+				"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
+			registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+			b.Wait()
+			continue
 		}
+		break
 	}
 	return authURL, tokenURL, true
 }

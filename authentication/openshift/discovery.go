@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -20,6 +22,8 @@ const (
 	// ServiceAccountCAPath is the path to the default cluster CA certificate.
 	ServiceAccountCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
+
+var ErrOAuthServerNotFound = errors.Errorf("404 not found")
 
 // GetServiceAccountCACert returns the PEM-encoded CA certificate currently mounted.
 func GetServiceAccountCACert() ([]byte, error) {
@@ -74,7 +78,7 @@ func DiscoverOAuth(client *http.Client) (authURL, tokenURL *url.URL, err error) 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		if resp.StatusCode == 404 {
-			return nil, nil, fmt.Errorf("OAuth server not found")
+			return nil, nil, ErrOAuthServerNotFound
 		}
 		return nil, nil, fmt.Errorf("got %d %s", resp.StatusCode, body)
 	}
