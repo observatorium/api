@@ -23,7 +23,7 @@ const (
 	ServiceAccountCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
-var ErrOAuthServerNotFound = errors.Errorf("404 not found")
+var ErrOAuthServerNotFound = errors.Errorf("OAuth server not found")
 
 // GetServiceAccountCACert returns the PEM-encoded CA certificate currently mounted.
 func GetServiceAccountCACert() ([]byte, error) {
