@@ -36,29 +36,17 @@ import (
 // OIDCAuthenticatorType represents the oidc authentication provider type.
 const OIDCAuthenticatorType = "oidc"
 
-// PathPattern represents a path pattern with an operator for matching.
-type PathPattern struct {
-	Operator string `json:"operator,omitempty"` // "=~" (default) or "!~"
-	Pattern  string `json:"pattern"`            // regex pattern
-}
-
-// PathMatcher represents a compiled path pattern with operator.
-type PathMatcher struct {
-	Operator string
-	Regex    *regexp.Regexp
-}
-
 func init() {
 	onboardNewProvider(OIDCAuthenticatorType, newOIDCAuthenticator)
 }
 
 // oidcConfig represents the oidc authenticator config.
 type oidcConfig struct {
-	ClientID      string        `json:"clientID"`
-	ClientSecret  string        `json:"clientSecret"`
-	GroupClaim    string        `json:"groupClaim"`
-	IssuerRawCA   []byte        `json:"issuerCA"`
-	IssuerCAPath  string        `json:"issuerCAPath"`
+	ClientID      string `json:"clientID"`
+	ClientSecret  string `json:"clientSecret"`
+	GroupClaim    string `json:"groupClaim"`
+	IssuerRawCA   []byte `json:"issuerCA"`
+	IssuerCAPath  string `json:"issuerCAPath"`
 	issuerCA      *x509.Certificate
 	IssuerURL     string        `json:"issuerURL"`
 	RedirectURL   string        `json:"redirectURL"`
@@ -172,24 +160,22 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		pathMatchers = append(pathMatchers, matcher)
 	}
 
-	// Compile path patterns with operators
 	var pathMatchers []PathMatcher
 	for _, pathPattern := range config.Paths {
 		operator := pathPattern.Operator
 		if operator == "" {
-			operator = "=~" // default operator
+			operator = OperatorMatches
 		}
-		
-		// Validate operator
-		if operator != "=~" && operator != "!~" {
-			return nil, fmt.Errorf("invalid OIDC path operator %q, must be '=~' or '!~'", operator)
+
+		if operator != OperatorMatches && operator != OperatorNotMatches {
+			return nil, fmt.Errorf("invalid OIDC path operator %q, must be %q or %q", operator, OperatorMatches, OperatorNotMatches)
 		}
-		
+
 		matcher, err := regexp.Compile(pathPattern.Pattern)
 		if err != nil {
 			return nil, fmt.Errorf("failed to compile OIDC path pattern %q: %v", pathPattern.Pattern, err)
 		}
-		
+
 		pathMatchers = append(pathMatchers, PathMatcher{
 			Operator: operator,
 			Regex:    matcher,
@@ -326,28 +312,30 @@ func (a oidcAuthenticator) Handler() (string, http.Handler) {
 func (a oidcAuthenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			level.Debug(a.logger).Log("msg", "OIDC middleware processing", "path", r.URL.Path, "tenant", a.tenant, "numPatterns", len(a.pathMatchers))
+
 			// Check if OIDC is required for this path
 			level.Debug(a.logger).Log("msg", "OIDC middleware checking path", "path", r.URL.Path, "pathMatchers", len(a.pathMatchers))
 			if len(a.pathMatchers) > 0 {
 				shouldEnforceOIDC := false
-				
+
 				for _, matcher := range a.pathMatchers {
 					regexMatches := matcher.Regex.MatchString(r.URL.Path)
 					level.Debug(a.logger).Log("msg", "OIDC path pattern check", "path", r.URL.Path, "operator", matcher.Operator, "pattern", matcher.Regex.String(), "matches", regexMatches)
-					
-					if matcher.Operator == "=~" && regexMatches {
+
+					if matcher.Operator == OperatorMatches && regexMatches {
 						// Positive match - enforce OIDC
 						level.Debug(a.logger).Log("msg", "OIDC positive match - enforcing", "path", r.URL.Path)
 						shouldEnforceOIDC = true
 						break
-					} else if matcher.Operator == "!~" && !regexMatches {
+					} else if matcher.Operator == OperatorNotMatches && !regexMatches {
 						// Negative match - enforce OIDC (path does NOT match pattern)
 						level.Debug(a.logger).Log("msg", "OIDC negative match - enforcing", "path", r.URL.Path)
 						shouldEnforceOIDC = true
 						break
 					}
 				}
-				
+
 				level.Debug(a.logger).Log("msg", "OIDC enforcement decision", "path", r.URL.Path, "shouldEnforceOIDC", shouldEnforceOIDC)
 				// If no patterns matched requirements, skip OIDC enforcement
 				if !shouldEnforceOIDC {
@@ -357,7 +345,7 @@ func (a oidcAuthenticator) Middleware() Middleware {
 				}
 			}
 
-			// Path matches or no paths configured, enforce OIDC
+			level.Debug(a.logger).Log("msg", "OIDC enforcing authentication", "path", r.URL.Path, "tenant", a.tenant)
 			var token string
 
 			authorizationHeader := r.Header.Get("Authorization")
@@ -395,6 +383,8 @@ func (a oidcAuthenticator) Middleware() Middleware {
 				return
 			}
 
+			// Mark request as successfully authenticated
+			ctx = SetAuthenticated(ctx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

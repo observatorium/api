@@ -366,8 +366,14 @@ func main() {
 					continue
 				}
 
+				// Path patterns are now handled by the authenticator itself
+				// during initialization, so we don't compile them here
+				if tenantsCfg.Tenants[i] == nil {
+					continue
+				}
+
 				// Add path patterns to the config that will be passed to the authenticator
-				oidcConfig["paths"] = t.OIDC.Paths
+				oidcConfig["pathPatterns"] = t.OIDC.Paths
 				t.OIDC.config = oidcConfig
 			}
 
@@ -380,8 +386,14 @@ func main() {
 					continue
 				}
 
+				// Path patterns are now handled by the authenticator itself
+				// during initialization, so we don't compile them here
+				if tenantsCfg.Tenants[i] == nil {
+					continue
+				}
+
 				// Add path patterns to the config that will be passed to the authenticator
-				mTLSConfig["paths"] = t.MTLS.Paths
+				mTLSConfig["pathPatterns"] = t.MTLS.Paths
 				t.MTLS.config = mTLSConfig
 			}
 
@@ -614,26 +626,34 @@ func main() {
 					}
 				}
 
-				authenticatorConfig, authenticatorType, err := tenantAuthenticatorConfig(t)
+				authenticatorConfigs, err := tenantAuthenticatorConfigs(t)
 				if err != nil {
 					stdlog.Fatal(err.Error())
 				}
-				if authenticatorType == authentication.OIDCAuthenticatorType {
-					oidcTenants[t.Name] = struct{}{}
+
+				// Check if any authenticator is OIDC to track for write path redirect protection
+				for _, authConfig := range authenticatorConfigs {
+					if authConfig.Type == authentication.OIDCAuthenticatorType {
+						oidcTenants[t.Name] = struct{}{}
+						break
+					}
 				}
 
-				go func(config map[string]interface{}, authType, tenant string) {
-					initializedAuthenticator := <-pm.InitializeProvider(config, tenant, authType, registerTenantsFailingMetric, logger)
-					if initializedAuthenticator != nil {
-						pattern, _ := initializedAuthenticator.Handler()
-						regMtx.Lock()
-						defer regMtx.Unlock()
-						if _, ok := registeredAuthNRoutes[pattern]; !ok && pattern != "" {
-							registeredAuthNRoutes[pattern] = struct{}{}
-							r.Mount(pattern, pm.PatternHandler(pattern))
+				// Initialize all authenticators for this tenant
+				for _, authConfig := range authenticatorConfigs {
+					go func(config map[string]interface{}, authType, tenant string) {
+						initializedAuthenticator := <-pm.InitializeProvider(config, tenant, authType, registerTenantsFailingMetric, logger)
+						if initializedAuthenticator != nil {
+							pattern, _ := initializedAuthenticator.Handler()
+							regMtx.Lock()
+							defer regMtx.Unlock()
+							if _, ok := registeredAuthNRoutes[pattern]; !ok && pattern != "" {
+								registeredAuthNRoutes[pattern] = struct{}{}
+								r.Mount(pattern, pm.PatternHandler(pattern))
+							}
 						}
-					}
-				}(authenticatorConfig, authenticatorType, t.Name)
+					}(authConfig.Config, authConfig.Type, t.Name)
+				}
 
 				if t.OPA != nil {
 					authorizers[t.Name] = t.OPA.authorizer
@@ -642,7 +662,7 @@ func main() {
 				}
 			}
 
-			writePathRedirectProtection := authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants)
+			// Authentication enforcement is now handled by EnforceAuthentication() middleware
 
 			// Metrics.
 			if cfg.metrics.enabled {
@@ -680,6 +700,7 @@ func main() {
 
 				metricsMiddlewares := []func(http.Handler) http.Handler{
 					authentication.WithTenantMiddlewares(pm.Middlewares),
+					authentication.EnforceAuthentication(),
 					authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs),
 					rateLimitMiddleware,
 				}
@@ -743,9 +764,11 @@ func main() {
 							probesv1.WithKeepAliveTimeout(cfg.probes.keepAliveTimeout),
 							probesv1.WithTLSHandshakeTimeout(cfg.probes.tlsHandshakeTimeout),
 							probesv1.WithReadMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+							probesv1.WithReadMiddleware(authentication.EnforceAuthentication()),
 							probesv1.WithReadMiddleware(rateLimitMiddleware),
 							probesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "probes")),
 							probesv1.WithWriteMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+							probesv1.WithWriteMiddleware(authentication.EnforceAuthentication()),
 							probesv1.WithWriteMiddleware(rateLimitMiddleware),
 							probesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "probes")),
 						)
@@ -767,7 +790,7 @@ func main() {
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
-						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
+						// Write protection handled by authentication enforcement middleware
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
 						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
@@ -830,8 +853,8 @@ func main() {
 								logsv1.WithRegistry(reg),
 								logsv1.WithHandlerInstrumenter(instrumenter),
 								logsv1.WithSpanRoutePrefix("/api/logs/v1/{tenant}"),
-								logsv1.WithWriteMiddleware(writePathRedirectProtection),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+								logsv1.WithGlobalMiddleware(authentication.EnforceAuthentication()),
 								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
 								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(logger, cfg.logs.authExtractSelectors)),
 								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
@@ -869,6 +892,7 @@ func main() {
 
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
+					r.Use(authentication.EnforceAuthentication())
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
 					if cfg.traces.queryRBAC {
 						r.Use(tracesv1.WithTraceQLNamespaceSelectAndForbidOtherAPIs())
@@ -1572,6 +1596,50 @@ func tenantAuthenticatorConfig(t *tenant) (map[string]interface{}, string, error
 		return nil, "", fmt.Errorf("tenant %q must specify either an OIDC, mTLS, openshift or a supported authenticator configuration", t.Name)
 	}
 }
+
+type authenticatorConfig struct {
+	Config map[string]interface{}
+	Type   string
+}
+
+func tenantAuthenticatorConfigs(t *tenant) ([]authenticatorConfig, error) {
+	var configs []authenticatorConfig
+
+	if t.OIDC != nil {
+		configs = append(configs, authenticatorConfig{
+			Config: t.OIDC.config,
+			Type:   authentication.OIDCAuthenticatorType,
+		})
+	}
+
+	if t.MTLS != nil {
+		configs = append(configs, authenticatorConfig{
+			Config: t.MTLS.config,
+			Type:   authentication.MTLSAuthenticatorType,
+		})
+	}
+
+	if t.OpenShift != nil {
+		configs = append(configs, authenticatorConfig{
+			Config: t.OpenShift.config,
+			Type:   authentication.OpenShiftAuthenticatorType,
+		})
+	}
+
+	if t.Authenticator != nil {
+		configs = append(configs, authenticatorConfig{
+			Config: t.Authenticator.Config,
+			Type:   t.Authenticator.Type,
+		})
+	}
+
+	if len(configs) == 0 {
+		return nil, fmt.Errorf("tenant %q must specify at least one authenticator configuration", t.Name)
+	}
+
+	return configs, nil
+}
+
 
 type otelErrorHandler struct {
 	logger log.Logger

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,8 @@ const (
 	tenantKey contextKey = "tenant"
 	// tenantIDKey is the key that holds the tenant ID in a request context.
 	tenantIDKey contextKey = "tenantID"
+	// authenticatedKey is the key that indicates a request has been successfully authenticated.
+	authenticatedKey contextKey = "authenticated"
 )
 
 // WithTenant finds the tenant from the URL parameters and adds it to the request context.
@@ -131,6 +134,18 @@ func GetAccessToken(ctx context.Context) (string, bool) {
 	return token, ok
 }
 
+// SetAuthenticated marks the request as successfully authenticated.
+func SetAuthenticated(ctx context.Context) context.Context {
+	return context.WithValue(ctx, authenticatedKey, true)
+}
+
+// IsAuthenticated checks if the request has been successfully authenticated.
+func IsAuthenticated(ctx context.Context) bool {
+	value := ctx.Value(authenticatedKey)
+	authenticated, ok := value.(bool)
+	return ok && authenticated
+}
+
 // Middleware is a convenience type for functions that wrap http.Handlers.
 type Middleware func(http.Handler) http.Handler
 
@@ -161,34 +176,35 @@ func WithTenantMiddlewares(mwFns ...MiddlewareFunc) Middleware {
 	}
 }
 
-// EnforceAccessTokenPresentOnSignalWrite enforces that the Authorization header is present in the incoming request
-// for the given list of tenants. Otherwise, it returns an error.
-// It protects the Prometheus remote write and Loki push endpoints. The tracing endpoint is not protected because
-// it goes through the gRPC middleware stack, which behaves differently from the HTTP one.
-func EnforceAccessTokenPresentOnSignalWrite(oidcTenants map[string]struct{}) func(http.Handler) http.Handler {
+// EnforceAuthentication is a final middleware that ensures at least one authenticator
+// has successfully validated the request. This prevents security gaps where requests
+// might bypass all authentication checks.
+func EnforceAuthentication() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenant := chi.URLParam(r, "tenant")
-
-			// If there's no tenant, we're not interested in blocking this request.
-			if tenant == "" {
-				next.ServeHTTP(w, r)
+			if !IsAuthenticated(r.Context()) {
+				httperr.PrometheusAPIError(w, "request not authenticated by any provider", http.StatusUnauthorized)
 				return
 			}
-
-			// And we aren't interested in blocking requests from tenants not using OIDC.
-			if _, found := oidcTenants[tenant]; !found {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			rawToken := r.Header.Get("Authorization")
-			if rawToken == "" {
-				httperr.PrometheusAPIError(w, "couldn't find the authorization header", http.StatusBadRequest)
-				return
-			}
-
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// Path pattern matching operators
+const (
+	OperatorMatches    = "=~" // Pattern must match
+	OperatorNotMatches = "!~" // Pattern must NOT match
+)
+
+// PathPattern represents a path pattern with an operator for matching.
+type PathPattern struct {
+	Operator string `json:"operator,omitempty"`
+	Pattern  string `json:"pattern"`
+}
+
+// PathMatcher represents a compiled path pattern with operator.
+type PathMatcher struct {
+	Operator string
+	Regex    *regexp.Regexp
 }
