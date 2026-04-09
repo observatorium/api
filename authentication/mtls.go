@@ -29,11 +29,11 @@ func init() {
 }
 
 type mTLSConfig struct {
-	RawCA        []byte   `json:"ca"`
-	CAPath       string   `json:"caPath"`
-	PathPatterns []string `json:"pathPatterns"`
+	RawCA        []byte        `json:"ca"`
+	CAPath       string        `json:"caPath"`
+	Paths        []PathPattern `json:"paths,omitempty"`
 	CAs          []*x509.Certificate
-	pathMatchers []*regexp.Regexp
+	pathMatchers []PathMatcher
 }
 
 type MTLSAuthenticator struct {
@@ -86,13 +86,27 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 		config.CAs = cas
 	}
 
-	// Compile path patterns
-	for _, pattern := range config.PathPatterns {
-		matcher, err := regexp.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile mTLS path pattern %q: %v", pattern, err)
+	// Compile path patterns with operators
+	for _, pathPattern := range config.Paths {
+		operator := pathPattern.Operator
+		if operator == "" {
+			operator = "=~" // default operator
 		}
-		config.pathMatchers = append(config.pathMatchers, matcher)
+
+		// Validate operator
+		if operator != "=~" && operator != "!~" {
+			return nil, fmt.Errorf("invalid mTLS path operator %q, must be '=~' or '!~'", operator)
+		}
+
+		matcher, err := regexp.Compile(pathPattern.Pattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile mTLS path pattern %q: %v", pathPattern.Pattern, err)
+		}
+
+		config.pathMatchers = append(config.pathMatchers, PathMatcher{
+			Operator: operator,
+			Regex:    matcher,
+		})
 	}
 
 	return MTLSAuthenticator{
@@ -107,16 +121,24 @@ func (a MTLSAuthenticator) Middleware() Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if mTLS is required for this path
 			if len(a.config.pathMatchers) > 0 {
-				pathMatches := false
+				shouldEnforceMTLS := false
+
 				for _, matcher := range a.config.pathMatchers {
-					if matcher.MatchString(r.URL.Path) {
-						pathMatches = true
+					regexMatches := matcher.Regex.MatchString(r.URL.Path)
+
+					if matcher.Operator == "=~" && regexMatches {
+						// Positive match - enforce mTLS
+						shouldEnforceMTLS = true
+						break
+					} else if matcher.Operator == "!~" && !regexMatches {
+						// Negative match - enforce mTLS (path does NOT match pattern)
+						shouldEnforceMTLS = true
 						break
 					}
 				}
 
-				// If path doesn't match, skip mTLS enforcement
-				if !pathMatches {
+				// If no patterns matched requirements, skip mTLS enforcement
+				if !shouldEnforceMTLS {
 					next.ServeHTTP(w, r)
 					return
 				}
@@ -192,4 +214,3 @@ func (a MTLSAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a MTLSAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
-
