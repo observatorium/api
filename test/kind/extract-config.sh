@@ -31,12 +31,15 @@ tenants:
     redirectURL: http://localhost:8080/oidc/auth-tenant/callback
     usernameClaim: email
     paths:
-    - "!^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"
+    - operator: "!~"
+      pattern: ".*(loki/api/v1/push|api/v1/receive).*"
   mTLS:
     caPath: /etc/certs/ca.crt
     paths:
-    - "^/api/metrics/v1/auth-tenant/api/v1/receive.*"
-    - "^/api/logs/v1/auth-tenant/loki/api/v1/push.*"
+    - operator: "=~"
+      pattern: ".*(api/v1/receive).*"
+    - operator: "=~"
+      pattern: ".*(loki/api/v1/push).*"
 EOF
 
 # Generate RBAC configuration

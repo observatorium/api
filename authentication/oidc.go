@@ -317,25 +317,31 @@ func (a oidcAuthenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if OIDC is required for this path
+			level.Debug(a.logger).Log("msg", "OIDC middleware checking path", "path", r.URL.Path, "pathMatchers", len(a.pathMatchers))
 			if len(a.pathMatchers) > 0 {
 				shouldEnforceOIDC := false
 				
 				for _, matcher := range a.pathMatchers {
 					regexMatches := matcher.Regex.MatchString(r.URL.Path)
+					level.Debug(a.logger).Log("msg", "OIDC path pattern check", "path", r.URL.Path, "operator", matcher.Operator, "pattern", matcher.Regex.String(), "matches", regexMatches)
 					
 					if matcher.Operator == "=~" && regexMatches {
 						// Positive match - enforce OIDC
+						level.Debug(a.logger).Log("msg", "OIDC positive match - enforcing", "path", r.URL.Path)
 						shouldEnforceOIDC = true
 						break
 					} else if matcher.Operator == "!~" && !regexMatches {
 						// Negative match - enforce OIDC (path does NOT match pattern)
+						level.Debug(a.logger).Log("msg", "OIDC negative match - enforcing", "path", r.URL.Path)
 						shouldEnforceOIDC = true
 						break
 					}
 				}
 				
+				level.Debug(a.logger).Log("msg", "OIDC enforcement decision", "path", r.URL.Path, "shouldEnforceOIDC", shouldEnforceOIDC)
 				// If no patterns matched requirements, skip OIDC enforcement
 				if !shouldEnforceOIDC {
+					level.Debug(a.logger).Log("msg", "OIDC skipping enforcement", "path", r.URL.Path)
 					next.ServeHTTP(w, r)
 					return
 				}
