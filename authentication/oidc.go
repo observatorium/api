@@ -36,22 +36,34 @@ import (
 // OIDCAuthenticatorType represents the oidc authentication provider type.
 const OIDCAuthenticatorType = "oidc"
 
+// PathPattern represents a path pattern with an operator for matching.
+type PathPattern struct {
+	Operator string `json:"operator,omitempty"` // "=~" (default) or "!~"
+	Pattern  string `json:"pattern"`            // regex pattern
+}
+
+// PathMatcher represents a compiled path pattern with operator.
+type PathMatcher struct {
+	Operator string
+	Regex    *regexp.Regexp
+}
+
 func init() {
 	onboardNewProvider(OIDCAuthenticatorType, newOIDCAuthenticator)
 }
 
 // oidcConfig represents the oidc authenticator config.
 type oidcConfig struct {
-	ClientID      string   `json:"clientID"`
-	ClientSecret  string   `json:"clientSecret"`
-	GroupClaim    string   `json:"groupClaim"`
-	IssuerRawCA   []byte   `json:"issuerCA"`
-	IssuerCAPath  string   `json:"issuerCAPath"`
+	ClientID      string        `json:"clientID"`
+	ClientSecret  string        `json:"clientSecret"`
+	GroupClaim    string        `json:"groupClaim"`
+	IssuerRawCA   []byte        `json:"issuerCA"`
+	IssuerCAPath  string        `json:"issuerCAPath"`
 	issuerCA      *x509.Certificate
-	IssuerURL     string   `json:"issuerURL"`
-	RedirectURL   string   `json:"redirectURL"`
-	UsernameClaim string   `json:"usernameClaim"`
-	PathPatterns  []string `json:"pathPatterns"`
+	IssuerURL     string        `json:"issuerURL"`
+	RedirectURL   string        `json:"redirectURL"`
+	UsernameClaim string        `json:"usernameClaim"`
+	Paths         []PathPattern `json:"paths,omitempty"`
 }
 
 type oidcAuthenticator struct {
@@ -65,7 +77,7 @@ type oidcAuthenticator struct {
 	redirectURL  string
 	oauth2Config oauth2.Config
 	handler      http.Handler
-	pathMatchers []*regexp.Regexp
+	pathMatchers []PathMatcher
 }
 
 func newOIDCAuthenticator(c map[string]interface{}, tenant string,
@@ -160,14 +172,28 @@ func newOIDCAuthenticator(c map[string]interface{}, tenant string,
 		pathMatchers = append(pathMatchers, matcher)
 	}
 
-	// Compile path patterns
-	var pathMatchers []*regexp.Regexp
-	for _, pattern := range config.PathPatterns {
-		matcher, err := regexp.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile OIDC path pattern %q: %v", pattern, err)
+	// Compile path patterns with operators
+	var pathMatchers []PathMatcher
+	for _, pathPattern := range config.Paths {
+		operator := pathPattern.Operator
+		if operator == "" {
+			operator = "=~" // default operator
 		}
-		pathMatchers = append(pathMatchers, matcher)
+		
+		// Validate operator
+		if operator != "=~" && operator != "!~" {
+			return nil, fmt.Errorf("invalid OIDC path operator %q, must be '=~' or '!~'", operator)
+		}
+		
+		matcher, err := regexp.Compile(pathPattern.Pattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile OIDC path pattern %q: %v", pathPattern.Pattern, err)
+		}
+		
+		pathMatchers = append(pathMatchers, PathMatcher{
+			Operator: operator,
+			Regex:    matcher,
+		})
 	}
 
 	oidcProvider := &oidcAuthenticator{
@@ -302,16 +328,24 @@ func (a oidcAuthenticator) Middleware() Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if OIDC is required for this path
 			if len(a.pathMatchers) > 0 {
-				pathMatches := false
+				shouldEnforceOIDC := false
+				
 				for _, matcher := range a.pathMatchers {
-					if matcher.MatchString(r.URL.Path) {
-						pathMatches = true
+					regexMatches := matcher.Regex.MatchString(r.URL.Path)
+					
+					if matcher.Operator == "=~" && regexMatches {
+						// Positive match - enforce OIDC
+						shouldEnforceOIDC = true
+						break
+					} else if matcher.Operator == "!~" && !regexMatches {
+						// Negative match - enforce OIDC (path does NOT match pattern)
+						shouldEnforceOIDC = true
 						break
 					}
 				}
 				
-				// If path doesn't match, skip OIDC enforcement
-				if !pathMatches {
+				// If no patterns matched requirements, skip OIDC enforcement
+				if !shouldEnforceOIDC {
 					next.ServeHTTP(w, r)
 					return
 				}

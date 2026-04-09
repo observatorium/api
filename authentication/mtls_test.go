@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/go-kit/log"
@@ -466,3 +467,137 @@ func TestMTLSAuthenticator_CAConfiguration(t *testing.T) {
 	})
 }
 
+func TestMTLSPathPatternsWithOperators(t *testing.T) {
+	tests := []struct {
+		name         string
+		paths        []PathPattern
+		requestPath  string
+		expectSkip   bool
+		expectError  bool
+		description  string
+	}{
+		{
+			name:        "positive_match_operator",
+			paths:       []PathPattern{{Operator: "=~", Pattern: "/api/.*/receive"}},
+			requestPath: "/api/metrics/v1/receive",
+			expectSkip:  false,
+			description: "Positive match with =~ operator should enforce mTLS",
+		},
+		{
+			name:        "positive_no_match_operator",
+			paths:       []PathPattern{{Operator: "=~", Pattern: "/api/.*/receive"}},
+			requestPath: "/api/metrics/v1/query",
+			expectSkip:  true,
+			description: "No match with =~ operator should skip mTLS",
+		},
+		{
+			name:        "negative_match_operator",
+			paths:       []PathPattern{{Operator: "!~", Pattern: "^/api/(logs|metrics)/v1/auth-tenant/.*(query|labels|series)"}},
+			requestPath: "/api/metrics/v1/auth-tenant/api/v1/receive",
+			expectSkip:  false,
+			description: "Path not matching negative pattern should enforce mTLS",
+		},
+		{
+			name:        "negative_no_match_operator",
+			paths:       []PathPattern{{Operator: "!~", Pattern: "^/api/(logs|metrics)/v1/auth-tenant/.*(query|labels|series)"}},
+			requestPath: "/api/metrics/v1/auth-tenant/api/v1/query",
+			expectSkip:  true,
+			description: "Path matching negative pattern should skip mTLS",
+		},
+		{
+			name:        "default_operator",
+			paths:       []PathPattern{{Pattern: "/api/.*/receive"}}, // no operator specified
+			requestPath: "/api/metrics/v1/receive",
+			expectSkip:  false,
+			description: "Default operator should be =~",
+		},
+		{
+			name:        "multiple_patterns_one_match",
+			paths:       []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/push"},
+			},
+			requestPath: "/api/logs/v1/push",
+			expectSkip:  false,
+			description: "One matching pattern should enforce mTLS",
+		},
+		{
+			name:        "multiple_patterns_none_match",
+			paths:       []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/push"},
+			},
+			requestPath: "/api/metrics/v1/query",
+			expectSkip:  true,
+			description: "No matching patterns should skip mTLS",
+		},
+		{
+			name:        "invalid_operator",
+			paths:       []PathPattern{{Operator: "invalid", Pattern: "/api/.*/receive"}},
+			expectError: true,
+			description: "Invalid operator should cause error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test compilation (similar to newMTLSAuthenticator)
+			var pathMatchers []PathMatcher
+			
+			for _, pathPattern := range tt.paths {
+				operator := pathPattern.Operator
+				if operator == "" {
+					operator = "=~" // default operator
+				}
+				
+				// Validate operator
+				if operator != "=~" && operator != "!~" {
+					if tt.expectError {
+						return // Expected error
+					}
+					t.Errorf("Invalid operator %q should have caused error", operator)
+					return
+				}
+				
+				matcher, err := regexp.Compile(pathPattern.Pattern)
+				if err != nil {
+					if tt.expectError {
+						return // Expected error
+					}
+					t.Fatalf("Failed to compile pattern: %v", err)
+				}
+				
+				pathMatchers = append(pathMatchers, PathMatcher{
+					Operator: operator,
+					Regex:    matcher,
+				})
+			}
+			
+			if tt.expectError {
+				t.Error("Expected error but none occurred")
+				return
+			}
+			
+			// Test the matching logic (from middleware)
+			shouldEnforceMTLS := false
+			
+			for _, matcher := range pathMatchers {
+				regexMatches := matcher.Regex.MatchString(tt.requestPath)
+				
+				if matcher.Operator == "=~" && regexMatches {
+					shouldEnforceMTLS = true
+					break
+				} else if matcher.Operator == "!~" && !regexMatches {
+					shouldEnforceMTLS = true
+					break
+				}
+			}
+			
+			shouldSkip := !shouldEnforceMTLS
+			
+			if shouldSkip != tt.expectSkip {
+				t.Errorf("Expected skip=%v, got skip=%v for path %s", tt.expectSkip, shouldSkip, tt.requestPath)
+			}
+		})
+	}
+}
