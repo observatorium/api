@@ -19,28 +19,28 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 	}{
 		{
 			name:        "positive_match_operator",
-			paths:       []PathPattern{{Operator: "=~", Pattern: "/api/.*/query"}},
+			paths:       []PathPattern{{Operator: OperatorMatches, Pattern: "/api/.*/query"}},
 			requestPath: "/api/metrics/v1/query",
 			expectSkip:  false,
 			description: "Positive match with =~ operator should enforce OIDC",
 		},
 		{
 			name:        "positive_no_match_operator",
-			paths:       []PathPattern{{Operator: "=~", Pattern: "/api/.*/query"}},
+			paths:       []PathPattern{{Operator: OperatorMatches, Pattern: "/api/.*/query"}},
 			requestPath: "/api/metrics/v1/receive",
 			expectSkip:  true,
 			description: "No match with =~ operator should skip OIDC",
 		},
 		{
 			name:        "negative_match_operator",
-			paths:       []PathPattern{{Operator: "!~", Pattern: "^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"}},
+			paths:       []PathPattern{{Operator: OperatorNotMatches, Pattern: "^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"}},
 			requestPath: "/api/metrics/v1/auth-tenant/api/v1/query",
 			expectSkip:  false,
 			description: "Path not matching negative pattern should enforce OIDC",
 		},
 		{
 			name:        "negative_no_match_operator",
-			paths:       []PathPattern{{Operator: "!~", Pattern: "^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"}},
+			paths:       []PathPattern{{Operator: OperatorNotMatches, Pattern: "^/api/(logs|metrics)/v1/auth-tenant/(loki/api/v1/push|api/v1/receive)"}},
 			requestPath: "/api/metrics/v1/auth-tenant/api/v1/receive",
 			expectSkip:  true,
 			description: "Path matching negative pattern should skip OIDC",
@@ -68,11 +68,11 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 			for _, pathPattern := range tt.paths {
 				operator := pathPattern.Operator
 				if operator == "" {
-					operator = "=~" // default operator
+					operator = OperatorMatches // default operator
 				}
 				
 				// Validate operator
-				if operator != "=~" && operator != "!~" {
+				if operator != OperatorMatches && operator != OperatorNotMatches {
 					if tt.expectError {
 						return // Expected error
 					}
@@ -105,10 +105,10 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 			for _, matcher := range pathMatchers {
 				regexMatches := matcher.Regex.MatchString(tt.requestPath)
 				
-				if matcher.Operator == "=~" && regexMatches {
+				if matcher.Operator == OperatorMatches && regexMatches {
 					shouldEnforceOIDC = true
 					break
-				} else if matcher.Operator == "!~" && !regexMatches {
+				} else if matcher.Operator == OperatorNotMatches && !regexMatches {
 					shouldEnforceOIDC = true
 					break
 				}

@@ -72,7 +72,7 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		pathPatterns   []string
+		pathPatterns   []PathPattern
 		requestPath    string
 		expectMTLS     bool
 		expectError    bool
@@ -80,7 +80,7 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 	}{
 		{
 			name:         "no_patterns_enforces_all_paths",
-			pathPatterns: []string{},
+			pathPatterns: []PathPattern{},
 			requestPath:  "/api/v1/query",
 			expectMTLS:   true,
 			expectError:  false, // Should work with proper file-based CA
@@ -88,7 +88,10 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 		},
 		{
 			name:         "write_pattern_matches_receive",
-			pathPatterns: []string{"/api/.*/receive", "/api/.*/rules"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/rules"},
+			},
 			requestPath:  "/api/metrics/v1/receive",
 			expectMTLS:   true,
 			expectError:  false, // Should work with proper file-based CA
@@ -96,7 +99,10 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 		},
 		{
 			name:         "write_pattern_matches_rules",
-			pathPatterns: []string{"/api/.*/receive", "/api/.*/rules"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/rules"},
+			},
 			requestPath:  "/api/logs/v1/rules",
 			expectMTLS:   true,
 			expectError:  false, // Should work with proper file-based CA
@@ -104,7 +110,10 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 		},
 		{
 			name:         "read_pattern_skips_query",
-			pathPatterns: []string{"/api/.*/receive", "/api/.*/rules"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/rules"},
+			},
 			requestPath:  "/api/metrics/v1/query",
 			expectMTLS:   false,
 			expectError:  false,
@@ -112,7 +121,10 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 		},
 		{
 			name:         "read_pattern_skips_series",
-			pathPatterns: []string{"/api/.*/receive", "/api/.*/rules"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/rules"},
+			},
 			requestPath:  "/api/metrics/v1/series",
 			expectMTLS:   false,
 			expectError:  false,
@@ -120,7 +132,9 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 		},
 		{
 			name:         "complex_pattern_matching",
-			pathPatterns: []string{"^/api/metrics/.*/(receive|rules)$"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "^/api/metrics/.*/(receive|rules)$"},
+			},
 			requestPath:  "/api/metrics/v1/receive",
 			expectMTLS:   true,
 			expectError:  false, // Should work with proper file-based CA
@@ -128,7 +142,9 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 		},
 		{
 			name:         "complex_pattern_non_matching",
-			pathPatterns: []string{"^/api/metrics/.*/(receive|rules)$"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "^/api/metrics/.*/(receive|rules)$"},
+			},
 			requestPath:  "/api/metrics/v1/query",
 			expectMTLS:   false,
 			expectError:  false,
@@ -141,7 +157,7 @@ func TestMTLSAuthenticator_PathBasedAuthentication(t *testing.T) {
 			// Create mTLS config with path patterns using file-based CA
 			config := map[string]interface{}{
 				"caPath":       caPath,  // Use file-based CA as original code expects
-				"pathPatterns": tt.pathPatterns,
+				"paths": tt.pathPatterns,
 			}
 
 			// Create mTLS authenticator
@@ -234,7 +250,7 @@ func TestMTLSAuthenticator_InvalidClientCertificate(t *testing.T) {
 	// Create mTLS config
 	config := map[string]interface{}{
 		"caPath":       caPath,
-		"pathPatterns": []string{"/api/.*/receive"},
+		"paths": []PathPattern{{Operator: "=~", Pattern: "/api/.*/receive"}},
 	}
 
 	// Create mTLS authenticator
@@ -278,7 +294,7 @@ func TestMTLSAuthenticator_NoTLSConnection(t *testing.T) {
 	// Create mTLS config
 	config := map[string]interface{}{
 		"caPath":       caPath,
-		"pathPatterns": []string{"/api/.*/receive"},
+		"paths": []PathPattern{{Operator: "=~", Pattern: "/api/.*/receive"}},
 	}
 
 	// Create mTLS authenticator
@@ -310,7 +326,7 @@ func TestMTLSAuthenticator_NoTLSConnection(t *testing.T) {
 func TestMTLSAuthenticator_InvalidPathPattern(t *testing.T) {
 	// Test that invalid regex patterns are caught during creation
 	config := map[string]interface{}{
-		"pathPatterns": []string{"[invalid-regex"},
+		"paths": []PathPattern{{Operator: "=~", Pattern: "[invalid-regex"}},
 	}
 
 	logger := log.NewNopLogger()
@@ -324,42 +340,48 @@ func TestMTLSAuthenticator_InvalidPathPattern(t *testing.T) {
 func TestMTLSAuthenticator_PathMatchingLogic(t *testing.T) {
 	tests := []struct {
 		name         string
-		pathPatterns []string
+		pathPatterns []PathPattern
 		requestPath  string
 		expectSkip   bool
 		description  string
 	}{
 		{
 			name:         "no_patterns_requires_mtls_everywhere",
-			pathPatterns: []string{},
+			pathPatterns: []PathPattern{},
 			requestPath:  "/api/v1/query",
 			expectSkip:   false,
 			description:  "No patterns means mTLS required everywhere",
 		},
 		{
 			name:         "pattern_matches_requires_mtls",
-			pathPatterns: []string{"/api/.*/receive"},
+			pathPatterns: []PathPattern{{Operator: "=~", Pattern: "/api/.*/receive"}},
 			requestPath:  "/api/metrics/v1/receive", 
 			expectSkip:   false,
 			description:  "Matching pattern requires mTLS",
 		},
 		{
 			name:         "pattern_not_matches_skips_mtls",
-			pathPatterns: []string{"/api/.*/receive"},
+			pathPatterns: []PathPattern{{Operator: "=~", Pattern: "/api/.*/receive"}},
 			requestPath:  "/api/metrics/v1/query",
 			expectSkip:   true,
 			description:  "Non-matching pattern skips mTLS",
 		},
 		{
 			name:         "multiple_patterns_one_matches",
-			pathPatterns: []string{"/api/.*/receive", "/api/.*/rules"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/rules"},
+			},
 			requestPath:  "/api/logs/v1/rules",
 			expectSkip:   false,
 			description:  "One matching pattern requires mTLS",
 		},
 		{
 			name:         "multiple_patterns_none_match",
-			pathPatterns: []string{"/api/.*/receive", "/api/.*/rules"},
+			pathPatterns: []PathPattern{
+				{Operator: "=~", Pattern: "/api/.*/receive"},
+				{Operator: "=~", Pattern: "/api/.*/rules"},
+			},
 			requestPath:  "/api/metrics/v1/query",
 			expectSkip:   true,
 			description:  "No matching patterns skip mTLS",
@@ -370,7 +392,7 @@ func TestMTLSAuthenticator_PathMatchingLogic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mTLS config without CA (we're only testing path logic)
 			config := map[string]interface{}{
-				"pathPatterns": tt.pathPatterns,
+				"paths": tt.pathPatterns,
 			}
 
 			logger := log.NewNopLogger()
