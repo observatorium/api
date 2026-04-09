@@ -238,11 +238,10 @@ type tenant struct {
 		IssuerRawCA   []byte `json:"issuerCA"`
 		IssuerCAPath  string `json:"issuerCAPath"`
 		issuerCA      *x509.Certificate
-		IssuerURL     string   `json:"issuerURL"`
-		RedirectURL   string   `json:"redirectURL"`
-		UsernameClaim string   `json:"usernameClaim"`
-		Paths         []string `json:"paths"`
-		pathMatchers  []*regexp.Regexp
+		IssuerURL     string                       `json:"issuerURL"`
+		RedirectURL   string                       `json:"redirectURL"`
+		UsernameClaim string                       `json:"usernameClaim"`
+		Paths         []authentication.PathPattern `json:"paths"`
 		config        map[string]interface{}
 	} `json:"oidc"`
 	OpenShift *struct {
@@ -258,12 +257,11 @@ type tenant struct {
 	} `json:"authenticator"`
 
 	MTLS *struct {
-		RawCA        []byte   `json:"ca"`
-		CAPath       string   `json:"caPath"`
-		Paths        []string `json:"paths"`
-		cas          []*x509.Certificate
-		pathMatchers []*regexp.Regexp
-		config       map[string]interface{}
+		RawCA  []byte                       `json:"ca"`
+		CAPath string                       `json:"caPath"`
+		Paths  []authentication.PathPattern `json:"paths"`
+		cas    []*x509.Certificate
+		config map[string]interface{}
 	} `json:"mTLS"`
 	OPA *struct {
 		Query           string   `json:"query"`
@@ -368,23 +366,8 @@ func main() {
 					continue
 				}
 
-				// Compile OIDC path matchers
-				for _, pathPattern := range t.OIDC.Paths {
-					matcher, err := regexp.Compile(pathPattern)
-					if err != nil {
-						skip.Log("msg", "failed to compile OIDC path pattern", "pattern", pathPattern, "err", err, "tenant", t.Name)
-						skippedTenants.WithLabelValues(t.Name).Inc()
-						tenantsCfg.Tenants[i] = nil
-						break
-					}
-					t.OIDC.pathMatchers = append(t.OIDC.pathMatchers, matcher)
-				}
-				if tenantsCfg.Tenants[i] == nil {
-					continue
-				}
-
 				// Add path patterns to the config that will be passed to the authenticator
-				oidcConfig["pathPatterns"] = t.OIDC.Paths
+				oidcConfig["paths"] = t.OIDC.Paths
 				t.OIDC.config = oidcConfig
 			}
 
@@ -397,23 +380,8 @@ func main() {
 					continue
 				}
 
-				// Compile mTLS path matchers
-				for _, pathPattern := range t.MTLS.Paths {
-					matcher, err := regexp.Compile(pathPattern)
-					if err != nil {
-						skip.Log("msg", "failed to compile mTLS path pattern", "pattern", pathPattern, "err", err, "tenant", t.Name)
-						skippedTenants.WithLabelValues(t.Name).Inc()
-						tenantsCfg.Tenants[i] = nil
-						break
-					}
-					t.MTLS.pathMatchers = append(t.MTLS.pathMatchers, matcher)
-				}
-				if tenantsCfg.Tenants[i] == nil {
-					continue
-				}
-
 				// Add path patterns to the config that will be passed to the authenticator
-				mTLSConfig["pathPatterns"] = t.MTLS.Paths
+				mTLSConfig["paths"] = t.MTLS.Paths
 				t.MTLS.config = mTLSConfig
 			}
 
@@ -1604,7 +1572,6 @@ func tenantAuthenticatorConfig(t *tenant) (map[string]interface{}, string, error
 		return nil, "", fmt.Errorf("tenant %q must specify either an OIDC, mTLS, openshift or a supported authenticator configuration", t.Name)
 	}
 }
-
 
 type otelErrorHandler struct {
 	logger log.Logger
