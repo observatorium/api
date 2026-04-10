@@ -366,8 +366,6 @@ func main() {
 					continue
 				}
 
-				// Path patterns are now handled by the authenticator itself
-				// during initialization, so we don't compile them here
 				if tenantsCfg.Tenants[i] == nil {
 					continue
 				}
@@ -386,8 +384,6 @@ func main() {
 					continue
 				}
 
-				// Path patterns are now handled by the authenticator itself
-				// during initialization, so we don't compile them here
 				if tenantsCfg.Tenants[i] == nil {
 					continue
 				}
@@ -662,8 +658,6 @@ func main() {
 				}
 			}
 
-			// Authentication enforcement is now handled by EnforceAuthentication() middleware
-
 			// Metrics.
 			if cfg.metrics.enabled {
 
@@ -790,7 +784,6 @@ func main() {
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithSpanRoutePrefix("/api/metrics/v1/{tenant}"),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
-						// Write protection handled by authentication enforcement middleware
 						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
 						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
 						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
@@ -1639,7 +1632,6 @@ func tenantAuthenticatorConfigs(t *tenant) ([]authenticatorConfig, error) {
 
 	return configs, nil
 }
-
 
 type otelErrorHandler struct {
 	logger log.Logger
