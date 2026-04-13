@@ -123,6 +123,8 @@ Usage of ./observatorium-api:
     	The endpoint against which to send read requests for metrics.
   -metrics.rules.endpoint string
     	The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.
+  -metrics.status.endpoint string
+    	The endpoint against which to make requests for status information about metrics (e.g. '/api/v1/status/tsdb').
   -metrics.tenant-header string
     	The name of the HTTP header containing the tenant ID to forward to the metrics upstreams. (default "THANOS-TENANT")
   -metrics.tenant-label string

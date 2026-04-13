@@ -1575,21 +1575,6 @@ func unmarshalLegacyAuthenticatorConfig(v interface{}) (map[string]interface{}, 
 	return config, nil
 }
 
-func tenantAuthenticatorConfig(t *tenant) (map[string]interface{}, string, error) {
-	switch {
-	case t.OIDC != nil:
-		return t.OIDC.config, authentication.OIDCAuthenticatorType, nil
-	case t.OpenShift != nil:
-		return t.OpenShift.config, authentication.OpenShiftAuthenticatorType, nil
-	case t.MTLS != nil:
-		return t.MTLS.config, authentication.MTLSAuthenticatorType, nil
-	case t.Authenticator != nil:
-		return t.Authenticator.Config, t.Authenticator.Type, nil
-	default:
-		return nil, "", fmt.Errorf("tenant %q must specify either an OIDC, mTLS, openshift or a supported authenticator configuration", t.Name)
-	}
-}
-
 type authenticatorConfig struct {
 	Config map[string]interface{}
 	Type   string

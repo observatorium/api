@@ -191,7 +191,7 @@ func EnforceAuthentication() Middleware {
 	}
 }
 
-// Path pattern matching operators
+// Path pattern matching operators.
 const (
 	OperatorMatches    = "=~" // Pattern must match
 	OperatorNotMatches = "!~" // Pattern must NOT match

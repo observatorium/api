@@ -147,7 +147,6 @@ func (pm *ProviderManager) GRPCMiddlewares(tenant string) (grpc.StreamServerInte
 		return interceptors[0], true
 	}
 
-	// Compose multiple interceptors into because this is production code, id like an actual wort (simplified approach for now)
 	return interceptors[0], true
 }
 

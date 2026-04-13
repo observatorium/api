@@ -5,17 +5,14 @@ import (
 	"testing"
 )
 
-
-
-
 func TestOIDCPathPatternsWithOperators(t *testing.T) {
 	tests := []struct {
-		name         string
-		paths        []PathPattern
-		requestPath  string
-		expectSkip   bool
-		expectError  bool
-		description  string
+		name        string
+		paths       []PathPattern
+		requestPath string
+		expectSkip  bool
+		expectError bool
+		description string
 	}{
 		{
 			name:        "positive_match_operator",
@@ -64,13 +61,13 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test compilation (similar to newOIDCAuthenticator)
 			var pathMatchers []PathMatcher
-			
+
 			for _, pathPattern := range tt.paths {
 				operator := pathPattern.Operator
 				if operator == "" {
 					operator = OperatorMatches // default operator
 				}
-				
+
 				// Validate operator
 				if operator != OperatorMatches && operator != OperatorNotMatches {
 					if tt.expectError {
@@ -79,7 +76,7 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 					t.Errorf("Invalid operator %q should have caused error", operator)
 					return
 				}
-				
+
 				matcher, err := regexp.Compile(pathPattern.Pattern)
 				if err != nil {
 					if tt.expectError {
@@ -87,24 +84,24 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 					}
 					t.Fatalf("Failed to compile pattern: %v", err)
 				}
-				
+
 				pathMatchers = append(pathMatchers, PathMatcher{
 					Operator: operator,
 					Regex:    matcher,
 				})
 			}
-			
+
 			if tt.expectError {
 				t.Error("Expected error but none occurred")
 				return
 			}
-			
+
 			// Test the matching logic (from middleware)
 			shouldEnforceOIDC := false
-			
+
 			for _, matcher := range pathMatchers {
 				regexMatches := matcher.Regex.MatchString(tt.requestPath)
-				
+
 				if matcher.Operator == OperatorMatches && regexMatches {
 					shouldEnforceOIDC = true
 					break
@@ -113,9 +110,9 @@ func TestOIDCPathPatternsWithOperators(t *testing.T) {
 					break
 				}
 			}
-			
+
 			shouldSkip := !shouldEnforceOIDC
-			
+
 			if shouldSkip != tt.expectSkip {
 				t.Errorf("Expected skip=%v, got skip=%v for path %s", tt.expectSkip, shouldSkip, tt.requestPath)
 			}

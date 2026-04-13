@@ -221,13 +221,13 @@ tenants:
 
 func TestPathMatchingBehavior(t *testing.T) {
 	tests := []struct {
-		name         string
-		oidcPaths    []string
-		mtlsPaths    []string
-		testPath     string
-		expectOIDC   bool
-		expectMTLS   bool
-		description  string
+		name        string
+		oidcPaths   []string
+		mtlsPaths   []string
+		testPath    string
+		expectOIDC  bool
+		expectMTLS  bool
+		description string
 	}{
 		{
 			name:        "read_path_oidc_only",
@@ -276,9 +276,9 @@ func TestPathMatchingBehavior(t *testing.T) {
 		},
 		{
 			name:        "case_sensitive_matching",
-			oidcPaths:   []string{"/api/.*/Query"},  // uppercase Q
+			oidcPaths:   []string{"/api/.*/Query"}, // uppercase Q
 			mtlsPaths:   []string{"/api/.*/receive"},
-			testPath:    "/api/metrics/v1/query",    // lowercase q
+			testPath:    "/api/metrics/v1/query", // lowercase q
 			expectOIDC:  false,
 			expectMTLS:  false,
 			description: "Pattern matching should be case sensitive",
@@ -336,5 +336,3 @@ func TestPathMatchingBehavior(t *testing.T) {
 		})
 	}
 }
-
-
