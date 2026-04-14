@@ -120,46 +120,46 @@ func TestTokenExpiredErrorHandling(t *testing.T) {
 		expiredErr := &oidc.TokenExpiredError{
 			Expiry: time.Now().Add(-time.Hour), // Expired an hour ago
 		}
-		
+
 		// Test direct error
 		var tokenExpiredErr *oidc.TokenExpiredError
 		if !errors.As(expiredErr, &tokenExpiredErr) {
 			t.Error("errors.As should identify TokenExpiredError")
 		}
-		
+
 		// Test wrapped error
 		wrappedErr := &wrappedError{
 			msg: "verification failed",
 			err: expiredErr,
 		}
-		
+
 		if !errors.As(wrappedErr, &tokenExpiredErr) {
 			t.Error("errors.As should identify wrapped TokenExpiredError")
 		}
 	})
-	
+
 	t.Run("Other errors are not identified as TokenExpiredError", func(t *testing.T) {
 		// Test with a generic error
 		genericErr := errors.New("generic verification error")
-		
+
 		var tokenExpiredErr *oidc.TokenExpiredError
 		if errors.As(genericErr, &tokenExpiredErr) {
 			t.Error("errors.As should not identify generic error as TokenExpiredError")
 		}
-		
+
 		// Test with wrapped generic error
 		wrappedGenericErr := &wrappedError{
 			msg: "verification failed",
 			err: genericErr,
 		}
-		
+
 		if errors.As(wrappedGenericErr, &tokenExpiredErr) {
 			t.Error("errors.As should not identify wrapped generic error as TokenExpiredError")
 		}
 	})
 }
 
-// Helper type to wrap errors for testing
+// Helper type to wrap errors for testing.
 type wrappedError struct {
 	msg string
 	err error

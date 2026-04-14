@@ -1,0 +1,45 @@
+roles:
+- name: read-write
+  resources:
+  - metrics
+  - logs
+  tenants:
+  - auth-tenant
+  permissions:
+  - read
+  - write
+- name: read
+  resources:
+  - metrics
+  - logs
+  tenants:
+  - auth-tenant
+  permissions:
+  - read
+- name: write
+  resources:
+  - metrics
+  - logs
+  tenants:
+  - auth-tenant
+  permissions:
+  - write
+roleBindings:
+- name: admin-user
+  roles:
+  - read-write
+  subjects:
+  - kind: user
+    name: admin@example.com
+- name: test-user
+  roles:
+  - read
+  subjects:
+  - kind: user
+    name: test@example.com
+- name: admin-client
+  roles:
+  - write
+  subjects:
+  - kind: user
+    name: admin-client

@@ -1,0 +1,118 @@
+# Backend services for testing
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: proxy
+---
+# Nginx Proxy Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-proxy-config
+  namespace: proxy
+data:
+  nginx.conf: |
+    events {}
+    http {
+      # Use Kubernetes DNS resolver
+      resolver kube-dns.kube-system.svc.cluster.local valid=5s;
+      
+      server {
+        listen 80;
+        
+        # Proxy all requests to httpbin /anything for testing
+        location / {
+          proxy_pass http://httpbin-metrics.proxy.svc.cluster.local:9090/anything$request_uri;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+        }
+      }
+    }
+---
+# Nginx API Proxy Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-proxy
+  namespace: proxy
+  labels:
+    app: api-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-proxy
+  template:
+    metadata:
+      labels:
+        app: api-proxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-proxy-config
+---
+# API Proxy Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-proxy
+  namespace: proxy
+  labels:
+    app: api-proxy
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: api-proxy
+---
+# HTTPBin Backend for Testing
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin-metrics
+  namespace: proxy
+  labels:
+    app: httpbin-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin-metrics
+  template:
+    metadata:
+      labels:
+        app: httpbin-metrics
+    spec:
+      containers:
+      - name: httpbin
+        image: kennethreitz/httpbin:latest
+        ports:
+        - containerPort: 80
+---
+# HTTPBin Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin-metrics
+  namespace: proxy
+  labels:
+    app: httpbin-metrics
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 80
+  selector:
+    app: httpbin-metrics

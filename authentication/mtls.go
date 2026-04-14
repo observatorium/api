@@ -11,6 +11,7 @@ import (
 	"regexp"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	grpc_middleware_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/mitchellh/mapstructure"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,11 +30,11 @@ func init() {
 }
 
 type mTLSConfig struct {
-	RawCA        []byte   `json:"ca"`
-	CAPath       string   `json:"caPath"`
-	PathPatterns []string `json:"pathPatterns"`
+	RawCA        []byte        `json:"ca"`
+	CAPath       string        `json:"caPath"`
+	Paths        []PathPattern `json:"paths,omitempty"`
 	CAs          []*x509.Certificate
-	pathMatchers []*regexp.Regexp
+	pathMatchers []PathMatcher
 }
 
 type MTLSAuthenticator struct {
@@ -86,13 +87,25 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 		config.CAs = cas
 	}
 
-	// Compile path patterns
-	for _, pattern := range config.PathPatterns {
-		matcher, err := regexp.Compile(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile mTLS path pattern %q: %v", pattern, err)
+	for _, pathPattern := range config.Paths {
+		operator := pathPattern.Operator
+		if operator == "" {
+			operator = OperatorMatches
 		}
-		config.pathMatchers = append(config.pathMatchers, matcher)
+
+		if operator != OperatorMatches && operator != OperatorNotMatches {
+			return nil, fmt.Errorf("invalid mTLS path operator %q, must be %q or %q", operator, OperatorMatches, OperatorNotMatches)
+		}
+
+		matcher, err := regexp.Compile(pathPattern.Pattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to compile mTLS path pattern %q: %v", pathPattern.Pattern, err)
+		}
+
+		config.pathMatchers = append(config.pathMatchers, PathMatcher{
+			Operator: operator,
+			Regex:    matcher,
+		})
 	}
 
 	return MTLSAuthenticator{
@@ -105,24 +118,37 @@ func newMTLSAuthenticator(c map[string]interface{}, tenant string, registrationR
 func (a MTLSAuthenticator) Middleware() Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			level.Debug(a.logger).Log("msg", "mTLS middleware processing", "path", r.URL.Path, "tenant", a.tenant, "numPatterns", len(a.config.pathMatchers))
+
 			// Check if mTLS is required for this path
 			if len(a.config.pathMatchers) > 0 {
-				pathMatches := false
+				shouldEnforceMTLS := false
+
 				for _, matcher := range a.config.pathMatchers {
-					if matcher.MatchString(r.URL.Path) {
-						pathMatches = true
+					regexMatches := matcher.Regex.MatchString(r.URL.Path)
+					level.Debug(a.logger).Log("msg", "mTLS path pattern check", "path", r.URL.Path, "operator", matcher.Operator, "pattern", matcher.Regex.String(), "matches", regexMatches)
+
+					if matcher.Operator == OperatorMatches && regexMatches {
+						level.Debug(a.logger).Log("msg", "mTLS positive match - enforcing", "path", r.URL.Path)
+						shouldEnforceMTLS = true
+						break
+					} else if matcher.Operator == OperatorNotMatches && !regexMatches {
+						// Negative match - enforce mTLS (path does NOT match pattern)
+						level.Debug(a.logger).Log("msg", "mTLS negative match - enforcing", "path", r.URL.Path)
+						shouldEnforceMTLS = true
 						break
 					}
 				}
 
-				// If path doesn't match, skip mTLS enforcement
-				if !pathMatches {
+				level.Debug(a.logger).Log("msg", "mTLS enforcement decision", "path", r.URL.Path, "shouldEnforceMTLS", shouldEnforceMTLS)
+				if !shouldEnforceMTLS {
+					level.Debug(a.logger).Log("msg", "mTLS skipping enforcement", "path", r.URL.Path)
 					next.ServeHTTP(w, r)
 					return
 				}
 			}
 
-			// Path matches or no paths configured, enforce mTLS
+			level.Debug(a.logger).Log("msg", "mTLS enforcing authentication", "path", r.URL.Path, "tenant", a.tenant)
 			if r.TLS == nil {
 				httperr.PrometheusAPIError(w, "mTLS required but no TLS connection", http.StatusBadRequest)
 				return
@@ -174,10 +200,11 @@ func (a MTLSAuthenticator) Middleware() Middleware {
 				return
 			}
 			ctx := context.WithValue(r.Context(), subjectKey, sub)
-
 			// Add organizational units as groups.
 			ctx = context.WithValue(ctx, groupsKey, r.TLS.PeerCertificates[0].Subject.OrganizationalUnit)
 
+			// Mark request as successfully authenticated
+			ctx = SetAuthenticated(ctx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -192,4 +219,3 @@ func (a MTLSAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 func (a MTLSAuthenticator) Handler() (string, http.Handler) {
 	return "", nil
 }
-

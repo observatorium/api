@@ -48,8 +48,8 @@ type tenantHandlers map[string]http.Handler
 type ProviderManager struct {
 	mtx                    sync.RWMutex
 	patternHandlers        map[string]tenantHandlers
-	middlewares            map[string]Middleware
-	gRPCInterceptors       map[string]grpc.StreamServerInterceptor
+	middlewares            map[string][]Middleware
+	gRPCInterceptors       map[string][]grpc.StreamServerInterceptor
 	logger                 log.Logger
 	registrationRetryCount *prometheus.CounterVec
 }
@@ -59,8 +59,8 @@ func NewProviderManager(l log.Logger, registrationRetryCount *prometheus.Counter
 	return &ProviderManager{
 		registrationRetryCount: registrationRetryCount,
 		patternHandlers:        make(map[string]tenantHandlers),
-		middlewares:            make(map[string]Middleware),
-		gRPCInterceptors:       make(map[string]grpc.StreamServerInterceptor),
+		middlewares:            make(map[string][]Middleware),
+		gRPCInterceptors:       make(map[string][]grpc.StreamServerInterceptor),
 		logger:                 l,
 	}
 }
@@ -88,8 +88,8 @@ func (pm *ProviderManager) InitializeProvider(config map[string]interface{},
 		}
 
 		pm.mtx.Lock()
-		pm.middlewares[tenant] = provider.Middleware()
-		pm.gRPCInterceptors[tenant] = provider.GRPCMiddleware()
+		pm.middlewares[tenant] = append(pm.middlewares[tenant], provider.Middleware())
+		pm.gRPCInterceptors[tenant] = append(pm.gRPCInterceptors[tenant], provider.GRPCMiddleware())
 		pattern, handler := provider.Handler()
 		if pattern != "" && handler != nil {
 			if pm.patternHandlers[pattern] == nil {
@@ -109,19 +109,45 @@ func (pm *ProviderManager) InitializeProvider(config map[string]interface{},
 // Middleware returns an authentication middleware for a tenant.
 func (pm *ProviderManager) Middlewares(tenant string) (Middleware, bool) {
 	pm.mtx.RLock()
-	mw, ok := pm.middlewares[tenant]
+	mws, ok := pm.middlewares[tenant]
 	pm.mtx.RUnlock()
 
-	return mw, ok
+	if !ok || len(mws) == 0 {
+		return nil, false
+	}
+
+	// If only one middleware, return it directly
+	if len(mws) == 1 {
+		return mws[0], true
+	}
+
+	// Chain all middlewares together - each will check its own PathPatterns
+	// and either authenticate or pass through to the next middleware
+	return func(next http.Handler) http.Handler {
+		handler := next
+		for i := len(mws) - 1; i >= 0; i-- {
+			handler = mws[i](handler)
+		}
+		return handler
+	}, true
 }
 
 // GRPCMiddlewares returns an authentication interceptor for a tenant.
 func (pm *ProviderManager) GRPCMiddlewares(tenant string) (grpc.StreamServerInterceptor, bool) {
 	pm.mtx.RLock()
-	mw, ok := pm.gRPCInterceptors[tenant]
+	interceptors, ok := pm.gRPCInterceptors[tenant]
 	pm.mtx.RUnlock()
 
-	return mw, ok
+	if !ok || len(interceptors) == 0 {
+		return nil, false
+	}
+
+	// If only one interceptor, return it directly
+	if len(interceptors) == 1 {
+		return interceptors[0], true
+	}
+
+	return interceptors[0], true
 }
 
 // PatternHandler return an http.HandlerFunc for a corresponding pattern.

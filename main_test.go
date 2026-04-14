@@ -22,11 +22,19 @@ tenants:
   - name: "test-tenant"
     id: "tenant-123"
     oidc:
-      paths: ["/api/.*/query", "/api/.*/series"]
+      paths:
+        - operator: "=~"
+          pattern: "/api/.*/query"
+        - operator: "=~"
+          pattern: "/api/.*/series"
       clientID: "test-client-id"
       issuerURL: "https://auth.example.com"
     mTLS:
-      paths: ["/api/.*/receive", "/api/.*/rules"]
+      paths:
+        - operator: "=~"
+          pattern: "/api/.*/receive"
+        - operator: "=~"
+          pattern: "/api/.*/rules"
       ca: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t"
 `,
 			expectError: false,
@@ -39,7 +47,9 @@ tenants:
   - name: "oidc-tenant"
     id: "tenant-456"
     oidc:
-      paths: ["/api/.*"]
+      paths:
+        - operator: "=~"
+          pattern: "/api/.*"
       clientID: "oidc-client-id"
       issuerURL: "https://oidc.example.com"
 `,
@@ -53,7 +63,9 @@ tenants:
   - name: "mtls-tenant"
     id: "tenant-789"
     mTLS:
-      paths: ["/api/.*"]
+      paths:
+        - operator: "=~"
+          pattern: "/api/.*"
       ca: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t"
 `,
 			expectError: false,
@@ -80,11 +92,17 @@ tenants:
   - name: "regex-tenant"
     id: "tenant-regex"
     oidc:
-      paths: ["^/api/metrics/.*/(query|query_range|series|labels)$"]
+      paths:
+        - operator: "=~"
+          pattern: "^/api/metrics/.*/(query|query_range|series|labels)$"
       clientID: "test-client-id"
       issuerURL: "https://auth.example.com"
     mTLS:
-      paths: ["^/api/metrics/.*/(receive|rules)$", "^/api/logs/.*/rules$"]
+      paths:
+        - operator: "=~"
+          pattern: "^/api/metrics/.*/(receive|rules)$"
+        - operator: "=~"
+          pattern: "^/api/logs/.*/rules$"
       ca: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t"
 `,
 			expectError: false,
@@ -97,7 +115,9 @@ tenants:
   - name: "invalid-regex-tenant"
     id: "tenant-invalid"
     oidc:
-      paths: ["[invalid-regex"]
+      paths:
+        - operator: "=~"
+          pattern: "[invalid-regex"
       clientID: "test-client-id"
       issuerURL: "https://auth.example.com"
 `,
@@ -111,11 +131,15 @@ tenants:
   - name: "overlap-tenant"
     id: "tenant-overlap"
     oidc:
-      paths: ["/api/.*"]
+      paths:
+        - operator: "=~"
+          pattern: "/api/.*"
       clientID: "test-client-id"
       issuerURL: "https://auth.example.com"
     mTLS:
-      paths: ["/api/.*/receive"]
+      paths:
+        - operator: "=~"
+          pattern: "/api/.*/receive"
       ca: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t"
 `,
 			expectError: false,
@@ -144,36 +168,38 @@ tenants:
 			// Test OIDC path pattern compilation
 			if tenant.OIDC != nil {
 				for _, pathPattern := range tenant.OIDC.Paths {
-					matcher, err := regexp.Compile(pathPattern)
+					matcher, err := regexp.Compile(pathPattern.Pattern)
 					if tt.expectError {
 						if err == nil {
-							t.Errorf("Expected error for invalid regex pattern %q, but got none", pathPattern)
+							t.Errorf("Expected error for invalid regex pattern %q, but got none", pathPattern.Pattern)
 						}
 						return
 					}
 					if err != nil {
-						t.Errorf("Failed to compile OIDC pattern %q: %v", pathPattern, err)
+						t.Errorf("Failed to compile OIDC pattern %q: %v", pathPattern.Pattern, err)
 						return
 					}
-					tenant.OIDC.pathMatchers = append(tenant.OIDC.pathMatchers, matcher)
+					// Path pattern compilation is now handled by the authenticator during initialization
+					_ = matcher // Just verify it compiles
 				}
 			}
 
 			// Test mTLS path pattern compilation
 			if tenant.MTLS != nil {
 				for _, pathPattern := range tenant.MTLS.Paths {
-					matcher, err := regexp.Compile(pathPattern)
+					matcher, err := regexp.Compile(pathPattern.Pattern)
 					if tt.expectError {
 						if err == nil {
-							t.Errorf("Expected error for invalid regex pattern %q, but got none", pathPattern)
+							t.Errorf("Expected error for invalid regex pattern %q, but got none", pathPattern.Pattern)
 						}
 						return
 					}
 					if err != nil {
-						t.Errorf("Failed to compile mTLS pattern %q: %v", pathPattern, err)
+						t.Errorf("Failed to compile mTLS pattern %q: %v", pathPattern.Pattern, err)
 						return
 					}
-					tenant.MTLS.pathMatchers = append(tenant.MTLS.pathMatchers, matcher)
+					// Path pattern compilation is now handled by the authenticator during initialization
+					_ = matcher // Just verify it compiles
 				}
 			}
 
@@ -195,13 +221,13 @@ tenants:
 
 func TestPathMatchingBehavior(t *testing.T) {
 	tests := []struct {
-		name         string
-		oidcPaths    []string
-		mtlsPaths    []string
-		testPath     string
-		expectOIDC   bool
-		expectMTLS   bool
-		description  string
+		name        string
+		oidcPaths   []string
+		mtlsPaths   []string
+		testPath    string
+		expectOIDC  bool
+		expectMTLS  bool
+		description string
 	}{
 		{
 			name:        "read_path_oidc_only",
@@ -250,9 +276,9 @@ func TestPathMatchingBehavior(t *testing.T) {
 		},
 		{
 			name:        "case_sensitive_matching",
-			oidcPaths:   []string{"/api/.*/Query"},  // uppercase Q
+			oidcPaths:   []string{"/api/.*/Query"}, // uppercase Q
 			mtlsPaths:   []string{"/api/.*/receive"},
-			testPath:    "/api/metrics/v1/query",    // lowercase q
+			testPath:    "/api/metrics/v1/query", // lowercase q
 			expectOIDC:  false,
 			expectMTLS:  false,
 			description: "Pattern matching should be case sensitive",
@@ -310,5 +336,3 @@ func TestPathMatchingBehavior(t *testing.T) {
 		})
 	}
 }
-
-
