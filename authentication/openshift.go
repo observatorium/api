@@ -140,27 +140,6 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		MaxRetries: 0, // Retry indefinitely.
 	})
 
-	authURL, tokenURL, oauthEnabled := discoverOAuthEndpoints(client, logger, tenant, registrationRetryCount, b)
-
-	var clientID string
-	var clientSecret string
-
-	if oauthEnabled {
-		for b.Reset(); b.Ongoing(); {
-			clientID, clientSecret, err = openshift.DiscoverCredentials(config.ServiceAccount)
-			if err != nil {
-				level.Error(logger).Log(
-					"tenant", tenant,
-					"msg", errors.Wrap(err, "unable to read serviceaccount credentials"))
-				registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-				b.Wait()
-
-				continue
-			}
-			break
-		}
-	}
-
 	authOpts := openshift.DelegatingAuthenticationOptions{
 		RemoteKubeConfigFile: config.KubeConfigPath,
 		CacheTTL:             2 * time.Minute,
@@ -194,6 +173,27 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		cipher, err = openshift.NewCipher([]byte(config.CookieSecret))
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to initialize cookie cipher")
+		}
+	}
+
+	authURL, tokenURL, oauthEnabled := discoverOAuthEndpoints(client, logger, tenant, registrationRetryCount, b)
+
+	var clientID string
+	var clientSecret string
+
+	if oauthEnabled {
+		for b.Reset(); b.Ongoing(); {
+			clientID, clientSecret, err = openshift.DiscoverCredentials(config.ServiceAccount)
+			if err != nil {
+				level.Error(logger).Log(
+					"tenant", tenant,
+					"msg", errors.Wrap(err, "unable to read serviceaccount credentials"))
+				registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+				b.Wait()
+
+				continue
+			}
+			break
 		}
 	}
 
