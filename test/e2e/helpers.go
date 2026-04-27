@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -21,16 +22,33 @@ import (
 	"github.com/observatorium/api/test/testtls"
 )
 
+// uniqueE2ENetworkName returns a Docker-valid e2e network name (≤16 chars, [-a-zA-Z0-9])
+// that is distinct for each Go test. efficientgo/e2e's bare e2e.New() would assign the same
+// network to all parallel tests leading to Docker network races.
+func uniqueE2ENetworkName(t *testing.T) string {
+	t.Helper()
+	sum := sha256.Sum256([]byte(t.Name()))
+	return fmt.Sprintf("%x", sum[:8]) // 16 hex digits
+}
+
 // Generates certificates and copies static configuration to the shared directory.
-func prepareConfigsAndCerts(t *testing.T, tt testType, e e2e.Environment) {
+func prepareConfigsAndCerts(t *testing.T, e e2e.Environment) {
 	testutil.Ok(
 		t,
 		testtls.GenerateCerts(
 			filepath.Join(e.SharedDir(), certsSharedDir),
-			getContainerName(t, tt, "observatorium-api"),
-			[]string{getContainerName(t, tt, "observatorium-api"), "127.0.0.1"},
-			getContainerName(t, tt, "dex"),
-			[]string{getContainerName(t, tt, "dex"), "127.0.0.1"},
+			getContainerName(e, "observatorium-api"),
+			[]string{
+				getContainerName(e, "observatorium-api"),
+				"127.0.0.1",
+				"host.docker.internal",
+			},
+			getContainerName(e, "dex"),
+			[]string{
+				getContainerName(e, "dex"),
+				"127.0.0.1",
+				"host.docker.internal",
+			},
 		),
 	)
 
@@ -38,9 +56,16 @@ func prepareConfigsAndCerts(t *testing.T, tt testType, e e2e.Environment) {
 }
 
 // obtainToken obtains a bearer token needed for communication with the API.
-func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
+// dexTLSHost is the Dex DNS name from the test CA (e.g. {network}-dex); set it so TLS verifies the
+// server cert when the TCP dial target is 127.0.0.1 or host.docker.internal (e2e.Endpoint).
+func obtainToken(endpoint, dexTLSHost string, tlsConf *tls.Config) (string, error) {
 	type token struct {
 		IDToken string `json:"id_token"`
+	}
+
+	tlsClient := tlsConf.Clone()
+	if dexTLSHost != "" {
+		tlsClient.ServerName = dexTLSHost
 	}
 
 	data := url.Values{}
@@ -59,7 +84,7 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 
 	c := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: tlsConf,
+			TLSClientConfig: tlsClient,
 		},
 	}
 
@@ -82,32 +107,10 @@ func obtainToken(endpoint string, tlsConf *tls.Config) (string, error) {
 	return t.IDToken, nil
 }
 
-func getContainerName(t *testing.T, tt testType, serviceName string) string {
-	switch tt {
-	case logs:
-		return envLogsName + "-" + serviceName
-	case metrics:
-		return envMetricsName + "-" + serviceName
-	case rules:
-		return envRulesAPIName + "-" + serviceName
-	case alerts:
-		return envAlertmanagerName + "-" + serviceName
-	case tenants:
-		return envTenantsName + "-" + serviceName
-	case interactive:
-		return envInteractive + "-" + serviceName
-	case probes:
-		return envProbesName + "-" + serviceName
-	case traces:
-		return envTracesName + "-" + serviceName
-	case tracesTemplate:
-		return envTracesTemplateName + "-" + serviceName
-	case tracesTempo:
-		return envTracesTempoName + "-" + serviceName
-	default:
-		t.Fatal("invalid test type provided")
-		return ""
-	}
+// getContainerName returns the Docker DNS hostname for a service in this environment.
+// It must match e2e's naming ({networkName}-{runnableName}) so TLS SANs and OIDC redirects stay correct.
+func getContainerName(e e2e.Environment, serviceName string) string {
+	return e.Name() + "-" + serviceName
 }
 
 func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
@@ -115,7 +118,9 @@ func getTLSClientConfig(t *testing.T, e e2e.Environment) *tls.Config {
 	testutil.Ok(t, err)
 
 	cp := x509.NewCertPool()
-	cp.AppendCertsFromPEM(cert)
+	if ok := cp.AppendCertsFromPEM(cert); !ok {
+		t.Fatal("failed to parse CA certificate from ca.pem")
+	}
 
 	return &tls.Config{
 		RootCAs: cp,

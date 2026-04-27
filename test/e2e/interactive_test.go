@@ -14,12 +14,12 @@ import (
 func TestInteractiveSetup(t *testing.T) {
 	fmt.Printf("Starting services...\n")
 
-	e, err := e2e.New(e2e.WithName(envInteractive))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, interactive, e)
-	_, token, rateLimiterAddr := startBaseServices(t, e, interactive)
+	prepareConfigsAndCerts(t, e)
+	_, token, rateLimiterAddr := startBaseServices(t, e)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 	logsEndpoint, logsExtEndpoint := startServicesForLogs(t, e)
 	rulesEndpoint := startServicesForRules(t, e)

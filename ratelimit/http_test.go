@@ -439,54 +439,47 @@ func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, r
 		headers    http.Header
 	}
 
-	results := make(chan result)
-	errCh := make(chan error)
-
+	ordered := make([]result, reqNum)
 	var wg sync.WaitGroup
+	var errOnce sync.Once
+	var requestErr error
 
 	for i := 0; i < reqNum; i++ {
 		wg.Add(1)
 		time.Sleep(pathTest.waitBetween)
 
-		go func() {
+		go func(i int) {
 			defer wg.Done()
 
 			res, err := http.Get(baseURL + pathTest.path + "/" + testTenant)
 			if err != nil {
-				errCh <- err
+				errOnce.Do(func() {
+					requestErr = err
+				})
 				return
 			}
-
 			defer res.Body.Close()
 
-			results <- result{
-				res.StatusCode,
-				res.Header,
+			ordered[i] = result{
+				statusCode: res.StatusCode,
+				headers:    res.Header.Clone(),
 			}
-		}()
+		}(i)
 	}
 
-	go func() {
-		wg.Wait()
-		close(errCh)
-		close(results)
-	}()
+	wg.Wait()
 
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatal(err)
-		}
-	default:
+	if requestErr != nil {
+		t.Fatal(requestErr)
 	}
 
 	var (
 		gotOKs             int
 		gotTooManyRequests int
-		gotHeaders         = make([]http.Header, 0, len(results))
+		gotHeaders         = make([]http.Header, 0, reqNum)
 	)
 
-	for r := range results {
+	for _, r := range ordered {
 		switch r.statusCode {
 		case http.StatusOK:
 			gotOKs++
