@@ -65,6 +65,13 @@ func GenerateCerts(
 		return err
 	}
 
+	// Use the parsed CA for signing leaves so leaf AuthorityKeyId matches the issued CA's
+	// SubjectKeyId (the in-memory template may omit fields the encoder adds).
+	caParsed, err := x509.ParseCertificate(caBytes)
+	if err != nil {
+		return fmt.Errorf("parse CA certificate: %w", err)
+	}
+
 	caPEM := new(bytes.Buffer)
 	if err := pem.Encode(caPEM, &pem.Block{
 		Type:  "CERTIFICATE",
@@ -88,15 +95,15 @@ func GenerateCerts(
 		key:  caPrivKeyPEM.Bytes(),
 	}
 
-	apiBundle, err := generateCert(ca, caPrivKey, false, apiCommonName, apiSANs, nil)
+	apiBundle, err := generateCert(caParsed, caPrivKey, false, apiCommonName, apiSANs, nil)
 	if err != nil {
 		return err
 	}
-	dexBundle, err := generateCert(ca, caPrivKey, false, dexCommonName, dexSANs, nil)
+	dexBundle, err := generateCert(caParsed, caPrivKey, false, dexCommonName, dexSANs, nil)
 	if err != nil {
 		return err
 	}
-	clientBundle, err := generateCert(ca, caPrivKey, true, clientCommonName, []string{clientSANs}, []string{clientGroups})
+	clientBundle, err := generateCert(caParsed, caPrivKey, true, clientCommonName, []string{clientSANs}, []string{clientGroups})
 	if err != nil {
 		return err
 	}

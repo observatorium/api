@@ -24,12 +24,12 @@ import (
 func TestAlertmanagerApiProxy(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envAlertmanagerName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, alerts, e)
-	_, token, rateLimiterAddr := startBaseServices(t, e, alerts)
+	prepareConfigsAndCerts(t, e)
+	_, token, rateLimiterAddr := startBaseServices(t, e)
 	alertmanagerEndpoint := newAlertmanagerService(e)
 	readEndpoint, writeEndpoint, _ := startServicesForMetrics(t, e)
 	testutil.Ok(t, e2e.StartAndWaitReady(alertmanagerEndpoint))

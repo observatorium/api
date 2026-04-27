@@ -146,12 +146,12 @@ const (
 func TestTracesExport(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envTracesName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, traces, e)
-	_, token, _ := startBaseServices(t, e, traces)
+	prepareConfigsAndCerts(t, e)
+	_, token, _ := startBaseServices(t, e)
 	internalOTLPGRPCEndpoint, internalOTLPHTTPEndpoint, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(
@@ -401,12 +401,12 @@ func requestWithRetry(t *testing.T, testLabel string, client *http.Client, reque
 func TestTracesTemplateQuery(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envTracesTemplateName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, tracesTemplate, e)
-	_, token, _ := startBaseServices(t, e, tracesTemplate)
+	prepareConfigsAndCerts(t, e)
+	_, token, _ := startBaseServices(t, e)
 	internalOTLPGRPCEndpoint, _, httpExternalQueryEndpoint, httpInternalQueryEndpoint := startServicesForTraces(t, e)
 
 	api, err := newObservatoriumAPIService(
@@ -521,12 +521,12 @@ func TestTracesTemplateQuery(t *testing.T) {
 func TestTracesTempo(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envTracesTempoName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, tracesTempo, e)
-	_, token, _ := startBaseServices(t, e, tracesTempo)
+	prepareConfigsAndCerts(t, e)
+	_, token, _ := startBaseServices(t, e)
 
 	tempoDistributorEndpoint, internalTempoQueryEndpoint, _ := startTempoServicesForTraces(t, e)
 

@@ -24,12 +24,12 @@ import (
 func TestMetricsReadAndWrite(t *testing.T) {
 	t.Parallel()
 
-	e, err := e2e.New(e2e.WithName(envMetricsName))
+	e, err := e2e.New(e2e.WithName(uniqueE2ENetworkName(t)))
 	testutil.Ok(t, err)
 	t.Cleanup(e.Close)
 
-	prepareConfigsAndCerts(t, metrics, e)
-	_, token, rateLimiterAddr := startBaseServices(t, e, metrics)
+	prepareConfigsAndCerts(t, e)
+	_, token, rateLimiterAddr := startBaseServices(t, e)
 	readEndpoint, writeEndpoint, readExtEndpoint := startServicesForMetrics(t, e)
 
 	api, err := newObservatoriumAPIService(
