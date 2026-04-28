@@ -118,7 +118,10 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 	}
 
 	if config.ServiceAccountCA != nil {
-		pool := x509.NewCertPool()
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			pool = x509.NewCertPool()
+		}
 		pool.AppendCertsFromPEM(config.ServiceAccountCA)
 
 		t.TLSClientConfig = &tls.Config{
