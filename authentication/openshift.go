@@ -77,6 +77,7 @@ type OpenShiftAuthenticator struct {
 	oauth2Config  oauth2.Config
 	cookieName    string
 	handler       http.Handler
+	oauthEnabled  bool
 }
 
 //nolint:funlen
@@ -142,44 +143,6 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		MaxRetries: 0, // Retry indefinitely.
 	})
 
-	var authURL *url.URL
-
-	var tokenURL *url.URL
-
-	for b.Reset(); b.Ongoing(); {
-		authURL, tokenURL, err = openshift.DiscoverOAuth(client)
-		if err != nil {
-			level.Error(logger).Log(
-				"tenant", tenant,
-				"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
-			registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-			b.Wait()
-
-			continue
-		}
-
-		break
-	}
-
-	var clientID string
-
-	var clientSecret string
-
-	for b.Reset(); b.Ongoing(); {
-		clientID, clientSecret, err = openshift.DiscoverCredentials(config.ServiceAccount)
-		if err != nil {
-			level.Error(logger).Log(
-				"tenant", tenant,
-				"msg", errors.Wrap(err, "unable to read serviceaccount credentials"))
-			registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
-			b.Wait()
-
-			continue
-		}
-
-		break
-	}
-
 	authOpts := openshift.DelegatingAuthenticationOptions{
 		RemoteKubeConfigFile: config.KubeConfigPath,
 		CacheTTL:             2 * time.Minute,
@@ -216,6 +179,27 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		}
 	}
 
+	authURL, tokenURL, oauthEnabled := discoverOAuthEndpoints(client, logger, tenant, registrationRetryCount, b)
+
+	var clientID string
+	var clientSecret string
+
+	if oauthEnabled {
+		for b.Reset(); b.Ongoing(); {
+			clientID, clientSecret, err = openshift.DiscoverCredentials(config.ServiceAccount)
+			if err != nil {
+				level.Error(logger).Log(
+					"tenant", tenant,
+					"msg", errors.Wrap(err, "unable to read serviceaccount credentials"))
+				registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+				b.Wait()
+
+				continue
+			}
+			break
+		}
+	}
+
 	osAuthenticator := OpenShiftAuthenticator{
 		tenant:        tenant,
 		authenticator: authenticator,
@@ -224,7 +208,13 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 		client:        client,
 		config:        config,
 		cookieName:    fmt.Sprintf("observatorium_%s", tenant),
-		oauth2Config: oauth2.Config{
+		oauthEnabled:  oauthEnabled,
+	}
+
+	r := chi.NewRouter()
+	r.Use(tracing.WithChiRoutePattern)
+	if oauthEnabled {
+		osAuthenticator.oauth2Config = oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Endpoint: oauth2.Endpoint{
@@ -238,13 +228,12 @@ func newOpenshiftAuthenticator(c map[string]interface{}, tenant string,
 				defaultOAuthScopeListProjects,
 			},
 			RedirectURL: config.RedirectURL,
-		},
+		}
+
+		r.Handle(loginRoute, osAuthenticator.openshiftLoginHandler())
+		r.Handle(callbackRoute, osAuthenticator.openshiftCallbackHandler())
 	}
 
-	r := chi.NewRouter()
-	r.Use(tracing.WithChiRoutePattern)
-	r.Handle(loginRoute, osAuthenticator.openshiftLoginHandler())
-	r.Handle(callbackRoute, osAuthenticator.openshiftCallbackHandler())
 	osAuthenticator.handler = r
 
 	return osAuthenticator, nil
@@ -445,6 +434,13 @@ func (a OpenShiftAuthenticator) Middleware() Middleware {
 			// when users went through the OAuth2 flow supported by this
 			// provider. Observatorium stores a self-signed JWT token on a
 			// cookie per tenant to identify the subject of incoming requests.
+			if !a.oauthEnabled {
+				msg := "OAuth authentication not available"
+				level.Debug(a.logger).Log("msg", msg)
+				httperr.PrometheusAPIError(w, msg, http.StatusUnauthorized)
+				return
+			}
+
 			cookie, err := r.Cookie(a.cookieName)
 			if err != nil {
 				tenant, ok := GetTenant(r.Context())
@@ -543,4 +539,25 @@ func (a OpenShiftAuthenticator) GRPCMiddleware() grpc.StreamServerInterceptor {
 
 func (a OpenShiftAuthenticator) Handler() (string, http.Handler) {
 	return "/openshift/{tenant}", a.handler
+}
+
+func discoverOAuthEndpoints(client *http.Client, logger log.Logger, tenant string, registrationRetryCount *prometheus.CounterVec, b *backoff.Backoff) (*url.URL, *url.URL, bool) {
+	var authURL, tokenURL *url.URL
+	var err error
+	for b.Reset(); b.Ongoing(); {
+		authURL, tokenURL, err = openshift.DiscoverOAuth(client)
+		if err != nil {
+			if errors.Is(err, openshift.ErrOAuthServerNotFound) {
+				return nil, nil, false
+			}
+			level.Error(logger).Log(
+				"tenant", tenant,
+				"msg", errors.Wrap(err, "unable to auto discover OpenShift OAuth endpoints"))
+			registrationRetryCount.WithLabelValues(tenant, OpenShiftAuthenticatorType).Inc()
+			b.Wait()
+			continue
+		}
+		break
+	}
+	return authURL, tokenURL, true
 }

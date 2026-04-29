@@ -8,10 +8,12 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
-	oauthWellKnownPath = "/.well-known/oauth-authorization-server"
+	OauthWellKnownPath = "/.well-known/oauth-authorization-server"
 
 	// ServiceAccountNamespacePath is the path to the default serviceaccount namespace.
 	ServiceAccountNamespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
@@ -20,6 +22,8 @@ const (
 	// ServiceAccountCAPath is the path to the default cluster CA certificate.
 	ServiceAccountCAPath = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
+
+var ErrOAuthServerNotFound = errors.Errorf("OAuth server not found")
 
 // GetServiceAccountCACert returns the PEM-encoded CA certificate currently mounted.
 func GetServiceAccountCACert() ([]byte, error) {
@@ -54,7 +58,7 @@ func DiscoverCredentials(name string) (string, string, error) {
 // DiscoverOAuth return the authorization and token endpoints of the OpenShift OAuth server.
 // Returns an error if requesting the `/.well-known/oauth-authorization-server` fails.
 func DiscoverOAuth(client *http.Client) (authURL, tokenURL *url.URL, err error) {
-	oauthURL := toKubeAPIURLWithPath(oauthWellKnownPath)
+	oauthURL := toKubeAPIURLWithPath(OauthWellKnownPath)
 
 	req, err := http.NewRequest(http.MethodGet, oauthURL.String(), nil)
 	if err != nil {
@@ -73,6 +77,9 @@ func DiscoverOAuth(client *http.Client) (authURL, tokenURL *url.URL, err error) 
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode == 404 {
+			return nil, nil, ErrOAuthServerNotFound
+		}
 		return nil, nil, fmt.Errorf("got %d %s", resp.StatusCode, body)
 	}
 
