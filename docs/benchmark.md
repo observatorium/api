@@ -1,6 +1,6 @@
 # Benchmark baseline results
 
-This document contains baseline benchmark results for Observatorium API  under synthetic load.
+This document contains baseline benchmark results for Observatorium API under synthetic load.
 
 Tested on:
 
@@ -12,8 +12,7 @@ Tested on:
 
 Generated using:
 
-[embedmd]:# (../tmp/load_help.txt)
-```txt
+```txt mdox-exec="./test/load.sh -h"
 load.sh [-h] [-r n] [-c n] [-m n] [-q n] [-o csv|gnuplot] -- program to test synthetic load on observatorium api and report results.
 
 where:
@@ -31,33 +30,35 @@ With parameters:
 $ ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 ```
 
-> It runs tets for 5 minutes, simulating 3000 machines sending metrics and 10 consumers querying for their data every second.
-> Observatorim API GW runs in-front of a mock provider which always responds with a successful response.
+> It runs tests for 5 minutes, simulating 3000 machines sending metrics and 10 consumers querying for their data every second. Observatorim API GW runs in-front of a mock provider which always responds with a successful response.
 
 ## Results
 
-Most relevant results are the ones on resource consumption.
-CPU usage is pretty much stable.
-Memory usage correlates with the number of goroutines, which correlates the number of open connections.
-Memory usage increases and request latencies increase as the backend services' load increase, which is expected.
+Most relevant results are the ones on resource consumption. CPU usage is pretty much stable. Memory usage correlates with the number of goroutines, which correlates the number of open connections. Memory usage increases and request latencies increase as the backend services' load increase, which is expected.
 
 ### Resource consumption
 
 #### CPU Usage
 
-> `rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 1000`
+```
+rate(process_cpu_seconds_total{job="observatorium"}[1m]) * 1000
+```
 
 ![./loadtests/cpu.png](./loadtests/cpu.png)
 
 #### Memory Usage
 
-> `process_resident_memory_bytes{job="observatorium"}'`
+```
+process_resident_memory_bytes{job="observatorium"}
+```
 
 ![./loadtests/mem.png](./loadtests/mem.png)
 
 #### Number of Goroutines
 
-> go_goroutines{job="observatorium"}'
+```
+go_goroutines{job="observatorium"}
+```
 
 ![./loadtests/goroutines.png](./loadtests/goroutines.png)
 
@@ -67,21 +68,27 @@ Memory usage increases and request latencies increase as the backend services' l
 
 ##### Write P99
 
-> histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))'
+```
+histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))
+```
 
 ![./loadtests/write_dur_99.png](./loadtests/write_dur_99.png)
 
 ##### Write P50
 
-> histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))'
+```
+histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="write"}[1m])))
+```
 
 ![./loadtests/write_dur_50.png](./loadtests/write_dur_50.png)
 
 ##### Write Average
 
-> 100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100
-> /
-> sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m])))'
+```
+100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="write"}[1m])) * 100
+/
+sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="write"}[1m])))
+```
 
 ![./loadtests/write_dur_avg.png](./loadtests/write_dur_avg.png)
 
@@ -89,19 +96,26 @@ Memory usage increases and request latencies increase as the backend services' l
 
 ##### Query P99
 
-> histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))'
+```
+histogram_quantile(0.99, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))
+```
 
 ![./loadtests/query_range_dur_99.png](./loadtests/query_range_dur_99.png)
 
 ##### Query P50
 
-> histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))'
+```
+histogram_quantile(0.50, sum by (job, le) (rate(http_request_duration_seconds_bucket{job="observatorium", handler="query_range"}[1m])))
+```
 
 ![./loadtests/query_range_dur_50.png](./loadtests/query_range_dur_50.png)
 
 ##### Query Average
-> 100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m]))
-> /
-> sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m])))'
+
+```
+100 * (sum by (job) (rate(http_request_duration_seconds_sum{job="observatorium", handler="query_range"}[1m]))
+/
+sum by (job) (rate(http_request_duration_seconds_count{job="observatorium", handler="query_range"}[1m])))
+```
 
 ![./loadtests/query_range_dur_avg.png](./loadtests/query_range_dur_avg.png)

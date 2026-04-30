@@ -1532,12 +1532,12 @@ func parseFlags() (config, error) {
 		}
 	}
 
-	if cfg.traces.enabled && cfg.server.grpcListen == "" {
-		return cfg, fmt.Errorf("-traces.write.endpoint is set to %q but -grpc.listen is not set", cfg.traces.writeOTLPGRPCEndpoint)
+	if cfg.traces.writeOTLPGRPCEndpoint != "" && cfg.server.grpcListen == "" {
+		return cfg, fmt.Errorf("--traces.write.endpoint is set to %q but --grpc.listen is not set", cfg.traces.writeOTLPGRPCEndpoint)
 	}
 
-	if !cfg.traces.enabled && cfg.server.grpcListen != "" {
-		return cfg, fmt.Errorf("-traces.write.endpoint is not set but -grpc.listen is set to %q", cfg.server.grpcListen)
+	if cfg.traces.writeOTLPGRPCEndpoint == "" && cfg.server.grpcListen != "" {
+		return cfg, fmt.Errorf("--traces.write.endpoint is not set but --grpc.listen is set to %q", cfg.server.grpcListen)
 	}
 
 	if rawTLSCipherSuites != "" {
