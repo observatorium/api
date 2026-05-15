@@ -542,6 +542,12 @@ func main() {
 		for _, groupHandler := range legacyMetricsGroup {
 			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
 		}
+		for _, groupHandler := range logsV1Group {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
+		for _, groupHandler := range tracesV1Group {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
 
 		var (
 			tenantIDs   = map[string]string{}
@@ -1650,4 +1656,31 @@ var metricsV1Group = []groupHandler{
 	{"metricsv1", "rules-raw"},
 	{"metricsv1", "alerts"},
 	{"metricsv1", "silences"},
+}
+
+var logsV1Group = []groupHandler{
+	{"logsv1", "query"},
+	{"logsv1", "query_range"},
+	{"logsv1", "label"},
+	{"logsv1", "labels"},
+	{"logsv1", "volume"},
+	{"logsv1", "volume_range"},
+	{"logsv1", "label_values"},
+	{"logsv1", "series"},
+	{"logsv1", "rules"},
+	{"logsv1", "alerts"},
+	{"logsv1", "tail"},
+	{"logsv1", "prom_tail"},
+	{"logsv1", "otlp"},
+	{"logsv1", "push"},
+}
+
+var tracesV1Group = []groupHandler{
+	{"tracesv1api", "traces"},
+	{"tracesv1api", "services"},
+	{"tracesv1api", "dependencies"},
+	{"metricsv1api", "metrics"},
+	{"tracesv1static", "ui"},
+	{"tracesv1ui", "ui"},
+	{"tracesotlphttpv1api", "traces"},
 }
