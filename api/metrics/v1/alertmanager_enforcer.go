@@ -2,12 +2,21 @@ package v1
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
+	runtimeclient "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/strfmt"
+	"github.com/prometheus/alertmanager/api/v2/client"
+	"github.com/prometheus/alertmanager/api/v2/client/silence"
 	"github.com/prometheus/alertmanager/api/v2/models"
 	amlabels "github.com/prometheus/alertmanager/pkg/labels"
 	"github.com/prometheus/prometheus/model/labels"
@@ -64,10 +73,11 @@ func WithEnforceTenancyOnFilter(label string) func(http.Handler) http.Handler {
 	}
 }
 
-// WithEnforceTenancyOnFilter returns a middleware that ensures that every filter has a tenant label enforced.
+// WithEnforceTenancyOnSilenceMatchers returns a middleware that ensures POST silence requests
+// include the tenant label matcher.
 func WithEnforceTenancyOnSilenceMatchers(label string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		// https://github.com/prometheus-community/prom-label-proxy/
+		// https://github.com/prometheus-community/prom-label-proxy/injectproxy/silences.go
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id, ok := authentication.GetTenantID(r.Context())
 			if !ok {
@@ -90,6 +100,7 @@ func WithEnforceTenancyOnSilenceMatchers(label string) func(http.Handler) http.H
 			if sil.ID != "" {
 				// This is an update for an existing silence.
 				httperr.PrometheusAPIError(w, "updates to silence by ID not allowed", http.StatusUnprocessableEntity)
+				return
 			}
 
 			var falsy bool
@@ -125,4 +136,115 @@ func WithEnforceTenancyOnSilenceMatchers(label string) func(http.Handler) http.H
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// alertmanagerGetSilence returns a silence when it belongs to the tenant.
+func alertmanagerGetSilence(label string, upstream *url.URL, transport http.RoundTripper) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		silID := chi.URLParam(r, "silenceID")
+		if silID == "" {
+			httperr.PrometheusAPIError(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		tenantID, ok := authentication.GetTenantID(r.Context())
+		if !ok {
+			httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
+			return
+		}
+
+		sil, err := getSilenceByID(r.Context(), upstream, transport, silID)
+		if err != nil {
+			var notFound *silence.GetSilenceNotFound
+			if errors.As(err, &notFound) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			httperr.PrometheusAPIError(w, fmt.Sprintf("proxy error: %v", err), http.StatusBadGateway)
+			return
+		}
+
+		if !hasMatcherForLabel(sil.Matchers, label, tenantID) {
+			httperr.PrometheusAPIError(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(sil); err != nil {
+			httperr.PrometheusAPIError(w, fmt.Sprintf("can't encode: %v", err), http.StatusInternalServerError)
+		}
+	})
+}
+
+// alertmanagerDeleteSilence checks silence ownership then proxies DELETE to Alertmanager.
+// Adapted from https://github.com/prometheus-community/prom-label-proxy/blob/main/injectproxy/silences.go
+func alertmanagerDeleteSilence(label string, upstream *url.URL, transport http.RoundTripper, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		silID := chi.URLParam(r, "silenceID")
+		if silID == "" {
+			httperr.PrometheusAPIError(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		tenantID, ok := authentication.GetTenantID(r.Context())
+		if !ok {
+			httperr.PrometheusAPIError(w, "error finding tenant ID", http.StatusInternalServerError)
+			return
+		}
+
+		sil, err := getSilenceByID(r.Context(), upstream, transport, silID)
+		if err != nil {
+			var notFound *silence.GetSilenceNotFound
+			if errors.As(err, &notFound) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			httperr.PrometheusAPIError(w, fmt.Sprintf("proxy error: %v", err), http.StatusBadGateway)
+			return
+		}
+
+		if !hasMatcherForLabel(sil.Matchers, label, tenantID) {
+			httperr.PrometheusAPIError(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
+		r.URL.RawQuery = ""
+		next.ServeHTTP(w, r)
+	})
+}
+
+func getSilenceByID(ctx context.Context, upstream *url.URL, transport http.RoundTripper, id string) (*models.GettableSilence, error) {
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+
+	rt := runtimeclient.NewWithClient(
+		upstream.Host,
+		path.Join(upstream.Path, "/api/v2"),
+		[]string{upstream.Scheme},
+		&http.Client{Transport: transport},
+	)
+	amc := client.New(rt, strfmt.Default)
+
+	params := silence.NewGetSilenceParams().WithContext(ctx)
+	params.SetSilenceID(strfmt.UUID(id))
+
+	res, err := amc.Silence.GetSilence(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Payload, nil
+}
+
+func hasMatcherForLabel(matchers models.Matchers, name, value string) bool {
+	for _, m := range matchers {
+		if m.Name == nil || m.Value == nil || m.IsRegex == nil {
+			continue
+		}
+		if *m.Name == name && !*m.IsRegex && *m.Value == value {
+			return true
+		}
+	}
+	return false
 }

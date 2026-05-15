@@ -758,7 +758,6 @@ func main() {
 						),
 						metricsv1.WithAlertmanagerSilenceWriteMiddleware(
 							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
-							metricsv1.WithEnforceTenancyOnSilenceMatchers(cfg.metrics.tenantLabel),
 						),
 					),
 					)
