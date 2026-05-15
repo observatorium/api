@@ -41,9 +41,11 @@ const (
 )
 
 type alertmanagerMiddleware struct {
-	alertsReadMiddlewares   []func(http.Handler) http.Handler
-	silenceReadMiddlewares  []func(http.Handler) http.Handler
-	silenceWriteMiddlewares []func(http.Handler) http.Handler
+	alertsReadMiddlewares     []func(http.Handler) http.Handler
+	silenceReadMiddlewares    []func(http.Handler) http.Handler
+	silenceWriteMiddlewares   []func(http.Handler) http.Handler
+	silenceIDReadMiddlewares  []func(http.Handler) http.Handler
+	silenceIDWriteMiddlewares []func(http.Handler) http.Handler
 }
 
 type handlerConfiguration struct {
@@ -135,6 +137,18 @@ func WithAlertmanagerSilenceWriteMiddleware(m ...func(http.Handler) http.Handler
 	}
 }
 
+func WithAlertmanagerSilenceIDReadMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.alertmanagerMiddleware.silenceIDReadMiddlewares = append(h.alertmanagerMiddleware.silenceIDReadMiddlewares, m...)
+	}
+}
+
+func WithAlertmanagerSilenceIDWriteMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
+	return func(h *handlerConfiguration) {
+		h.alertmanagerMiddleware.silenceIDWriteMiddlewares = append(h.alertmanagerMiddleware.silenceIDWriteMiddlewares, m...)
+	}
+}
+
 // WithGlobalMiddleware adds a middleware for all operations.
 func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
@@ -145,6 +159,8 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 		h.alertmanagerMiddleware.alertsReadMiddlewares = append(h.alertmanagerMiddleware.alertsReadMiddlewares, m...)
 		h.alertmanagerMiddleware.silenceReadMiddlewares = append(h.alertmanagerMiddleware.silenceReadMiddlewares, m...)
 		h.alertmanagerMiddleware.silenceWriteMiddlewares = append(h.alertmanagerMiddleware.silenceWriteMiddlewares, m...)
+		h.alertmanagerMiddleware.silenceIDReadMiddlewares = append(h.alertmanagerMiddleware.silenceIDReadMiddlewares, m...)
+		h.alertmanagerMiddleware.silenceIDWriteMiddlewares = append(h.alertmanagerMiddleware.silenceIDWriteMiddlewares, m...)
 	}
 }
 
@@ -465,6 +481,11 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 		})
 
 		alertmanagerSilenceTransport := otelhttp.NewTransport(alertmanagerTransport)
+		enforceTenancyOnSilenceID := WithEnforceTenancyOnSilenceID(
+			c.tenantLabel,
+			endpoints.AlertmanagerEndpoint,
+			alertmanagerSilenceTransport,
+		)
 
 		r.Group(func(r chi.Router) {
 			r.Use(func(handler http.Handler) http.Handler {
@@ -473,15 +494,11 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 					handler,
 				)
 			})
-			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
+			r.Use(enforceTenancyOnSilenceID)
+			r.Use(c.alertmanagerMiddleware.silenceIDReadMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
-			getSilence := alertmanagerGetSilence(
-				c.tenantLabel,
-				endpoints.AlertmanagerEndpoint,
-				alertmanagerSilenceTransport,
-			)
-			r.Method(http.MethodGet, AlertmanagerSilenceRoute, getSilence)
+			r.Method(http.MethodGet, AlertmanagerSilenceRoute, proxyAlertmanager)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -491,16 +508,11 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 					handler,
 				)
 			})
-			r.Use(c.alertmanagerMiddleware.silenceWriteMiddlewares...)
+			r.Use(enforceTenancyOnSilenceID)
+			r.Use(c.alertmanagerMiddleware.silenceIDWriteMiddlewares...)
 			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
 
-			deleteSilence := alertmanagerDeleteSilence(
-				c.tenantLabel,
-				endpoints.AlertmanagerEndpoint,
-				alertmanagerSilenceTransport,
-				proxyAlertmanager,
-			)
-			r.Method(http.MethodDelete, AlertmanagerSilenceRoute, deleteSilence)
+			r.Method(http.MethodDelete, AlertmanagerSilenceRoute, proxyAlertmanager)
 		})
 	}
 

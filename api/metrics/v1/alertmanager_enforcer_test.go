@@ -79,7 +79,7 @@ func TestHasMatcherForLabel(t *testing.T) {
 	}
 }
 
-func TestAlertmanagerDeleteSilence(t *testing.T) {
+func TestWithEnforceTenancyOnSilenceID(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -111,11 +111,76 @@ func TestAlertmanagerDeleteSilence(t *testing.T) {
 }`
 	}
 
-	t.Run("allows delete when silence belongs to tenant", func(t *testing.T) {
+	newRouter := func(t *testing.T, upstream http.Handler, next http.Handler) *chi.Mux {
+		t.Helper()
+
+		srv := httptest.NewServer(upstream)
+		t.Cleanup(srv.Close)
+
+		upstreamURL, err := url.Parse(srv.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		r := chi.NewRouter()
+		r.Use(authentication.WithTenant)
+		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
+		r.With(WithEnforceTenancyOnSilenceID(label, upstreamURL, srv.Client().Transport)).Method(
+			http.MethodGet,
+			"/{tenant}/am/api/v2/silence/{silenceID}",
+			next,
+		)
+		r.With(WithEnforceTenancyOnSilenceID(label, upstreamURL, srv.Client().Transport)).Method(
+			http.MethodDelete,
+			"/{tenant}/am/api/v2/silence/{silenceID}",
+			next,
+		)
+
+		return r
+	}
+
+	newRequest := func(method string) *http.Request {
+		req := httptest.NewRequest(method, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
+		rctx := chi.NewRouteContext()
+		rctx.URLParams.Add("tenant", tenantName)
+		rctx.URLParams.Add("silenceID", silID)
+		return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	}
+
+	t.Run("proxies get when silence belongs to tenant", func(t *testing.T) {
+		t.Parallel()
+
+		var proxyCalled bool
+		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && r.URL.Path == "/api/v2/silence/"+silID {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(silenceJSON(tenantID)))
+				return
+			}
+			http.NotFound(w, r)
+		})
+		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			proxyCalled = true
+			w.WriteHeader(http.StatusOK)
+		})
+
+		rec := httptest.NewRecorder()
+		newRouter(t, upstream, next).ServeHTTP(rec, newRequest(http.MethodGet))
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+		}
+		if !proxyCalled {
+			t.Fatal("expected request to be proxied")
+		}
+	})
+
+	t.Run("proxies delete when silence belongs to tenant", func(t *testing.T) {
 		t.Parallel()
 
 		var deleteCalled bool
-		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case r.Method == http.MethodGet && r.URL.Path == "/api/v2/silence/"+silID:
 				w.Header().Set("Content-Type", "application/json")
@@ -127,36 +192,14 @@ func TestAlertmanagerDeleteSilence(t *testing.T) {
 			default:
 				http.NotFound(w, r)
 			}
-		}))
-		t.Cleanup(upstream.Close)
-
-		upstreamURL, err := url.Parse(upstream.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		r := chi.NewRouter()
-		r.Use(authentication.WithTenant)
-		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
-		deleteHandler := alertmanagerDeleteSilence(
-			label,
-			upstreamURL,
-			upstream.Client().Transport,
-			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				deleteCalled = true
-				w.WriteHeader(http.StatusOK)
-			}),
-		)
-		r.Delete("/{tenant}/am/api/v2/silence/{silenceID}", deleteHandler.ServeHTTP)
-
-		req := httptest.NewRequest(http.MethodDelete, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("tenant", tenantName)
-		rctx.URLParams.Add("silenceID", silID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		})
+		next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusOK)
+		})
 
 		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
+		newRouter(t, upstream, next).ServeHTTP(rec, newRequest(http.MethodDelete))
 
 		if rec.Code != http.StatusOK {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
@@ -169,7 +212,7 @@ func TestAlertmanagerDeleteSilence(t *testing.T) {
 	t.Run("forbidden when silence belongs to another tenant", func(t *testing.T) {
 		t.Parallel()
 
-		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet && r.URL.Path == "/api/v2/silence/"+silID {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
@@ -177,146 +220,12 @@ func TestAlertmanagerDeleteSilence(t *testing.T) {
 				return
 			}
 			http.NotFound(w, r)
-		}))
-		t.Cleanup(upstream.Close)
-
-		upstreamURL, err := url.Parse(upstream.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		r := chi.NewRouter()
-		r.Use(authentication.WithTenant)
-		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
-		deleteHandler := alertmanagerDeleteSilence(
-			label,
-			upstreamURL,
-			upstream.Client().Transport,
-			http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-				t.Fatal("delete should not be proxied")
-			}),
-		)
-		r.Delete("/{tenant}/am/api/v2/silence/{silenceID}", deleteHandler.ServeHTTP)
-
-		req := httptest.NewRequest(http.MethodDelete, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("tenant", tenantName)
-		rctx.URLParams.Add("silenceID", silID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		})
 
 		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusForbidden {
-			t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
-		}
-	})
-}
-
-func TestAlertmanagerGetSilence(t *testing.T) {
-	t.Parallel()
-
-	const (
-		label      = "tenant_id"
-		tenantName = "test-oidc"
-		tenantID   = "1610b0c3-c509-4592-a256-a1871353dbfa"
-		silID      = "802146e0-1f7a-42a6-ab0e-1e631479970b"
-	)
-
-	silenceJSON := func(tenant string) string {
-		t.Helper()
-		return `{
-  "id": "` + silID + `",
-  "status": {
-    "state": "active"
-  },
-  "updatedAt": "2020-01-15T09:06:23.419Z",
-  "comment": "comment",
-  "createdBy": "author",
-  "endsAt": "2020-02-13T13:00:02.084Z",
-  "matchers": [
-    {
-      "isRegex": false,
-      "name": "` + label + `",
-      "value": "` + tenant + `"
-    }
-  ],
-  "startsAt": "2020-02-13T12:02:01.000Z"
-}`
-	}
-
-	t.Run("returns silence for tenant", func(t *testing.T) {
-		t.Parallel()
-
-		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet && r.URL.Path == "/api/v2/silence/"+silID {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(silenceJSON(tenantID)))
-				return
-			}
-			http.NotFound(w, r)
-		}))
-		t.Cleanup(upstream.Close)
-
-		upstreamURL, err := url.Parse(upstream.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		r := chi.NewRouter()
-		r.Use(authentication.WithTenant)
-		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
-		getHandler := alertmanagerGetSilence(label, upstreamURL, upstream.Client().Transport)
-		r.Get("/{tenant}/am/api/v2/silence/{silenceID}", getHandler.ServeHTTP)
-
-		req := httptest.NewRequest(http.MethodGet, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("tenant", tenantName)
-		rctx.URLParams.Add("silenceID", silID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
-
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
-		}
-	})
-
-	t.Run("forbidden for other tenant silence", func(t *testing.T) {
-		t.Parallel()
-
-		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet && r.URL.Path == "/api/v2/silence/"+silID {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(silenceJSON("other-tenant")))
-				return
-			}
-			http.NotFound(w, r)
-		}))
-		t.Cleanup(upstream.Close)
-
-		upstreamURL, err := url.Parse(upstream.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		r := chi.NewRouter()
-		r.Use(authentication.WithTenant)
-		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
-		getHandler := alertmanagerGetSilence(label, upstreamURL, upstream.Client().Transport)
-		r.Get("/{tenant}/am/api/v2/silence/{silenceID}", getHandler.ServeHTTP)
-
-		req := httptest.NewRequest(http.MethodGet, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("tenant", tenantName)
-		rctx.URLParams.Add("silenceID", silID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
-
-		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
+		newRouter(t, upstream, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			t.Fatal("request should not be proxied")
+		})).ServeHTTP(rec, newRequest(http.MethodGet))
 
 		if rec.Code != http.StatusForbidden {
 			t.Fatalf("expected status %d, got %d", http.StatusForbidden, rec.Code)
@@ -326,30 +235,14 @@ func TestAlertmanagerGetSilence(t *testing.T) {
 	t.Run("not found when silence is missing", func(t *testing.T) {
 		t.Parallel()
 
-		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		upstream := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-		}))
-		t.Cleanup(upstream.Close)
-
-		upstreamURL, err := url.Parse(upstream.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		r := chi.NewRouter()
-		r.Use(authentication.WithTenant)
-		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
-		getHandler := alertmanagerGetSilence(label, upstreamURL, upstream.Client().Transport)
-		r.Get("/{tenant}/am/api/v2/silence/{silenceID}", getHandler.ServeHTTP)
-
-		req := httptest.NewRequest(http.MethodGet, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
-		rctx := chi.NewRouteContext()
-		rctx.URLParams.Add("tenant", tenantName)
-		rctx.URLParams.Add("silenceID", silID)
-		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+		})
 
 		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
+		newRouter(t, upstream, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			t.Fatal("request should not be proxied")
+		})).ServeHTTP(rec, newRequest(http.MethodDelete))
 
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rec.Code)
