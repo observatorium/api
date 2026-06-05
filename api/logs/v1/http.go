@@ -235,19 +235,19 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOption
 			))
 			r.Handle(patternsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "patterns"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+patternsRoute, proxyRead),
+				proxyRead,
 			))
 			r.Handle(detectedLabelsRoute, c.instrument.NewHandler(
 				prometheus.Labels{"group": "logsv1", "handler": "detected_labels"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+promSeriesRoute, proxyRead),
+				proxyRead,
 			))
 			r.Handle(detectedFieldRoute, c.instrument.NewHandler(
-				prometheus.Labels{"group": "logsv1", "handler": "detected_field`"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+promSeriesRoute, proxyRead),
+				prometheus.Labels{"group": "logsv1", "handler": "detected_field"},
+				proxyRead,
 			))
 			r.Handle(detectedFieldsRoute, c.instrument.NewHandler(
-				prometheus.Labels{"group": "logsv1", "handler": "detected_fields`"},
-				otelhttp.WithRouteTag(c.spanRoutePrefix+promSeriesRoute, proxyRead),
+				prometheus.Labels{"group": "logsv1", "handler": "detected_fields"},
+				proxyRead,
 			))
 		})
 	}
