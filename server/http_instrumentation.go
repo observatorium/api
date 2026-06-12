@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,10 +31,10 @@ func (m httpMetricsCollector) initializeMetrics(labels prometheus.Labels) {
 		}
 	}
 
-	m.requestCounter.MustCurryWith(labels).WithLabelValues("", "", "")
-	m.requestSize.MustCurryWith(labels).WithLabelValues("", "", "")
-	m.requestDuration.MustCurryWith(labels).WithLabelValues("", "", "")
-	m.responseSize.MustCurryWith(labels).WithLabelValues("", "", "")
+	m.requestCounter.MustCurryWith(labels)
+	m.requestSize.MustCurryWith(labels)
+	m.requestDuration.MustCurryWith(labels)
+	m.responseSize.MustCurryWith(labels)
 }
 
 // newHTTPMetricsCollector creates a new httpMetricsCollector.
@@ -93,9 +94,7 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestLabels := make(prometheus.Labels, len(extraLabels))
-		for k, v := range extraLabels {
-			requestLabels[k] = v
-		}
+		maps.Copy(requestLabels, extraLabels)
 
 		r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, requestLabels))
 
@@ -107,9 +106,7 @@ func (m instrumentedHandlerFactory) NewHandler(extraLabels prometheus.Labels, ne
 		// if different extra labels come back through the context after serving the request, merge them.
 		if labels := r.Context().Value(ExtraLabelContextKey); labels != nil {
 			ctxLabels := labels.(prometheus.Labels)
-			for k, v := range ctxLabels {
-				requestLabels[k] = v
-			}
+			maps.Copy(requestLabels, ctxLabels)
 		}
 
 		tenant, _ := authentication.GetTenantID(r.Context())
@@ -155,9 +152,7 @@ func InjectLabelsCtx(labels prometheus.Labels, handler http.Handler) http.Handle
 			extraLabels = prometheus.Labels{}
 		}
 		if extraLabels != nil {
-			for k, v := range labels {
-				extraLabels[k] = v
-			}
+			maps.Copy(extraLabels, labels)
 			r = r.WithContext(context.WithValue(r.Context(), ExtraLabelContextKey, extraLabels))
 		}
 		handler.ServeHTTP(w, r)
