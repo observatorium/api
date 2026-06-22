@@ -2,8 +2,6 @@ package v1
 
 import (
 	"bytes"
-	"compress/flate"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"net"
@@ -18,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
@@ -164,7 +163,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.
 			proxyRead = &httputil.ReverseProxy{
 				Director:  middlewares,
 				ErrorLog:  proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(t),
+				Transport: decompressingTransport(otelhttp.NewTransport(t)),
 
 				// This is a key piece, it changes <base href=> tags on text/html content
 				ModifyResponse: jaegerUIResponseModifier,
@@ -261,6 +260,7 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.
 			Transport: otelhttp.NewTransport(t),
 		}
 		if c.enableRBAC {
+			tempoProxyRead.Transport = decompressingTransport(tempoProxyRead.Transport)
 			tempoProxyRead.ModifyResponse = responseRBACModifier(c.logger)
 		}
 
@@ -316,27 +316,7 @@ func jaegerUIResponseModifier(response *http.Response) error {
 	// Only modify successful HTTP with HTML content
 	if response.StatusCode == http.StatusOK && strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
 		// Do man-in-the-middle rewriting of the UI HTML.
-		var err error
-
-		// Uncompressed reader
-		var reader io.ReadCloser
-
-		// Read what Jaeger UI sent back (which might be compressed)
-		switch response.Header.Get("Content-Encoding") {
-		case "gzip":
-			reader, err = gzip.NewReader(response.Body)
-			if err != nil {
-				return err
-			}
-			defer reader.Close()
-		case "deflate":
-			reader = flate.NewReader(response.Body)
-			defer reader.Close()
-		default:
-			reader = response.Body
-		}
-
-		b, err := io.ReadAll(reader)
+		b, err := io.ReadAll(response.Body)
 		if err != nil {
 			return err
 		}
@@ -361,4 +341,20 @@ func jaegerUIResponseModifier(response *http.Response) error {
 	}
 
 	return nil
+}
+
+// decompressingTransport wraps a transport with gzhttp.Transport for transparent decompression.
+// The reverse proxy copies the client's Accept-Encoding, which may include encodings we can't decode.
+// We clear it because gzhttp.Transport only sets its own supported encodings when the header is absent.
+func decompressingTransport(inner http.RoundTripper) http.RoundTripper {
+	return &acceptEncodingClearer{inner: gzhttp.Transport(inner)}
+}
+
+type acceptEncodingClearer struct {
+	inner http.RoundTripper
+}
+
+func (t *acceptEncodingClearer) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Del("Accept-Encoding")
+	return t.inner.RoundTrip(req)
 }

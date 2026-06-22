@@ -2,8 +2,6 @@ package v1
 
 import (
 	"bytes"
-	"compress/flate"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,26 +71,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 			level.Debug(log).Log("AllowedNamespaces", fmt.Sprintf("%v", allowedNamespaces))
 
 			if response.StatusCode == http.StatusOK {
-				// Uncompressed reader
-				var reader io.ReadCloser
-				var err error
-
-				// Read what Jaeger UI sent back (which might be compressed)
-				switch response.Header.Get("Content-Encoding") {
-				case "gzip":
-					reader, err = gzip.NewReader(response.Body)
-					if err != nil {
-						return err
-					}
-					defer reader.Close()
-				case "deflate":
-					reader = flate.NewReader(response.Body)
-					defer reader.Close()
-				default:
-					reader = response.Body
-				}
-
-				b, err := io.ReadAll(reader)
+				b, err := io.ReadAll(response.Body)
 				if err != nil {
 					return err
 				}
