@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/grafana/tempo/pkg/tempopb"
@@ -9,6 +11,37 @@ import (
 	tracev1 "github.com/grafana/tempo/pkg/tempopb/trace/v1"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestForbidOtherAPIs(t *testing.T) {
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := WithTraceQLNamespaceSelectAndForbidOtherAPIs(true)(nextHandler)
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{"trace by ID", "/tempo/api/traces/abc123", http.StatusOK},
+		{"search", "/tempo/api/search", http.StatusOK},
+		{"search tags blocked", "/tempo/api/search/tags", http.StatusForbidden},
+		{"search tag values blocked", "/tempo/api/search/tag/name/values", http.StatusForbidden},
+		{"v2 search tags blocked", "/tempo/api/v2/search/tags", http.StatusForbidden},
+		{"metrics blocked", "/tempo/api/metrics/query_range", http.StatusForbidden},
+		{"echo blocked", "/tempo/api/echo", http.StatusForbidden},
+		{"overrides blocked", "/tempo/api/overrides", http.StatusForbidden},
+		{"v2 traces blocked", "/tempo/api/v2/traces/abc123", http.StatusForbidden},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			assert.Equal(t, tt.wantStatus, rec.Code)
+		})
+	}
+}
 
 func TestCleanTrace(t *testing.T) {
 	tests := []struct {
