@@ -85,5 +85,4 @@ func TestDecompressingTransport(t *testing.T) {
 		assert.Equal(t, body, got)
 		assert.Empty(t, resp.Header.Get("Content-Encoding"))
 	})
-
 }
