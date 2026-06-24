@@ -43,7 +43,7 @@ func TestDecompressingTransport(t *testing.T) {
 
 		transport := decompressingTransport(inner)
 
-		req, err := http.NewRequest("GET", "http://example.com", nil)
+		req, err := http.NewRequest("GET", "http://localhost", nil)
 		require.NoError(t, err)
 		req.Header.Set("Accept-Encoding", "br, zstd, gzip")
 
@@ -73,7 +73,7 @@ func TestDecompressingTransport(t *testing.T) {
 
 		transport := decompressingTransport(inner)
 
-		req, err := http.NewRequest("GET", "http://example.com", nil)
+		req, err := http.NewRequest("GET", "http://localhost", nil)
 		require.NoError(t, err)
 
 		resp, err := transport.RoundTrip(req)
