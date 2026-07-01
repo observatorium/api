@@ -845,9 +845,6 @@ func main() {
 				r.Group(func(r chi.Router) {
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
 					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
-					if cfg.traces.queryRBAC {
-						r.Use(tracesv1.WithTraceQLNamespaceSelectAndForbidOtherAPIs())
-					}
 					r.Use(middleware.Timeout(cfg.traces.upstreamWriteTimeout))
 
 					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
@@ -877,6 +874,7 @@ func main() {
 								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
 								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+								tracesv1.WithTempoMiddleware(tracesv1.WithTraceQLNamespaceSelectAndForbidOtherAPIs(cfg.traces.queryRBAC)),
 								tracesv1.WithTempoMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
 								tracesv1.WithTempoMiddleware(logsv1.WithEnforceAuthorizationLabels()),
 								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
