@@ -26,6 +26,7 @@ local defaults = {
   tls: {},
   rateLimiter: {},
   internal: {},
+  extraVolumeMounts: [],
 
   commonLabels:: {
     'app.kubernetes.io/name': 'observatorium-api',
@@ -329,7 +330,16 @@ function(params) {
                        readOnly: true,
                      },
                    ] else []
-                 ) else []),
+                 ) else []) +
+                (if std.length(api.config.extraVolumeMounts) > 0 then [
+                   {
+                     name: mount.name,
+                     mountPath: mount.mountPath,
+                     subPath: mount.key,
+                     readOnly: true,
+                   }
+                   for mount in api.config.extraVolumeMounts
+                 ] else []),
             },
           ],
           volumes:
@@ -391,7 +401,17 @@ function(params) {
                    name: 'tls-configmap',
                  },
                ] else []
-             ) else []),
+             ) else []) +
+            (if std.length(api.config.extraVolumeMounts) > 0 then [
+               if mount.type == 'configMap' then {
+                 name: mount.name,
+                 configMap: { name: mount.name },
+               } else {
+                 name: mount.name,
+                 secret: { secretName: mount.name },
+               }
+               for mount in api.config.extraVolumeMounts
+             ] else []),
         },
       },
     },
