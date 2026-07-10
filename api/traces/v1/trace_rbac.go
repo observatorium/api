@@ -24,10 +24,15 @@ const (
 	serviceAttributeKey   = "service.name"
 )
 
-var allowedTempoAPIs = []*regexp.Regexp{
-	regexp.MustCompile(`^/api/traces/\w+$`),
-	regexp.MustCompile(`^/api/search$`),
-}
+var (
+	routeQueryV1         = regexp.MustCompile(`^/api/traces/\w+$`)
+	routeQueryV2         = regexp.MustCompile(`^/api/v2/traces/\w+$`)
+	routeSearch          = regexp.MustCompile(`^/api/search$`)
+	routeSearchTagValues = regexp.MustCompile(`^/api/v2/search/tag/(resource\.service\.name|resource\.k8s\.namespace\.name)/values$`)
+
+	allowedTempoAPIs = []*regexp.Regexp{routeQueryV1, routeQueryV2, routeSearch, routeSearchTagValues}
+	filteredAPIs     = []*regexp.Regexp{routeQueryV1, routeQueryV2, routeSearch}
+)
 
 func matchesAnyRegex(s string, patterns []*regexp.Regexp) bool {
 	for _, re := range patterns {
@@ -77,7 +82,7 @@ func WithTraceQLNamespaceSelectAndForbidOtherAPIs(enabled bool) func(http.Handle
 
 func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 	return func(response *http.Response) error {
-		if strings.HasPrefix(response.Request.URL.Path, "/api/traces/") || strings.HasPrefix(response.Request.URL.Path, "/api/search") {
+		if matchesAnyRegex(response.Request.URL.Path, filteredAPIs) {
 			allowedNamespaces := map[string]bool{}
 			namespaces := apilogsv1.AllowedNamespaces(response.Request.Context())
 			for _, ns := range namespaces {
@@ -92,7 +97,8 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 				}
 
 				responseBuffer := &bytes.Buffer{}
-				if strings.HasPrefix(response.Request.URL.Path, "/api/traces/") {
+				switch {
+				case routeQueryV1.MatchString(response.Request.URL.Path):
 					trace := &tempopb.Trace{}
 					err = tempopb.UnmarshalFromJSONV1(b, trace)
 					if err != nil {
@@ -105,9 +111,26 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 						return err
 					}
 					responseBuffer = bytes.NewBuffer(traceResponseBody)
-				} else {
+
+				case routeQueryV2.MatchString(response.Request.URL.Path):
+					traceByIDResponse := &tempopb.TraceByIDResponse{}
+					unmarshaller := jsonpb.Unmarshaler{}
+					err = unmarshaller.Unmarshal(bytes.NewReader(b), traceByIDResponse)
+					if err != nil {
+						return err
+					}
+					traceByIDResponse.Trace = traceRBAC(allowedNamespaces, traceByIDResponse.Trace)
+
+					marshaller := jsonpb.Marshaler{}
+					err = marshaller.Marshal(responseBuffer, traceByIDResponse)
+					if err != nil {
+						return err
+					}
+
+				case routeSearch.MatchString(response.Request.URL.Path):
 					searchResponse := &tempopb.SearchResponse{}
-					err = jsonpb.UnmarshalString(string(b), searchResponse)
+					unmarshaller := jsonpb.Unmarshaler{}
+					err = unmarshaller.Unmarshal(bytes.NewReader(b), searchResponse)
 					if err != nil {
 						return err
 					}
