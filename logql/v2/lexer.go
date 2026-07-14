@@ -13,17 +13,17 @@ import (
 )
 
 const (
-	VectorOpTypeSum        = "sum"
-	VectorOpTypeAvg        = "avg"
-	VectorOpTypeMax        = "max"
-	VectorOpTypeMin        = "min"
-	VectorOpTypeCount      = "count"
-	VectorOpTypeStddev     = "stddev"
-	VectorOpTypeStdvar     = "stdvar"
-	VectorOpTypeBottomK    = "bottomk"
+	VectorOpTypeSum      = "sum"
+	VectorOpTypeAvg      = "avg"
+	VectorOpTypeMax      = "max"
+	VectorOpTypeMin      = "min"
+	VectorOpTypeCount    = "count"
+	VectorOpTypeStddev   = "stddev"
+	VectorOpTypeStdvar   = "stdvar"
+	VectorOpTypeBottomK  = "bottomk"
 	VectorOpTypeTopK     = "topk"
 	VectorOpTypeSort     = "sort"
-	VectorOpTypeSortDesc   = "sort_desc"
+	VectorOpTypeSortDesc = "sort_desc"
 
 	ParserLogFMT      = "logfmt"
 	ParserJSON        = "json"
@@ -146,17 +146,17 @@ var funcTokens = map[string]int{
 	OpTypeVector:           VECTOR,
 
 	// vector ops
-	VectorOpTypeSum:        SUM,
-	VectorOpTypeAvg:        AVG,
-	VectorOpTypeMax:        MAX,
-	VectorOpTypeMin:        MIN,
-	VectorOpTypeCount:      COUNT,
-	VectorOpTypeStddev:     STDDEV,
-	VectorOpTypeStdvar:     STDVAR,
-	VectorOpTypeBottomK:    BOTTOMK,
-	VectorOpTypeTopK:   TOPK,
-	VectorOpTypeSort:   SORT,
-	VectorOpTypeSortDesc:   SORT_DESC,
+	VectorOpTypeSum:      SUM,
+	VectorOpTypeAvg:      AVG,
+	VectorOpTypeMax:      MAX,
+	VectorOpTypeMin:      MIN,
+	VectorOpTypeCount:    COUNT,
+	VectorOpTypeStddev:   STDDEV,
+	VectorOpTypeStdvar:   STDVAR,
+	VectorOpTypeBottomK:  BOTTOMK,
+	VectorOpTypeTopK:     TOPK,
+	VectorOpTypeSort:     SORT,
+	VectorOpTypeSortDesc: SORT_DESC,
 
 	OpLabelReplace: LABEL_REPLACE,
 	OpIP:           IP,
