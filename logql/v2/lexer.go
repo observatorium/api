@@ -21,9 +21,8 @@ const (
 	VectorOpTypeStddev     = "stddev"
 	VectorOpTypeStdvar     = "stdvar"
 	VectorOpTypeBottomK    = "bottomk"
-	VectorOpTypeTopK       = "topk"
-	VectorOpTypeApproxTopK = "approx_topk"
-	VectorOpTypeSort       = "sort"
+	VectorOpTypeTopK     = "topk"
+	VectorOpTypeSort     = "sort"
 	VectorOpTypeSortDesc   = "sort_desc"
 
 	ParserLogFMT      = "logfmt"
@@ -155,9 +154,8 @@ var funcTokens = map[string]int{
 	VectorOpTypeStddev:     STDDEV,
 	VectorOpTypeStdvar:     STDVAR,
 	VectorOpTypeBottomK:    BOTTOMK,
-	VectorOpTypeTopK:       TOPK,
-	VectorOpTypeApproxTopK: APPROX_TOPK,
-	VectorOpTypeSort:       SORT,
+	VectorOpTypeTopK:   TOPK,
+	VectorOpTypeSort:   SORT,
 	VectorOpTypeSortDesc:   SORT_DESC,
 
 	OpLabelReplace: LABEL_REPLACE,

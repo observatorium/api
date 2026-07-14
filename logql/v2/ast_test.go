@@ -131,14 +131,10 @@ func Test_AstWalker_AppendMatcher(t *testing.T) {
 			input:  `(count_over_time({first="value"}[10h]))`,
 			output: `(count_over_time({first="value", second="next"}[10h]))`,
 		},
-		// approx_topkk tests
+		// topk tests
 		{
 			input:  `topk(25,(count_over_time({first="value"}[10h])))`,
 			output: `topk(25,(count_over_time({first="value", second="next"}[10h])))`,
-		},
-		{
-			input:  `approx_topk(25,(count_over_time({first="value"}[10h])))`,
-			output: `approx_topk(25,(count_over_time({first="value", second="next"}[10h])))`,
 		},
 		// variant tests
 		{
