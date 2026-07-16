@@ -2087,6 +2087,99 @@ func TestParseExpr(t *testing.T) {
 				},
 			},
 		},
+		{
+			input: `variants(count_over_time({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			expr: &LogMultiVariantExpr{
+				logRange: &LogRangeQueryExpr{
+					left: &LogQueryExpr{
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Name:  "foo",
+									Value: "bar",
+									Type:  labels.MatchEqual,
+								},
+							},
+						},
+					},
+					rng: "[5m]",
+				},
+				variants: []LogMetricSampleExpr{
+					&LogMetricExpr{
+						left: &LogRangeQueryExpr{
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Name:  "foo",
+											Value: "bar",
+											Type:  labels.MatchEqual,
+										},
+									},
+								},
+							},
+							rng: "[5m]",
+						},
+						metricOp: RangeOpTypeCount,
+					},
+				},
+			},
+		},
+		{
+			input: `variants(count_over_time({foo="bar"}[5m]), rate({foo="bar"}[5m])) of ({foo="bar"}[5m])`,
+			expr: &LogMultiVariantExpr{
+				logRange: &LogRangeQueryExpr{
+					left: &LogQueryExpr{
+						left: &StreamMatcherExpr{
+							matchers: []*labels.Matcher{
+								{
+									Name:  "foo",
+									Value: "bar",
+									Type:  labels.MatchEqual,
+								},
+							},
+						},
+					},
+					rng: "[5m]",
+				},
+				variants: []LogMetricSampleExpr{
+					&LogMetricExpr{
+						left: &LogRangeQueryExpr{
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Name:  "foo",
+											Value: "bar",
+											Type:  labels.MatchEqual,
+										},
+									},
+								},
+							},
+							rng: "[5m]",
+						},
+						metricOp: RangeOpTypeCount,
+					},
+					&LogMetricExpr{
+						left: &LogRangeQueryExpr{
+							left: &LogQueryExpr{
+								left: &StreamMatcherExpr{
+									matchers: []*labels.Matcher{
+										{
+											Name:  "foo",
+											Value: "bar",
+											Type:  labels.MatchEqual,
+										},
+									},
+								},
+							},
+							rng: "[5m]",
+						},
+						metricOp: RangeOpTypeRate,
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range tc { //nolint:paralleltest
 		t.Run(tc.input, func(t *testing.T) {

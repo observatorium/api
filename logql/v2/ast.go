@@ -1039,3 +1039,91 @@ func (v *VectorExpr) String() string {
 }
 
 func (v *VectorExpr) Walk(fn WalkFn) { fn(v) }
+
+type LogMultiVariantExpr struct {
+	defaultLogQLExpr //nolint:unused
+	logRange         *LogRangeQueryExpr
+	variants         []LogMetricSampleExpr
+	Expr
+}
+
+func newLogMultiVariantExpr(variants []LogMetricSampleExpr, logRange LogSelectorExpr) *LogMultiVariantExpr {
+	rangeExpr, ok := logRange.(*LogRangeQueryExpr)
+	if !ok {
+		rangeExpr = nil
+	}
+
+	return &LogMultiVariantExpr{
+		logRange: rangeExpr,
+		variants: variants,
+	}
+}
+
+func (e *LogMultiVariantExpr) LogRange() *LogRangeQueryExpr {
+	return e.logRange
+}
+
+func (e *LogMultiVariantExpr) Matchers() []*labels.Matcher {
+	if e.logRange != nil {
+		return e.logRange.Matchers()
+	}
+	return nil
+}
+
+func (e *LogMultiVariantExpr) Interval() time.Duration {
+	if e.logRange == nil {
+		return 0
+	}
+
+	duration, err := parseDuration(e.logRange.rng)
+	if err != nil {
+		return 0
+	}
+	return duration
+}
+
+func (e *LogMultiVariantExpr) Variants() []LogMetricSampleExpr {
+	return e.variants
+}
+
+func (e *LogMultiVariantExpr) AddVariant(v LogMetricSampleExpr) {
+	e.variants = append(e.variants, v)
+}
+
+func (e *LogMultiVariantExpr) SetVariant(i int, v LogMetricSampleExpr) error {
+	if i >= len(e.variants) {
+		return fmt.Errorf("variant index out of range")
+	}
+
+	e.variants[i] = v
+	return nil
+}
+
+func (e *LogMultiVariantExpr) Walk(fn WalkFn) {
+	fn(e)
+	if e.logRange != nil {
+		e.logRange.Walk(fn)
+	}
+
+	for _, v := range e.variants {
+		v.Walk(fn)
+	}
+}
+
+func (e *LogMultiVariantExpr) String() string {
+	var sb strings.Builder
+	sb.WriteString("variants(")
+	for i, v := range e.variants {
+		sb.WriteString(v.String())
+		if i+1 != len(e.variants) {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString(") of (")
+	sb.WriteString(e.logRange.String())
+	sb.WriteString(")")
+
+	return sb.String()
+}
+
+func (e *LogMultiVariantExpr) logQLExpr() {}
