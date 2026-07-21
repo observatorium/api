@@ -231,7 +231,7 @@ func TestMetricsReadAndWrite(t *testing.T) {
 			v, w, err := v1.NewAPI(apiTest).LabelNames(context.Background(), nil, now.Time().Add(-5*time.Minute), now.Time())
 			testutil.Ok(t, err)
 			testutil.Equals(t, 0, len(w), "%v", w)
-			testutil.Equals(t, []string{"__name__", "_id", "receive_replica", "tenant_id"}, v)
+			testutil.Equals(t, model.LabelNames{"__name__", "_id", "receive_replica", "tenant_id"}, v)
 
 			// For attacker there should be no data.
 			v, w, err = v1.NewAPI(apiAttacker).LabelNames(context.Background(), nil, now.Time().Add(-5*time.Minute), now.Time())
