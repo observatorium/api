@@ -11,7 +11,6 @@ import (
 
 	"github.com/prometheus-community/prom-label-proxy/injectproxy"
 	"github.com/prometheus/prometheus/model/labels"
-	"github.com/prometheus/prometheus/promql/parser"
 
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
@@ -148,7 +147,7 @@ func enforceQueryValues(e *injectproxy.PromQLEnforcer, paramName string, request
 
 	matchers := requestParams[paramName]
 	for i, rawMatcher := range matchers {
-		expr, err := parser.ParseExpr(rawMatcher)
+		expr, err := promQLParser.ParseExpr(rawMatcher)
 		if err != nil {
 			return "", true, fmt.Errorf("parse expr error: %w", err)
 		}

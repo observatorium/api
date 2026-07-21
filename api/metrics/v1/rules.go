@@ -18,6 +18,8 @@ import (
 	"github.com/observatorium/api/rules"
 )
 
+var promQLParser = parser.NewParser(parser.Options{})
+
 func enforceLabelsInRules(rawRules rules.Rules, tenantLabel, tenantID string) error {
 	// creates new tenant label enforcer
 	e := injectproxy.NewPromQLEnforcer(false, []*labels.Matcher{{
@@ -82,7 +84,7 @@ func enforceLabelsInRules(rawRules rules.Rules, tenantLabel, tenantID string) er
 }
 
 func enforceLabelsInExpr(e *injectproxy.PromQLEnforcer, expr string) (string, error) {
-	parsedExpr, err := parser.ParseExpr(expr)
+	parsedExpr, err := promQLParser.ParseExpr(expr)
 	if err != nil {
 		return "", fmt.Errorf("parse expr error: %w", err)
 	}
