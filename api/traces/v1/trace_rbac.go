@@ -82,9 +82,11 @@ func WithTraceQLNamespaceSelectAndForbidOtherAPIs(enabled bool) func(http.Handle
 
 func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 	return func(response *http.Response) error {
-		if matchesAnyRegex(response.Request.URL.Path, filteredAPIs) {
+		request := response.Request
+
+		if matchesAnyRegex(request.URL.Path, filteredAPIs) {
 			allowedNamespaces := map[string]bool{}
-			namespaces := apilogsv1.AllowedNamespaces(response.Request.Context())
+			namespaces := apilogsv1.AllowedNamespaces(request.Context())
 			for _, ns := range namespaces {
 				allowedNamespaces[ns] = true
 			}
@@ -98,7 +100,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 
 				responseBuffer := &bytes.Buffer{}
 				switch {
-				case routeQueryV1.MatchString(response.Request.URL.Path):
+				case routeQueryV1.MatchString(request.URL.Path):
 					trace := &tempopb.Trace{}
 					err = tempopb.UnmarshalFromJSONV1(b, trace)
 					if err != nil {
@@ -112,7 +114,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 					}
 					responseBuffer = bytes.NewBuffer(traceResponseBody)
 
-				case routeQueryV2.MatchString(response.Request.URL.Path):
+				case routeQueryV2.MatchString(request.URL.Path):
 					traceByIDResponse := &tempopb.TraceByIDResponse{}
 					unmarshaller := jsonpb.Unmarshaler{}
 					err = unmarshaller.Unmarshal(bytes.NewReader(b), traceByIDResponse)
@@ -127,7 +129,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 						return err
 					}
 
-				case routeSearch.MatchString(response.Request.URL.Path):
+				case routeSearch.MatchString(request.URL.Path):
 					searchResponse := &tempopb.SearchResponse{}
 					unmarshaller := jsonpb.Unmarshaler{}
 					err = unmarshaller.Unmarshal(bytes.NewReader(b), searchResponse)
@@ -141,6 +143,11 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 					if err != nil {
 						return err
 					}
+
+				default:
+					level.Warn(log).Log("msg", "unhandled filtered API path", "path", request.URL.Path)
+					responseBuffer = bytes.NewBufferString("forbidden")
+					response.StatusCode = http.StatusForbidden
 				}
 				response.Body = io.NopCloser(responseBuffer)
 				response.Header["Content-Length"] = []string{fmt.Sprint(responseBuffer.Len())}

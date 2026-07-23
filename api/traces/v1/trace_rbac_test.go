@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -788,6 +789,22 @@ func TestResponseRBACModifier(t *testing.T) {
 
 		body, _ := io.ReadAll(resp.Body)
 		assert.Equal(t, "error body", string(body))
+	})
+
+	t.Run("unhandled filtered API path returns forbidden", func(t *testing.T) {
+		// Temporarily add a catch-all to filteredAPIs so a path can pass the
+		// filteredAPIs gate but not match any switch case.
+		origFiltered := filteredAPIs
+		filteredAPIs = append(filteredAPIs, regexp.MustCompile(`^/api/other$`))
+		t.Cleanup(func() { filteredAPIs = origFiltered })
+
+		resp := makeResponse(ctx, http.StatusOK, "/api/other", `{"some":"data"}`, nil)
+
+		require.NoError(t, modifier(resp))
+
+		body, _ := io.ReadAll(resp.Body)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+		assert.Equal(t, "forbidden", string(body))
 	})
 
 	t.Run("Content-Length and Content-Encoding headers are updated", func(t *testing.T) {
