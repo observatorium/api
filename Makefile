@@ -83,7 +83,7 @@ benchmark:
 	PATH=$$PATH:$(BIN_DIR):$(FIRST_GOPATH)/bin ./test/load.sh -r 300 -c 1000 -m 3 -q 10 -o gnuplot
 
 $(BIN_NAME): deps main.go rules/rules.go $(wildcard *.go) $(wildcard */*.go)
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -a -ldflags '-s -w  -X main.Version=$(VERSION) -X main.Branch=$(GIT_BRANCH) -X main.Revision=$(GIT_REVISION)' -o $(BIN_NAME) .
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) GO111MODULE=on GOPROXY=https://proxy.golang.org go build -ldflags '-s -w  -X main.Version=$(VERSION) -X main.Branch=$(GIT_BRANCH) -X main.Revision=$(GIT_REVISION)' -o $(BIN_NAME) .
 
 %.y.go: %.y | $(GOYACC)
 	$(GOYACC) -p $(basename $(notdir $<)) -o $@ $<
