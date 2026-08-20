@@ -58,6 +58,8 @@ The backend to which to write logs can be specified with the `--logs.write.endpo
 
 ```txt mdox-exec="./observatorium-api -h"
 Usage of ./observatorium-api:
+  -alerting.alertmanager.endpoint string
+    	The endpoint against which to make requests for alerts and silences
   -debug.block-profile-rate int
     	The percentage of goroutine blocking events that are reported in the blocking profile. (default 10)
   -debug.mutex-profile-fraction int
@@ -106,8 +108,6 @@ Usage of ./observatorium-api:
     	The HTTP write timeout for proxied requests to the logs endpoint. (default 10m0s)
   -logs.write.endpoint string
     	The endpoint against which to make write requests for logs.
-  -metrics.alertmanager.endpoint string
-    	The endpoint against which to make requests for alerts and silences
   -metrics.read.endpoint string
     	The endpoint against which to send read requests for metrics.
   -metrics.rules.endpoint string

@@ -177,7 +177,7 @@ function(params) {
                     (
                       if api.config.alertmanager != {} then
                         [
-                          '--metrics.alertmanager.endpoint=' + api.config.alertmanager.endpoint,
+                          '--alerting.alertmanager.endpoint=' + api.config.alertmanager.endpoint,
                         ]
                       else []
                     )

@@ -16,6 +16,8 @@ tags:
     description: Calls related to metric endpoints
   - name: logs
     description: Calls related to logs endpoint
+  - name: alerting
+    description: Calls related to alerting endpoints
 paths:
   /api/metrics/v1/{tenant}/api/v1/rules/raw:
     parameters:
@@ -238,7 +240,7 @@ paths:
           description: Bad request
         5XX:
           description: Server side error
-  /api/metrics/v1/{tenant}/am/api/v2/alerts:
+  /api/alerting/v1/{tenant}/api/v2/alerts:
     parameters:
       - $ref: '#/components/parameters/tenant'
       - in: query
@@ -279,7 +281,7 @@ paths:
             type: string
     get:
       tags:
-        - metrics/alertmanagerv2
+        - alerting
       summary: Get list of alerts from Alertmanager
       operationId: getAlerts
       description: |
@@ -295,7 +297,7 @@ paths:
           description: Bad request
         5XX:
           description: Server side error
-  /api/metrics/v1/{tenant}/am/api/v2/silences:
+  /api/alerting/v1/{tenant}/api/v2/silences:
     parameters:
       - $ref: '#/components/parameters/tenant'
       - in: query
@@ -307,7 +309,7 @@ paths:
             type: string
     get:
       tags:
-        - metrics/alertmanagerv2
+        - alerting
       summary: Get list of silences from Alertmanager
       operationId: getSilences
       description: |
@@ -325,7 +327,7 @@ paths:
           description: Server side error
     post:
       tags:
-        - metrics/alertmanagerv2
+        - alerting
       summary: Create a new silence in Alertmanager
       operationId: postSilence
       description: |
@@ -348,7 +350,7 @@ paths:
           description: Bad request
         5XX:
           description: Server side error
-  /api/metrics/v1/{tenant}/am/api/v2/silence/{silenceID}:
+  /api/alerting/v1/{tenant}/api/v2/silence/{silenceID}:
     parameters:
       - $ref: '#/components/parameters/tenant'
       - in: path
@@ -360,7 +362,7 @@ paths:
           format: uuid
     get:
       tags:
-        - metrics/alertmanagerv2
+        - alerting
       summary: Get a silence by its ID
       operationId: getSilence
       description: |
@@ -378,7 +380,7 @@ paths:
           description: Server side error
     delete:
       tags:
-        - metrics/alertmanagerv2
+        - alerting
       summary: Delete a silence by its ID
       operationId: deleteSilence
       description: |

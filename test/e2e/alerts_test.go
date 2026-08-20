@@ -52,7 +52,7 @@ func TestAlertmanagerApiProxy(t *testing.T) {
 
 	t.Run("alerts-check-then-write-then-read", func(t *testing.T) {
 		// create a alertmanager that goes through the gateway proxy and requires auth token
-		runtime := httptransport.New(api.Endpoint("https"), "/api/metrics/v1/test-oidc/am"+client2.DefaultBasePath, []string{"https"})
+		runtime := httptransport.New(api.Endpoint("https"), "/api/alerting/v1/test-oidc"+client2.DefaultBasePath, []string{"https"})
 		tenantAlertmanagerClient := alert.New(runtime, strfmt.Default)
 
 		// create an alertmanager client that goes directly to the alertmanager
@@ -152,7 +152,7 @@ func TestAlertmanagerApiProxy(t *testing.T) {
 
 	t.Run("silence-check-then-write-then-read", func(t *testing.T) {
 		// create a alertmanager that goes through the gateway proxy and requires auth token
-		runtime := httptransport.New(api.Endpoint("https"), "/api/metrics/v1/test-oidc/am"+client2.DefaultBasePath, []string{"https"})
+		runtime := httptransport.New(api.Endpoint("https"), "/api/alerting/v1/test-oidc"+client2.DefaultBasePath, []string{"https"})
 		tenantSilenceClient := silence.New(runtime, strfmt.Default)
 
 		// create an alertmanager client that goes directly to the alertmanager
@@ -262,6 +262,22 @@ func TestAlertmanagerApiProxy(t *testing.T) {
 		testutil.Ok(t, err)
 		testutil.Equals(t, 1, len(tenantSilenceResult.Payload))
 
+	})
+
+	t.Run("alerting-rbac-is-independent-of-metrics", func(t *testing.T) {
+		// admin@example.com holds the "metrics" (read) resource on the test-attacker
+		// tenant but NOT "alerting". Since the Alertmanager endpoints are now
+		// authorized against the dedicated "alerting" resource, the request must be
+		// rejected even though the token is valid and grants metrics access.
+		url := "https://" + api.Endpoint("https") + "/api/alerting/v1/test-attacker" + client2.DefaultBasePath + "alerts"
+		req, err := http.NewRequestWithContext(testContextWithTimeout(t), http.MethodGet, url, nil)
+		testutil.Ok(t, err)
+
+		resp, err := authClient.Do(req)
+		testutil.Ok(t, err)
+		defer resp.Body.Close()
+
+		testutil.Equals(t, http.StatusForbidden, resp.StatusCode)
 	})
 }
 

@@ -47,6 +47,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	alertingv1 "github.com/observatorium/api/api/alerting/v1"
 	logsv1 "github.com/observatorium/api/api/logs/v1"
 	metricslegacy "github.com/observatorium/api/api/metrics/legacy"
 	metricsv1 "github.com/observatorium/api/api/metrics/v1"
@@ -102,6 +103,7 @@ type config struct {
 	server          serverConfig
 	tls             tlsConfig
 	metrics         metricsConfig
+	alerting        alertingConfig
 	logs            logsConfig
 	traces          tracesConfig
 	probes          probesConfig
@@ -146,7 +148,6 @@ type metricsConfig struct {
 	readEndpoint         *url.URL
 	writeEndpoint        *url.URL
 	rulesEndpoint        *url.URL
-	alertmanagerEndpoint *url.URL
 	upstreamWriteTimeout time.Duration
 	upstreamCAFile       string
 	upstreamCertFile     string
@@ -156,6 +157,13 @@ type metricsConfig struct {
 	// enable metrics if at least one {read|write}Endpoint} is provided.
 	enabled           bool
 	enableCertWatcher bool
+}
+
+type alertingConfig struct {
+	// alertmanagerEndpoint is the upstream Alertmanager proxied by the alerting API surface.
+	alertmanagerEndpoint *url.URL
+	// enabled turns on the alerting API surface; set when --alerting.alertmanager.endpoint is provided.
+	enabled bool
 }
 
 type logsConfig struct {
@@ -542,6 +550,9 @@ func main() {
 		for _, groupHandler := range legacyMetricsGroup {
 			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
 		}
+		for _, groupHandler := range alertingV1Group {
+			instrumenter.InitializeMetrics(prometheus.Labels{"group": groupHandler.group, "handler": groupHandler.handler})
+		}
 
 		var (
 			tenantIDs   = map[string]string{}
@@ -642,10 +653,9 @@ func main() {
 				}
 
 				eps := metricsv1.Endpoints{
-					ReadEndpoint:         cfg.metrics.readEndpoint,
-					WriteEndpoint:        cfg.metrics.writeEndpoint,
-					RulesEndpoint:        cfg.metrics.rulesEndpoint,
-					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
+					ReadEndpoint:  cfg.metrics.readEndpoint,
+					WriteEndpoint: cfg.metrics.writeEndpoint,
+					RulesEndpoint: cfg.metrics.rulesEndpoint,
 				}
 
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
@@ -748,25 +758,70 @@ func main() {
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, matchParamName)),
 						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithAlertmanagerAlertsReadMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
-							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
-						),
-						metricsv1.WithAlertmanagerSilenceReadMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
-							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
-						),
-						metricsv1.WithAlertmanagerSilenceWriteMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
-						),
-						metricsv1.WithAlertmanagerSilenceIDReadMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
-						),
-						metricsv1.WithAlertmanagerSilenceIDWriteMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
-						),
 					),
 					)
+				})
+			}
+
+			// Alerting.
+			if cfg.alerting.enabled {
+
+				var loadInterval *time.Duration
+
+				if cfg.metrics.enableCertWatcher {
+					loadInterval = &cfg.tls.reloadInterval
+				}
+
+				alertingUpstreamClientOptions, err := tls.NewUpstreamOptions(
+					context.Background(),
+					cfg.metrics.upstreamCertFile,
+					cfg.metrics.upstreamKeyFile,
+					cfg.metrics.upstreamCAFile,
+					loadInterval,
+					logger,
+					g)
+				if err != nil {
+					stdlog.Fatalf("failed to read upstream alerting TLS: %v", err)
+				}
+
+				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
+				if rateLimitClient != nil {
+					rateLimitMiddleware = ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...)
+				}
+
+				alertingMiddlewares := []func(http.Handler) http.Handler{
+					authentication.WithTenantMiddlewares(pm.Middlewares),
+					authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs),
+					rateLimitMiddleware,
+				}
+
+				r.Group(func(r chi.Router) {
+					r.Mount("/api/alerting/v1/{tenant}", alertingv1.NewHandler(
+						cfg.alerting.alertmanagerEndpoint,
+						alertingUpstreamClientOptions,
+						alertingv1.WithLogger(logger),
+						alertingv1.WithRegistry(reg),
+						alertingv1.WithHandlerInstrumenter(instrumenter),
+						alertingv1.WithTenantLabel(cfg.metrics.tenantLabel),
+						alertingv1.WithGlobalMiddleware(alertingMiddlewares...),
+						alertingv1.WithAlertsReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "alerting"),
+							alertingv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
+						),
+						alertingv1.WithSilenceReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "alerting"),
+							alertingv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
+						),
+						alertingv1.WithSilenceWriteMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Write, "alerting"),
+						),
+						alertingv1.WithSilenceIDReadMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Read, "alerting"),
+						),
+						alertingv1.WithSilenceIDWriteMiddleware(
+							authorization.WithAuthorizers(authorizers, rbac.Write, "alerting"),
+						),
+					))
 				})
 			}
 
@@ -1107,22 +1162,22 @@ func (m *multiStringFlag) String() string {
 //nolint:funlen,gocognit
 func parseFlags() (config, error) {
 	var (
-		rawTLSCipherSuites             string
-		rawMetricsReadEndpoint         string
-		rawMetricsWriteEndpoint        string
-		rawMetricsRulesEndpoint        string
-		rawMetricsAlertmanagerEndpoint string
-		rawLogsReadEndpoint            string
-		rawLogsRulesEndpoint           string
-		rawLogsTailEndpoint            string
-		rawLogsWriteEndpoint           string
-		rawLogsRuleLabelFilters        string
-		rawLogsAuthExtractSelectors    string
-		rawTracesReadEndpoint          string
-		rawTracesTempoEndpoint         string
-		rawTracesWriteOTLPGRPCEndpoint string
-		rawTracesWriteOTLPHTTPEndpoint string
-		rawProbesEndpoint              string
+		rawTLSCipherSuites              string
+		rawMetricsReadEndpoint          string
+		rawMetricsWriteEndpoint         string
+		rawMetricsRulesEndpoint         string
+		rawAlertingAlertmanagerEndpoint string
+		rawLogsReadEndpoint             string
+		rawLogsRulesEndpoint            string
+		rawLogsTailEndpoint             string
+		rawLogsWriteEndpoint            string
+		rawLogsRuleLabelFilters         string
+		rawLogsAuthExtractSelectors     string
+		rawTracesReadEndpoint           string
+		rawTracesTempoEndpoint          string
+		rawTracesWriteOTLPGRPCEndpoint  string
+		rawTracesWriteOTLPHTTPEndpoint  string
+		rawProbesEndpoint               string
 	)
 
 	cfg := config{}
@@ -1194,7 +1249,7 @@ func parseFlags() (config, error) {
 		"The endpoint against which to make write requests for metrics.")
 	flag.StringVar(&rawMetricsRulesEndpoint, "metrics.rules.endpoint", "",
 		"The endpoint against which to make get requests for listing recording/alerting rules and put requests for creating/updating recording/alerting rules.")
-	flag.StringVar(&rawMetricsAlertmanagerEndpoint, "metrics.alertmanager.endpoint", "",
+	flag.StringVar(&rawAlertingAlertmanagerEndpoint, "alerting.alertmanager.endpoint", "",
 		"The endpoint against which to make requests for alerts and silences")
 	flag.DurationVar(&cfg.metrics.upstreamWriteTimeout, "metrics.write-timeout", metricsMiddlewareTimeout,
 		"The HTTP write timeout for proxied requests to the metrics endpoint.")
@@ -1331,15 +1386,15 @@ func parseFlags() (config, error) {
 		cfg.metrics.rulesEndpoint = metricsRulesEndpoint
 	}
 
-	if rawMetricsAlertmanagerEndpoint != "" {
-		cfg.metrics.enabled = true
+	if rawAlertingAlertmanagerEndpoint != "" {
+		cfg.alerting.enabled = true
 
-		alertmanagerEndpoint, err := url.ParseRequestURI(rawMetricsAlertmanagerEndpoint)
+		alertmanagerEndpoint, err := url.ParseRequestURI(rawAlertingAlertmanagerEndpoint)
 		if err != nil {
-			return cfg, fmt.Errorf("--metrics.alertmanager.endpoint %q is invalid: %w", rawMetricsAlertmanagerEndpoint, err)
+			return cfg, fmt.Errorf("--alerting.alertmanager.endpoint %q is invalid: %w", rawAlertingAlertmanagerEndpoint, err)
 		}
 
-		cfg.metrics.alertmanagerEndpoint = alertmanagerEndpoint
+		cfg.alerting.alertmanagerEndpoint = alertmanagerEndpoint
 	}
 
 	if rawLogsReadEndpoint != "" {
@@ -1651,6 +1706,10 @@ var metricsV1Group = []groupHandler{
 	{"metricsv1", "receive"},
 	{"metricsv1", "rules"},
 	{"metricsv1", "rules-raw"},
-	{"metricsv1", "alerts"},
-	{"metricsv1", "silences"},
+}
+
+var alertingV1Group = []groupHandler{
+	{"alertingv1", "alerts"},
+	{"alertingv1", "silences"},
+	{"alertingv1", "silence"},
 }

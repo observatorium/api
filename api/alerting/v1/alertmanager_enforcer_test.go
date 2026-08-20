@@ -127,12 +127,12 @@ func TestWithEnforceTenancyOnSilenceID(t *testing.T) {
 		r.Use(authentication.WithTenantID(map[string]string{tenantName: tenantID}))
 		r.With(WithEnforceTenancyOnSilenceID(label, upstreamURL, srv.Client().Transport)).Method(
 			http.MethodGet,
-			"/{tenant}/am/api/v2/silence/{silenceID}",
+			"/{tenant}/api/v2/silence/{silenceID}",
 			next,
 		)
 		r.With(WithEnforceTenancyOnSilenceID(label, upstreamURL, srv.Client().Transport)).Method(
 			http.MethodDelete,
-			"/{tenant}/am/api/v2/silence/{silenceID}",
+			"/{tenant}/api/v2/silence/{silenceID}",
 			next,
 		)
 
@@ -140,7 +140,7 @@ func TestWithEnforceTenancyOnSilenceID(t *testing.T) {
 	}
 
 	newRequest := func(method string) *http.Request {
-		req := httptest.NewRequest(method, "/"+tenantName+"/am/api/v2/silence/"+silID, nil)
+		req := httptest.NewRequest(method, "/"+tenantName+"/api/v2/silence/"+silID, nil)
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("tenant", tenantName)
 		rctx.URLParams.Add("silenceID", silID)

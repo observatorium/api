@@ -491,7 +491,7 @@ func newObservatoriumAPIService(
 	}
 
 	if opts.alertmanagerEndpoint != "" {
-		args = append(args, "--metrics.alertmanager.endpoint="+opts.alertmanagerEndpoint)
+		args = append(args, "--alerting.alertmanager.endpoint="+opts.alertmanagerEndpoint)
 	}
 
 	if opts.logsEndpoint != "" {

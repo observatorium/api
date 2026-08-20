@@ -34,30 +34,17 @@ const (
 	ReceiveRoute     = "/api/v1/receive"
 	RulesRoute       = "/api/v1/rules"
 	RulesRawRoute    = "/api/v1/rules/raw"
-
-	AlertmanagerAlertsRoute   = "/am/api/v2/alerts"
-	AlertmanagerSilencesRoute = "/am/api/v2/silences"
-	AlertmanagerSilenceRoute  = "/am/api/v2/silence/{silenceID}"
 )
 
-type alertmanagerMiddleware struct {
-	alertsReadMiddlewares     []func(http.Handler) http.Handler
-	silenceReadMiddlewares    []func(http.Handler) http.Handler
-	silenceWriteMiddlewares   []func(http.Handler) http.Handler
-	silenceIDReadMiddlewares  []func(http.Handler) http.Handler
-	silenceIDWriteMiddlewares []func(http.Handler) http.Handler
-}
-
 type handlerConfiguration struct {
-	logger                 log.Logger
-	registry               *prometheus.Registry
-	instrument             handlerInstrumenter
-	tenantLabel            string
-	queryMiddlewares       []func(http.Handler) http.Handler
-	readMiddlewares        []func(http.Handler) http.Handler
-	uiMiddlewares          []func(http.Handler) http.Handler
-	writeMiddlewares       []func(http.Handler) http.Handler
-	alertmanagerMiddleware alertmanagerMiddleware
+	logger           log.Logger
+	registry         *prometheus.Registry
+	instrument       handlerInstrumenter
+	tenantLabel      string
+	queryMiddlewares []func(http.Handler) http.Handler
+	readMiddlewares  []func(http.Handler) http.Handler
+	uiMiddlewares    []func(http.Handler) http.Handler
+	writeMiddlewares []func(http.Handler) http.Handler
 }
 
 // HandlerOption modifies the handler's configuration.
@@ -119,36 +106,6 @@ func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-func WithAlertmanagerAlertsReadMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.alertmanagerMiddleware.alertsReadMiddlewares = append(h.alertmanagerMiddleware.alertsReadMiddlewares, m...)
-	}
-}
-
-func WithAlertmanagerSilenceReadMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.alertmanagerMiddleware.silenceReadMiddlewares = append(h.alertmanagerMiddleware.silenceReadMiddlewares, m...)
-	}
-}
-
-func WithAlertmanagerSilenceWriteMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.alertmanagerMiddleware.silenceWriteMiddlewares = append(h.alertmanagerMiddleware.silenceWriteMiddlewares, m...)
-	}
-}
-
-func WithAlertmanagerSilenceIDReadMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.alertmanagerMiddleware.silenceIDReadMiddlewares = append(h.alertmanagerMiddleware.silenceIDReadMiddlewares, m...)
-	}
-}
-
-func WithAlertmanagerSilenceIDWriteMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.alertmanagerMiddleware.silenceIDWriteMiddlewares = append(h.alertmanagerMiddleware.silenceIDWriteMiddlewares, m...)
-	}
-}
-
 // WithGlobalMiddleware adds a middleware for all operations.
 func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 	return func(h *handlerConfiguration) {
@@ -156,11 +113,6 @@ func WithGlobalMiddleware(m ...func(http.Handler) http.Handler) HandlerOption {
 		h.uiMiddlewares = append(h.uiMiddlewares, m...)
 		h.queryMiddlewares = append(h.queryMiddlewares, m...)
 		h.readMiddlewares = append(h.readMiddlewares, m...)
-		h.alertmanagerMiddleware.alertsReadMiddlewares = append(h.alertmanagerMiddleware.alertsReadMiddlewares, m...)
-		h.alertmanagerMiddleware.silenceReadMiddlewares = append(h.alertmanagerMiddleware.silenceReadMiddlewares, m...)
-		h.alertmanagerMiddleware.silenceWriteMiddlewares = append(h.alertmanagerMiddleware.silenceWriteMiddlewares, m...)
-		h.alertmanagerMiddleware.silenceIDReadMiddlewares = append(h.alertmanagerMiddleware.silenceIDReadMiddlewares, m...)
-		h.alertmanagerMiddleware.silenceIDWriteMiddlewares = append(h.alertmanagerMiddleware.silenceIDWriteMiddlewares, m...)
 	}
 }
 
@@ -175,10 +127,9 @@ func (n nopInstrumentHandler) NewHandler(_ prometheus.Labels, handler http.Handl
 }
 
 type Endpoints struct {
-	ReadEndpoint         *url.URL
-	WriteEndpoint        *url.URL
-	RulesEndpoint        *url.URL
-	AlertmanagerEndpoint *url.URL
+	ReadEndpoint  *url.URL
+	WriteEndpoint *url.URL
+	RulesEndpoint *url.URL
 }
 
 // NewHandler creates the new metrics v1 handler.
@@ -412,107 +363,6 @@ func NewHandler(endpoints Endpoints, tlsOptions *tls.UpstreamOptions, opts ...Ha
 			r.Use(c.writeMiddlewares...)
 			r.Use(server.StripTenantPrefix("/api/metrics/v1"))
 			r.Method(http.MethodPut, RulesRawRoute, http.HandlerFunc(rh.put))
-		})
-	}
-
-	if endpoints.AlertmanagerEndpoint != nil {
-		var proxyAlertmanager http.Handler
-
-		alertmanagerTransport := &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: dialTimeout,
-			}).DialContext,
-			TLSClientConfig: tlsOptions.NewClientConfig(),
-		}
-
-		{
-			middlewares := proxy.Middlewares(
-				proxy.MiddlewareSetUpstream(endpoints.AlertmanagerEndpoint),
-				proxy.MiddlewareSetPrefixHeader(),
-				proxy.MiddlewareLogger(c.logger),
-				proxy.MiddlewareMetrics(c.registry, prometheus.Labels{"proxy": "alertmanagerv2"}),
-			)
-
-			proxyAlertmanager = &httputil.ReverseProxy{
-				Director:  middlewares,
-				ErrorLog:  proxy.Logger(c.logger),
-				Transport: otelhttp.NewTransport(alertmanagerTransport),
-			}
-		}
-
-		r.Group(func(r chi.Router) {
-			r.Use(func(handler http.Handler) http.Handler {
-				return server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "alerts"},
-					handler,
-				)
-			})
-			r.Use(c.alertmanagerMiddleware.alertsReadMiddlewares...)
-			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
-
-			r.Method(http.MethodGet, AlertmanagerAlertsRoute, proxyAlertmanager)
-		})
-
-		r.Group(func(r chi.Router) {
-			r.Use(func(handler http.Handler) http.Handler {
-				return server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
-					handler,
-				)
-			})
-			r.Use(c.alertmanagerMiddleware.silenceReadMiddlewares...)
-			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
-
-			r.Method(http.MethodGet, AlertmanagerSilencesRoute, proxyAlertmanager)
-		})
-
-		r.Group(func(r chi.Router) {
-			r.Use(func(handler http.Handler) http.Handler {
-				return server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "silences"},
-					handler,
-				)
-			})
-			r.Use(c.alertmanagerMiddleware.silenceWriteMiddlewares...)
-			r.Use(WithEnforceTenancyOnSilenceMatchers(c.tenantLabel))
-			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
-
-			r.Method(http.MethodPost, AlertmanagerSilencesRoute, proxyAlertmanager)
-		})
-
-		alertmanagerSilenceTransport := otelhttp.NewTransport(alertmanagerTransport)
-		enforceTenancyOnSilenceID := WithEnforceTenancyOnSilenceID(
-			c.tenantLabel,
-			endpoints.AlertmanagerEndpoint,
-			alertmanagerSilenceTransport,
-		)
-
-		r.Group(func(r chi.Router) {
-			r.Use(func(handler http.Handler) http.Handler {
-				return server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "silence"},
-					handler,
-				)
-			})
-			r.Use(enforceTenancyOnSilenceID)
-			r.Use(c.alertmanagerMiddleware.silenceIDReadMiddlewares...)
-			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
-
-			r.Method(http.MethodGet, AlertmanagerSilenceRoute, proxyAlertmanager)
-		})
-
-		r.Group(func(r chi.Router) {
-			r.Use(func(handler http.Handler) http.Handler {
-				return server.InjectLabelsCtx(
-					prometheus.Labels{"group": "metricsv1", "handler": "silence"},
-					handler,
-				)
-			})
-			r.Use(enforceTenancyOnSilenceID)
-			r.Use(c.alertmanagerMiddleware.silenceIDWriteMiddlewares...)
-			r.Use(server.StripTenantPrefixWithSubRoute("/api/metrics/v1", "/am"))
-
-			r.Method(http.MethodDelete, AlertmanagerSilenceRoute, proxyAlertmanager)
 		})
 	}
 
