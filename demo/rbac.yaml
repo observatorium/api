@@ -1,0 +1,48 @@
+roles:
+- name: admin-role
+  resources:
+  - metrics
+  - logs
+  - traces
+  tenants:
+  - tenant-a
+  - tenant-b
+  permissions:
+  - read
+  - write
+- name: readonly-role
+  resources:
+  - metrics
+  - logs
+  tenants:
+  - tenant-a
+  permissions:
+  - read
+- name: metrics-only-role
+  resources:
+  - metrics
+  tenants:
+  - tenant-b
+  permissions:
+  - read
+  - write
+
+roleBindings:
+- name: admin-binding
+  roles:
+  - admin-role
+  subjects:
+  - kind: user
+    name: admin@example.com
+- name: test-readonly-binding
+  roles:
+  - readonly-role
+  subjects:
+  - kind: user
+    name: test@example.com
+- name: metrics-user-binding
+  roles:
+  - metrics-only-role
+  subjects:
+  - kind: user
+    name: metrics@example.com
