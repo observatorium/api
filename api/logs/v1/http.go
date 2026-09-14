@@ -272,10 +272,9 @@ func NewHandler(read, tail, write, rules *url.URL, rulesReadOnly bool, tlsOption
 			transport := otelhttp.NewTransport(t)
 
 			proxyPrometheusReadRules = &httputil.ReverseProxy{
-				Director:       middlewares,
-				ErrorLog:       logger,
-				Transport:      transport,
-				ModifyResponse: newModifyResponseProm(c.logger, c.rulesLabelFilters),
+				Director:  middlewares,
+				ErrorLog:  logger,
+				Transport: transport,
 			}
 			proxyRules = &httputil.ReverseProxy{
 				Director:  middlewares,

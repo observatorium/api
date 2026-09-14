@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"path"
 	"regexp"
 	"runtime"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/metalmatze/signal/healthcheck"
 	"github.com/metalmatze/signal/internalserver"
 	grpcproxy "github.com/mwitkow/grpc-proxy/proxy"
@@ -55,12 +53,8 @@ import (
 	"github.com/observatorium/api/authentication"
 	"github.com/observatorium/api/authorization"
 	"github.com/observatorium/api/client"
-	"github.com/observatorium/api/httperr"
 	"github.com/observatorium/api/logger"
-	"github.com/observatorium/api/opa"
-	"github.com/observatorium/api/proxy"
 	"github.com/observatorium/api/ratelimit"
-	"github.com/observatorium/api/rbac"
 	"github.com/observatorium/api/server"
 	"github.com/observatorium/api/tls"
 	"github.com/observatorium/api/tracing"
@@ -95,7 +89,6 @@ type config struct {
 	logLevel  string
 	logFormat string
 
-	rbacConfigPath    string
 	tenantsConfigPath string
 
 	debug           debugConfig
@@ -261,13 +254,6 @@ type tenant struct {
 		cas    []*x509.Certificate
 		config map[string]interface{}
 	} `json:"mTLS"`
-	OPA *struct {
-		Query           string   `json:"query"`
-		Paths           []string `json:"paths"`
-		URL             string   `json:"url"`
-		WithAccessToken bool     `json:"withAccessToken"`
-		authorizer      rbac.Authorizer
-	} `json:"opa"`
 	RateLimits []*struct {
 		Endpoint string   `json:"endpoint"`
 		Limit    int      `json:"limit"`
@@ -397,45 +383,8 @@ func main() {
 				}
 			}
 
-			if t.OPA != nil {
-				if t.OPA.URL != "" {
-					u, err := url.Parse(t.OPA.URL)
-					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to parse OPA URL: %v", err))
-						skippedTenants.WithLabelValues(t.Name).Inc()
-						tenantsCfg.Tenants[i] = nil
-						continue
-					}
-					t.OPA.authorizer = opa.NewRESTAuthorizer(u,
-						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
-						opa.AccessTokenOption(t.OPA.WithAccessToken),
-					)
-				} else {
-					a, err := opa.NewInProcessAuthorizer(t.OPA.Query, t.OPA.Paths,
-						opa.LoggerOption(log.With(logger, "tenant", t.Name)),
-						opa.AccessTokenOption(t.OPA.WithAccessToken),
-					)
-					if err != nil {
-						skip.Log("tenant", t.Name, "err", fmt.Sprintf("failed to create in-process OPA authorizer: %v", err))
-						skippedTenants.WithLabelValues(t.Name).Inc()
-						tenantsCfg.Tenants[i] = nil
-						continue
-					}
-					t.OPA.authorizer = a
-				}
-			}
-		}
-	}
-
-	var authorizer rbac.Authorizer
-	{
-		f, err := os.Open(cfg.rbacConfigPath)
-		if err != nil {
-			stdlog.Fatalf("cannot read RBAC configuration file from path %q: %v", cfg.rbacConfigPath, err)
-		}
-		defer f.Close()
-		if authorizer, err = rbac.Parse(f, logger); err != nil {
-			stdlog.Fatalf("unable to read RBAC YAML: %v", err)
+			// OPA authorization is no longer used - RBAC removed from write paths,
+			// and read paths use SSO/mTLS authentication only
 		}
 	}
 
@@ -545,10 +494,6 @@ func main() {
 		}
 
 		var (
-			tenantIDs   = map[string]string{}
-			authorizers = map[string]rbac.Authorizer{}
-			oidcTenants = map[string]struct{}{}
-
 			rateLimits []ratelimit.Config
 			// registrationRetryCount used by authenticator providers to count
 			// registration failures per tenant.
@@ -559,12 +504,6 @@ func main() {
 
 		r.Group(func(r chi.Router) {
 			// Set up common middleware before mounting authN routes.
-			for _, t := range tenantsCfg.Tenants {
-				tenantIDs[t.Name] = t.ID
-			}
-
-			r.Use(authentication.WithTenant)
-			r.Use(authentication.WithTenantID(tenantIDs))
 			r.Use(authentication.WithAccessToken())
 			r.MethodNotAllowed(blockNonDefinedMethods())
 
@@ -595,9 +534,6 @@ func main() {
 				if err != nil {
 					stdlog.Fatal(err.Error())
 				}
-				if authenticatorType == authentication.OIDCAuthenticatorType {
-					oidcTenants[t.Name] = struct{}{}
-				}
 
 				go func(config map[string]interface{}, authType, tenant string) {
 					initializedAuthenticator := <-pm.InitializeProvider(config, tenant, authType, registerTenantsFailingMetric, logger)
@@ -611,15 +547,7 @@ func main() {
 						}
 					}
 				}(authenticatorConfig, authenticatorType, t.Name)
-
-				if t.OPA != nil {
-					authorizers[t.Name] = t.OPA.authorizer
-				} else {
-					authorizers[t.Name] = authorizer
-				}
 			}
-
-			writePathRedirectProtection := authentication.EnforceAccessTokenPresentOnSignalWrite(oidcTenants)
 
 			// Metrics.
 			if cfg.metrics.enabled {
@@ -642,49 +570,57 @@ func main() {
 					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
 				}
 
-				eps := metricsv1.Endpoints{
-					ReadEndpoint:         cfg.metrics.readEndpoint,
-					WriteEndpoint:        cfg.metrics.writeEndpoint,
-					RulesEndpoint:        cfg.metrics.rulesEndpoint,
-					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
-				}
-
 				rateLimitMiddleware := ratelimit.WithLocalRateLimiter(rateLimits...)
 				if rateLimitClient != nil {
 					rateLimitMiddleware = ratelimit.WithSharedRateLimiter(logger, rateLimitClient, rateLimits...)
 				}
 
-				metricsMiddlewares := []func(http.Handler) http.Handler{
+				// Metrics WRITE endpoints (without tenant in path, mTLS auth only)
+				if cfg.metrics.writeEndpoint != nil {
+					writeEps := metricsv1.Endpoints{
+						WriteEndpoint: cfg.metrics.writeEndpoint,
+					}
+
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.Timeout(cfg.metrics.upstreamWriteTimeout))
+						// Extract tenant from mTLS certificate OU
+						r.Use(authentication.WithMTLSTenantExtraction(logger, cfg.metrics.tenantHeader))
+						r.Use(rateLimitMiddleware)
+
+						r.Mount("/api/metrics/v1", metricsv1.NewHandler(
+							writeEps,
+							metricsUpstreamClientOptions,
+							metricsv1.WithLogger(logger),
+							metricsv1.WithRegistry(reg),
+							metricsv1.WithHandlerInstrumenter(instrumenter),
+							metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
+						))
+					})
+				}
+
+				// Metrics READ endpoints (with tenant in path, SSO or mTLS auth, no RBAC)
+				readEps := metricsv1.Endpoints{
+					ReadEndpoint:         cfg.metrics.readEndpoint,
+					RulesEndpoint:        cfg.metrics.rulesEndpoint,
+					AlertmanagerEndpoint: cfg.metrics.alertmanagerEndpoint,
+				}
+
+				metricsReadMiddlewares := []func(http.Handler) http.Handler{
+					authentication.WithTenantFromHeader(cfg.metrics.tenantHeader),
 					authentication.WithTenantMiddlewares(pm.Middlewares),
-					authentication.WithTenantHeader(cfg.metrics.tenantHeader, tenantIDs),
+					authorization.WithTenantLabel(cfg.metrics.tenantLabel),
 					rateLimitMiddleware,
 				}
 
 				r.Group(func(r chi.Router) {
-					r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
-						tenant, ok := authentication.GetTenant(r.Context())
-						if !ok {
-							w.WriteHeader(http.StatusNotFound)
-							return
-						}
-
-						http.Redirect(w, r, path.Join("/api/metrics/v1/", tenant, "graph"), http.StatusMovedPermanently)
-					})
-				})
-
-				r.Group(func(r chi.Router) {
 					r.Use(middleware.Timeout(cfg.metrics.upstreamWriteTimeout))
-					const queryParamName = "query"
-					r.Mount("/api/v1/{tenant}", metricslegacy.NewHandler(
+					r.Mount("/api/v1", metricslegacy.NewHandler(
 						cfg.metrics.readEndpoint,
 						metricsUpstreamClientOptions,
 						metricslegacy.WithLogger(logger),
 						metricslegacy.WithRegistry(reg),
 						metricslegacy.WithHandlerInstrumenter(instrumenter),
-						metricslegacy.WithGlobalMiddleware(metricsMiddlewares...),
-						metricslegacy.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricslegacy.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
-						metricslegacy.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
+						metricslegacy.WithGlobalMiddleware(metricsReadMiddlewares...),
 					))
 
 					// enable probes if endpoint is provided.
@@ -716,56 +652,30 @@ func main() {
 							probesv1.WithDialTimeout(cfg.probes.dialTimeout),
 							probesv1.WithKeepAliveTimeout(cfg.probes.keepAliveTimeout),
 							probesv1.WithTLSHandshakeTimeout(cfg.probes.tlsHandshakeTimeout),
+							probesv1.WithReadMiddleware(authentication.WithTenantFromHeader(cfg.probes.tenantHeader)),
 							probesv1.WithReadMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 							probesv1.WithReadMiddleware(rateLimitMiddleware),
-							probesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "probes")),
+							probesv1.WithWriteMiddleware(authentication.WithTenantFromHeader(cfg.probes.tenantHeader)),
 							probesv1.WithWriteMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
 							probesv1.WithWriteMiddleware(rateLimitMiddleware),
-							probesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "probes")),
 						)
 						if err != nil {
 							level.Error(logger).Log("msg", "failed to create probes handler", "err", err)
 						} else {
-							r.Mount("/api/metrics/v1/{tenant}/probes",
-								stripTenantPrefix("/api/metrics/v1", probesHandler),
-							)
+							r.Mount("/api/metrics/v1/probes", probesHandler)
 						}
 					}
 
 					const matchParamName = "match[]"
-					r.Mount("/api/metrics/v1/{tenant}", metricsv1.NewHandler(
-						eps,
+					r.Mount("/api/metrics/v1", metricsv1.NewHandler(
+						readEps,
 						metricsUpstreamClientOptions,
 						metricsv1.WithLogger(logger),
 						metricsv1.WithRegistry(reg),
 						metricsv1.WithHandlerInstrumenter(instrumenter),
 						metricsv1.WithTenantLabel(cfg.metrics.tenantLabel),
-						metricsv1.WithWriteMiddleware(writePathRedirectProtection),
-						metricsv1.WithGlobalMiddleware(metricsMiddlewares...),
-						metricsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "metrics")),
-						metricsv1.WithQueryMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithQueryMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, queryParamName)),
-						metricsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithReadMiddleware(metricsv1.WithEnforceTenancyOnQuery(cfg.metrics.tenantLabel, matchParamName)),
-						metricsv1.WithReadMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
-						metricsv1.WithUIMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "metrics")),
-						metricsv1.WithAlertmanagerAlertsReadMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
-							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
-						),
-						metricsv1.WithAlertmanagerSilenceReadMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
-							metricsv1.WithEnforceTenancyOnFilter(cfg.metrics.tenantLabel),
-						),
-						metricsv1.WithAlertmanagerSilenceWriteMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
-						),
-						metricsv1.WithAlertmanagerSilenceIDReadMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Read, "metrics"),
-						),
-						metricsv1.WithAlertmanagerSilenceIDWriteMiddleware(
-							authorization.WithAuthorizers(authorizers, rbac.Write, "metrics"),
-						),
+						metricsv1.WithGlobalMiddleware(metricsReadMiddlewares...),
+						metricsv1.WithGlobalMiddleware(metricsv1.WithEnforceAuthorizationLabels()),
 					),
 					)
 				})
@@ -792,34 +702,46 @@ func main() {
 					stdlog.Fatalf("failed to read upstream logs TLS: %v", err)
 				}
 
+				// Logs WRITE endpoints (without tenant in path, mTLS auth only)
+				if cfg.logs.writeEndpoint != nil {
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.Timeout(cfg.logs.upstreamWriteTimeout))
+						// Extract tenant from mTLS certificate OU
+						r.Use(authentication.WithMTLSTenantExtraction(logger, cfg.logs.tenantHeader))
+
+						r.Mount("/api/logs/v1", logsv1.NewHandler(
+							nil, // read endpoint
+							nil, // tail endpoint
+							cfg.logs.writeEndpoint,
+							nil, // rules endpoint
+							cfg.logs.rulesReadOnly,
+							logsUpstreamClientOptions,
+							logsv1.Logger(logger),
+							logsv1.WithRegistry(reg),
+							logsv1.WithHandlerInstrumenter(instrumenter),
+						))
+					})
+				}
+
+				// Logs READ endpoints (no tenant in path, SSO or mTLS auth, no RBAC)
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Timeout(cfg.logs.upstreamWriteTimeout))
-					r.Mount("/api/logs/v1/{tenant}",
-						stripTenantPrefix("/api/logs/v1",
-							logsv1.NewHandler(
-								cfg.logs.readEndpoint,
-								cfg.logs.tailEndpoint,
-								cfg.logs.writeEndpoint,
-								cfg.logs.rulesEndpoint,
-								cfg.logs.rulesReadOnly,
-								logsUpstreamClientOptions,
-								logsv1.Logger(logger),
-								logsv1.WithRegistry(reg),
-								logsv1.WithHandlerInstrumenter(instrumenter),
-								logsv1.WithWriteMiddleware(writePathRedirectProtection),
-								logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
-								logsv1.WithGlobalMiddleware(authentication.WithTenantHeader(cfg.logs.tenantHeader, tenantIDs)),
-								logsv1.WithReadMiddleware(authorization.WithLogsStreamSelectorsExtractor(logger, cfg.logs.authExtractSelectors)),
-								logsv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "logs")),
-								logsv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								logsv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "logs")),
-								logsv1.WithRulesLabelFilters(cfg.logs.rulesLabelFilters),
-								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
-								logsv1.WithRulesReadMiddleware(logsv1.WithEnforceRulesAuthorizationLabels()),
-								logsv1.WithRulesReadMiddleware(logsv1.WithParametersAsLabelsFilterRules(cfg.logs.rulesLabelFilters)),
-								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceTenantAsRuleNamespace()),
-								logsv1.WithRulesWriteMiddleware(logsv1.WithEnforceRuleLabels(cfg.logs.tenantLabel)),
-							),
+					r.Mount("/api/logs/v1",
+						logsv1.NewHandler(
+							cfg.logs.readEndpoint,
+							cfg.logs.tailEndpoint,
+							nil, // write endpoint (handled separately above)
+							cfg.logs.rulesEndpoint,
+							cfg.logs.rulesReadOnly,
+							logsUpstreamClientOptions,
+							logsv1.Logger(logger),
+							logsv1.WithRegistry(reg),
+							logsv1.WithHandlerInstrumenter(instrumenter),
+							logsv1.WithGlobalMiddleware(authentication.WithTenantFromHeader(cfg.logs.tenantHeader)),
+							logsv1.WithGlobalMiddleware(authentication.WithTenantMiddlewares(pm.Middlewares)),
+							logsv1.WithGlobalMiddleware(authorization.WithTenantLabel(cfg.logs.tenantLabel)),
+							logsv1.WithGlobalMiddleware(logsv1.WithEnforceAuthorizationLabels()),
+							logsv1.WithRulesLabelFilters(cfg.logs.rulesLabelFilters),
 						),
 					)
 				})
@@ -843,44 +765,43 @@ func main() {
 					stdlog.Fatalf("failed to read upstream traces TLS: %v", err)
 				}
 
+				// Traces WRITE endpoints (without tenant in path, mTLS auth only)
+				if cfg.traces.writeOTLPHTTPEndpoint != nil {
+					r.Group(func(r chi.Router) {
+						r.Use(middleware.Timeout(cfg.traces.upstreamWriteTimeout))
+						// Extract tenant from mTLS certificate OU
+						r.Use(authentication.WithMTLSTenantExtraction(logger, cfg.traces.tenantHeader))
+
+						r.Mount("/api/traces/v1", tracesv1.NewV2Handler(
+							nil, // read endpoint
+							"",  // read template endpoint
+							nil, // tempo endpoint
+							cfg.traces.writeOTLPHTTPEndpoint,
+							tracesUpstreamTLSOptions,
+							tracesv1.Logger(logger),
+							tracesv1.WithRegistry(reg),
+							tracesv1.WithHandlerInstrumenter(instrumenter),
+						))
+					})
+				}
+
+				// Traces READ endpoints (no tenant in path, SSO or mTLS auth, no RBAC)
 				r.Group(func(r chi.Router) {
+					r.Use(authentication.WithTenantFromHeader(cfg.traces.tenantHeader))
 					r.Use(authentication.WithTenantMiddlewares(pm.Middlewares))
-					r.Use(authentication.WithTenantHeader(cfg.traces.tenantHeader, tenantIDs))
 					r.Use(middleware.Timeout(cfg.traces.upstreamWriteTimeout))
 
-					// There can only be one login UI per tenant.  Let metrics be the default; fall back to search
-					if !cfg.metrics.enabled {
-						r.HandleFunc("/{tenant}", func(w http.ResponseWriter, r *http.Request) {
-							tenant, ok := authentication.GetTenant(r.Context())
-							if !ok {
-								w.WriteHeader(http.StatusNotFound)
-								return
-							}
-
-							http.Redirect(w, r, path.Join("/api/traces/v1/", tenant, "search"), http.StatusMovedPermanently)
-						})
-					}
-
-					r.Mount("/api/traces/v1/{tenant}",
-						stripTenantPrefix("/api/traces/v1",
-							tracesv1.NewV2Handler(
-								cfg.traces.readEndpoint,
-								cfg.traces.readTemplateEndpoint,
-								cfg.traces.tempoEndpoint,
-								cfg.traces.writeOTLPHTTPEndpoint,
-								tracesUpstreamTLSOptions,
-								tracesv1.Logger(logger),
-								tracesv1.WithRegistry(reg),
-								tracesv1.WithHandlerInstrumenter(instrumenter),
-								tracesv1.WithSpanRoutePrefix("/api/traces/v1/{tenant}"),
-								tracesv1.WithReadMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
-								tracesv1.WithReadMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								tracesv1.WithTempoMiddleware(tracesv1.WithTraceQLNamespaceSelectAndForbidOtherAPIs(cfg.traces.queryRBAC)),
-								tracesv1.WithTempoMiddleware(authorization.WithAuthorizers(authorizers, rbac.Read, "traces")),
-								tracesv1.WithTempoMiddleware(logsv1.WithEnforceAuthorizationLabels()),
-								tracesv1.WithWriteMiddleware(authorization.WithAuthorizers(authorizers, rbac.Write, "traces")),
-								tracesv1.WithTempoEnableResponseQueryRBACFilter(cfg.traces.queryRBAC),
-							),
+					r.Mount("/api/traces/v1",
+						tracesv1.NewV2Handler(
+							cfg.traces.readEndpoint,
+							cfg.traces.readTemplateEndpoint,
+							cfg.traces.tempoEndpoint,
+							nil, // write endpoint (handled separately above)
+							tracesUpstreamTLSOptions,
+							tracesv1.Logger(logger),
+							tracesv1.WithRegistry(reg),
+							tracesv1.WithHandlerInstrumenter(instrumenter),
+							tracesv1.WithSpanRoutePrefix("/api/traces/v1"),
 						),
 					)
 				})
@@ -960,9 +881,6 @@ func main() {
 			gs, err := newGRPCServer(
 				&cfg,
 				cfg.traces.tenantHeader,
-				tenantIDs,
-				pm.GRPCMiddlewares,
-				authorizers,
 				logger,
 				tracesUpstreamTLSOptions,
 			)
@@ -1130,10 +1048,8 @@ func parseFlags() (config, error) {
 	)
 
 	cfg := config{}
-	flag.StringVar(&cfg.rbacConfigPath, "rbac.config", "rbac.yaml",
-		"Path to the RBAC configuration file.")
 	flag.StringVar(&cfg.tenantsConfigPath, "tenants.config", "tenants.yaml",
-		"Path to the tenants file.")
+		"Path to the tenants configuration file (for authenticators and rate limits).")
 	flag.StringVar(&cfg.debug.name, "debug.name", "observatorium",
 		"A name to add as a prefix to log lines.")
 	flag.IntVar(&cfg.debug.mutexProfileFraction, "debug.mutex-profile-fraction", 10,
@@ -1502,19 +1418,6 @@ func parseFlags() (config, error) {
 	return cfg, nil
 }
 
-func stripTenantPrefix(prefix string, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tenant, ok := authentication.GetTenant(r.Context())
-		if !ok {
-			httperr.PrometheusAPIError(w, "tenant not found", http.StatusInternalServerError)
-			return
-		}
-
-		tenantPrefix := path.Join("/", prefix, tenant)
-		http.StripPrefix(tenantPrefix, proxy.WithPrefix(tenantPrefix, next)).ServeHTTP(w, r)
-	})
-}
-
 func unmarshalLegacyAuthenticatorConfig(v interface{}) (map[string]interface{}, error) {
 	jsonBytes, err := json.Marshal(v)
 	if err != nil {
@@ -1561,20 +1464,7 @@ func blockNonDefinedMethods() http.HandlerFunc {
 	return http.HandlerFunc(fn)
 }
 
-// Permissions required for each gRPC method.
-var gRPCRBAC = authorization.GRPCRBac{
-	// "opentelemetry.proto.collector.trace.v1.TraceService/Export" requires "traces" "write" perm.
-	tracesv1.TraceRoute: {
-		Permission: rbac.Write,
-		Resource:   "traces",
-	},
-	// Add trace read permission for Jaeger queries, etc.
-	// Add Loki gRPC methods, etc.
-}
-
-func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string, pmis authentication.GRPCMiddlewareFunc,
-	authorizers map[string]rbac.Authorizer, logger log.Logger, upstreamTLSOptions *tls.UpstreamOptions,
-) (*grpc.Server, error) {
+func newGRPCServer(cfg *config, tenantHeader string, logger log.Logger, upstreamTLSOptions *tls.UpstreamOptions) (*grpc.Server, error) {
 	connOtel, err := tracesv1.NewOTelConnection(
 		cfg.traces.writeOTLPGRPCEndpoint,
 		tracesv1.WithLogger(logger),
@@ -1614,11 +1504,8 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 
 		grpc.UnknownServiceHandler(grpcproxy.TransparentHandler(director)),
 		grpc.ChainStreamInterceptor(
-			authentication.WithGRPCTenantHeader(tenantHeader, tenantIDs, logger),
-			authentication.WithGRPCAccessToken(),
-			authentication.WithGRPCTenantInterceptors(logger, pmis),
-			auth.StreamServerInterceptor(
-				authorization.WithGRPCAuthorizers(authorizers, gRPCRBAC, logger)),
+			// Extract tenant from mTLS certificate OU for write operations
+			authentication.WithGRPCMTLSTenantExtraction(tenantHeader, logger),
 		),
 	}
 

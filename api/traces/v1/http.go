@@ -36,7 +36,6 @@ type handlerConfiguration struct {
 	registry         *prometheus.Registry
 	instrument       handlerInstrumenter
 	spanRoutePrefix  string
-	enableRBAC       bool
 	readMiddlewares  []func(http.Handler) http.Handler
 	writeMiddlewares []func(http.Handler) http.Handler
 	tempoMiddlewares []func(http.Handler) http.Handler
@@ -94,12 +93,6 @@ func WithWriteMiddleware(m func(http.Handler) http.Handler) HandlerOption {
 	}
 }
 
-// WithTempoEnableResponseQueryRBACFilter enables query RBAC.
-func WithTempoEnableResponseQueryRBACFilter(enableQueryRBAC bool) HandlerOption {
-	return func(h *handlerConfiguration) {
-		h.enableRBAC = enableQueryRBAC
-	}
-}
 
 type handlerInstrumenter interface {
 	NewHandler(labels prometheus.Labels, handler http.Handler) http.HandlerFunc
@@ -258,10 +251,6 @@ func NewV2Handler(read *url.URL, readTemplate string, tempo, writeOTLPHttp *url.
 			Director:  middlewares,
 			ErrorLog:  proxy.Logger(c.logger),
 			Transport: otelhttp.NewTransport(t),
-		}
-		if c.enableRBAC {
-			tempoProxyRead.Transport = decompressingTransport(tempoProxyRead.Transport)
-			tempoProxyRead.ModifyResponse = responseRBACModifier(c.logger)
 		}
 
 		r.Group(func(r chi.Router) {

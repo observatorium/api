@@ -1,0 +1,36 @@
+# Example tenant configuration for mTLS-based write authentication
+# Write endpoints extract tenant from certificate OU field
+# Read endpoints support SSO or mTLS authentication
+
+tenants:
+- name: team-alpha
+  id: 1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D
+  # mTLS configuration for machine writers
+  mTLS:
+    caPath: /path/to/ca.pem
+  # Optional: OIDC for human read access via Grafana
+  oidc:
+    clientID: team-alpha
+    clientSecret: secretvalue
+    issuerURL: https://sso.example.com
+    redirectURL: https://observatorium.example.com/oidc/team-alpha/callback
+    usernameClaim: email
+  # Optional: Rate limiting (note: endpoint patterns without tenant in path)
+  rateLimits:
+    - endpoint: "/api/metrics/v1/api/v1/receive"
+      limit: 100
+      window: 1s
+    - endpoint: "/api/logs/v1/.*"
+      limit: 100
+      window: 1s
+
+- name: team-beta
+  id: 2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E
+  # mTLS only configuration (both read and write via mTLS)
+  mTLS:
+    caPath: /path/to/ca.pem
+  # Optional: Lower rate limits for this tenant
+  rateLimits:
+    - endpoint: "/api/metrics/v1/api/v1/receive"
+      limit: 10
+      window: 1s
