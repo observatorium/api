@@ -2,7 +2,9 @@ package tls
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"os"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -27,7 +29,7 @@ var curveIDs = map[string]tls.CurveID{
 }
 
 // NewServerConfig provides new server TLS configuration.
-func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion, maxVersion, clientAuthType string, cipherSuites, curvePreferences []string) (*tls.Config, error) {
+func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion, maxVersion, clientAuthType, clientCAFile string, cipherSuites, curvePreferences []string) (*tls.Config, error) {
 	if certFile == "" && keyFile == "" {
 		level.Info(logger).Log("msg", "TLS disabled; key and cert must be set to enable")
 
@@ -70,6 +72,32 @@ func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion, maxVersio
 		return nil, fmt.Errorf("can not parse TLS Client authentication policy: %w", err)
 	}
 
+	// Load client CA certificate pool for verifying client certificates
+	var clientCAs *x509.CertPool
+	if clientCAFile != "" {
+		// Only load client CA if client authentication requires verification
+		if tlsClientAuthType == tls.RequireAndVerifyClientCert || tlsClientAuthType == tls.VerifyClientCertIfGiven {
+			caCert, err := os.ReadFile(clientCAFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read client CA file: %w", err)
+			}
+
+			clientCAs = x509.NewCertPool()
+			if !clientCAs.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to parse client CA certificate from %s", clientCAFile)
+			}
+
+			level.Info(logger).Log("msg", "loaded client CA certificate for mTLS verification", "file", clientCAFile)
+		} else {
+			level.Warn(logger).Log("msg", "client CA file provided but client auth type does not require verification", "clientAuthType", clientAuthType)
+		}
+	} else if tlsClientAuthType == tls.RequireAndVerifyClientCert || tlsClientAuthType == tls.VerifyClientCertIfGiven {
+		level.Warn(logger).Log(
+			"msg", "client authentication requires verification but no client CA file provided, will use system CA pool",
+			"clientAuthType", clientAuthType,
+		)
+	}
+
 	tlsCfg := &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 		// A list of supported cipher suites for TLS versions up to TLS 1.2.
@@ -78,6 +106,7 @@ func NewServerConfig(logger log.Logger, certFile, keyFile, minVersion, maxVersio
 		CipherSuites: cipherSuiteIDs,
 		// If CurvePreferences is nil, a default list of secure curves is used.
 		CurvePreferences: curvePreferenceIDs,
+		ClientCAs:        clientCAs,
 		ClientAuth:       tlsClientAuthType,
 		MinVersion:       tlsMinVersion,
 		MaxVersion:       tlsMaxVersion,

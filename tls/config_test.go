@@ -129,6 +129,7 @@ func TestNewServerConfigCurvePreferences(t *testing.T) {
 				"VersionTLS13",
 				"VersionTLS13",
 				"RequestClientCert",
+				"",
 				nil,
 				tc.curves,
 			)

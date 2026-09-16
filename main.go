@@ -131,6 +131,7 @@ type tlsConfig struct {
 	cipherSuites     []string
 	curvePreferences []string
 	clientAuthType   string
+	clientCAFile     string
 	reloadInterval   time.Duration
 
 	serverCertFile string
@@ -894,6 +895,7 @@ func main() {
 			cfg.tls.minVersion,
 			cfg.tls.maxVersion,
 			cfg.tls.clientAuthType,
+			cfg.tls.clientCAFile,
 			cfg.tls.cipherSuites,
 			cfg.tls.curvePreferences,
 		)
@@ -1005,6 +1007,7 @@ func main() {
 			cfg.tls.minVersion,
 			cfg.tls.maxVersion,
 			cfg.tls.clientAuthType,
+			cfg.tls.clientCAFile,
 			cfg.tls.cipherSuites,
 			cfg.tls.curvePreferences,
 		)
@@ -1289,6 +1292,8 @@ func parseFlags() (config, error) {
 			" The list is a filter of allowed groups; crypto/tls chooses the preference order.")
 	flag.StringVar(&cfg.tls.clientAuthType, "tls.client-auth-type", "RequestClientCert",
 		"Policy for TLS client-side authentication. Values are from ClientAuthType constants in https://pkg.go.dev/crypto/tls#ClientAuthType")
+	flag.StringVar(&cfg.tls.clientCAFile, "tls.client-ca-file", "",
+		"File containing the CA certificate for verifying client certificates. Required when using RequireAndVerifyClientCert or VerifyClientCertIfGiven.")
 	flag.DurationVar(&cfg.tls.reloadInterval, "tls.reload-interval", time.Minute,
 		"The interval at which to watch for TLS certificate changes.")
 	flag.StringVar(&cfg.middleware.grpcRateLimiterAddress, "middleware.rate-limiter.grpc-address", "",
@@ -1630,6 +1635,7 @@ func newGRPCServer(cfg *config, tenantHeader string, tenantIDs map[string]string
 			cfg.tls.minVersion,
 			cfg.tls.maxVersion,
 			cfg.tls.clientAuthType,
+			cfg.tls.clientCAFile,
 			cfg.tls.cipherSuites,
 			cfg.tls.curvePreferences,
 		)
