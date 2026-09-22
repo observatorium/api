@@ -702,7 +702,7 @@ func TestResponseRBACModifier(t *testing.T) {
           ]
         },
         "scopeSpans": [
-          {"scope": {}, "spans": [{}]}
+          {"scope": {"attributes": []}, "spans": [{"attributes": [], "events": []}]}
         ]
       }
     ]
@@ -754,6 +754,25 @@ func TestResponseRBACModifier(t *testing.T) {
     }
   ]
 }`, string(body))
+	})
+
+	t.Run("search endpoint preserves empty traces array", func(t *testing.T) {
+		// A zero-result search response from Tempo includes an empty (but
+		// present) "traces" array. The RBAC modifier must not drop that field,
+		// so clients can reliably rely on it being present.
+		resp := makeResponse(ctx, http.StatusOK, "/api/search", `{
+  "traces": [],
+  "metrics": {"inspectedBytes": "1868359", "completedJobs": 3, "totalJobs": 3}
+}`, nil)
+
+		require.NoError(t, modifier(resp))
+
+		body, _ := io.ReadAll(resp.Body)
+		assert.JSONEq(t, `{
+  "traces": [],
+  "metrics": {"inspectedBytes": "1868359", "completedJobs": 3, "totalJobs": 3}
+}`, string(body))
+		assert.Contains(t, string(body), `"traces":[]`, "traces field must be present as an empty array")
 	})
 
 	t.Run("search tag values endpoint is not modified", func(t *testing.T) {
