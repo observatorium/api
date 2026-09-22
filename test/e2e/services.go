@@ -35,6 +35,13 @@ const (
 	gubernatorImage       = "ghcr.io/mailgun/gubernator:v2.0.0-rc.36"
 	rulesObjectStoreImage = "quay.io/observatorium/rules-objstore:main-2023-01-05-26de237"
 
+	// minioImage contains the Minio image used for testing
+	//
+	// This has not been updated in quite a while and Minio has recently changed their licensing terms, which caused
+	// their public Docker Hub repository to vanish. We now use a Quay mirror, but a better solution would probably
+	// be to switch to a different S3 service.
+	minioImage = "quay.io/minio/minio:RELEASE.2022-03-14T18-25-24Z"
+
 	logLevelError = "error"
 	logLevelDebug = "debug"
 )
@@ -61,7 +68,7 @@ func startServicesForMetrics(t *testing.T, e e2e.Environment) (
 func startServicesForRules(t *testing.T, e e2e.Environment) (metricsRulesEndpoint string) {
 	// Create S3 replacement for rules backend
 	const bucket = "obs-rules-test"
-	runnable := e2edb.NewMinio(e, "rules-minio", bucket)
+	runnable := e2edb.NewMinio(e, "rules-minio", bucket, e2edb.WithImage(minioImage))
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
 
 	createRulesYAML(t, e, bucket, runnable.InternalEndpoint(e2edb.AccessPortName), e2edb.MinioAccessKey, e2edb.MinioSecretKey)
@@ -76,10 +83,9 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	logsEndpoint string,
 	logsExtEndpoint string,
 ) {
-
 	// Create S3 replacement for rules backend
 	bucket := "loki_test"
-	runnable := e2edb.NewMinio(e, "loki-minio", bucket)
+	runnable := e2edb.NewMinio(e, "loki-minio", bucket, e2edb.WithImage(minioImage))
 
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
 
