@@ -433,6 +433,11 @@ func TestWithSharedRateLimiter(t *testing.T) {
 	}
 }
 
+// launchTestRequests sends reqNum requests to baseURL+pathTest.path one at a time, waiting for
+// each response before sending the next. Some callers assert a strict, deterministic progression
+// of Retry-After values (see the "shared rate limiter" test cases), which the server assigns in
+// the order requests arrive. Sending requests sequentially instead of concurrently keeps launch
+// order and arrival order identical, so those assertions aren't flaky under load.
 func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, reqNum int) (int, int, []http.Header) {
 	type result struct {
 		statusCode int
@@ -440,37 +445,20 @@ func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, r
 	}
 
 	ordered := make([]result, reqNum)
-	var wg sync.WaitGroup
-	var errOnce sync.Once
-	var requestErr error
 
 	for i := 0; i < reqNum; i++ {
-		wg.Add(1)
 		time.Sleep(pathTest.waitBetween)
 
-		go func(i int) {
-			defer wg.Done()
+		res, err := http.Get(baseURL + pathTest.path + "/" + testTenant)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-			res, err := http.Get(baseURL + pathTest.path + "/" + testTenant)
-			if err != nil {
-				errOnce.Do(func() {
-					requestErr = err
-				})
-				return
-			}
-			defer res.Body.Close()
-
-			ordered[i] = result{
-				statusCode: res.StatusCode,
-				headers:    res.Header.Clone(),
-			}
-		}(i)
-	}
-
-	wg.Wait()
-
-	if requestErr != nil {
-		t.Fatal(requestErr)
+		ordered[i] = result{
+			statusCode: res.StatusCode,
+			headers:    res.Header.Clone(),
+		}
+		res.Body.Close()
 	}
 
 	var (
