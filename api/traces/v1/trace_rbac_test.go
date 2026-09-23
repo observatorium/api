@@ -546,6 +546,42 @@ func TestRBACSearchResult(t *testing.T) {
 	}
 }
 
+// TestSearchResponseEmptyTracesPreserved is a regression test for TRACING-6841:
+// a zero-result Tempo search response must round-trip through the JSON
+// unmarshal/marshal cycle with "traces": [] intact, not silently dropped.
+func TestSearchResponseEmptyTracesPreserved(t *testing.T) {
+	resp := &http.Response{Header: http.Header{}}
+
+	searchResponse := &tempopb.SearchResponse{}
+	in := []byte(`{"traces":[]}`)
+	require.NoError(t, unmarshal(resp, in, searchResponse))
+	require.NotNil(t, searchResponse.Traces, "an explicit empty traces array must not collapse to nil on unmarshal")
+
+	buf := &bytes.Buffer{}
+	require.NoError(t, marshal(resp, buf, searchResponse))
+	assert.JSONEq(t, `{"traces":[]}`, buf.String())
+}
+
+// TestTraceByIDResponseEmptyResourceSpansPreserved is the routeQueryV2
+// counterpart to TestSearchResponseEmptyTracesPreserved: TraceByIDResponse is
+// also gogo/protobuf-generated, and its embedded Trace.ResourceSpans is a
+// repeated field subject to the exact same golang/protobuf/jsonpb round-trip
+// bug (see the comment on unmarshal/marshal). Before this fix, unmarshal/
+// marshal used github.com/golang/protobuf/jsonpb for this type too.
+func TestTraceByIDResponseEmptyResourceSpansPreserved(t *testing.T) {
+	resp := &http.Response{Header: http.Header{}}
+
+	traceByIDResponse := &tempopb.TraceByIDResponse{}
+	in := []byte(`{"trace":{"resourceSpans":[]}}`)
+	require.NoError(t, unmarshal(resp, in, traceByIDResponse))
+	require.NotNil(t, traceByIDResponse.Trace, "trace field must be present")
+	require.NotNil(t, traceByIDResponse.Trace.ResourceSpans, "an explicit empty resourceSpans array must not collapse to nil on unmarshal")
+
+	buf := &bytes.Buffer{}
+	require.NoError(t, marshal(resp, buf, traceByIDResponse))
+	assert.JSONEq(t, `{"trace":{"resourceSpans":[]}}`, buf.String())
+}
+
 func contextWithAllowedNamespaces(t *testing.T, namespaces []string) context.Context {
 	t.Helper()
 	data := fmt.Sprintf(`{"matchers":[{"name":"namespace","value":"%s","type":1}]}`, url.QueryEscape(strings.Join(namespaces, "|")))
@@ -702,7 +738,9 @@ func TestResponseRBACModifier(t *testing.T) {
           ]
         },
         "scopeSpans": [
-          {"scope": {}, "spans": [{}]}
+          {"scope": {"attributes": []}, "spans": [
+            {"attributes": [], "events": []}
+          ]}
         ]
       }
     ]
@@ -753,6 +791,23 @@ func TestResponseRBACModifier(t *testing.T) {
       ]
     }
   ]
+}`, string(body))
+	})
+
+	t.Run("search endpoint with zero results keeps traces as an empty array", func(t *testing.T) {
+		// TRACING-6841: a zero-result Tempo search response must not lose its
+		// "traces" key while passing through RBAC filtering.
+		resp := makeResponse(ctx, http.StatusOK, "/api/search", `{
+  "traces": [],
+  "metrics": {"inspectedBytes": "254867"}
+}`, nil)
+
+		require.NoError(t, modifier(resp))
+
+		body, _ := io.ReadAll(resp.Body)
+		assert.JSONEq(t, `{
+  "traces": [],
+  "metrics": {"inspectedBytes": "254867"}
 }`, string(body))
 	})
 
