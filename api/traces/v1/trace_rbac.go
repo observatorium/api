@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"github.com/golang/protobuf/jsonpb" // nolint:staticcheck
-	"github.com/golang/protobuf/proto"  //nolint:staticcheck
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/grafana/tempo/pkg/tempopb"
 	commonv1 "github.com/grafana/tempo/pkg/tempopb/common/v1"
 	tracev1 "github.com/grafana/tempo/pkg/tempopb/trace/v1"
@@ -84,6 +84,9 @@ func WithTraceQLNamespaceSelectAndForbidOtherAPIs(enabled bool) func(http.Handle
 	}
 }
 
+// unmarshal and marshal use github.com/gogo/protobuf/jsonpb for the JSON
+// path, since golang/protobuf/jsonpb drops empty repeated fields on
+// round-trip for these gogo-generated tempopb types (TRACING-6841).
 func unmarshal(response *http.Response, body []byte, pb proto.Message) error {
 	switch response.Header.Get(HeaderContentType) {
 	case ContentTypeProtobuf:
@@ -163,6 +166,11 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 					}
 
 				case routeQueryV2.MatchString(request.URL.Path):
+					// unlike routeQueryV1 above, this path can use the shared
+					// unmarshal/marshal helpers directly: TraceByIDResponse
+					// wraps a *Trace plus Metrics/Status/Message fields, and
+					// (with the gogo/protobuf/jsonpb switch above) round-trips
+					// correctly without needing the JSONV1 special-casing.
 					traceByIDResponse := &tempopb.TraceByIDResponse{}
 					err = unmarshal(response, b, traceByIDResponse)
 					if err != nil {
