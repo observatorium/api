@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -85,16 +86,22 @@ func WithTraceQLNamespaceSelectAndForbidOtherAPIs(enabled bool) func(http.Handle
 }
 
 func unmarshal(response *http.Response, body []byte, pb proto.Message) error {
-	switch response.Header.Get(HeaderContentType) {
+	contentTypeHeader := response.Header.Get(HeaderContentType)
+	contentType, _, _ := mime.ParseMediaType(contentTypeHeader)
+	switch contentType {
 	case ContentTypeProtobuf:
 		return proto.Unmarshal(body, pb)
-	default:
+	case ContentTypeJSON:
 		return (&jsonpb.Unmarshaler{}).Unmarshal(bytes.NewReader(body), pb)
+	default:
+		return fmt.Errorf("unsupported content type: %q", contentTypeHeader)
 	}
 }
 
 func marshal(response *http.Response, buf *bytes.Buffer, pb proto.Message) error {
-	switch response.Header.Get(HeaderContentType) {
+	contentTypeHeader := response.Header.Get(HeaderContentType)
+	contentType, _, _ := mime.ParseMediaType(contentTypeHeader)
+	switch contentType {
 	case ContentTypeProtobuf:
 		b, err := proto.Marshal(pb)
 		if err != nil {
@@ -102,8 +109,10 @@ func marshal(response *http.Response, buf *bytes.Buffer, pb proto.Message) error
 		}
 		buf.Write(b)
 		return nil
-	default:
+	case ContentTypeJSON:
 		return (&jsonpb.Marshaler{}).Marshal(buf, pb)
+	default:
+		return fmt.Errorf("unsupported content type: %q", contentTypeHeader)
 	}
 }
 
@@ -128,14 +137,19 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 				responseBuffer := &bytes.Buffer{}
 				switch {
 				case routeQueryV1.MatchString(request.URL.Path):
+					contentTypeHeader := response.Header.Get(HeaderContentType)
+					contentType, _, _ := mime.ParseMediaType(contentTypeHeader)
+
 					// do not use unmarshal here, because we must use
 					// UnmarshalFromJSONV1 instead of (&jsonpb.Unmarshaler{}).Unmarshal
 					trace := &tempopb.Trace{}
-					switch response.Header.Get(HeaderContentType) {
+					switch contentType {
 					case ContentTypeProtobuf:
 						err = proto.Unmarshal(b, trace)
-					default:
+					case ContentTypeJSON:
 						err = tempopb.UnmarshalFromJSONV1(b, trace)
+					default:
+						return fmt.Errorf("unsupported content type: %q", contentTypeHeader)
 					}
 					if err != nil {
 						return err
@@ -145,7 +159,7 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 
 					// do not use marshal here, because we must use
 					// MarshalToJSONV1 instead of (&jsonpb.Marshaler{}).Marshal
-					switch response.Header.Get(HeaderContentType) {
+					switch contentType {
 					case ContentTypeProtobuf:
 						var out []byte
 						out, err = proto.Marshal(trace)
@@ -153,13 +167,15 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 							return err
 						}
 						responseBuffer = bytes.NewBuffer(out)
-					default:
+					case ContentTypeJSON:
 						var traceResponseBody []byte
 						traceResponseBody, err = tempopb.MarshalToJSONV1(trace)
 						if err != nil {
 							return err
 						}
 						responseBuffer = bytes.NewBuffer(traceResponseBody)
+					default:
+						return fmt.Errorf("unsupported content type: %q", contentTypeHeader)
 					}
 
 				case routeQueryV2.MatchString(request.URL.Path):
@@ -209,6 +225,10 @@ func responseRBACModifier(log log.Logger) func(response *http.Response) error {
 }
 
 func traceRBAC(allowedNamespaces map[string]bool, trace *tempopb.Trace) *tempopb.Trace {
+	if trace == nil {
+		return nil
+	}
+
 	for _, rs := range trace.ResourceSpans {
 		notAllowedNamespace := ""
 		missingNamespaceAttribute := true
