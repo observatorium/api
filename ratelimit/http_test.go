@@ -433,61 +433,38 @@ func TestWithSharedRateLimiter(t *testing.T) {
 	}
 }
 
+// launchTestRequests sends reqNum requests to baseURL+pathTest.path one at a time, waiting for
+// each response before sending the next. Some callers assert a strict, deterministic progression
+// of Retry-After values (see the "shared rate limiter" test cases), which the server assigns in
+// the order requests arrive. Sending requests sequentially instead of concurrently keeps launch
+// order and arrival order identical, so those assertions aren't flaky under load.
 func launchTestRequests(t *testing.T, baseURL string, pathTest pathTestParams, reqNum int) (int, int, []http.Header) {
-	type result struct {
-		statusCode int
-		headers    http.Header
-	}
-
-	ordered := make([]result, reqNum)
-	var wg sync.WaitGroup
-	var errOnce sync.Once
-	var requestErr error
-
-	for i := 0; i < reqNum; i++ {
-		wg.Add(1)
-		time.Sleep(pathTest.waitBetween)
-
-		go func(i int) {
-			defer wg.Done()
-
-			res, err := http.Get(baseURL + pathTest.path + "/" + testTenant)
-			if err != nil {
-				errOnce.Do(func() {
-					requestErr = err
-				})
-				return
-			}
-			defer res.Body.Close()
-
-			ordered[i] = result{
-				statusCode: res.StatusCode,
-				headers:    res.Header.Clone(),
-			}
-		}(i)
-	}
-
-	wg.Wait()
-
-	if requestErr != nil {
-		t.Fatal(requestErr)
-	}
-
 	var (
 		gotOKs             int
 		gotTooManyRequests int
 		gotHeaders         = make([]http.Header, 0, reqNum)
 	)
 
-	for _, r := range ordered {
-		switch r.statusCode {
+	for range reqNum {
+		time.Sleep(pathTest.waitBetween)
+
+		res, err := http.Get(baseURL + pathTest.path + "/" + testTenant)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		switch res.StatusCode {
 		case http.StatusOK:
 			gotOKs++
 		case http.StatusTooManyRequests:
 			gotTooManyRequests++
 		}
 
-		gotHeaders = append(gotHeaders, r.headers)
+		gotHeaders = append(gotHeaders, res.Header.Clone())
+
+		if err := res.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	return gotOKs, gotTooManyRequests, gotHeaders
