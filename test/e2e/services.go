@@ -40,7 +40,7 @@ const (
 	// This has not been updated in quite a while and Minio has recently changed their licensing terms, which caused
 	// their public Docker Hub repository to vanish. We now use a Quay mirror, but a better solution would probably
 	// be to switch to a different S3 service.
-	minioImage = "quay.io/minio/minio:RELEASE.2022-03-14T18-25-24Z"
+	minioImage = "quay.io/thanos/minio:RELEASE.2022-03-14T18-25-24Z"
 
 	logLevelError = "error"
 	logLevelDebug = "debug"
