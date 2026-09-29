@@ -76,8 +76,7 @@ func startServicesForLogs(t *testing.T, e e2e.Environment) (
 	logsEndpoint string,
 	logsExtEndpoint string,
 ) {
-	// Create S3 replacement for rules backend
-	bucket := "loki_test"
+	bucket := "loki-test"
 	runnable := e2edb.NewSeaweedFS(e, "loki-storage", bucket)
 
 	testutil.Ok(t, e2e.StartAndWaitReady(runnable))
