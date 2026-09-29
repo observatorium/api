@@ -564,7 +564,7 @@ func contextWithAllowedNamespaces(t *testing.T, namespaces []string) context.Con
 
 func makeResponse(ctx context.Context, statusCode int, path string, body string, header http.Header) *http.Response {
 	if header == nil {
-		header = http.Header{}
+		header = http.Header{HeaderContentType: []string{ContentTypeJSON}}
 	}
 	return &http.Response{
 		StatusCode: statusCode,
@@ -823,7 +823,7 @@ func TestResponseRBACModifier(t *testing.T) {
       ]
     }
   ]
-}`, http.Header{"Content-Encoding": []string{"gzip"}})
+}`, http.Header{"Content-Encoding": []string{"gzip"}, HeaderContentType: []string{ContentTypeJSON}})
 
 		require.NoError(t, modifier(resp))
 
@@ -831,6 +831,64 @@ func TestResponseRBACModifier(t *testing.T) {
 		assert.Equal(t, []string{fmt.Sprint(len(body))}, resp.Header["Content-Length"])
 		assert.Empty(t, resp.Header["Content-Encoding"])
 	})
+}
+
+func TestMarshalUnmarshalContentType(t *testing.T) {
+	tests := []struct {
+		name        string
+		contentType string
+		wantErr     bool
+	}{
+		{"protobuf", ContentTypeProtobuf, false},
+		{"json", ContentTypeJSON, false},
+		{"unsupported grafana llm json", "application/vnd.grafana.llm+json", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			response := &http.Response{
+				Header: http.Header{HeaderContentType: []string{tt.contentType}},
+			}
+
+			original := &tempopb.TraceByIDResponse{
+				Trace: &tempopb.Trace{
+					ResourceSpans: []*tracev1.ResourceSpans{
+						{
+							Resource: &resourcev1.Resource{
+								Attributes: []*commonv1.KeyValue{
+									createStringAttribute("k8s.namespace.name", "example"),
+								},
+							},
+						},
+					},
+				},
+			}
+
+			buf := &bytes.Buffer{}
+			err := marshal(response, buf, original)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "unsupported content type")
+				assert.Contains(t, err.Error(), tt.contentType)
+			} else {
+				require.NoError(t, err)
+			}
+
+			unmarshalled := &tempopb.TraceByIDResponse{}
+			err = unmarshal(response, buf.Bytes(), unmarshalled)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "unsupported content type")
+				assert.Contains(t, err.Error(), tt.contentType)
+			} else {
+				require.NoError(t, err)
+			}
+
+			if !tt.wantErr {
+				assert.Equal(t, original, unmarshalled)
+			}
+		})
+	}
 }
 
 func makeProtobufResponse(ctx context.Context, statusCode int, path string, pb proto.Message) *http.Response {
