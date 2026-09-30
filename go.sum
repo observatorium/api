@@ -104,8 +104,8 @@ github.com/edsrzf/mmap-go v1.2.1-0.20241212181136-fad1cd13edbd h1:I4PrRZuNMeDP3V
 github.com/edsrzf/mmap-go v1.2.1-0.20241212181136-fad1cd13edbd/go.mod h1:19H/e8pUPLicwkyNgOykDXkJ9F0MHE+Z52B8EIth78Q=
 github.com/efficientgo/core v1.0.0-rc.3.0.20250509094815-bd2ec8febb66 h1:dbyJxOkY0GfW7gCJw2T0XPkxUeal/eKKI24jMJVEd0w=
 github.com/efficientgo/core v1.0.0-rc.3.0.20250509094815-bd2ec8febb66/go.mod h1:FfGdkzWarkuzOlY04VY+bGfb1lWrjaL6x/GLcQ4vJps=
-github.com/efficientgo/e2e v0.14.1-0.20260204162810-8c75b1e33ef9 h1:ubLDovsdOv7n27IV6J+ITPW+VjkbJs/DfAbVqfIFkzQ=
-github.com/efficientgo/e2e v0.14.1-0.20260204162810-8c75b1e33ef9/go.mod h1:uQC+38Vj8iASSYXRVkBYXfwUxKiYerKw88G+CH8nsUs=
+github.com/efficientgo/e2e v0.14.1-0.20260927140226-a3483d56ac4b h1:TVh1EM/fZodW+VOi+LkW6ptH/PuVdnF2ROW+1NqvtdM=
+github.com/efficientgo/e2e v0.14.1-0.20260927140226-a3483d56ac4b/go.mod h1:uQC+38Vj8iASSYXRVkBYXfwUxKiYerKw88G+CH8nsUs=
 github.com/emicklei/go-restful/v3 v3.12.2 h1:DhwDP0vY3k8ZzE0RunuJy8GhNpPL6zqLkDf9B/a0/xU=
 github.com/emicklei/go-restful/v3 v3.12.2/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRry+4bhvbpWn3mrbc=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
@@ -267,6 +267,7 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.19.0 h1:sXLILfc9jV2QYWkzFOPWStmcUVH2RHEB1JCdY2oVvCQ=
 github.com/klauspost/compress v1.19.0/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
+github.com/klauspost/cpuid/v2 v2.0.1/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
 github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
 github.com/klauspost/crc32 v1.3.0 h1:sSmTt3gUt81RP655XGZPElI0PelVTZ6YwCRnPSupoFM=
