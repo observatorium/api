@@ -550,7 +550,7 @@ func TestRBACSearchResult(t *testing.T) {
 // a zero-result Tempo search response must round-trip through the JSON
 // unmarshal/marshal cycle with "traces": [] intact, not silently dropped.
 func TestSearchResponseEmptyTracesPreserved(t *testing.T) {
-	resp := &http.Response{Header: http.Header{}}
+	resp := &http.Response{Header: http.Header{HeaderContentType: []string{ContentTypeJSON}}}
 
 	searchResponse := &tempopb.SearchResponse{}
 	in := []byte(`{"traces":[]}`)
@@ -569,7 +569,7 @@ func TestSearchResponseEmptyTracesPreserved(t *testing.T) {
 // bug (see the comment on unmarshal/marshal). Before this fix, unmarshal/
 // marshal used github.com/golang/protobuf/jsonpb for this type too.
 func TestTraceByIDResponseEmptyResourceSpansPreserved(t *testing.T) {
-	resp := &http.Response{Header: http.Header{}}
+	resp := &http.Response{Header: http.Header{HeaderContentType: []string{ContentTypeJSON}}}
 
 	traceByIDResponse := &tempopb.TraceByIDResponse{}
 	in := []byte(`{"trace":{"resourceSpans":[]}}`)
